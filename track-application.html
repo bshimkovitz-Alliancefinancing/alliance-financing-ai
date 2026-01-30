@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Your Application - Alliance Financing AI</title>
+    <meta name="description" content="Track your business funding application status with Alliance Financing AI.">
+    
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #2563EB;
+            --accent: #10B981;
+            --slate-50: #F8FAFC;
+            --slate-200: #E2E8F0;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-900: #0F172A;
+            --white: #FFFFFF;
+            --font-sans: 'DM Sans', -apple-system, sans-serif;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: var(--font-sans);
+            background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+        
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .logo svg {
+            height: 32px;
+            width: auto;
+            margin-bottom: 1.5rem;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            color: var(--slate-900);
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            color: var(--slate-600);
+        }
+        
+        .card {
+            background: var(--white);
+            border-radius: 1rem;
+            padding: 2.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            color: var(--slate-700);
+            margin-bottom: 0.5rem;
+        }
+        
+        input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid var(--slate-200);
+            border-radius: 0.5rem;
+            font-family: var(--font-sans);
+            font-size: 1rem;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #1E40AF;
+            transform: translateY(-1px);
+        }
+        
+        #statusResult {
+            display: none;
+        }
+        
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid var(--slate-200);
+        }
+        
+        .status-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+        
+        .status-icon.received {
+            background: #EEF2FF;
+        }
+        
+        .status-info h2 {
+            font-size: 1.5rem;
+            color: var(--slate-900);
+            margin-bottom: 0.25rem;
+        }
+        
+        .status-info p {
+            color: var(--slate-600);
+        }
+        
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 12px;
+            bottom: 12px;
+            width: 2px;
+            background: var(--slate-200);
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -1.625rem;
+            top: 4px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--white);
+            border: 3px solid var(--slate-200);
+        }
+        
+        .timeline-item.completed::before {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+        
+        .timeline-item.active::before {
+            border-color: var(--primary);
+            background: var(--primary);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+        }
+        
+        .timeline-title {
+            font-weight: 600;
+            color: var(--slate-900);
+            margin-bottom: 0.25rem;
+        }
+        
+        .timeline-desc {
+            color: var(--slate-600);
+            font-size: 0.9375rem;
+        }
+        
+        .timeline-time {
+            color: var(--slate-500);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        
+        .info-box {
+            background: var(--slate-50);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .info-box h3 {
+            font-size: 1.125rem;
+            color: var(--slate-900);
+            margin-bottom: 0.75rem;
+        }
+        
+        .info-box p {
+            color: var(--slate-700);
+            line-height: 1.6;
+        }
+        
+        .contact-info {
+            margin-top: 1rem;
+        }
+        
+        .contact-info a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-top: 2rem;
+        }
+        
+        .back-link a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <svg width="200" height="32" viewBox="0 0 200 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="aiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#2563EB"/>
+                        <stop offset="100%" style="stop-color:#10B981"/>
+                    </linearGradient>
+                </defs>
+                <text x="0" y="22" font-family="system-ui" font-size="18" font-weight="700" fill="#0F172A">Alliance Financing</text>
+                <rect x="166" y="6" width="32" height="20" rx="5" fill="url(#aiGrad)"/>
+                <text x="182" y="21" font-family="system-ui" font-size="12" font-weight="700" fill="white" text-anchor="middle">AI</text>
+            </svg>
+            <h1>Track Your Application</h1>
+            <p>Enter your details to check your application status</p>
+        </div>
+
+        <!-- Lookup Form -->
+        <div class="card" id="lookupForm">
+            <form onsubmit="lookupApplication(event)">
+                <div class="form-group">
+                    <label>Application ID</label>
+                    <input type="text" id="appId" placeholder="AF-1234567890" required>
+                    <p style="font-size: 0.875rem; color: #64748B; margin-top: 0.5rem;">Found in your confirmation email</p>
+                </div>
+                
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="email" placeholder="you@company.com" required>
+                    <p style="font-size: 0.875rem; color: #64748B; margin-top: 0.5rem;">The email you used when applying</p>
+                </div>
+                
+                <button type="submit" class="btn">Check Status</button>
+            </form>
+        </div>
+
+        <!-- Status Result -->
+        <div class="card" id="statusResult">
+            <div class="status-header">
+                <div class="status-icon received">
+                    📋
+                </div>
+                <div class="status-info">
+                    <h2>Application Received</h2>
+                    <p id="applicationId">Application ID: AF-1234567890</p>
+                </div>
+            </div>
+
+            <div class="timeline">
+                <div class="timeline-item completed">
+                    <div class="timeline-title">✓ Application Submitted</div>
+                    <div class="timeline-desc">We've received your application and it's in our system</div>
+                    <div class="timeline-time">Completed</div>
+                </div>
+
+                <div class="timeline-item active">
+                    <div class="timeline-title">🤖 AI Analysis in Progress</div>
+                    <div class="timeline-desc">Our AI is analyzing your business profile and matching you with the best lenders from our network of 200+</div>
+                    <div class="timeline-time">Current Step - Expected completion within 24 hours</div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-title">🎯 Lender Matching</div>
+                    <div class="timeline-desc">We'll connect you with pre-qualified lenders who want your business</div>
+                    <div class="timeline-time">Within 48 hours</div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-title">📧 Personal Follow-Up</div>
+                    <div class="timeline-desc">Our team will contact you with your matched lenders and next steps</div>
+                    <div class="timeline-time">Within 48-72 hours</div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <h3>What Happens Next?</h3>
+                <p>Our AI is currently analyzing your business profile and comparing it against 200+ lenders in our network. You'll receive an email within 48 hours with your matched lenders and their pre-qualification offers.</p>
+                
+                <div class="contact-info">
+                    <p style="margin-top: 1.5rem;"><strong>Questions?</strong></p>
+                    <p>Phone: <a href="tel:+18006603660">1-800-660-3660 ext. 222</a></p>
+                    <p>Email: <a href="mailto:info@alliancefinancing.ai">info@alliancefinancing.ai</a></p>
+                </div>
+            </div>
+
+            <button class="btn" onclick="checkAnother()" style="margin-top: 2rem;">Track Another Application</button>
+        </div>
+
+        <div class="back-link">
+            <a href="index.html">← Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        // Check if coming from application submission
+        window.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const autoLoad = urlParams.get('auto');
+            
+            if (autoLoad === 'true') {
+                const appId = localStorage.getItem('lastApplicationId');
+                const email = localStorage.getItem('lastApplicationEmail');
+                
+                if (appId && email) {
+                    document.getElementById('appId').value = appId;
+                    document.getElementById('email').value = email;
+                    lookupApplication(new Event('submit'));
+                }
+            }
+        });
+
+        function lookupApplication(event) {
+            event.preventDefault();
+            
+            const appId = document.getElementById('appId').value;
+            const email = document.getElementById('email').value;
+            
+            // Validate
+            if (!appId || !email) {
+                alert('Please enter both Application ID and Email');
+                return;
+            }
+            
+            // Show status result
+            document.getElementById('lookupForm').style.display = 'none';
+            document.getElementById('statusResult').style.display = 'block';
+            document.getElementById('applicationId').textContent = 'Application ID: ' + appId;
+            
+            // In a real implementation, this would fetch actual status from your backend
+            // For now, showing default "received" status
+        }
+        
+        function checkAnother() {
+            document.getElementById('lookupForm').style.display = 'block';
+            document.getElementById('statusResult').style.display = 'none';
+            document.getElementById('appId').value = '';
+            document.getElementById('email').value = '';
+        }
+    </script>
+</body>
+</html>
