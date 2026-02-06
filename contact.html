@@ -57,6 +57,11 @@
         .business-hours h3{font-size:1.125rem;color:var(--slate-900);margin-bottom:1rem}
         .business-hours p{color:var(--slate-700);font-size:.9375rem;margin-bottom:.5rem}
         
+        .success-message{background:#ECFDF5;border:2px solid #10B981;border-radius:.75rem;padding:2.5rem;text-align:center;display:none;margin-top:1rem}
+        .success-message .checkmark{width:60px;height:60px;background:#10B981;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:1.5rem;color:#fff;line-height:1}
+        .success-message h3{color:#065F46;font-size:1.25rem;margin-bottom:.5rem}
+        .success-message p{color:#047857;font-size:1rem}
+
         @media (max-width: 768px){
             .contact-grid{grid-template-columns:1fr;gap:2rem}
             .hero{padding:6rem 1.5rem 3rem}
@@ -94,27 +99,18 @@
                 <h2>Get in Touch</h2>
                 
                 <div class="contact-method">
-                    <h3>
-                        
-                        Phone
-                    </h3>
+                    <h3>Phone</h3>
                     <p><a href="tel:+18006603660">1-800-660-3660 ext. 222</a></p>
                     <p style="font-size:.875rem;color:var(--slate-600);margin-top:.5rem">Toll-free across Canada & United States</p>
                 </div>
 
                 <div class="contact-method">
-                    <h3>
-                        
-                        Email
-                    </h3>
+                    <h3>Email</h3>
                     <p><a href="mailto:info@alliancefinancing.ai">info@alliancefinancing.ai</a></p>
                 </div>
 
                 <div class="contact-method">
-                    <h3>
-                        
-                        Service Area
-                    </h3>
+                    <h3>Service Area</h3>
                     <p>Canada & United States</p>
                     <p style="font-size:.875rem;color:var(--slate-600);margin-top:.5rem">We connect businesses nationwide with our network of 200+ lenders</p>
                 </div>
@@ -128,9 +124,10 @@
                 </div>
             </div>
 
-            <!-- Contact Form -->
+            <!-- Contact Form Side -->
             <div class="contact-form">
                 <h2>Send Us a Message</h2>
+
                 <form id="contactForm" action="https://docs.google.com/forms/d/e/1FAIpQLSfHn-oypB0vH3jp0pDuEWfvBQxGl0OcRLzdAtXp1SnXIuuyEA/formResponse" method="POST" target="hidden_iframe">
                     <div class="form-group">
                         <label for="name">Name *</label>
@@ -143,8 +140,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="phone">Phone</label>
-                        <input type="tel" id="phone" name="entry.128012043">
+                        <label for="phone">Phone *</label>
+                        <input type="tel" id="phone" name="entry.128012043" required>
                     </div>
 
                     <div class="form-group">
@@ -152,7 +149,7 @@
                         <select id="subject" name="entry.1909272877" required>
                             <option value="">Select a topic...</option>
                             <option value="Funding Inquiry">Funding Inquiry</option>
-                            <option value="Partner Inquiry">Become a Partner</option>
+                            <option value="Become a Partner">Become a Partner</option>
                             <option value="General Question">General Question</option>
                             <option value="Technical Support">Technical Support</option>
                             <option value="Other">Other</option>
@@ -165,29 +162,27 @@
                     </div>
 
                     <button type="submit" class="btn-submit">Send Message</button>
-                    <div id="successMessage" style="display:none;background:#ECFDF5;border:2px solid #10B981;border-radius:.75rem;padding:1.5rem;margin-top:1.5rem;text-align:center">
-                        <div style="font-size:2rem;margin-bottom:.5rem">✓</div>
-                        <h3 style="color:#065F46;font-size:1.125rem;margin-bottom:.5rem">Message Sent Successfully!</h3>
-                        <p style="color:#047857;font-size:.9375rem">Thank you for reaching out. Our team will get back to you within 1 business day.</p>
-                    </div>
-                    <div id="errorMessage" style="display:none;background:#FEF2F2;border:2px solid #EF4444;border-radius:.75rem;padding:1.5rem;margin-top:1.5rem;text-align:center">
-                        <h3 style="color:#991B1B;font-size:1.125rem;margin-bottom:.5rem">Something went wrong</h3>
-                        <p style="color:#B91C1C;font-size:.9375rem">Please try again or contact us directly at <a href="tel:+18006603660" style="color:#B91C1C;font-weight:600">1-800-660-3660 ext. 222</a></p>
-                    </div>
                 </form>
-                <iframe name="hidden_iframe" style="display:none;" id="hidden_iframe"></iframe>
+
+                <!-- Success message is OUTSIDE the form so it stays visible -->
+                <div id="successMessage" class="success-message">
+                    <div class="checkmark">&#10003;</div>
+                    <h3>Message Sent Successfully!</h3>
+                    <p>Thank you for reaching out. Our team will get back to you within 1 business day.</p>
+                </div>
+
+                <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
             </div>
         </div>
     </div>
 
     <script>
-        document.getElementById('contactForm').addEventListener('submit', function(e) {
+        document.getElementById('contactForm').addEventListener('submit', function() {
             var btn = document.querySelector('.btn-submit');
             btn.textContent = 'Sending...';
             btn.disabled = true;
             btn.style.opacity = '0.7';
-            
-            // Give time for the form to submit to Google
+
             setTimeout(function() {
                 document.getElementById('contactForm').style.display = 'none';
                 document.getElementById('successMessage').style.display = 'block';
