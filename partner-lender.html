@@ -542,6 +542,8 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
         </div>
     </div>
 
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+
     <script>
     document.getElementById('lenderForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -578,23 +580,29 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
 
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrnmkZLBGJWba0Nd9UcLssIP2EocKnz6I6i4eX-k-OEwxw_sIgHhuTnrUr1HXYwURRdw/exec';
 
-        fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify(data)
-        })
-        .then(() => {
+        // Use hidden form + iframe (reliable cross-origin POST to Apps Script)
+        const tempForm = document.createElement('form');
+        tempForm.method = 'POST';
+        tempForm.action = SCRIPT_URL;
+        tempForm.target = 'hidden_iframe';
+        tempForm.style.display = 'none';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'data';
+        input.value = JSON.stringify(data);
+        tempForm.appendChild(input);
+
+        document.body.appendChild(tempForm);
+        tempForm.submit();
+        document.body.removeChild(tempForm);
+
+        // Show success after short delay
+        setTimeout(function() {
             document.getElementById('formContent').style.display = 'none';
             document.getElementById('successMessage').style.display = 'block';
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        })
-        .catch(err => {
-            console.error('Submission error:', err);
-            btn.disabled = false;
-            btn.textContent = 'Submit Lender Application';
-            alert('There was an error submitting your application. Please try again or contact us at info@alliancefinancing.ai');
-        });
+        }, 1500);
     });
 
     // "All Industries" toggle
