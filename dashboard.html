@@ -1456,7 +1456,7 @@
                     <td>${contact.email || 'N/A'}</td>
                     <td>${contact.subject || 'N/A'}</td>
                     <td>${formatDate(contact.submitted_at)}</td>
-                    <td>${contact.is_read ? '<span class="badge badge-success">Read</span>' : '<span class="badge badge-warning">Unread</span>'}</td>
+                    <td>${getContactStatusBadge(contact.status || 'New')}</td>
                     <td>
                         <button class="btn btn-secondary btn-sm" onclick="viewContact('${contact.id}')">View</button>
                     </td>
@@ -1880,13 +1880,45 @@
 
     async function updateContactStatus(contactId, newStatus) {
         try {
+            // Get current contact to read existing notes
+            const { data: contact } = await db
+                .from('contact_submissions')
+                .select('admin_notes, status')
+                .eq('id', contactId)
+                .single();
+
+            const oldStatus = contact.status || 'New';
+
+            // Parse existing notes
+            let notes = [];
+            try {
+                notes = contact.admin_notes ? JSON.parse(contact.admin_notes) : [];
+            } catch(e) {
+                notes = [];
+            }
+
+            // Add status change note
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay').textContent;
+
+            notes.push({
+                text: `Status changed from "${oldStatus}" to "${newStatus}"`,
+                author: userEmail,
+                date: dateStr
+            });
+
+            // Update status and notes together
             const { error } = await db
                 .from('contact_submissions')
-                .update({ status: newStatus })
+                .update({ status: newStatus, admin_notes: JSON.stringify(notes) })
                 .eq('id', contactId);
 
             if (error) throw error;
+
+            // Refresh both the list and the modal
             await loadContacts();
+            await viewContact(contactId);
         } catch (error) {
             console.error('Update contact status error:', error);
             alert('Error updating status: ' + error.message);
@@ -1900,6 +1932,14 @@
     // ============================================
     // Utility Functions
     // ============================================
+
+    function getContactStatusBadge(status) {
+        let badgeClass = 'badge-info';
+        if (status === 'Closed' || status === 'Responded') badgeClass = 'badge-success';
+        else if (status === 'In Progress') badgeClass = 'badge-warning';
+        else if (status === 'New') badgeClass = 'badge-info';
+        return `<span class="badge ${badgeClass}">${status}</span>`;
+    }
 
     function getStatusBadge(status) {
         let badgeClass = 'badge-info';
