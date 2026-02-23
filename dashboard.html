@@ -840,7 +840,7 @@
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>Phone</th>
-                                <th>Role</th>
+                                <th>Status</th>
                                 <th>Referral Slug</th>
                                 <th>Actions</th>
                             </tr>
@@ -1493,6 +1493,18 @@
     </div>
 </div>
 
+<!-- Agent Detail Modal -->
+<div id="agentDetailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="agentDetailTitle">Agent Details</h2>
+            <button class="modal-close" onclick="closeAgentDetailModal()">✕</button>
+        </div>
+        <div class="modal-body" id="agentModalBody">
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 <script>
@@ -1823,10 +1835,14 @@
                     <td><strong>${agent.full_name || 'N/A'}</strong></td>
                     <td>${agent.email || 'N/A'}</td>
                     <td>${agent.phone || 'N/A'}</td>
-                    <td>${agent.role || 'N/A'}</td>
+                    <td>
+                        <select onchange="updateAgentStatus('${agent.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                            ${'AIA,MOU,Active,Inactive,Pending'.split(',').map(s => `<option value="${s}" ${(agent.agent_status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        </select>
+                    </td>
                     <td>${agent.referral_slug || 'N/A'}</td>
                     <td>
-                        <button class="btn btn-secondary btn-sm" onclick="alert('Agent detail view')">View</button>
+                        <button class="btn btn-secondary btn-sm" onclick="viewAgent('${agent.id}')">View</button>
                     </td>
                 </tr>
             `).join('');
@@ -2527,6 +2543,235 @@
         } catch (error) {
             console.error('Add agent error:', error);
             alert('Error creating agent: ' + error.message);
+        }
+    }
+
+    // ============================================
+    // Agent Detail View
+    // ============================================
+
+    async function viewAgent(agentId) {
+        try {
+            const { data: agent, error } = await db
+                .from('users')
+                .select('*')
+                .eq('id', agentId)
+                .single();
+
+            if (error) throw error;
+            if (!agent) { alert('Agent not found'); return; }
+
+            // Get agent's deals
+            const { data: deals } = await db
+                .from('deals')
+                .select('deal_number, company_name, deal_amount, status')
+                .eq('source_agent_id', agentId);
+
+            // Get agent's referral applications
+            const { data: apps } = await db
+                .from('applications')
+                .select('application_id, full_name, business_name, status, funding_amount_text')
+                .eq('referral_slug', agent.referral_slug);
+
+            // Parse notes
+            let notes = [];
+            try {
+                notes = agent.notes ? JSON.parse(agent.notes) : [];
+            } catch(e) {
+                notes = agent.notes ? [{ text: agent.notes, author: 'System', date: 'Previously' }] : [];
+            }
+
+            const notesHtml = notes.length > 0
+                ? notes.map(n => `
+                    <div style="background: #F8FAFC; border-left: 3px solid var(--gold); padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
+                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 4px;">
+                            <strong>${n.author || 'Admin'}</strong> — ${n.date || 'N/A'}
+                        </div>
+                        <div style="font-size: 14px; color: var(--text-dark);">${n.text}</div>
+                    </div>
+                `).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No notes yet.</p>';
+
+            // Deals summary
+            const dealsHtml = deals && deals.length > 0
+                ? deals.map(d => `
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-gray); font-size: 13px;">
+                        <span><strong>${d.deal_number || 'N/A'}</strong> — ${d.company_name || 'N/A'}</span>
+                        <span>${getStatusBadge(d.status)} ${d.deal_amount ? formatCurrency(d.deal_amount) : ''}</span>
+                    </div>
+                `).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No deals yet.</p>';
+
+            // Applications summary
+            const appsHtml = apps && apps.length > 0
+                ? apps.map(a => `
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-gray); font-size: 13px;">
+                        <span><strong>${a.application_id || 'N/A'}</strong> — ${a.full_name || 'N/A'} (${a.business_name || 'N/A'})</span>
+                        <span>${getStatusBadge(a.status)} ${a.funding_amount_text || ''}</span>
+                    </div>
+                `).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No referral applications yet.</p>';
+
+            const statusOptions = 'AIA,MOU,Active,Inactive,Pending'.split(',').map(s =>
+                `<option value="${s}" ${(agent.agent_status || '') === s ? 'selected' : ''}>${s}</option>`
+            ).join('');
+
+            const businessTypeOptions = 'Mortgage Agent,Mortgage Broker,Insurance,Consulting,Accounting,Other'.split(',').map(s =>
+                `<option value="${s}" ${(agent.business_type || '') === s ? 'selected' : ''}>${s}</option>`
+            ).join('');
+
+            document.getElementById('agentDetailTitle').textContent = agent.full_name || 'Agent Details';
+            const modalBody = document.getElementById('agentModalBody');
+            modalBody.innerHTML = `
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Full Name</label>
+                        <div class="modal-field-value">${agent.full_name || 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Email</label>
+                        <div class="modal-field-value"><a href="mailto:${agent.email}">${agent.email || 'N/A'}</a></div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Phone</label>
+                        <div class="modal-field-value">${agent.phone || 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Referral Slug</label>
+                        <div class="modal-field-value" style="font-family: monospace;">${agent.referral_slug || 'N/A'}</div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Status</label>
+                        <div class="modal-field-value">
+                            <select onchange="updateAgentField('${agentId}', 'agent_status', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                                <option value="">Select Status</option>
+                                ${statusOptions}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Business Type</label>
+                        <div class="modal-field-value">
+                            <select onchange="updateAgentField('${agentId}', 'business_type', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                                <option value="">Select Type</option>
+                                ${businessTypeOptions}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>LinkedIn</label>
+                        <div class="modal-field-value">${agent.linkedin_profile ? '<a href="' + agent.linkedin_profile + '" target="_blank">View Profile</a>' : 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Joined</label>
+                        <div class="modal-field-value">${formatDate(agent.created_at)}</div>
+                    </div>
+                </div>
+
+                <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Referral Applications (${apps ? apps.length : 0})</label>
+                </div>
+                <div style="max-height: 200px; overflow-y: auto;">${appsHtml}</div>
+
+                <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Deals (${deals ? deals.length : 0})</label>
+                </div>
+                <div style="max-height: 200px; overflow-y: auto;">${dealsHtml}</div>
+
+                <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Activity Notes</label>
+                </div>
+                <div id="agentNotesContainer">${notesHtml}</div>
+                <div style="margin-top: 12px; display: flex; gap: 8px;">
+                    <textarea id="agentNoteText" placeholder="Add a note..." style="flex: 1; min-height: 60px; padding: 8px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+                </div>
+                <button class="btn btn-gold btn-sm" onclick="addAgentNote('${agentId}')" style="margin-top: 8px;">Add Note</button>
+            `;
+
+            document.getElementById('agentDetailModal').classList.add('active');
+        } catch (error) {
+            console.error('View agent error:', error);
+            alert('Error loading agent details');
+        }
+    }
+
+    function closeAgentDetailModal() {
+        document.getElementById('agentDetailModal').classList.remove('active');
+    }
+
+    async function updateAgentStatus(agentId, newStatus) {
+        try {
+            const { error } = await db
+                .from('users')
+                .update({ agent_status: newStatus })
+                .eq('id', agentId);
+            if (error) throw error;
+        } catch (error) {
+            console.error('Update agent status error:', error);
+            alert('Error updating status: ' + error.message);
+        }
+    }
+
+    async function updateAgentField(agentId, field, value) {
+        try {
+            const update = {};
+            update[field] = value;
+            const { error } = await db
+                .from('users')
+                .update(update)
+                .eq('id', agentId);
+            if (error) throw error;
+            await loadAgents();
+        } catch (error) {
+            console.error('Update agent field error:', error);
+            alert('Error updating: ' + error.message);
+        }
+    }
+
+    async function addAgentNote(agentId) {
+        const noteText = document.getElementById('agentNoteText').value.trim();
+        if (!noteText) return;
+
+        try {
+            const { data: agent } = await db
+                .from('users')
+                .select('notes')
+                .eq('id', agentId)
+                .single();
+
+            let notes = [];
+            try {
+                notes = agent.notes ? JSON.parse(agent.notes) : [];
+            } catch(e) {
+                notes = [];
+            }
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay').textContent;
+
+            notes.push({
+                text: noteText,
+                author: userEmail,
+                date: dateStr
+            });
+
+            const { error } = await db
+                .from('users')
+                .update({ notes: JSON.stringify(notes) })
+                .eq('id', agentId);
+
+            if (error) throw error;
+            await viewAgent(agentId);
+        } catch (error) {
+            console.error('Add agent note error:', error);
+            alert('Error adding note: ' + error.message);
         }
     }
 
@@ -3669,7 +3914,7 @@
     // ============================================
 
     window.onclick = function(event) {
-        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'lenderDetailModal'];
+        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'lenderDetailModal', 'agentDetailModal'];
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (event.target === modal) {
