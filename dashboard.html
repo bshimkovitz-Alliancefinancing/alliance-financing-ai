@@ -1334,7 +1334,7 @@
                     <td>${getStatusBadge(app.status)}</td>
                     <td>${formatDate(app.submitted_at)}</td>
                     <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewApplication(${app.id})">View</button>
+                        <button class="btn btn-secondary btn-sm" onclick="viewApplication('${app.id}')">View</button>
                     </td>
                 </tr>
             `).join('');
@@ -1458,7 +1458,7 @@
                     <td>${formatDate(contact.submitted_at)}</td>
                     <td>${contact.is_read ? '<span class="badge badge-success">Read</span>' : '<span class="badge badge-warning">Unread</span>'}</td>
                     <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewContact(${contact.id})">View</button>
+                        <button class="btn btn-secondary btn-sm" onclick="viewContact('${contact.id}')">View</button>
                     </td>
                 </tr>
             `).join('');
@@ -1502,10 +1502,11 @@
             const { data: deal, error } = await db
                 .from('deals')
                 .select('*')
-                .eq('id', parseInt(dealId))
+                .eq('id', dealId)
                 .single();
 
             if (error) throw error;
+            if (!deal) { alert('Deal not found'); return; }
 
             const modalBody = document.getElementById('dealModalBody');
             modalBody.innerHTML = `
