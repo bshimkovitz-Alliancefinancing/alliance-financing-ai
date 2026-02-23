@@ -1148,13 +1148,7 @@
                     </div>
                     <div class="modal-field">
                         <label>Country</label>
-                        <select id="lenderCountry">
-                            <option value="">Select Country</option>
-                            <option value="Canada">Canada</option>
-                            <option value="United States">United States</option>
-                            <option value="UK">UK</option>
-                            <option value="Germany">Germany</option>
-                        </select>
+                        <input type="text" id="lenderCountry" placeholder="e.g., Canada, United States">
                     </div>
                 </div>
                 <div class="modal-row">
@@ -1175,6 +1169,29 @@
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
                         </select>
+                    </div>
+                </div>
+                <div style="border-top: 1px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Primary Contact (optional)</label>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Contact Name</label>
+                        <input type="text" id="lenderContactName">
+                    </div>
+                    <div class="modal-field">
+                        <label>Contact Email</label>
+                        <input type="email" id="lenderContactEmail">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Contact Phone</label>
+                        <input type="tel" id="lenderContactPhone">
+                    </div>
+                    <div class="modal-field">
+                        <label>Contact Role/Title</label>
+                        <input type="text" id="lenderContactRole">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1761,12 +1778,12 @@
                     <td>${lender.country || 'N/A'}</td>
                     <td>${lender.currency || 'N/A'}</td>
                     <td>
-                        <select onchange="updateLenderStatus(${lender.id}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                        <select onchange="updateLenderStatus('${lender.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
                             ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(lender.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
                         </select>
                     </td>
                     <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewLender(${lender.id})">View</button>
+                        <button class="btn btn-secondary btn-sm" onclick="viewLender('${lender.id}')">View</button>
                     </td>
                 </tr>
             `).join('');
@@ -1803,12 +1820,12 @@
                     <td>${vendor.product_description || 'N/A'}</td>
                     <td>${vendor.country || 'N/A'}</td>
                     <td>
-                        <select onchange="updateVendorStatus(${vendor.id}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                        <select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
                             ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
                         </select>
                     </td>
                     <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewVendor(${vendor.id})">View</button>
+                        <button class="btn btn-secondary btn-sm" onclick="viewVendor('${vendor.id}')">View</button>
                     </td>
                 </tr>
             `;
@@ -2401,6 +2418,22 @@
                 .select();
 
             if (error) throw error;
+
+            // Add primary contact if provided
+            const contactName = document.getElementById('lenderContactName').value.trim();
+            if (contactName && data && data.length > 0) {
+                const { error: contactError } = await db
+                    .from('lender_contacts')
+                    .insert([{
+                        lender_id: data[0].id,
+                        contact_name: contactName,
+                        email: document.getElementById('lenderContactEmail').value.trim() || null,
+                        phone: document.getElementById('lenderContactPhone').value.trim() || null,
+                        role_title: document.getElementById('lenderContactRole').value.trim() || null,
+                        is_primary: true
+                    }]);
+                if (contactError) console.warn('Contact not saved:', contactError);
+            }
 
             closeAddLenderModal();
             await loadLenders();
