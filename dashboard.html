@@ -776,7 +776,10 @@
                 <div class="table-container">
                     <div class="table-header">
                         <div class="table-title">Deal Pipeline</div>
-                        <button class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ New Deal</button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="exportDeals()" style="margin-left: 8px;">Export CSV</button>
+                            <button class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ New Deal</button>
+                        </div>
                     </div>
                     <table id="dealsTable">
                         <thead>
@@ -804,7 +807,10 @@
                 <div class="table-container">
                     <div class="table-header">
                         <div class="table-title">Applications</div>
-                        <button class="btn btn-gold btn-sm" onclick="openAddApplicationModal()">+ New Application</button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="exportApplications()" style="margin-left: 8px;">Export CSV</button>
+                            <button class="btn btn-gold btn-sm" onclick="openAddApplicationModal()">+ New Application</button>
+                        </div>
                     </div>
                     <table id="applicationsTable">
                         <thead>
@@ -832,7 +838,10 @@
                 <div class="table-container">
                     <div class="table-header">
                         <div class="table-title">Agents & Partners</div>
-                        <button class="btn btn-gold btn-sm" onclick="openAddAgentModal()">+ New Agent</button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="exportAgents()" style="margin-left: 8px;">Export CSV</button>
+                            <button class="btn btn-gold btn-sm" onclick="openAddAgentModal()">+ New Agent</button>
+                        </div>
                     </div>
                     <table id="agentsTable">
                         <thead>
@@ -876,7 +885,10 @@
                                 <option value="Inactive">Inactive</option>
                             </select>
                         </div>
-                        <button class="btn btn-gold btn-sm" onclick="openAddLenderModal()">+ New Lender</button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="exportLenders()" style="margin-left: 8px;">Export CSV</button>
+                            <button class="btn btn-gold btn-sm" onclick="openAddLenderModal()">+ New Lender</button>
+                        </div>
                     </div>
                     <table id="lendersTable">
                         <thead>
@@ -921,7 +933,10 @@
                                 <option value="Inactive">Inactive</option>
                             </select>
                         </div>
-                        <button class="btn btn-gold btn-sm" onclick="openAddVendorModal()">+ New Vendor</button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="exportVendors()" style="margin-left: 8px;">Export CSV</button>
+                            <button class="btn btn-gold btn-sm" onclick="openAddVendorModal()">+ New Vendor</button>
+                        </div>
                     </div>
                     <table id="vendorsTable">
                         <thead>
@@ -930,13 +945,14 @@
                                 <th>Website</th>
                                 <th>Product</th>
                                 <th>Country</th>
+                                <th>Projected Vol.</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="vendorsBody">
                             <tr>
-                                <td colspan="5" class="empty-state">Loading...</td>
+                                <td colspan="7" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -948,6 +964,7 @@
                 <div class="table-container">
                     <div class="table-header">
                         <div class="table-title">Contact Submissions</div>
+                        <button class="btn btn-secondary btn-sm" onclick="exportContacts()" style="margin-left: 8px;">Export CSV</button>
                     </div>
                     <table id="contactsTable">
                         <thead>
@@ -1912,7 +1929,7 @@
     function renderVendorsTable(data) {
         const tbody = document.getElementById('vendorsBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No vendors found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No vendors found.</td></tr>';
             return;
         }
 
@@ -1928,6 +1945,7 @@
                 <td><a href="${websiteUrl}" target="_blank">${vendor.website ? 'Visit' : 'N/A'}</a></td>
                 <td>${vendor.product_description || 'N/A'}</td>
                 <td>${vendor.country || 'N/A'}</td>
+                <td>${vendor.projected_volume ? formatCurrency(vendor.projected_volume) : 'N/A'}</td>
                 <td>
                     <select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
                         ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
@@ -3146,6 +3164,44 @@
                         <div class="modal-field-value">${vendor.product_description || 'N/A'}</div>
                     </div>
                 </div>
+                <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Funding Performance</label>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Projected Annual Volume</label>
+                        <input type="text" id="vendorProjectedVolume" value="${vendor.projected_volume || ''}"
+                            onblur="updateVendorField('${vendorId}', 'projected_volume', this.value ? parseFloat(this.value.replace(/[^0-9.]/g, '')) : null)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Actual Volume (YTD)</label>
+                        <input type="text" id="vendorActualVolume" value="${vendor.actual_volume || ''}"
+                            onblur="updateVendorField('${vendorId}', 'actual_volume', this.value ? parseFloat(this.value.replace(/[^0-9.]/g, '')) : null)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+                ${(() => {
+                    const pct = vendor.projected_volume && vendor.actual_volume
+                        ? Math.round((vendor.actual_volume / vendor.projected_volume) * 100)
+                        : 0;
+                    const pctDisplay = pct > 0 ? pct + '%' : 'N/A';
+                    const pctColor = pct >= 100 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)';
+                    return `
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Revenue Target</label>
+                            <input type="text" id="vendorRevenueTarget" value="${vendor.revenue_target || ''}"
+                                onblur="updateVendorField('${vendorId}', 'revenue_target', this.value ? parseFloat(this.value.replace(/[^0-9.]/g, '')) : null)"
+                                style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                        </div>
+                        <div class="modal-field">
+                            <label>% of Target</label>
+                            <div class="modal-field-value" style="font-weight: 600; color: ${pctColor};">${pctDisplay}</div>
+                        </div>
+                    </div>
+                    `;
+                })()}
                 <div class="modal-row full" style="margin-top: 20px;">
                     <div class="modal-field">
                         <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Contacts</label>
@@ -3907,6 +3963,255 @@
         if (!dateString) return 'N/A';
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    // ============================================
+    // Export to CSV Utility
+    // ============================================
+
+    function exportToCSV(data, filename, columns) {
+        if (!data || data.length === 0) {
+            alert('No data to export');
+            return;
+        }
+        const headers = columns.map(c => c.label).join(',');
+        const rows = data.map(row => {
+            return columns.map(c => {
+                let val = row[c.key] || '';
+                // Escape commas and quotes
+                val = String(val).replace(/"/g, '""');
+                if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+                    val = '"' + val + '"';
+                }
+                return val;
+            }).join(',');
+        });
+        const csv = headers + '\n' + rows.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    async function exportDeals() {
+        try {
+            const { data, error } = await db
+                .from('deals')
+                .select('*')
+                .order('date_submitted', { ascending: false });
+
+            if (error) throw error;
+
+            const exportData = (data || []).map(deal => ({
+                deal_number: deal.deal_number,
+                company_name: deal.company_name,
+                deal_amount: deal.deal_amount,
+                currency: deal.currency,
+                product_type: deal.product_type,
+                status: deal.status,
+                date_submitted: formatDate(deal.date_submitted),
+                expected_close: formatDate(deal.expected_close),
+                gross_fee_percent: deal.gross_fee_percent,
+                alliance_net_fee: deal.alliance_net_fee,
+                notes: deal.notes
+            }));
+
+            const columns = [
+                { key: 'deal_number', label: 'Deal Number' },
+                { key: 'company_name', label: 'Company' },
+                { key: 'deal_amount', label: 'Amount' },
+                { key: 'currency', label: 'Currency' },
+                { key: 'product_type', label: 'Product Type' },
+                { key: 'status', label: 'Status' },
+                { key: 'date_submitted', label: 'Date Submitted' },
+                { key: 'expected_close', label: 'Expected Close' },
+                { key: 'gross_fee_percent', label: 'Gross Fee %' },
+                { key: 'alliance_net_fee', label: 'Alliance Net Fee' },
+                { key: 'notes', label: 'Notes' }
+            ];
+
+            const filename = 'deals_' + new Date().toISOString().split('T')[0] + '.csv';
+            exportToCSV(exportData, filename, columns);
+        } catch (error) {
+            console.error('Export deals error:', error);
+            alert('Error exporting deals: ' + error.message);
+        }
+    }
+
+    async function exportApplications() {
+        try {
+            const { data, error } = await db
+                .from('applications')
+                .select('*')
+                .order('submitted_at', { ascending: false });
+
+            if (error) throw error;
+
+            const exportData = (data || []).map(app => ({
+                application_id: app.application_id,
+                full_name: app.full_name,
+                email: app.email,
+                phone: app.phone,
+                business_name: app.business_name,
+                time_in_business: app.time_in_business,
+                annual_revenue: app.annual_revenue,
+                funding_amount: app.funding_amount_requested || app.funding_amount_text,
+                status: app.status,
+                submitted_at: formatDate(app.submitted_at),
+                description: app.description
+            }));
+
+            const columns = [
+                { key: 'application_id', label: 'Application ID' },
+                { key: 'full_name', label: 'Full Name' },
+                { key: 'email', label: 'Email' },
+                { key: 'phone', label: 'Phone' },
+                { key: 'business_name', label: 'Business Name' },
+                { key: 'time_in_business', label: 'Time in Business' },
+                { key: 'annual_revenue', label: 'Annual Revenue' },
+                { key: 'funding_amount', label: 'Funding Amount' },
+                { key: 'status', label: 'Status' },
+                { key: 'submitted_at', label: 'Submitted Date' },
+                { key: 'description', label: 'Description' }
+            ];
+
+            const filename = 'applications_' + new Date().toISOString().split('T')[0] + '.csv';
+            exportToCSV(exportData, filename, columns);
+        } catch (error) {
+            console.error('Export applications error:', error);
+            alert('Error exporting applications: ' + error.message);
+        }
+    }
+
+    async function exportAgents() {
+        try {
+            const { data, error } = await db
+                .from('users')
+                .select('*')
+                .eq('role', 'agent')
+                .order('full_name', { ascending: true });
+
+            if (error) throw error;
+
+            const exportData = (data || []).map(agent => ({
+                full_name: agent.full_name,
+                email: agent.email,
+                phone: agent.phone,
+                business_type: agent.business_type,
+                agent_status: agent.agent_status,
+                referral_slug: agent.referral_slug,
+                created_at: formatDate(agent.created_at)
+            }));
+
+            const columns = [
+                { key: 'full_name', label: 'Full Name' },
+                { key: 'email', label: 'Email' },
+                { key: 'phone', label: 'Phone' },
+                { key: 'business_type', label: 'Business Type' },
+                { key: 'agent_status', label: 'Agent Status' },
+                { key: 'referral_slug', label: 'Referral Slug' },
+                { key: 'created_at', label: 'Created Date' }
+            ];
+
+            const filename = 'agents_' + new Date().toISOString().split('T')[0] + '.csv';
+            exportToCSV(exportData, filename, columns);
+        } catch (error) {
+            console.error('Export agents error:', error);
+            alert('Error exporting agents: ' + error.message);
+        }
+    }
+
+    async function exportLenders() {
+        try {
+            const exportData = (allLenders || []).map(lender => ({
+                lender_id: lender.lender_id,
+                name: lender.name,
+                type: lender.lender_type,
+                country: lender.country,
+                currency: lender.currency,
+                status: lender.status
+            }));
+
+            const columns = [
+                { key: 'lender_id', label: 'Lender ID' },
+                { key: 'name', label: 'Name' },
+                { key: 'type', label: 'Type' },
+                { key: 'country', label: 'Country' },
+                { key: 'currency', label: 'Currency' },
+                { key: 'status', label: 'Status' }
+            ];
+
+            const filename = 'lenders_' + new Date().toISOString().split('T')[0] + '.csv';
+            exportToCSV(exportData, filename, columns);
+        } catch (error) {
+            console.error('Export lenders error:', error);
+            alert('Error exporting lenders: ' + error.message);
+        }
+    }
+
+    async function exportVendors() {
+        try {
+            const exportData = (allVendors || []).map(vendor => ({
+                name: vendor.name,
+                website: vendor.website,
+                product_description: vendor.product_description,
+                country: vendor.country,
+                status: vendor.status
+            }));
+
+            const columns = [
+                { key: 'name', label: 'Name' },
+                { key: 'website', label: 'Website' },
+                { key: 'product_description', label: 'Product Description' },
+                { key: 'country', label: 'Country' },
+                { key: 'status', label: 'Status' }
+            ];
+
+            const filename = 'vendors_' + new Date().toISOString().split('T')[0] + '.csv';
+            exportToCSV(exportData, filename, columns);
+        } catch (error) {
+            console.error('Export vendors error:', error);
+            alert('Error exporting vendors: ' + error.message);
+        }
+    }
+
+    async function exportContacts() {
+        try {
+            const { data, error } = await db
+                .from('contact_submissions')
+                .select('*')
+                .order('submitted_at', { ascending: false });
+
+            if (error) throw error;
+
+            const exportData = (data || []).map(contact => ({
+                name: contact.name,
+                email: contact.email,
+                phone: contact.phone,
+                subject: contact.subject,
+                message: contact.message,
+                status: contact.status,
+                submitted_at: formatDate(contact.submitted_at)
+            }));
+
+            const columns = [
+                { key: 'name', label: 'Name' },
+                { key: 'email', label: 'Email' },
+                { key: 'phone', label: 'Phone' },
+                { key: 'subject', label: 'Subject' },
+                { key: 'message', label: 'Message' },
+                { key: 'status', label: 'Status' },
+                { key: 'submitted_at', label: 'Submitted Date' }
+            ];
+
+            const filename = 'contacts_' + new Date().toISOString().split('T')[0] + '.csv';
+            exportToCSV(exportData, filename, columns);
+        } catch (error) {
+            console.error('Export contacts error:', error);
+            alert('Error exporting contacts: ' + error.message);
+        }
     }
 
     // ============================================
