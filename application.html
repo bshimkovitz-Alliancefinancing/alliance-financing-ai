@@ -828,8 +828,8 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                         business_name: businessName,
                         time_in_business: timeInBusiness,
                         annual_revenue: annualRevenue,
-                        funding_amount_needed: fundingAmount,
-                        brief_description: description,
+                        funding_amount_text: fundingAmount,
+                        description: description,
                         referral_slug: referralSlug,
                         status: 'Application Received'
                     }])
@@ -838,12 +838,13 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                 if (appError) throw appError;
                 if (!appData || appData.length === 0) throw new Error('Failed to create application');
 
-                const applicationId = appData[0].id;
+                const appRecord = appData[0];
+                const displayId = appRecord.application_id || appRecord.id;
 
                 // Insert financing products into junction table
                 const productInserts = financingTypes.map(productType => ({
-                    application_id: applicationId,
-                    product_type: productType
+                    application_id: appRecord.id,
+                    product: productType
                 }));
 
                 if (productInserts.length > 0) {
@@ -857,12 +858,12 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                 // Show success message
                 appForm.style.display = 'none';
                 successMsg.style.display = 'block';
-                document.getElementById('appIdDisplay').textContent = applicationId;
+                document.getElementById('appIdDisplay').textContent = displayId;
 
                 // Send GA4 event
                 if (window.gtag) {
                     gtag('event', 'application_submitted', {
-                        application_id: applicationId,
+                        application_id: displayId,
                         business_name: businessName
                     });
                 }
