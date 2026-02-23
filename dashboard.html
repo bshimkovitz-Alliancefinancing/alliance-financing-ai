@@ -870,6 +870,7 @@
                                 <th>Country</th>
                                 <th>Currency</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="lendersBody">
@@ -896,6 +897,7 @@
                                 <th>Product</th>
                                 <th>Country</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="vendorsBody">
@@ -1206,13 +1208,7 @@
                     </div>
                     <div class="modal-field">
                         <label>Country</label>
-                        <select id="vendorCountry">
-                            <option value="">Select Country</option>
-                            <option value="Canada">Canada</option>
-                            <option value="United States">United States</option>
-                            <option value="UK">UK</option>
-                            <option value="Germany">Germany</option>
-                        </select>
+                        <input type="text" id="vendorCountry" placeholder="e.g., Canada, United States">
                     </div>
                 </div>
                 <div class="modal-row">
@@ -1376,6 +1372,30 @@
                     <button type="submit" id="csvSubmitBtn" class="btn btn-primary" style="display: none;">Import Data</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Vendor Detail Modal -->
+<div id="vendorDetailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="vendorDetailTitle">Vendor Details</h2>
+            <button class="modal-close" onclick="closeVendorDetailModal()">✕</button>
+        </div>
+        <div class="modal-body" id="vendorModalBody">
+        </div>
+    </div>
+</div>
+
+<!-- Lender Detail Modal -->
+<div id="lenderDetailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="lenderDetailTitle">Lender Details</h2>
+            <button class="modal-close" onclick="closeLenderDetailModal()">✕</button>
+        </div>
+        <div class="modal-body" id="lenderModalBody">
         </div>
     </div>
 </div>
@@ -1729,7 +1749,7 @@
 
             const tbody = document.getElementById('lendersBody');
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No lenders found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No lenders found.</td></tr>';
                 return;
             }
 
@@ -1740,7 +1760,14 @@
                     <td>${lender.lender_type || 'N/A'}</td>
                     <td>${lender.country || 'N/A'}</td>
                     <td>${lender.currency || 'N/A'}</td>
-                    <td>${getStatusBadge(lender.status)}</td>
+                    <td>
+                        <select onchange="updateLenderStatus(${lender.id}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                            ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(lender.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="viewLender(${lender.id})">View</button>
+                    </td>
                 </tr>
             `).join('');
         } catch (error) {
@@ -1759,19 +1786,33 @@
 
             const tbody = document.getElementById('vendorsBody');
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No vendors found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No vendors found.</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = data.map(vendor => `
+            tbody.innerHTML = data.map(vendor => {
+                let websiteUrl = vendor.website || '#';
+                if (websiteUrl !== '#' && !websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
+                    websiteUrl = 'https://' + websiteUrl;
+                }
+
+                return `
                 <tr>
                     <td><strong>${vendor.name || 'N/A'}</strong></td>
-                    <td><a href="${vendor.website || '#'}" target="_blank">${vendor.website ? 'Visit' : 'N/A'}</a></td>
+                    <td><a href="${websiteUrl}" target="_blank">${vendor.website ? 'Visit' : 'N/A'}</a></td>
                     <td>${vendor.product_description || 'N/A'}</td>
                     <td>${vendor.country || 'N/A'}</td>
-                    <td>${getStatusBadge(vendor.status)}</td>
+                    <td>
+                        <select onchange="updateVendorStatus(${vendor.id}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                            ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="viewVendor(${vendor.id})">View</button>
+                    </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         } catch (error) {
             console.error('Load vendors error:', error);
         }
@@ -2432,6 +2473,515 @@
     }
 
     // ============================================
+    // Vendor Detail View
+    // ============================================
+
+    async function viewVendor(vendorId) {
+        try {
+            // Fetch vendor details
+            const { data: vendor, error: vendorError } = await db
+                .from('vendors')
+                .select('*')
+                .eq('id', vendorId)
+                .single();
+
+            if (vendorError) throw vendorError;
+            if (!vendor) { alert('Vendor not found'); return; }
+
+            // Fetch vendor contacts
+            const { data: contacts, error: contactsError } = await db
+                .from('vendor_contacts')
+                .select('*')
+                .eq('vendor_id', vendorId);
+
+            if (contactsError) console.warn('Could not load contacts:', contactsError);
+
+            // Parse admin notes
+            let notes = [];
+            try {
+                notes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : [];
+            } catch(e) {
+                notes = vendor.admin_notes ? [{ text: vendor.admin_notes, author: 'System', date: 'Previously' }] : [];
+            }
+
+            const notesHtml = notes.length > 0
+                ? notes.map(n => `
+                    <div style="background: #F8FAFC; border-left: 3px solid var(--gold); padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
+                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 4px;">
+                            <strong>${n.author || 'Admin'}</strong> — ${n.date || 'N/A'}
+                        </div>
+                        <div style="font-size: 14px; color: var(--text-dark);">${n.text}</div>
+                    </div>
+                `).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No notes yet.</p>';
+
+            // Build contacts HTML
+            const contactsHtml = (contacts && contacts.length > 0)
+                ? contacts.map(c => `
+                    <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 10px;">
+                        <div style="font-weight: 600; color: var(--navy);">${c.contact_name || 'N/A'}</div>
+                        <div style="font-size: 13px; color: var(--text-light); margin-top: 4px;">
+                            ${c.contact_email ? `<div>Email: <a href="mailto:${c.contact_email}">${c.contact_email}</a></div>` : ''}
+                            ${c.contact_phone ? `<div>Phone: ${c.contact_phone}</div>` : ''}
+                            ${c.contact_role ? `<div>Role: ${c.contact_role}</div>` : ''}
+                        </div>
+                    </div>
+                `).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No contacts yet.</p>';
+
+            const modalBody = document.getElementById('vendorModalBody');
+            document.getElementById('vendorDetailTitle').textContent = vendor.name || 'Vendor Details';
+
+            modalBody.innerHTML = `
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Name</label>
+                        <div class="modal-field-value">${vendor.name || 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Status</label>
+                        <div class="modal-field-value">
+                            <select id="vendorDetailStatus" onchange="updateVendorStatus(${vendorId}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                                ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Website</label>
+                        <div class="modal-field-value">
+                            ${vendor.website ? `<a href="${vendor.website.startsWith('http') ? vendor.website : 'https://' + vendor.website}" target="_blank">${vendor.website}</a>` : 'N/A'}
+                        </div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Country</label>
+                        <div class="modal-field-value">
+                            <input type="text" id="vendorDetailCountry" value="${vendor.country || ''}" onchange="updateVendorField(${vendorId}, 'country', this.value)" style="padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; font-size: 14px;">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row full">
+                    <div class="modal-field">
+                        <label>Product Description</label>
+                        <div class="modal-field-value">${vendor.product_description || 'N/A'}</div>
+                    </div>
+                </div>
+                <div class="modal-row full" style="margin-top: 20px;">
+                    <div class="modal-field">
+                        <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Contacts</label>
+                        <div id="vendorContactsContainer" style="margin-bottom: 15px;">${contactsHtml}</div>
+                        <div style="background: #f9f9f9; padding: 12px; border-radius: 4px; border: 1px solid var(--border-gray);">
+                            <h4 style="font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 10px;">Add New Contact</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                                <input type="text" id="newVendorContactName" placeholder="Name" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <input type="email" id="newVendorContactEmail" placeholder="Email" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <input type="text" id="newVendorContactPhone" placeholder="Phone" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <input type="text" id="newVendorContactRole" placeholder="Role/Title" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                            </div>
+                            <button class="btn btn-gold btn-sm" onclick="addVendorContact(${vendorId})" style="margin-top: 10px;">Add Contact</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row full" style="margin-top: 20px;">
+                    <div class="modal-field">
+                        <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Activity Notes</label>
+                        <div id="vendorNotesContainer">${notesHtml}</div>
+                        <div style="margin-top: 12px; display: flex; gap: 8px;">
+                            <textarea id="newVendorNoteText" placeholder="Add a note..." style="flex: 1; min-height: 60px; padding: 8px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+                        </div>
+                        <button class="btn btn-gold btn-sm" onclick="addVendorNote(${vendorId})" style="margin-top: 8px;">Add Note</button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('vendorDetailModal').classList.add('active');
+        } catch (error) {
+            console.error('View vendor error:', error);
+            alert('Error loading vendor details: ' + error.message);
+        }
+    }
+
+    function closeVendorDetailModal() {
+        document.getElementById('vendorDetailModal').classList.remove('active');
+    }
+
+    async function updateVendorStatus(vendorId, newStatus) {
+        try {
+            const { error } = await db
+                .from('vendors')
+                .update({ status: newStatus })
+                .eq('id', vendorId);
+
+            if (error) throw error;
+            await loadVendors();
+        } catch (error) {
+            console.error('Update vendor status error:', error);
+            alert('Error updating status: ' + error.message);
+        }
+    }
+
+    async function updateVendorField(vendorId, field, value) {
+        try {
+            const { error } = await db
+                .from('vendors')
+                .update({ [field]: value })
+                .eq('id', vendorId);
+
+            if (error) throw error;
+            await loadVendors();
+        } catch (error) {
+            console.error('Update vendor field error:', error);
+            alert('Error updating field: ' + error.message);
+        }
+    }
+
+    async function addVendorContact(vendorId) {
+        const name = document.getElementById('newVendorContactName').value.trim();
+        const email = document.getElementById('newVendorContactEmail').value.trim();
+        const phone = document.getElementById('newVendorContactPhone').value.trim();
+        const role = document.getElementById('newVendorContactRole').value.trim();
+
+        if (!name) {
+            alert('Please enter a contact name');
+            return;
+        }
+
+        try {
+            const { error } = await db
+                .from('vendor_contacts')
+                .insert([{
+                    vendor_id: vendorId,
+                    contact_name: name,
+                    contact_email: email || null,
+                    contact_phone: phone || null,
+                    contact_role: role || null,
+                    created_at: new Date().toISOString()
+                }]);
+
+            if (error) throw error;
+
+            document.getElementById('newVendorContactName').value = '';
+            document.getElementById('newVendorContactEmail').value = '';
+            document.getElementById('newVendorContactPhone').value = '';
+            document.getElementById('newVendorContactRole').value = '';
+
+            await viewVendor(vendorId);
+        } catch (error) {
+            console.error('Add vendor contact error:', error);
+            alert('Error adding contact: ' + error.message);
+        }
+    }
+
+    async function addVendorNote(vendorId) {
+        const noteText = document.getElementById('newVendorNoteText').value.trim();
+        if (!noteText) return;
+
+        try {
+            const { data: vendor } = await db
+                .from('vendors')
+                .select('admin_notes')
+                .eq('id', vendorId)
+                .single();
+
+            let notes = [];
+            try {
+                notes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : [];
+            } catch(e) {
+                notes = [];
+            }
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay').textContent;
+
+            notes.push({
+                text: noteText,
+                author: userEmail,
+                date: dateStr
+            });
+
+            const { error } = await db
+                .from('vendors')
+                .update({ admin_notes: JSON.stringify(notes) })
+                .eq('id', vendorId);
+
+            if (error) throw error;
+
+            await viewVendor(vendorId);
+        } catch (error) {
+            console.error('Add vendor note error:', error);
+            alert('Error adding note: ' + error.message);
+        }
+    }
+
+    // ============================================
+    // Lender Detail View
+    // ============================================
+
+    async function viewLender(lenderId) {
+        try {
+            // Fetch lender details
+            const { data: lender, error: lenderError } = await db
+                .from('lenders')
+                .select('*')
+                .eq('id', lenderId)
+                .single();
+
+            if (lenderError) throw lenderError;
+            if (!lender) { alert('Lender not found'); return; }
+
+            // Fetch lender contacts
+            const { data: contacts, error: contactsError } = await db
+                .from('lender_contacts')
+                .select('*')
+                .eq('lender_id', lenderId);
+
+            if (contactsError) console.warn('Could not load contacts:', contactsError);
+
+            // Parse admin notes
+            let notes = [];
+            try {
+                notes = lender.admin_notes ? JSON.parse(lender.admin_notes) : [];
+            } catch(e) {
+                notes = lender.admin_notes ? [{ text: lender.admin_notes, author: 'System', date: 'Previously' }] : [];
+            }
+
+            const notesHtml = notes.length > 0
+                ? notes.map(n => `
+                    <div style="background: #F8FAFC; border-left: 3px solid var(--gold); padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
+                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 4px;">
+                            <strong>${n.author || 'Admin'}</strong> — ${n.date || 'N/A'}
+                        </div>
+                        <div style="font-size: 14px; color: var(--text-dark);">${n.text}</div>
+                    </div>
+                `).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No notes yet.</p>';
+
+            // Build contacts HTML
+            const contactsHtml = (contacts && contacts.length > 0)
+                ? contacts.map(c => `
+                    <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 10px;">
+                        <div style="font-weight: 600; color: var(--navy);">${c.contact_name || 'N/A'}</div>
+                        <div style="font-size: 13px; color: var(--text-light); margin-top: 4px;">
+                            ${c.contact_email ? `<div>Email: <a href="mailto:${c.contact_email}">${c.contact_email}</a></div>` : ''}
+                            ${c.contact_phone ? `<div>Phone: ${c.contact_phone}</div>` : ''}
+                            ${c.contact_role ? `<div>Role: ${c.contact_role}</div>` : ''}
+                            ${c.territory ? `<div>Territory: ${c.territory}</div>` : ''}
+                            ${c.linkedin ? `<div>LinkedIn: <a href="${c.linkedin}" target="_blank">Profile</a></div>` : ''}
+                        </div>
+                    </div>
+                `).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No contacts yet.</p>';
+
+            const modalBody = document.getElementById('lenderModalBody');
+            document.getElementById('lenderDetailTitle').textContent = lender.name || 'Lender Details';
+
+            modalBody.innerHTML = `
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Name</label>
+                        <div class="modal-field-value">${lender.name || 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Lender ID</label>
+                        <div class="modal-field-value">${lender.lender_id || 'N/A'}</div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Type</label>
+                        <div class="modal-field-value">${lender.lender_type || 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Country</label>
+                        <div class="modal-field-value">
+                            <input type="text" id="lenderDetailCountry" value="${lender.country || ''}" onchange="updateLenderField(${lenderId}, 'country', this.value)" style="padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; font-size: 14px;">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Currency</label>
+                        <div class="modal-field-value">
+                            <select id="lenderDetailCurrency" onchange="updateLenderField(${lenderId}, 'currency', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer; width: 100%;">
+                                ${'CAD,USD,GBP,EUR'.split(',').map(c => `<option value="${c}" ${(lender.currency || '') === c ? 'selected' : ''}>${c}</option>`).join('')}
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Status</label>
+                        <div class="modal-field-value">
+                            <select id="lenderDetailStatus" onchange="updateLenderStatus(${lenderId}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                                ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(lender.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row full" style="margin-top: 20px;">
+                    <div class="modal-field">
+                        <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Contacts</label>
+                        <div id="lenderContactsContainer" style="margin-bottom: 15px;">${contactsHtml}</div>
+                        <div style="background: #f9f9f9; padding: 12px; border-radius: 4px; border: 1px solid var(--border-gray);">
+                            <h4 style="font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 10px;">Add New Contact</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                                <input type="text" id="newLenderContactName" placeholder="Contact Name" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <input type="email" id="newLenderContactEmail" placeholder="Email" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                                <input type="text" id="newLenderContactPhone" placeholder="Phone" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <input type="text" id="newLenderContactRole" placeholder="Role/Title" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <input type="text" id="newLenderContactTerritory" placeholder="Territory" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <input type="url" id="newLenderContactLinkedIn" placeholder="LinkedIn URL" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                            </div>
+                            <button class="btn btn-gold btn-sm" onclick="addLenderContact(${lenderId})" style="margin-top: 10px;">Add Contact</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row full" style="margin-top: 20px;">
+                    <div class="modal-field">
+                        <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Activity Notes</label>
+                        <div id="lenderNotesContainer">${notesHtml}</div>
+                        <div style="margin-top: 12px; display: flex; gap: 8px;">
+                            <textarea id="newLenderNoteText" placeholder="Add a note..." style="flex: 1; min-height: 60px; padding: 8px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+                        </div>
+                        <button class="btn btn-gold btn-sm" onclick="addLenderNote(${lenderId})" style="margin-top: 8px;">Add Note</button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('lenderDetailModal').classList.add('active');
+        } catch (error) {
+            console.error('View lender error:', error);
+            alert('Error loading lender details: ' + error.message);
+        }
+    }
+
+    function closeLenderDetailModal() {
+        document.getElementById('lenderDetailModal').classList.remove('active');
+    }
+
+    async function updateLenderStatus(lenderId, newStatus) {
+        try {
+            const { error } = await db
+                .from('lenders')
+                .update({ status: newStatus })
+                .eq('id', lenderId);
+
+            if (error) throw error;
+            await loadLenders();
+        } catch (error) {
+            console.error('Update lender status error:', error);
+            alert('Error updating status: ' + error.message);
+        }
+    }
+
+    async function updateLenderField(lenderId, field, value) {
+        try {
+            const { error } = await db
+                .from('lenders')
+                .update({ [field]: value })
+                .eq('id', lenderId);
+
+            if (error) throw error;
+            await loadLenders();
+        } catch (error) {
+            console.error('Update lender field error:', error);
+            alert('Error updating field: ' + error.message);
+        }
+    }
+
+    async function addLenderContact(lenderId) {
+        const name = document.getElementById('newLenderContactName').value.trim();
+        const email = document.getElementById('newLenderContactEmail').value.trim();
+        const phone = document.getElementById('newLenderContactPhone').value.trim();
+        const role = document.getElementById('newLenderContactRole').value.trim();
+        const territory = document.getElementById('newLenderContactTerritory').value.trim();
+        const linkedin = document.getElementById('newLenderContactLinkedIn').value.trim();
+
+        if (!name) {
+            alert('Please enter a contact name');
+            return;
+        }
+
+        try {
+            const { error } = await db
+                .from('lender_contacts')
+                .insert([{
+                    lender_id: lenderId,
+                    contact_name: name,
+                    contact_email: email || null,
+                    contact_phone: phone || null,
+                    contact_role: role || null,
+                    territory: territory || null,
+                    linkedin: linkedin || null,
+                    created_at: new Date().toISOString()
+                }]);
+
+            if (error) throw error;
+
+            document.getElementById('newLenderContactName').value = '';
+            document.getElementById('newLenderContactEmail').value = '';
+            document.getElementById('newLenderContactPhone').value = '';
+            document.getElementById('newLenderContactRole').value = '';
+            document.getElementById('newLenderContactTerritory').value = '';
+            document.getElementById('newLenderContactLinkedIn').value = '';
+
+            await viewLender(lenderId);
+        } catch (error) {
+            console.error('Add lender contact error:', error);
+            alert('Error adding contact: ' + error.message);
+        }
+    }
+
+    async function addLenderNote(lenderId) {
+        const noteText = document.getElementById('newLenderNoteText').value.trim();
+        if (!noteText) return;
+
+        try {
+            const { data: lender } = await db
+                .from('lenders')
+                .select('admin_notes')
+                .eq('id', lenderId)
+                .single();
+
+            let notes = [];
+            try {
+                notes = lender.admin_notes ? JSON.parse(lender.admin_notes) : [];
+            } catch(e) {
+                notes = [];
+            }
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay').textContent;
+
+            notes.push({
+                text: noteText,
+                author: userEmail,
+                date: dateStr
+            });
+
+            const { error } = await db
+                .from('lenders')
+                .update({ admin_notes: JSON.stringify(notes) })
+                .eq('id', lenderId);
+
+            if (error) throw error;
+
+            await viewLender(lenderId);
+        } catch (error) {
+            console.error('Add lender note error:', error);
+            alert('Error adding note: ' + error.message);
+        }
+    }
+
+    // ============================================
     // Application Management - Add New
     // ============================================
 
@@ -2739,7 +3289,7 @@
     // ============================================
 
     window.onclick = function(event) {
-        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal'];
+        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'lenderDetailModal'];
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (event.target === modal) {
