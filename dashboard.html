@@ -1123,15 +1123,33 @@
 
             currentUser = data.user;
 
-            // Check if user has admin role
-            const { data: userData, error: userError } = await db
+            // Check if user has admin role - try by auth_id first, then by email
+            let userData = null;
+            let userError = null;
+
+            // Try lookup by auth_id (most reliable)
+            const result1 = await db
                 .from('users')
                 .select('role, full_name')
-                .eq('email', email)
+                .eq('auth_id', data.user.id)
                 .single();
 
-            if (userError || !userData) {
-                errorEl.textContent = 'User not found in system.';
+            if (result1.data) {
+                userData = result1.data;
+            } else {
+                // Fallback: try by email
+                const result2 = await db
+                    .from('users')
+                    .select('role, full_name')
+                    .eq('email', email)
+                    .single();
+                userData = result2.data;
+                userError = result2.error;
+            }
+
+            if (!userData) {
+                errorEl.textContent = 'User not found in system. Please contact admin.';
+                console.error('User lookup failed. Auth ID:', data.user.id, 'Email:', email);
                 await db.auth.signOut();
                 return;
             }
