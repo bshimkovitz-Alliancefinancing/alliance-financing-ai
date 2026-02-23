@@ -1294,10 +1294,14 @@
                     <td>${deal.company_name || 'N/A'}</td>
                     <td>${formatCurrency(deal.deal_amount || 0)} ${deal.currency || 'USD'}</td>
                     <td>${deal.product_type || 'N/A'}</td>
-                    <td>${getStatusBadge(deal.status)}</td>
+                    <td>
+                        <select class="status-dropdown" onchange="updateDealStatus(${deal.id}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                            ${getDealStatusOptions(deal.status)}
+                        </select>
+                    </td>
                     <td>${formatDate(deal.date_submitted)}</td>
                     <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewDeal(${deal.id})">View</button>
+                        <button class="btn btn-secondary btn-sm" onclick="viewDeal('${deal.id}')">View</button>
                     </td>
                 </tr>
             `).join('');
@@ -1498,7 +1502,7 @@
             const { data: deal, error } = await db
                 .from('deals')
                 .select('*')
-                .eq('id', dealId)
+                .eq('id', parseInt(dealId))
                 .single();
 
             if (error) throw error;
@@ -1528,7 +1532,11 @@
                     </div>
                     <div class="modal-field">
                         <label>Status</label>
-                        <div class="modal-field-value">${deal.status || 'N/A'}</div>
+                        <div class="modal-field-value">
+                            <select onchange="updateDealStatus(${deal.id}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                                ${getDealStatusOptions(deal.status)}
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-row">
@@ -1563,6 +1571,29 @@
         } catch (error) {
             console.error('View deal error:', error);
             alert('Error loading deal details');
+        }
+    }
+
+    function getDealStatusOptions(currentStatus) {
+        const statuses = ['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding', 'Funded', 'Declined', 'Dead approval'];
+        return statuses.map(s => `<option value="${s}" ${s === currentStatus ? 'selected' : ''}>${s}</option>`).join('');
+    }
+
+    async function updateDealStatus(dealId, newStatus) {
+        try {
+            const { error } = await db
+                .from('deals')
+                .update({ status: newStatus })
+                .eq('id', dealId);
+
+            if (error) throw error;
+
+            // Refresh the deals table and dashboard stats
+            await loadDeals();
+            await loadDashboard();
+        } catch (error) {
+            console.error('Update status error:', error);
+            alert('Error updating status: ' + error.message);
         }
     }
 
