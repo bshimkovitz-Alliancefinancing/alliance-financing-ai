@@ -1002,7 +1002,7 @@
 
 <!-- Deal Detail Modal -->
 <div id="dealModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 900px;">
         <div class="modal-header">
             <h2>Deal Details</h2>
             <button class="modal-close" onclick="closeDealModal()">✕</button>
@@ -1584,6 +1584,8 @@
     let allVendors = [];
     let allDeals = [];
     let cachedLenders = [];
+    let cachedVendors = [];
+    let cachedAgents = [];
     let lenderContactCount = 1;
     let vendorContactCount = 1;
 
@@ -2299,71 +2301,324 @@
 
     async function viewDeal(dealId) {
         try {
+            // Fetch deal with joined data
             const { data: deal, error } = await db
                 .from('deals')
-                .select('*')
+                .select('*, applications(application_id), lenders(name)')
                 .eq('id', dealId)
                 .single();
 
             if (error) throw error;
             if (!deal) { alert('Deal not found'); return; }
 
+            // Fetch client contacts for this deal
+            const { data: clientContacts } = await db
+                .from('client_contacts')
+                .select('*')
+                .eq('deal_id', dealId);
+
+            // Fetch syndication entries for this deal
+            const { data: syndications } = await db
+                .from('deal_syndication')
+                .select('*, lenders(name)')
+                .eq('deal_id', dealId);
+
+            // Load cached lookups
+            if (cachedLenders.length === 0) {
+                const { data: lenderList } = await db.from('lenders').select('id, name').order('name');
+                cachedLenders = lenderList || [];
+            }
+            if (cachedVendors.length === 0) {
+                const { data: vendorList } = await db.from('vendors').select('id, name').order('name');
+                cachedVendors = vendorList || [];
+            }
+            if (cachedAgents.length === 0) {
+                const { data: agentList } = await db.from('users').select('id, full_name').eq('role', 'agent').order('full_name');
+                cachedAgents = agentList || [];
+            }
+
+            // Build product type options
+            const productTypes = ['Equipment Lease/Finance', 'Working Capital Loan', 'Business Line of Credit', 'SBA Loans', 'Invoice Factoring', 'Merchant Cash Advance', 'Commercial Mortgage', 'Startup Financing', 'Franchise Financing', 'Other'];
+            const productTypeOptions = productTypes.map(pt => `<option value="${pt}" ${deal.product_type === pt ? 'selected' : ''}>${pt}</option>`).join('');
+
+            // Build source options
+            const sourceOptions = ['Online', 'Agent Referral', 'Direct', 'Vendor', 'Repeat Client'].map(s => `<option value="${s}" ${deal.source === s ? 'selected' : ''}>${s}</option>`).join('');
+
+            // Build currency options
+            const currencyOptions = ['CAD', 'USD', 'GBP', 'EUR'].map(c => `<option value="${c}" ${deal.currency === c ? 'selected' : ''}>${c}</option>`).join('');
+
+            // Parse notes
+            let notes = [];
+            try {
+                notes = deal.notes ? JSON.parse(deal.notes) : [];
+            } catch (e) {
+                notes = deal.notes ? [{ text: deal.notes, author: 'System', date: 'Previously' }] : [];
+            }
+
+            // Build syndication entries HTML
+            const syndicationRows = (syndications || []).map(s => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">
+                    <div>
+                        <div style="font-weight: 600;">${s.lenders?.name || 'Unknown Lender'}</div>
+                        <div style="font-size: 12px; color: #666;">Amount: ${s.amount_contributed ? formatCurrency(s.amount_contributed) : 'N/A'} | Participation: ${s.participation_pct || 'N/A'}% | Status: ${s.status || 'Pending'}</div>
+                    </div>
+                    <button onclick="removeSyndication('${s.id}', '${dealId}')" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Remove</button>
+                </div>
+            `).join('');
+
+            // Build client contacts HTML
+            const contactRows = (clientContacts || []).map(c => `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 10px; background: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600;">${c.contact_name || 'Unknown'}</div>
+                        <div style="font-size: 12px; color: #666; line-height: 1.4;">
+                            ${c.title ? `<div>Title: ${c.title}</div>` : ''}
+                            ${c.email ? `<div>Email: ${c.email}</div>` : ''}
+                            ${c.phone ? `<div>Phone: ${c.phone}</div>` : ''}
+                            ${c.cell ? `<div>Cell: ${c.cell}</div>` : ''}
+                            ${c.address ? `<div>Address: ${c.address}</div>` : ''}
+                        </div>
+                    </div>
+                    <button onclick="deleteDealClientContact('${c.id}', '${dealId}', '${c.contact_name}')" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px;">Delete</button>
+                </div>
+            `).join('');
+
+            // Build notes HTML
+            const notesRows = notes.map((n, idx) => `
+                <div style="padding: 10px; background: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">
+                    <div style="font-weight: 600; color: var(--navy); margin-bottom: 4px;">${n.author || 'Unknown'} - ${n.date || 'Unknown'}</div>
+                    <div style="font-size: 13px; color: #333; line-height: 1.4;">${n.text}</div>
+                </div>
+            `).join('');
+
             const modalBody = document.getElementById('dealModalBody');
             modalBody.innerHTML = `
+                <!-- Row 1: AF # and Company Name -->
                 <div class="modal-row">
-                    <div class="modal-field full">
-                        <label>Deal Number</label>
-                        <div class="modal-field-value">${deal.deal_number || 'N/A'}</div>
+                    <div class="modal-field">
+                        <label>AF #</label>
+                        <div class="modal-field-value" style="padding: 6px 10px;">${deal.applications?.application_id || deal.deal_number || 'Auto-generated'}</div>
                     </div>
-                </div>
-                <div class="modal-row">
                     <div class="modal-field">
                         <label>Company Name</label>
-                        <div class="modal-field-value">${deal.company_name || 'N/A'}</div>
-                    </div>
-                    <div class="modal-field">
-                        <label>Product Type</label>
-                        <div class="modal-field-value">${deal.product_type || 'N/A'}</div>
+                        <input type="text" value="${deal.company_name || ''}" onblur="updateDealField('${dealId}', 'company_name', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                 </div>
+
+                <!-- Row 2: Deal Amount and Currency -->
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Deal Amount</label>
-                        <div class="modal-field-value">${formatCurrency(deal.deal_amount || 0)} ${deal.currency || 'USD'}</div>
+                        <input type="number" value="${deal.deal_amount || ''}" onblur="updateDealField('${dealId}', 'deal_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Currency</label>
+                        <select onchange="updateDealField('${dealId}', 'currency', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            ${currencyOptions}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Row 3: Product Type and Status -->
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Product Type</label>
+                        <select onchange="updateDealField('${dealId}', 'product_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            <option value="">Select Product Type</option>
+                            ${productTypeOptions}
+                        </select>
                     </div>
                     <div class="modal-field">
                         <label>Status</label>
-                        <div class="modal-field-value">
-                            <select onchange="updateDealStatus(${deal.id}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
-                                ${getDealStatusOptions(deal.status)}
+                        <select onchange="updateDealField('${dealId}', 'status', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            ${getDealStatusOptions(deal.status)}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Row 4: Source and Assigned Lender -->
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Source</label>
+                        <select id="dealDetailSource" onchange="updateDealSource('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            ${sourceOptions}
+                        </select>
+                        <div id="dealSourceVendor" style="display: ${deal.source === 'Vendor' ? 'block' : 'none'}; margin-top: 8px;">
+                            <label style="font-size: 13px;">Select Vendor:</label>
+                            <select onchange="updateDealField('${dealId}', 'source_vendor_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                                <option value="">Select Vendor</option>
+                                ${cachedVendors.map(v => `<option value="${v.id}" ${deal.source_vendor_id === v.id ? 'selected' : ''}>${v.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div id="dealSourceAgent" style="display: ${deal.source === 'Agent Referral' ? 'block' : 'none'}; margin-top: 8px;">
+                            <label style="font-size: 13px;">Select Agent:</label>
+                            <select onchange="updateDealField('${dealId}', 'source_agent_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                                <option value="">Select Agent</option>
+                                ${cachedAgents.map(a => `<option value="${a.id}" ${deal.source_agent_id === a.id ? 'selected' : ''}>${a.full_name}</option>`).join('')}
                             </select>
                         </div>
                     </div>
+                    <div class="modal-field">
+                        <label>Assigned Lender</label>
+                        <select onchange="updateDealField('${dealId}', 'assigned_lender_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            <option value="">None</option>
+                            ${cachedLenders.map(l => `<option value="${l.id}" ${deal.assigned_lender_id === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+                        </select>
+                    </div>
                 </div>
+
+                <!-- Row 5: Syndicated and Expected Close Month -->
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label style="display: flex; align-items: center;">
+                            <input type="checkbox" ${deal.is_syndicated ? 'checked' : ''} onchange="updateDealField('${dealId}', 'is_syndicated', this.checked)" style="margin-right: 8px; cursor: pointer;">
+                            Syndicated
+                        </label>
+                    </div>
+                    <div class="modal-field">
+                        <label>Expected Close Month</label>
+                        <input type="text" value="${deal.expected_close_month || ''}" onblur="updateDealField('${dealId}', 'expected_close_month', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                    </div>
+                </div>
+
+                <!-- Row 6: Fee Section -->
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Gross Fee %</label>
-                        <div class="modal-field-value">${deal.gross_fee_pct || 'N/A'}%</div>
+                        <input type="number" step="0.01" value="${deal.gross_fee_pct || ''}" onblur="updateDealField('${dealId}', 'gross_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                     <div class="modal-field">
-                        <label>Alliance Net Fee</label>
-                        <div class="modal-field-value">${formatCurrency(deal.alliance_net_fee || 0)}</div>
+                        <label>Agent Fee %</label>
+                        <input type="number" step="0.01" value="${deal.agent_fee_pct || ''}" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                 </div>
+
+                <!-- Row 7: Net Fee and Agent Fee Amount -->
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Alliance Net Fee</label>
+                        <input type="number" step="0.01" value="${deal.alliance_net_fee || ''}" onblur="updateDealField('${dealId}', 'alliance_net_fee', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Agent Fee Amount</label>
+                        <input type="number" step="0.01" value="${deal.agent_fee_amount || ''}" onblur="updateDealField('${dealId}', 'agent_fee_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                    </div>
+                </div>
+
+                <!-- Row 8: Submission and Close Dates -->
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Date Submitted</label>
-                        <div class="modal-field-value">${formatDate(deal.date_submitted)}</div>
+                        <input type="date" value="${deal.date_submitted ? deal.date_submitted.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'date_submitted', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                     <div class="modal-field">
-                        <label>Expected Close</label>
-                        <div class="modal-field-value">${deal.expected_close_month || 'N/A'}</div>
+                        <label>Close Date</label>
+                        <input type="date" value="${deal.close_date ? deal.close_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'close_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                 </div>
-                <div class="modal-row full">
+
+                <!-- Row 9: Start and End Dates -->
+                <div class="modal-row">
                     <div class="modal-field">
-                        <label>Notes</label>
-                        <div class="modal-field-value">${deal.notes || 'No notes'}</div>
+                        <label>Start Date</label>
+                        <input type="date" value="${deal.start_date ? deal.start_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'start_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                    </div>
+                    <div class="modal-field">
+                        <label>End Date</label>
+                        <input type="date" value="${deal.end_date ? deal.end_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'end_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                    </div>
+                </div>
+
+                <!-- Syndication Section -->
+                <div id="syndicationSection" style="display: ${deal.is_syndicated ? 'block' : 'none'}; margin-top: 20px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px; display: block;">Syndication Partners</label>
+
+                    ${syndicationRows || '<div style="color: #999; padding: 10px;">No syndication entries yet.</div>'}
+
+                    <div style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px; border: 1px solid var(--border-gray);">
+                        <div style="font-weight: 600; margin-bottom: 12px; color: var(--navy);">Add Syndication Entry</div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Lender</label>
+                                <select id="newSyndLender" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                                    <option value="">Select Lender</option>
+                                    ${cachedLenders.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="modal-field">
+                                <label>Amount Contributed</label>
+                                <input type="number" id="newSyndAmount" placeholder="0" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Participation %</label>
+                                <input type="number" id="newSyndPct" step="0.01" placeholder="0" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                            <div class="modal-field">
+                                <label>&nbsp;</label>
+                                <button onclick="addSyndication('${dealId}')" style="padding: 8px 16px; background: var(--gold); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; width: 100%;">Add Syndication</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Client Contacts Section -->
+                <div style="margin-top: 20px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px; display: block;">Client Contacts</label>
+
+                    ${contactRows || '<div style="color: #999; padding: 10px;">No client contacts yet.</div>'}
+
+                    <div style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px; border: 1px solid var(--border-gray);">
+                        <div style="font-weight: 600; margin-bottom: 12px; color: var(--navy);">Add Client Contact</div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Name</label>
+                                <input type="text" id="newClientName" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                            <div class="modal-field">
+                                <label>Title</label>
+                                <input type="text" id="newClientTitle" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Email</label>
+                                <input type="email" id="newClientEmail" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                            <div class="modal-field">
+                                <label>Phone</label>
+                                <input type="text" id="newClientPhone" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Cell</label>
+                                <input type="text" id="newClientCell" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                            <div class="modal-field">
+                                <label>Address</label>
+                                <input type="text" id="newClientAddress" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field full">
+                                <button onclick="addDealClientContact('${dealId}')" style="padding: 8px 16px; background: var(--gold); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; width: 100%;">Add Contact</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes Section -->
+                <div style="margin-top: 20px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px; display: block;">Notes</label>
+
+                    ${notesRows || '<div style="color: #999; padding: 10px;">No notes yet.</div>'}
+
+                    <div style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px; border: 1px solid var(--border-gray);">
+                        <div style="font-weight: 600; margin-bottom: 12px; color: var(--navy);">Add Note</div>
+                        <textarea id="newDealNoteText" placeholder="Enter note text..." style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; min-height: 80px; font-family: Arial, sans-serif; margin-bottom: 10px;"></textarea>
+                        <button onclick="addDealNote('${dealId}')" style="padding: 8px 16px; background: var(--gold); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Add Note</button>
                     </div>
                 </div>
             `;
@@ -2371,7 +2626,7 @@
             document.getElementById('dealModal').classList.add('active');
         } catch (error) {
             console.error('View deal error:', error);
-            alert('Error loading deal details');
+            alert('Error loading deal details: ' + error.message);
         }
     }
 
@@ -2400,6 +2655,94 @@
 
     function closeDealModal() {
         document.getElementById('dealModal').classList.remove('active');
+    }
+
+    async function updateDealSource(dealId, source) {
+        await updateDealField(dealId, 'source', source);
+        document.getElementById('dealSourceVendor').style.display = source === 'Vendor' ? 'block' : 'none';
+        document.getElementById('dealSourceAgent').style.display = source === 'Agent Referral' ? 'block' : 'none';
+    }
+
+    async function addSyndication(dealId) {
+        const lenderId = document.getElementById('newSyndLender').value;
+        const amount = document.getElementById('newSyndAmount').value;
+        const pct = document.getElementById('newSyndPct').value;
+        if (!lenderId) { alert('Please select a lender'); return; }
+        try {
+            const { error } = await db.from('deal_syndication').insert({
+                deal_id: dealId,
+                lender_id: lenderId,
+                amount_contributed: amount ? parseFloat(amount) : null,
+                participation_pct: pct ? parseFloat(pct) : null,
+                status: 'Pending'
+            });
+            if (error) throw error;
+            await viewDeal(dealId);
+        } catch (error) {
+            alert('Error adding syndication: ' + error.message);
+        }
+    }
+
+    async function removeSyndication(syndId, dealId) {
+        if (!confirm('Remove this syndication entry?')) return;
+        try {
+            const { error } = await db.from('deal_syndication').delete().eq('id', syndId);
+            if (error) throw error;
+            await viewDeal(dealId);
+        } catch (error) {
+            alert('Error removing syndication: ' + error.message);
+        }
+    }
+
+    async function addDealClientContact(dealId) {
+        const name = document.getElementById('newClientName').value.trim();
+        if (!name) { alert('Please enter a contact name'); return; }
+        try {
+            const { error } = await db.from('client_contacts').insert({
+                deal_id: dealId,
+                contact_name: name,
+                title: document.getElementById('newClientTitle').value.trim() || null,
+                email: document.getElementById('newClientEmail').value.trim() || null,
+                phone: document.getElementById('newClientPhone').value.trim() || null,
+                cell: document.getElementById('newClientCell').value.trim() || null,
+                address: document.getElementById('newClientAddress').value.trim() || null,
+                is_primary: false
+            });
+            if (error) throw error;
+            await viewDeal(dealId);
+        } catch (error) {
+            alert('Error adding client contact: ' + error.message);
+        }
+    }
+
+    async function deleteDealClientContact(contactId, dealId, name) {
+        if (!confirm(`Delete contact "${name}"?`)) return;
+        try {
+            const { error } = await db.from('client_contacts').delete().eq('id', contactId);
+            if (error) throw error;
+            await viewDeal(dealId);
+        } catch (error) {
+            alert('Error deleting contact: ' + error.message);
+        }
+    }
+
+    async function addDealNote(dealId) {
+        const noteText = document.getElementById('newDealNoteText').value.trim();
+        if (!noteText) return;
+        try {
+            const { data: deal } = await db.from('deals').select('notes').eq('id', dealId).single();
+            let notes = [];
+            try { notes = deal.notes ? JSON.parse(deal.notes) : []; } catch(e) { notes = deal.notes ? [{ text: deal.notes, author: 'System', date: 'Previously' }] : []; }
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay').textContent;
+            notes.push({ text: noteText, author: userEmail, date: dateStr });
+            const { error } = await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+            if (error) throw error;
+            await viewDeal(dealId);
+        } catch (error) {
+            alert('Error adding note: ' + error.message);
+        }
     }
 
     async function openAddDealModal() {
