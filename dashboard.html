@@ -857,8 +857,25 @@
             <!-- Lenders Page -->
             <div id="lenders" class="page-section">
                 <div class="table-container">
-                    <div class="table-header">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Lenders</div>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <input type="text" id="lenderSearch" placeholder="Search by name, type, country, currency..."
+                                   oninput="filterLenders()"
+                                   style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 300px;">
+                            <select id="lenderCountryFilter" onchange="filterLenders()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <option value="">All Countries</option>
+                                <option value="Canada">Canada</option>
+                                <option value="United States">United States</option>
+                                <option value="UK">UK</option>
+                                <option value="Germany">Germany</option>
+                            </select>
+                            <select id="lenderStatusFilter" onchange="filterLenders()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <option value="">All Status</option>
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
                         <button class="btn btn-gold btn-sm" onclick="openAddLenderModal()">+ New Lender</button>
                     </div>
                     <table id="lendersTable">
@@ -885,8 +902,25 @@
             <!-- Vendors Page -->
             <div id="vendors" class="page-section">
                 <div class="table-container">
-                    <div class="table-header">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Vendors</div>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <input type="text" id="vendorSearch" placeholder="Search by name, type, country, product..."
+                                   oninput="filterVendors()"
+                                   style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 300px;">
+                            <select id="vendorCountryFilter" onchange="filterVendors()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <option value="">All Countries</option>
+                                <option value="Canada">Canada</option>
+                                <option value="United States">United States</option>
+                                <option value="UK">UK</option>
+                                <option value="Germany">Germany</option>
+                            </select>
+                            <select id="vendorStatusFilter" onchange="filterVendors()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <option value="">All Status</option>
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
                         <button class="btn btn-gold btn-sm" onclick="openAddVendorModal()">+ New Vendor</button>
                     </div>
                     <table id="vendorsTable">
@@ -1147,8 +1181,21 @@
                         </select>
                     </div>
                     <div class="modal-field">
-                        <label>Country</label>
-                        <input type="text" id="lenderCountry" placeholder="e.g., Canada, United States">
+                        <label>Countries</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="lenderCountries" value="Canada"> Canada
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="lenderCountries" value="United States"> United States
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="lenderCountries" value="UK"> UK
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="lenderCountries" value="Germany"> Germany
+                            </label>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-row">
@@ -1177,22 +1224,30 @@
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Contact Name</label>
-                        <input type="text" id="lenderContactName">
+                        <input type="text" id="lenderContactName" class="lenderContact">
                     </div>
                     <div class="modal-field">
                         <label>Contact Email</label>
-                        <input type="email" id="lenderContactEmail">
+                        <input type="email" id="lenderContactEmail" class="lenderContact">
                     </div>
                 </div>
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Contact Phone</label>
-                        <input type="tel" id="lenderContactPhone">
+                        <input type="tel" id="lenderContactPhone" class="lenderContact">
                     </div>
                     <div class="modal-field">
                         <label>Contact Role/Title</label>
-                        <input type="text" id="lenderContactRole">
+                        <input type="text" id="lenderContactRole" class="lenderContact">
                     </div>
+                </div>
+
+                <!-- Extra Contacts Container -->
+                <div id="lenderExtraContacts"></div>
+
+                <!-- Add Another Contact Button -->
+                <div style="margin-top: 15px; text-align: center;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="addLenderContactField()" style="padding: 6px 12px;">+ Add Another Contact</button>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeAddLenderModal()">Cancel</button>
@@ -1224,8 +1279,21 @@
                         <input type="url" id="vendorWebsite" placeholder="https://example.com">
                     </div>
                     <div class="modal-field">
-                        <label>Country</label>
-                        <input type="text" id="vendorCountry" placeholder="e.g., Canada, United States">
+                        <label>Countries</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="vendorCountries" value="Canada"> Canada
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="vendorCountries" value="United States"> United States
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="vendorCountries" value="UK"> UK
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="vendorCountries" value="Germany"> Germany
+                            </label>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-row">
@@ -1247,22 +1315,30 @@
                     <div class="modal-row">
                         <div class="modal-field">
                             <label>Contact Name</label>
-                            <input type="text" id="vendorContactName">
+                            <input type="text" id="vendorContactName" class="vendorContact">
                         </div>
                         <div class="modal-field">
                             <label>Contact Email</label>
-                            <input type="email" id="vendorContactEmail">
+                            <input type="email" id="vendorContactEmail" class="vendorContact">
                         </div>
                     </div>
                     <div class="modal-row">
                         <div class="modal-field">
                             <label>Contact Phone</label>
-                            <input type="text" id="vendorContactPhone">
+                            <input type="text" id="vendorContactPhone" class="vendorContact">
                         </div>
                         <div class="modal-field">
                             <label>Contact Role/Title</label>
-                            <input type="text" id="vendorContactRole">
+                            <input type="text" id="vendorContactRole" class="vendorContact">
                         </div>
+                    </div>
+
+                    <!-- Extra Contacts Container -->
+                    <div id="vendorExtraContacts"></div>
+
+                    <!-- Add Another Contact Button -->
+                    <div style="margin-top: 15px; text-align: center;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="addVendorContactField()" style="padding: 6px 12px;">+ Add Another Contact</button>
                     </div>
                 </div>
                 <div class="modal-footer" style="margin-top: 20px;">
@@ -1432,6 +1508,10 @@
     // State
     let currentUser = null;
     let currentPage = 'dashboard';
+    let allLenders = [];
+    let allVendors = [];
+    let lenderContactCount = 1;
+    let vendorContactCount = 1;
 
     // ============================================
     // Authentication
@@ -1764,32 +1844,37 @@
 
             if (error) throw error;
 
-            const tbody = document.getElementById('lendersBody');
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No lenders found.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(lender => `
-                <tr>
-                    <td><strong>${lender.lender_id || 'N/A'}</strong></td>
-                    <td>${lender.name || 'N/A'}</td>
-                    <td>${lender.lender_type || 'N/A'}</td>
-                    <td>${lender.country || 'N/A'}</td>
-                    <td>${lender.currency || 'N/A'}</td>
-                    <td>
-                        <select onchange="updateLenderStatus('${lender.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
-                            ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(lender.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
-                        </select>
-                    </td>
-                    <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewLender('${lender.id}')">View</button>
-                    </td>
-                </tr>
-            `).join('');
+            allLenders = data || [];
+            renderLendersTable(allLenders);
         } catch (error) {
             console.error('Load lenders error:', error);
         }
+    }
+
+    function renderLendersTable(data) {
+        const tbody = document.getElementById('lendersBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No lenders found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(lender => `
+            <tr>
+                <td><strong>${lender.lender_id || 'N/A'}</strong></td>
+                <td>${lender.name || 'N/A'}</td>
+                <td>${lender.lender_type || 'N/A'}</td>
+                <td>${lender.country || 'N/A'}</td>
+                <td>${lender.currency || 'N/A'}</td>
+                <td>
+                    <select onchange="updateLenderStatus('${lender.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                        ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(lender.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
+                </td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="viewLender('${lender.id}')">View</button>
+                </td>
+            </tr>
+        `).join('');
     }
 
     async function loadVendors() {
@@ -1801,38 +1886,96 @@
 
             if (error) throw error;
 
-            const tbody = document.getElementById('vendorsBody');
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No vendors found.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(vendor => {
-                let websiteUrl = vendor.website || '#';
-                if (websiteUrl !== '#' && !websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
-                    websiteUrl = 'https://' + websiteUrl;
-                }
-
-                return `
-                <tr>
-                    <td><strong>${vendor.name || 'N/A'}</strong></td>
-                    <td><a href="${websiteUrl}" target="_blank">${vendor.website ? 'Visit' : 'N/A'}</a></td>
-                    <td>${vendor.product_description || 'N/A'}</td>
-                    <td>${vendor.country || 'N/A'}</td>
-                    <td>
-                        <select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
-                            ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
-                        </select>
-                    </td>
-                    <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewVendor('${vendor.id}')">View</button>
-                    </td>
-                </tr>
-            `;
-            }).join('');
+            allVendors = data || [];
+            renderVendorsTable(allVendors);
         } catch (error) {
             console.error('Load vendors error:', error);
         }
+    }
+
+    function renderVendorsTable(data) {
+        const tbody = document.getElementById('vendorsBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No vendors found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(vendor => {
+            let websiteUrl = vendor.website || '#';
+            if (websiteUrl !== '#' && !websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
+                websiteUrl = 'https://' + websiteUrl;
+            }
+
+            return `
+            <tr>
+                <td><strong>${vendor.name || 'N/A'}</strong></td>
+                <td><a href="${websiteUrl}" target="_blank">${vendor.website ? 'Visit' : 'N/A'}</a></td>
+                <td>${vendor.product_description || 'N/A'}</td>
+                <td>${vendor.country || 'N/A'}</td>
+                <td>
+                    <select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                        ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
+                </td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="viewVendor('${vendor.id}')">View</button>
+                </td>
+            </tr>
+        `;
+        }).join('');
+    }
+
+    function filterLenders() {
+        const search = document.getElementById('lenderSearch').value.toLowerCase();
+        const countryFilter = document.getElementById('lenderCountryFilter').value;
+        const statusFilter = document.getElementById('lenderStatusFilter').value;
+
+        let filtered = allLenders.filter(lender => {
+            const matchesSearch = !search ||
+                (lender.name || '').toLowerCase().includes(search) ||
+                (lender.lender_type || '').toLowerCase().includes(search) ||
+                (lender.country || '').toLowerCase().includes(search) ||
+                (lender.currency || '').toLowerCase().includes(search) ||
+                (lender.lender_id || '').toLowerCase().includes(search);
+            const matchesCountry = !countryFilter || (lender.country || '').includes(countryFilter);
+            const matchesStatus = !statusFilter || lender.status === statusFilter;
+            return matchesSearch && matchesCountry && matchesStatus;
+        });
+
+        renderLendersTable(filtered);
+    }
+
+    function filterVendors() {
+        const search = document.getElementById('vendorSearch').value.toLowerCase();
+        const countryFilter = document.getElementById('vendorCountryFilter').value;
+        const statusFilter = document.getElementById('vendorStatusFilter').value;
+
+        let filtered = allVendors.filter(vendor => {
+            const matchesSearch = !search ||
+                (vendor.name || '').toLowerCase().includes(search) ||
+                (vendor.product_description || '').toLowerCase().includes(search) ||
+                (vendor.country || '').toLowerCase().includes(search);
+            const matchesCountry = !countryFilter || (vendor.country || '').includes(countryFilter);
+            const matchesStatus = !statusFilter || vendor.status === statusFilter;
+            return matchesSearch && matchesCountry && matchesStatus;
+        });
+
+        renderVendorsTable(filtered);
+    }
+
+    function generateCountryCheckboxes(currentCountry, fieldName, onChangeCallback) {
+        const countries = ['Canada', 'United States', 'UK', 'Germany'];
+        const currentCountries = currentCountry ? currentCountry.split(',').map(c => c.trim()) : [];
+
+        return `
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                ${countries.map(country => `
+                    <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                        <input type="checkbox" name="${fieldName}" value="${country}" ${currentCountries.includes(country) ? 'checked' : ''} onchange="${onChangeCallback}"> ${country}
+                    </label>
+                `).join('')}
+            </div>
+        `;
     }
 
     async function loadContacts() {
@@ -2393,6 +2536,8 @@
 
     function openAddLenderModal() {
         document.getElementById('addLenderForm').reset();
+        document.getElementById('lenderExtraContacts').innerHTML = '';
+        lenderContactCount = 1;
         document.getElementById('addLenderModal').classList.add('active');
     }
 
@@ -2400,17 +2545,105 @@
         document.getElementById('addLenderModal').classList.remove('active');
     }
 
+    function addLenderContactField() {
+        lenderContactCount++;
+        const container = document.getElementById('lenderExtraContacts');
+        const contactDiv = document.createElement('div');
+        contactDiv.id = `lenderContact_${lenderContactCount}`;
+        contactDiv.style.cssText = 'border-top: 1px solid var(--border-gray); margin-top: 15px; padding-top: 15px;';
+        contactDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label style="font-size: 14px; font-weight: 500; color: var(--navy);">Contact ${lenderContactCount}</label>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeLenderContactField(${lenderContactCount})" style="padding: 4px 8px; font-size: 12px;">Remove</button>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Contact Name</label>
+                    <input type="text" class="lenderContact" data-contact-id="${lenderContactCount}" data-field="name">
+                </div>
+                <div class="modal-field">
+                    <label>Contact Email</label>
+                    <input type="email" class="lenderContact" data-contact-id="${lenderContactCount}" data-field="email">
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Contact Phone</label>
+                    <input type="tel" class="lenderContact" data-contact-id="${lenderContactCount}" data-field="phone">
+                </div>
+                <div class="modal-field">
+                    <label>Contact Role/Title</label>
+                    <input type="text" class="lenderContact" data-contact-id="${lenderContactCount}" data-field="role">
+                </div>
+            </div>
+        `;
+        container.appendChild(contactDiv);
+    }
+
+    function removeLenderContactField(contactId) {
+        const contactDiv = document.getElementById(`lenderContact_${contactId}`);
+        if (contactDiv) {
+            contactDiv.remove();
+        }
+    }
+
+    function addVendorContactField() {
+        vendorContactCount++;
+        const container = document.getElementById('vendorExtraContacts');
+        const contactDiv = document.createElement('div');
+        contactDiv.id = `vendorContact_${vendorContactCount}`;
+        contactDiv.style.cssText = 'border-top: 1px solid var(--border-gray); margin-top: 15px; padding-top: 15px;';
+        contactDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label style="font-size: 14px; font-weight: 500; color: var(--navy);">Contact ${vendorContactCount}</label>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeVendorContactField(${vendorContactCount})" style="padding: 4px 8px; font-size: 12px;">Remove</button>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Contact Name</label>
+                    <input type="text" class="vendorContact" data-contact-id="${vendorContactCount}" data-field="name">
+                </div>
+                <div class="modal-field">
+                    <label>Contact Email</label>
+                    <input type="email" class="vendorContact" data-contact-id="${vendorContactCount}" data-field="email">
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Contact Phone</label>
+                    <input type="text" class="vendorContact" data-contact-id="${vendorContactCount}" data-field="phone">
+                </div>
+                <div class="modal-field">
+                    <label>Contact Role/Title</label>
+                    <input type="text" class="vendorContact" data-contact-id="${vendorContactCount}" data-field="role">
+                </div>
+            </div>
+        `;
+        container.appendChild(contactDiv);
+    }
+
+    function removeVendorContactField(contactId) {
+        const contactDiv = document.getElementById(`vendorContact_${contactId}`);
+        if (contactDiv) {
+            contactDiv.remove();
+        }
+    }
+
     async function handleAddLender(event) {
         event.preventDefault();
 
         try {
+            // Collect countries from checkboxes
+            const countryCheckboxes = document.querySelectorAll('input[name="lenderCountries"]:checked');
+            const countries = Array.from(countryCheckboxes).map(cb => cb.value).join(', ');
+
             const { data, error } = await db
                 .from('lenders')
                 .insert([{
                     name: document.getElementById('lenderName').value,
                     lender_id: document.getElementById('lenderId').value || null,
                     lender_type: document.getElementById('lenderType').value || null,
-                    country: document.getElementById('lenderCountry').value || null,
+                    country: countries || null,
                     currency: document.getElementById('lenderCurrency').value || null,
                     status: document.getElementById('lenderStatus').value || null,
                     created_at: new Date().toISOString()
@@ -2419,20 +2652,47 @@
 
             if (error) throw error;
 
-            // Add primary contact if provided
-            const contactName = document.getElementById('lenderContactName').value.trim();
-            if (contactName && data && data.length > 0) {
+            // Collect all contacts (primary + extra)
+            const allContacts = [];
+
+            // Primary contact
+            const primaryName = document.getElementById('lenderContactName').value.trim();
+            if (primaryName) {
+                allContacts.push({
+                    lender_id: data[0].id,
+                    contact_name: primaryName,
+                    email: document.getElementById('lenderContactEmail').value.trim() || null,
+                    phone: document.getElementById('lenderContactPhone').value.trim() || null,
+                    role_title: document.getElementById('lenderContactRole').value.trim() || null,
+                    is_primary: true
+                });
+            }
+
+            // Extra contacts
+            for (let i = 2; i <= lenderContactCount; i++) {
+                const nameInput = document.querySelector(`input[data-contact-id="${i}"][data-field="name"]`);
+                if (nameInput && nameInput.value.trim()) {
+                    const emailInput = document.querySelector(`input[data-contact-id="${i}"][data-field="email"]`);
+                    const phoneInput = document.querySelector(`input[data-contact-id="${i}"][data-field="phone"]`);
+                    const roleInput = document.querySelector(`input[data-contact-id="${i}"][data-field="role"]`);
+
+                    allContacts.push({
+                        lender_id: data[0].id,
+                        contact_name: nameInput.value.trim(),
+                        email: emailInput ? emailInput.value.trim() || null : null,
+                        phone: phoneInput ? phoneInput.value.trim() || null : null,
+                        role_title: roleInput ? roleInput.value.trim() || null : null,
+                        is_primary: false
+                    });
+                }
+            }
+
+            // Insert all contacts
+            if (allContacts.length > 0) {
                 const { error: contactError } = await db
                     .from('lender_contacts')
-                    .insert([{
-                        lender_id: data[0].id,
-                        contact_name: contactName,
-                        email: document.getElementById('lenderContactEmail').value.trim() || null,
-                        phone: document.getElementById('lenderContactPhone').value.trim() || null,
-                        role_title: document.getElementById('lenderContactRole').value.trim() || null,
-                        is_primary: true
-                    }]);
-                if (contactError) console.warn('Contact not saved:', contactError);
+                    .insert(allContacts);
+                if (contactError) console.warn('Some contacts could not be saved:', contactError);
             }
 
             closeAddLenderModal();
@@ -2450,6 +2710,8 @@
 
     function openAddVendorModal() {
         document.getElementById('addVendorForm').reset();
+        document.getElementById('vendorExtraContacts').innerHTML = '';
+        vendorContactCount = 1;
         document.getElementById('addVendorModal').classList.add('active');
     }
 
@@ -2461,6 +2723,10 @@
         event.preventDefault();
 
         try {
+            // Collect countries from checkboxes
+            const countryCheckboxes = document.querySelectorAll('input[name="vendorCountries"]:checked');
+            const countries = Array.from(countryCheckboxes).map(cb => cb.value).join(', ');
+
             // First, insert vendor
             const { data: vendorData, error: vendorError } = await db
                 .from('vendors')
@@ -2468,7 +2734,7 @@
                     name: document.getElementById('vendorName').value,
                     website: document.getElementById('vendorWebsite').value || null,
                     product_description: document.getElementById('vendorProduct').value || null,
-                    country: document.getElementById('vendorCountry').value || null,
+                    country: countries || null,
                     status: document.getElementById('vendorStatus').value || null,
                     created_at: new Date().toISOString()
                 }])
@@ -2476,23 +2742,48 @@
 
             if (vendorError) throw vendorError;
 
-            // If contact info provided, insert vendor contact
-            const contactName = document.getElementById('vendorContactName').value;
-            if (contactName && vendorData && vendorData.length > 0) {
-                const vendorId = vendorData[0].id;
+            // Collect all contacts (primary + extra)
+            const allContacts = [];
+
+            // Primary contact
+            const primaryName = document.getElementById('vendorContactName').value.trim();
+            if (primaryName && vendorData && vendorData.length > 0) {
+                allContacts.push({
+                    vendor_id: vendorData[0].id,
+                    contact_name: primaryName,
+                    contact_email: document.getElementById('vendorContactEmail').value.trim() || null,
+                    contact_phone: document.getElementById('vendorContactPhone').value.trim() || null,
+                    contact_role: document.getElementById('vendorContactRole').value.trim() || null,
+                    created_at: new Date().toISOString()
+                });
+            }
+
+            // Extra contacts
+            for (let i = 2; i <= vendorContactCount; i++) {
+                const nameInput = document.querySelector(`input[data-contact-id="${i}"][data-field="name"]`);
+                if (nameInput && nameInput.value.trim()) {
+                    const emailInput = document.querySelector(`input[data-contact-id="${i}"][data-field="email"]`);
+                    const phoneInput = document.querySelector(`input[data-contact-id="${i}"][data-field="phone"]`);
+                    const roleInput = document.querySelector(`input[data-contact-id="${i}"][data-field="role"]`);
+
+                    allContacts.push({
+                        vendor_id: vendorData[0].id,
+                        contact_name: nameInput.value.trim(),
+                        contact_email: emailInput ? emailInput.value.trim() || null : null,
+                        contact_phone: phoneInput ? phoneInput.value.trim() || null : null,
+                        contact_role: roleInput ? roleInput.value.trim() || null : null,
+                        created_at: new Date().toISOString()
+                    });
+                }
+            }
+
+            // Insert all contacts
+            if (allContacts.length > 0) {
                 const { error: contactError } = await db
                     .from('vendor_contacts')
-                    .insert([{
-                        vendor_id: vendorId,
-                        contact_name: contactName,
-                        contact_email: document.getElementById('vendorContactEmail').value || null,
-                        contact_phone: document.getElementById('vendorContactPhone').value || null,
-                        contact_role: document.getElementById('vendorContactRole').value || null,
-                        created_at: new Date().toISOString()
-                    }]);
-
+                    .insert(allContacts);
                 if (contactError) {
-                    console.warn('Warning: Vendor created but contact could not be added:', contactError);
+                    console.warn('Warning: Vendor created but some contacts could not be added:', contactError);
                 }
             }
 
@@ -2588,9 +2879,19 @@
                         </div>
                     </div>
                     <div class="modal-field">
-                        <label>Country</label>
+                        <label>Countries</label>
                         <div class="modal-field-value">
-                            <input type="text" id="vendorDetailCountry" value="${vendor.country || ''}" onchange="updateVendorField(${vendorId}, 'country', this.value)" style="padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; font-size: 14px;">
+                            ${(() => {
+                                const countries = ['Canada', 'United States', 'UK', 'Germany'];
+                                const currentCountries = (vendor.country || '').split(',').map(c => c.trim()).filter(c => c);
+                                return `<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                                    ${countries.map(country => `
+                                        <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                            <input type="checkbox" name="vendorDetailCountries" value="${country}" ${currentCountries.includes(country) ? 'checked' : ''} onchange="updateVendorCountries(${vendorId})"> ${country}
+                                        </label>
+                                    `).join('')}
+                                </div>`;
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -2668,6 +2969,24 @@
         } catch (error) {
             console.error('Update vendor field error:', error);
             alert('Error updating field: ' + error.message);
+        }
+    }
+
+    async function updateVendorCountries(vendorId) {
+        try {
+            const countryCheckboxes = document.querySelectorAll('input[name="vendorDetailCountries"]:checked');
+            const countries = Array.from(countryCheckboxes).map(cb => cb.value).join(', ');
+
+            const { error } = await db
+                .from('vendors')
+                .update({ country: countries || null })
+                .eq('id', vendorId);
+
+            if (error) throw error;
+            await loadVendors();
+        } catch (error) {
+            console.error('Update vendor countries error:', error);
+            alert('Error updating countries: ' + error.message);
         }
     }
 
@@ -2829,9 +3148,19 @@
                         <div class="modal-field-value">${lender.lender_type || 'N/A'}</div>
                     </div>
                     <div class="modal-field">
-                        <label>Country</label>
+                        <label>Countries</label>
                         <div class="modal-field-value">
-                            <input type="text" id="lenderDetailCountry" value="${lender.country || ''}" onchange="updateLenderField(${lenderId}, 'country', this.value)" style="padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; font-size: 14px;">
+                            ${(() => {
+                                const countries = ['Canada', 'United States', 'UK', 'Germany'];
+                                const currentCountries = (lender.country || '').split(',').map(c => c.trim()).filter(c => c);
+                                return `<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                                    ${countries.map(country => `
+                                        <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                            <input type="checkbox" name="lenderDetailCountries" value="${country}" ${currentCountries.includes(country) ? 'checked' : ''} onchange="updateLenderCountries(${lenderId})"> ${country}
+                                        </label>
+                                    `).join('')}
+                                </div>`;
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -2926,6 +3255,24 @@
         } catch (error) {
             console.error('Update lender field error:', error);
             alert('Error updating field: ' + error.message);
+        }
+    }
+
+    async function updateLenderCountries(lenderId) {
+        try {
+            const countryCheckboxes = document.querySelectorAll('input[name="lenderDetailCountries"]:checked');
+            const countries = Array.from(countryCheckboxes).map(cb => cb.value).join(', ');
+
+            const { error } = await db
+                .from('lenders')
+                .update({ country: countries || null })
+                .eq('id', lenderId);
+
+            if (error) throw error;
+            await loadLenders();
+        } catch (error) {
+            console.error('Update lender countries error:', error);
+            alert('Error updating countries: ' + error.message);
         }
     }
 
