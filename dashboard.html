@@ -715,6 +715,7 @@
         <div class="header">
             <div class="header-title" id="pageTitle">Dashboard</div>
             <div class="header-actions">
+                <button class="btn btn-secondary btn-sm" onclick="openCSVImportModal()" style="margin-right: 10px;">Import CSV</button>
                 <span id="currentUser" style="color: var(--text-light); font-size: 14px;"></span>
             </div>
         </div>
@@ -803,6 +804,7 @@
                 <div class="table-container">
                     <div class="table-header">
                         <div class="table-title">Applications</div>
+                        <button class="btn btn-gold btn-sm" onclick="openAddApplicationModal()">+ New Application</button>
                     </div>
                     <table id="applicationsTable">
                         <thead>
@@ -830,6 +832,7 @@
                 <div class="table-container">
                     <div class="table-header">
                         <div class="table-title">Agents & Partners</div>
+                        <button class="btn btn-gold btn-sm" onclick="openAddAgentModal()">+ New Agent</button>
                     </div>
                     <table id="agentsTable">
                         <thead>
@@ -856,6 +859,7 @@
                 <div class="table-container">
                     <div class="table-header">
                         <div class="table-title">Lenders</div>
+                        <button class="btn btn-gold btn-sm" onclick="openAddLenderModal()">+ New Lender</button>
                     </div>
                     <table id="lendersTable">
                         <thead>
@@ -882,6 +886,7 @@
                 <div class="table-container">
                     <div class="table-header">
                         <div class="table-title">Vendors</div>
+                        <button class="btn btn-gold btn-sm" onclick="openAddVendorModal()">+ New Vendor</button>
                     </div>
                     <table id="vendorsTable">
                         <thead>
@@ -1039,7 +1044,344 @@
     </div>
 </div>
 
+<!-- Add Agent Modal -->
+<div id="addAgentModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>New Agent</h2>
+            <button class="modal-close" onclick="closeAddAgentModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="addAgentForm" onsubmit="handleAddAgent(event)">
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Full Name <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="agentName" required>
+                    </div>
+                    <div class="modal-field">
+                        <label>Email <span style="color: var(--danger);">*</span></label>
+                        <input type="email" id="agentEmail" required>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Phone</label>
+                        <input type="text" id="agentPhone">
+                    </div>
+                    <div class="modal-field">
+                        <label>Role</label>
+                        <select id="agentRole">
+                            <option value="agent">Agent</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Business Type</label>
+                        <select id="agentBusinessType">
+                            <option value="">Select Business Type</option>
+                            <option value="Mortgage Agent">Mortgage Agent</option>
+                            <option value="Mortgage Broker">Mortgage Broker</option>
+                            <option value="Insurance">Insurance</option>
+                            <option value="Consulting">Consulting</option>
+                            <option value="Accounting">Accounting</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>Status</label>
+                        <select id="agentStatus">
+                            <option value="">Select Status</option>
+                            <option value="AIA">AIA</option>
+                            <option value="MOU">MOU</option>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                            <option value="Pending">Pending</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row full">
+                    <div class="modal-field">
+                        <label>Referral Slug</label>
+                        <input type="text" id="agentSlug" readonly style="background-color: var(--light-gray); cursor: not-allowed;">
+                        <small style="color: var(--text-light); font-size: 12px; margin-top: 5px;">Auto-generated from name</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddAgentModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Agent</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Lender Modal -->
+<div id="addLenderModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>New Lender</h2>
+            <button class="modal-close" onclick="closeAddLenderModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="addLenderForm" onsubmit="handleAddLender(event)">
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Name <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="lenderName" required>
+                    </div>
+                    <div class="modal-field">
+                        <label>Lender ID</label>
+                        <input type="text" id="lenderId" placeholder="e.g., L-001">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Type</label>
+                        <select id="lenderType">
+                            <option value="">Select Type</option>
+                            <option value="Lender">Lender</option>
+                            <option value="Broker">Broker</option>
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>Country</label>
+                        <select id="lenderCountry">
+                            <option value="">Select Country</option>
+                            <option value="Canada">Canada</option>
+                            <option value="United States">United States</option>
+                            <option value="UK">UK</option>
+                            <option value="Germany">Germany</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Currency</label>
+                        <select id="lenderCurrency">
+                            <option value="">Select Currency</option>
+                            <option value="CAD">CAD</option>
+                            <option value="USD">USD</option>
+                            <option value="GBP">GBP</option>
+                            <option value="EUR">EUR</option>
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>Status</label>
+                        <select id="lenderStatus">
+                            <option value="">Select Status</option>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddLenderModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Lender</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Vendor Modal -->
+<div id="addVendorModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>New Vendor</h2>
+            <button class="modal-close" onclick="closeAddVendorModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="addVendorForm" onsubmit="handleAddVendor(event)">
+                <div class="modal-row">
+                    <div class="modal-field full">
+                        <label>Name <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="vendorName" required>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Website</label>
+                        <input type="url" id="vendorWebsite" placeholder="https://example.com">
+                    </div>
+                    <div class="modal-field">
+                        <label>Country</label>
+                        <select id="vendorCountry">
+                            <option value="">Select Country</option>
+                            <option value="Canada">Canada</option>
+                            <option value="United States">United States</option>
+                            <option value="UK">UK</option>
+                            <option value="Germany">Germany</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Product Description</label>
+                        <input type="text" id="vendorProduct">
+                    </div>
+                    <div class="modal-field">
+                        <label>Status</label>
+                        <select id="vendorStatus">
+                            <option value="">Select Status</option>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-gray);">
+                    <h3 style="font-size: 14px; font-weight: 600; color: var(--navy); margin-bottom: 15px;">Primary Contact (Optional)</h3>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Contact Name</label>
+                            <input type="text" id="vendorContactName">
+                        </div>
+                        <div class="modal-field">
+                            <label>Contact Email</label>
+                            <input type="email" id="vendorContactEmail">
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Contact Phone</label>
+                            <input type="text" id="vendorContactPhone">
+                        </div>
+                        <div class="modal-field">
+                            <label>Contact Role/Title</label>
+                            <input type="text" id="vendorContactRole">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddVendorModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Vendor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Application Modal -->
+<div id="addApplicationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>New Application</h2>
+            <button class="modal-close" onclick="closeAddApplicationModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="addApplicationForm" onsubmit="handleAddApplication(event)">
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Full Name <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="appFullName" required>
+                    </div>
+                    <div class="modal-field">
+                        <label>Email <span style="color: var(--danger);">*</span></label>
+                        <input type="email" id="appEmail" required>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Phone</label>
+                        <input type="text" id="appPhone">
+                    </div>
+                    <div class="modal-field">
+                        <label>Business Name</label>
+                        <input type="text" id="appBusinessName">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Time in Business</label>
+                        <select id="appTimeInBusiness">
+                            <option value="">Select</option>
+                            <option value="Less than 1 Year">Less than 1 Year</option>
+                            <option value="1 - 2 years">1 - 2 years</option>
+                            <option value="2 - 5 years">2 - 5 years</option>
+                            <option value="5 - 10 years">5 - 10 years</option>
+                            <option value="Over 10 years">Over 10 years</option>
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>Annual Revenue</label>
+                        <select id="appAnnualRevenue">
+                            <option value="">Select</option>
+                            <option value="Under $500k">Under $500k</option>
+                            <option value="$500k - $1m">$500k - $1m</option>
+                            <option value="$1m - $5M">$1m - $5M</option>
+                            <option value="$5M - $10M">$5M - $10M</option>
+                            <option value="$10M - $25M">$10M - $25M</option>
+                            <option value="Over $25m">Over $25m</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Funding Amount</label>
+                        <input type="text" id="appFundingAmount">
+                    </div>
+                </div>
+                <div class="modal-row full">
+                    <div class="modal-field">
+                        <label>Description</label>
+                        <textarea id="appDescription" style="min-height: 100px; resize: vertical;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddApplicationModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Application</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- CSV Import Modal -->
+<div id="csvImportModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Import CSV Data</h2>
+            <button class="modal-close" onclick="closeCSVImportModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="csvImportForm" onsubmit="handleCSVImport(event)">
+                <div class="modal-row full">
+                    <div class="modal-field">
+                        <label>Select Target Table <span style="color: var(--danger);">*</span></label>
+                        <select id="csvTargetTable" required>
+                            <option value="">Choose table...</option>
+                            <option value="users">Agents</option>
+                            <option value="lenders">Lenders</option>
+                            <option value="vendors">Vendors</option>
+                            <option value="applications">Applications</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row full">
+                    <div class="modal-field">
+                        <label>CSV File <span style="color: var(--danger);">*</span></label>
+                        <input type="file" id="csvFile" accept=".csv" required>
+                        <small style="color: var(--text-light); font-size: 12px; margin-top: 5px;">Upload a CSV file. First row should contain column headers.</small>
+                    </div>
+                </div>
+                <div id="csvPreview" style="display: none; margin-top: 20px;">
+                    <h3 style="font-size: 14px; font-weight: 600; color: var(--navy); margin-bottom: 10px;">Preview (First 5 rows)</h3>
+                    <div style="overflow-x: auto; max-height: 300px; border: 1px solid var(--border-gray); border-radius: 4px;">
+                        <table id="csvPreviewTable" style="font-size: 12px; width: 100%;">
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCSVImportModal()">Cancel</button>
+                    <button type="submit" id="csvSubmitBtn" class="btn btn-primary" style="display: none;">Import Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 <script>
     // ============================================
     // BERNIE: Paste your Supabase anon key below
@@ -1930,6 +2272,430 @@
     }
 
     // ============================================
+    // Agent Management
+    // ============================================
+
+    function openAddAgentModal() {
+        document.getElementById('addAgentForm').reset();
+        document.getElementById('agentSlug').value = '';
+        document.getElementById('addAgentModal').classList.add('active');
+    }
+
+    function closeAddAgentModal() {
+        document.getElementById('addAgentModal').classList.remove('active');
+    }
+
+    // Auto-generate referral slug from name
+    document.addEventListener('input', function(e) {
+        if (e.target.id === 'agentName') {
+            const name = e.target.value.trim();
+            const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            document.getElementById('agentSlug').value = slug;
+        }
+    });
+
+    async function handleAddAgent(event) {
+        event.preventDefault();
+
+        try {
+            const referralSlug = document.getElementById('agentSlug').value;
+            if (!referralSlug) {
+                alert('Please enter an agent name to generate the referral slug');
+                return;
+            }
+
+            const { data, error } = await db
+                .from('users')
+                .insert([{
+                    full_name: document.getElementById('agentName').value,
+                    email: document.getElementById('agentEmail').value,
+                    phone: document.getElementById('agentPhone').value || null,
+                    role: 'agent',
+                    business_type: document.getElementById('agentBusinessType').value || null,
+                    referral_slug: referralSlug,
+                    status: document.getElementById('agentStatus').value || null,
+                    created_at: new Date().toISOString()
+                }])
+                .select();
+
+            if (error) throw error;
+
+            closeAddAgentModal();
+            await loadAgents();
+            alert('Agent created successfully!');
+        } catch (error) {
+            console.error('Add agent error:', error);
+            alert('Error creating agent: ' + error.message);
+        }
+    }
+
+    // ============================================
+    // Lender Management
+    // ============================================
+
+    function openAddLenderModal() {
+        document.getElementById('addLenderForm').reset();
+        document.getElementById('addLenderModal').classList.add('active');
+    }
+
+    function closeAddLenderModal() {
+        document.getElementById('addLenderModal').classList.remove('active');
+    }
+
+    async function handleAddLender(event) {
+        event.preventDefault();
+
+        try {
+            const { data, error } = await db
+                .from('lenders')
+                .insert([{
+                    name: document.getElementById('lenderName').value,
+                    lender_id: document.getElementById('lenderId').value || null,
+                    lender_type: document.getElementById('lenderType').value || null,
+                    country: document.getElementById('lenderCountry').value || null,
+                    currency: document.getElementById('lenderCurrency').value || null,
+                    status: document.getElementById('lenderStatus').value || null,
+                    created_at: new Date().toISOString()
+                }])
+                .select();
+
+            if (error) throw error;
+
+            closeAddLenderModal();
+            await loadLenders();
+            alert('Lender created successfully!');
+        } catch (error) {
+            console.error('Add lender error:', error);
+            alert('Error creating lender: ' + error.message);
+        }
+    }
+
+    // ============================================
+    // Vendor Management
+    // ============================================
+
+    function openAddVendorModal() {
+        document.getElementById('addVendorForm').reset();
+        document.getElementById('addVendorModal').classList.add('active');
+    }
+
+    function closeAddVendorModal() {
+        document.getElementById('addVendorModal').classList.remove('active');
+    }
+
+    async function handleAddVendor(event) {
+        event.preventDefault();
+
+        try {
+            // First, insert vendor
+            const { data: vendorData, error: vendorError } = await db
+                .from('vendors')
+                .insert([{
+                    name: document.getElementById('vendorName').value,
+                    website: document.getElementById('vendorWebsite').value || null,
+                    product_description: document.getElementById('vendorProduct').value || null,
+                    country: document.getElementById('vendorCountry').value || null,
+                    status: document.getElementById('vendorStatus').value || null,
+                    created_at: new Date().toISOString()
+                }])
+                .select();
+
+            if (vendorError) throw vendorError;
+
+            // If contact info provided, insert vendor contact
+            const contactName = document.getElementById('vendorContactName').value;
+            if (contactName && vendorData && vendorData.length > 0) {
+                const vendorId = vendorData[0].id;
+                const { error: contactError } = await db
+                    .from('vendor_contacts')
+                    .insert([{
+                        vendor_id: vendorId,
+                        contact_name: contactName,
+                        contact_email: document.getElementById('vendorContactEmail').value || null,
+                        contact_phone: document.getElementById('vendorContactPhone').value || null,
+                        contact_role: document.getElementById('vendorContactRole').value || null,
+                        created_at: new Date().toISOString()
+                    }]);
+
+                if (contactError) {
+                    console.warn('Warning: Vendor created but contact could not be added:', contactError);
+                }
+            }
+
+            closeAddVendorModal();
+            await loadVendors();
+            alert('Vendor created successfully!');
+        } catch (error) {
+            console.error('Add vendor error:', error);
+            alert('Error creating vendor: ' + error.message);
+        }
+    }
+
+    // ============================================
+    // Application Management - Add New
+    // ============================================
+
+    function openAddApplicationModal() {
+        document.getElementById('addApplicationForm').reset();
+        document.getElementById('addApplicationModal').classList.add('active');
+    }
+
+    function closeAddApplicationModal() {
+        document.getElementById('addApplicationModal').classList.remove('active');
+    }
+
+    async function handleAddApplication(event) {
+        event.preventDefault();
+
+        try {
+            const fundingAmount = document.getElementById('appFundingAmount').value;
+            let fundingAmountRequested = null;
+            let fundingAmountText = null;
+
+            // Try to parse as number, otherwise store as text
+            if (fundingAmount) {
+                const parsed = parseFloat(fundingAmount.replace(/[^0-9.]/g, ''));
+                if (!isNaN(parsed)) {
+                    fundingAmountRequested = parsed;
+                } else {
+                    fundingAmountText = fundingAmount;
+                }
+            }
+
+            const { data, error } = await db
+                .from('applications')
+                .insert([{
+                    full_name: document.getElementById('appFullName').value,
+                    email: document.getElementById('appEmail').value,
+                    phone: document.getElementById('appPhone').value || null,
+                    business_name: document.getElementById('appBusinessName').value || null,
+                    time_in_business: document.getElementById('appTimeInBusiness').value || null,
+                    annual_revenue: document.getElementById('appAnnualRevenue').value || null,
+                    funding_amount_requested: fundingAmountRequested,
+                    funding_amount_text: fundingAmountText,
+                    description: document.getElementById('appDescription').value || null,
+                    status: 'Submitted',
+                    submitted_at: new Date().toISOString()
+                }])
+                .select();
+
+            if (error) throw error;
+
+            closeAddApplicationModal();
+            await loadApplications();
+            await loadDashboard();
+            alert('Application created successfully!');
+        } catch (error) {
+            console.error('Add application error:', error);
+            alert('Error creating application: ' + error.message);
+        }
+    }
+
+    // ============================================
+    // CSV Import
+    // ============================================
+
+    function openCSVImportModal() {
+        document.getElementById('csvImportForm').reset();
+        document.getElementById('csvPreview').style.display = 'none';
+        document.getElementById('csvSubmitBtn').style.display = 'none';
+        document.getElementById('csvImportModal').classList.add('active');
+    }
+
+    function closeCSVImportModal() {
+        document.getElementById('csvImportModal').classList.remove('active');
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target.id === 'csvFile') {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    displayCSVPreview(results.data);
+                },
+                error: function(error) {
+                    alert('Error parsing CSV: ' + error.message);
+                }
+            });
+        }
+    });
+
+    function displayCSVPreview(data) {
+        if (!data || data.length === 0) {
+            alert('CSV file is empty');
+            return;
+        }
+
+        const previewRows = data.slice(0, 5);
+        const columns = Object.keys(data[0]);
+
+        let tableHtml = '<thead><tr style="background-color: var(--light-gray); font-weight: 600; position: sticky; top: 0;">';
+        columns.forEach(col => {
+            tableHtml += `<th style="padding: 8px; border-bottom: 1px solid var(--border-gray); text-align: left;">${col}</th>`;
+        });
+        tableHtml += '</tr></thead><tbody>';
+
+        previewRows.forEach(row => {
+            tableHtml += '<tr>';
+            columns.forEach(col => {
+                const value = row[col] || '';
+                tableHtml += `<td style="padding: 8px; border-bottom: 1px solid var(--border-gray); max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${value}</td>`;
+            });
+            tableHtml += '</tr>';
+        });
+        tableHtml += '</tbody>';
+
+        document.getElementById('csvPreviewTable').innerHTML = tableHtml;
+        document.getElementById('csvPreview').style.display = 'block';
+        document.getElementById('csvSubmitBtn').style.display = 'inline-block';
+        window.csvData = data; // Store for submission
+    }
+
+    async function handleCSVImport(event) {
+        event.preventDefault();
+
+        if (!window.csvData || window.csvData.length === 0) {
+            alert('Please select and preview a CSV file first');
+            return;
+        }
+
+        const targetTable = document.getElementById('csvTargetTable').value;
+        if (!targetTable) {
+            alert('Please select a target table');
+            return;
+        }
+
+        try {
+            document.getElementById('csvSubmitBtn').disabled = true;
+            document.getElementById('csvSubmitBtn').textContent = 'Importing...';
+
+            const rows = window.csvData;
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Process each row
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const preparedData = prepareRowForTable(targetTable, row);
+
+                if (!preparedData) {
+                    errorCount++;
+                    continue;
+                }
+
+                try {
+                    const { error } = await db
+                        .from(targetTable)
+                        .insert([preparedData]);
+
+                    if (error) {
+                        console.warn(`Row ${i + 1} error:`, error);
+                        errorCount++;
+                    } else {
+                        successCount++;
+                    }
+                } catch (err) {
+                    console.warn(`Row ${i + 1} error:`, err);
+                    errorCount++;
+                }
+            }
+
+            document.getElementById('csvSubmitBtn').disabled = false;
+            document.getElementById('csvSubmitBtn').textContent = 'Import Data';
+
+            alert(`Import complete!\nSuccessful: ${successCount}\nFailed: ${errorCount}`);
+
+            // Reload the appropriate table
+            closeCSVImportModal();
+            if (targetTable === 'users') await loadAgents();
+            else if (targetTable === 'lenders') await loadLenders();
+            else if (targetTable === 'vendors') await loadVendors();
+            else if (targetTable === 'applications') {
+                await loadApplications();
+                await loadDashboard();
+            }
+        } catch (error) {
+            console.error('CSV import error:', error);
+            alert('Error importing data: ' + error.message);
+            document.getElementById('csvSubmitBtn').disabled = false;
+            document.getElementById('csvSubmitBtn').textContent = 'Import Data';
+        }
+    }
+
+    function prepareRowForTable(tableName, row) {
+        const timestamp = new Date().toISOString();
+
+        if (tableName === 'users') {
+            // Agents
+            if (!row.full_name || !row.email) return null;
+            const slug = row.referral_slug || row.full_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            return {
+                full_name: row.full_name,
+                email: row.email,
+                phone: row.phone || null,
+                role: 'agent',
+                business_type: row.business_type || null,
+                referral_slug: slug,
+                status: row.status || 'Pending',
+                created_at: timestamp
+            };
+        } else if (tableName === 'lenders') {
+            if (!row.name) return null;
+            return {
+                name: row.name,
+                lender_id: row.lender_id || null,
+                lender_type: row.type || row.lender_type || null,
+                country: row.country || null,
+                currency: row.currency || null,
+                status: row.status || 'Active',
+                created_at: timestamp
+            };
+        } else if (tableName === 'vendors') {
+            if (!row.name) return null;
+            return {
+                name: row.name,
+                website: row.website || null,
+                product_description: row.product_description || row.product || null,
+                country: row.country || null,
+                status: row.status || 'Active',
+                created_at: timestamp
+            };
+        } else if (tableName === 'applications') {
+            if (!row.full_name || !row.email) return null;
+            let fundingAmountRequested = null;
+            let fundingAmountText = null;
+            if (row.funding_amount_requested || row.funding_amount) {
+                const amt = row.funding_amount_requested || row.funding_amount;
+                const parsed = parseFloat(amt.replace(/[^0-9.]/g, ''));
+                if (!isNaN(parsed)) {
+                    fundingAmountRequested = parsed;
+                } else {
+                    fundingAmountText = amt;
+                }
+            }
+            return {
+                full_name: row.full_name,
+                email: row.email,
+                phone: row.phone || null,
+                business_name: row.business_name || null,
+                time_in_business: row.time_in_business || null,
+                annual_revenue: row.annual_revenue || null,
+                funding_amount_requested: fundingAmountRequested,
+                funding_amount_text: fundingAmountText,
+                description: row.description || null,
+                status: row.status || 'Submitted',
+                submitted_at: timestamp
+            };
+        }
+
+        return null;
+    }
+
+    // ============================================
     // Utility Functions
     // ============================================
 
@@ -1973,7 +2739,7 @@
     // ============================================
 
     window.onclick = function(event) {
-        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal'];
+        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal'];
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (event.target === modal) {
