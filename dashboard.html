@@ -678,10 +678,6 @@
                 <span class="nav-icon">📈</span>
                 <span>Deal Pipeline</span>
             </div>
-            <div class="nav-item" onclick="showPage('applications')">
-                <span class="nav-icon">📝</span>
-                <span>Applications</span>
-            </div>
             <div class="nav-item" onclick="showPage('agents')">
                 <span class="nav-icon">👥</span>
                 <span>Agents & Partners</span>
@@ -726,9 +722,9 @@
             <div id="dashboard" class="page-section active">
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-label">Total Deals</div>
-                        <div class="stat-value" id="totalDeals">0</div>
-                        <div class="stat-detail">All time</div>
+                        <div class="stat-label">Deals Received This Month</div>
+                        <div class="stat-value" id="dealsThisMonth">0</div>
+                        <div class="stat-detail" id="dealsMonthLabel">Current month</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Active Pipeline Value</div>
@@ -736,35 +732,37 @@
                         <div class="stat-detail">In progress + pending</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Funded This Month</div>
-                        <div class="stat-value" id="fundedThisMonth">$0</div>
-                        <div class="stat-detail">Current month</div>
+                        <div class="stat-label">Number of Lenders</div>
+                        <div class="stat-value" id="totalLenders">0</div>
+                        <div class="stat-detail">Total lending partners</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Active Agents</div>
-                        <div class="stat-value" id="activeAgents">0</div>
-                        <div class="stat-detail">Total users</div>
+                        <div class="stat-label">Vendor Programs</div>
+                        <div class="stat-value" id="totalVendors">0</div>
+                        <div class="stat-detail" id="vendorSalesPeople">0 sales contacts</div>
                     </div>
                 </div>
 
                 <div class="table-container">
                     <div class="table-header">
-                        <div class="table-title">Recent Applications</div>
+                        <div class="table-title">Recent Applications (Intake)</div>
                     </div>
                     <table id="recentApplicationsTable">
                         <thead>
                             <tr>
-                                <th>Application ID</th>
+                                <th>AF #</th>
                                 <th>Name</th>
                                 <th>Business</th>
                                 <th>Amount</th>
+                                <th>Source</th>
                                 <th>Status</th>
                                 <th>Submitted</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="recentAppBody">
                             <tr>
-                                <td colspan="6" class="empty-state">Loading...</td>
+                                <td colspan="8" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -774,59 +772,71 @@
             <!-- Deal Pipeline Page -->
             <div id="deals" class="page-section">
                 <div class="table-container">
-                    <div class="table-header">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Deal Pipeline</div>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <input type="text" id="dealSearch" placeholder="Search AF#, company, product, lender..."
+                                oninput="filterDeals()"
+                                style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 280px;">
+                            <select id="dealStatusFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <option value="">All Status</option>
+                                <option value="Prospect">Prospect</option>
+                                <option value="Quote sent">Quote sent</option>
+                                <option value="Info received">Info received</option>
+                                <option value="In Credit">In Credit</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Approval sent">Approval sent</option>
+                                <option value="Docs requested">Docs requested</option>
+                                <option value="Docs out for signing">Docs out for signing</option>
+                                <option value="In funding">In funding</option>
+                                <option value="Funded">Funded</option>
+                                <option value="Declined">Declined</option>
+                                <option value="Dead approval">Dead approval</option>
+                            </select>
+                            <select id="dealSourceFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <option value="">All Sources</option>
+                                <option value="Online">Online</option>
+                                <option value="Agent Referral">Agent Referral</option>
+                                <option value="Direct">Direct</option>
+                                <option value="Vendor">Vendor</option>
+                                <option value="Repeat Client">Repeat Client</option>
+                            </select>
+                            <select id="dealProductFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <option value="">All Products</option>
+                                <option value="Equipment Lease/Finance">Equipment Lease/Finance</option>
+                                <option value="Working Capital Loan">Working Capital Loan</option>
+                                <option value="Business Line of Credit">Business Line of Credit</option>
+                                <option value="SBA Loans">SBA Loans</option>
+                                <option value="Invoice Factoring">Invoice Factoring</option>
+                                <option value="Merchant Cash Advance">Merchant Cash Advance</option>
+                                <option value="Commercial Mortgage">Commercial Mortgage</option>
+                                <option value="Startup Financing">Startup Financing</option>
+                                <option value="Franchise Financing">Franchise Financing</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary btn-sm" onclick="exportDeals()" style="margin-left: 8px;">Export CSV</button>
+                            <button class="btn btn-secondary btn-sm" onclick="exportDeals()">Export CSV</button>
                             <button class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ New Deal</button>
                         </div>
                     </div>
                     <table id="dealsTable">
                         <thead>
                             <tr>
-                                <th>Deal #</th>
+                                <th>AF #</th>
                                 <th>Company</th>
                                 <th>Amount</th>
                                 <th>Product</th>
+                                <th>Source</th>
+                                <th>Lender</th>
                                 <th>Status</th>
-                                <th>Date Submitted</th>
+                                <th>Date</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="dealsBody">
                             <tr>
-                                <td colspan="7" class="empty-state">Loading...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Applications Page -->
-            <div id="applications" class="page-section">
-                <div class="table-container">
-                    <div class="table-header">
-                        <div class="table-title">Applications</div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary btn-sm" onclick="exportApplications()" style="margin-left: 8px;">Export CSV</button>
-                            <button class="btn btn-gold btn-sm" onclick="openAddApplicationModal()">+ New Application</button>
-                        </div>
-                    </div>
-                    <table id="applicationsTable">
-                        <thead>
-                            <tr>
-                                <th>App ID</th>
-                                <th>Name</th>
-                                <th>Business</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th>Submitted</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="applicationsBody">
-                            <tr>
-                                <td colspan="7" class="empty-state">Loading...</td>
+                                <td colspan="9" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1016,34 +1026,56 @@
             <form id="addDealForm" onsubmit="handleAddDeal(event)">
                 <div class="modal-row">
                     <div class="modal-field">
-                        <label>Deal Number</label>
-                        <input type="text" id="dealNumber" required>
-                    </div>
-                    <div class="modal-field">
                         <label>Company Name</label>
                         <input type="text" id="companyName" required>
                     </div>
-                </div>
-                <div class="modal-row">
                     <div class="modal-field">
                         <label>Deal Amount</label>
                         <input type="number" id="dealAmount" step="0.01" required>
                     </div>
+                </div>
+                <div class="modal-row">
                     <div class="modal-field">
                         <label>Currency</label>
-                        <input type="text" id="dealCurrency" value="USD">
+                        <select id="dealCurrency">
+                            <option value="CAD">CAD</option>
+                            <option value="USD" selected>USD</option>
+                            <option value="GBP">GBP</option>
+                            <option value="EUR">EUR</option>
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>Product Type</label>
+                        <select id="productType" required>
+                            <option value="">Select Product</option>
+                            <option value="Equipment Lease/Finance">Equipment Lease/Finance</option>
+                            <option value="Working Capital Loan">Working Capital Loan</option>
+                            <option value="Business Line of Credit">Business Line of Credit</option>
+                            <option value="SBA Loans">SBA Loans</option>
+                            <option value="Invoice Factoring">Invoice Factoring</option>
+                            <option value="Merchant Cash Advance">Merchant Cash Advance</option>
+                            <option value="Commercial Mortgage">Commercial Mortgage</option>
+                            <option value="Startup Financing">Startup Financing</option>
+                            <option value="Franchise Financing">Franchise Financing</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
                 </div>
                 <div class="modal-row">
                     <div class="modal-field">
-                        <label>Product Type</label>
-                        <input type="text" id="productType" required>
+                        <label>Source</label>
+                        <select id="dealSource">
+                            <option value="Direct">Direct</option>
+                            <option value="Online">Online</option>
+                            <option value="Agent Referral">Agent Referral</option>
+                            <option value="Vendor">Vendor</option>
+                            <option value="Repeat Client">Repeat Client</option>
+                        </select>
                     </div>
                     <div class="modal-field">
                         <label>Status</label>
                         <select id="dealStatus" required>
-                            <option value="">Select Status</option>
-                            <option value="Prospect">Prospect</option>
+                            <option value="Prospect" selected>Prospect</option>
                             <option value="Quote sent">Quote sent</option>
                             <option value="Info received">Info received</option>
                             <option value="In Credit">In Credit</option>
@@ -1056,6 +1088,17 @@
                             <option value="Declined">Declined</option>
                             <option value="Dead approval">Dead approval</option>
                         </select>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Assign Lender</label>
+                        <select id="dealLender">
+                            <option value="">None</option>
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>&nbsp;</label>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1539,6 +1582,8 @@
     let currentPage = 'dashboard';
     let allLenders = [];
     let allVendors = [];
+    let allDeals = [];
+    let cachedLenders = [];
     let lenderContactCount = 1;
     let vendorContactCount = 1;
 
@@ -1679,13 +1724,12 @@
         const titles = {
             'dashboard': 'Dashboard',
             'deals': 'Deal Pipeline',
-            'applications': 'Applications',
             'agents': 'Agents & Partners',
             'lenders': 'Lenders',
             'vendors': 'Vendors',
             'contacts': 'Contact Submissions'
         };
-        document.getElementById('pageTitle').textContent = titles[pageName];
+        document.getElementById('pageTitle').textContent = titles[pageName] || 'Dashboard';
         currentPage = pageName;
 
         // Load page data
@@ -1698,63 +1742,104 @@
 
     async function loadDashboard() {
         try {
-            // Load stats
-            const { data: deals, error: dealsError } = await db
-                .from('deals')
-                .select('deal_amount, currency, status, close_date');
-
-            const { data: applications, error: appError } = await db
+            // Load ALL applications for monthly count, then show recent in table
+            const { data: allApps, error: appError } = await db
                 .from('applications')
                 .select('*')
-                .order('submitted_at', { ascending: false })
-                .limit(10);
+                .order('submitted_at', { ascending: false });
 
-            const { data: users, error: usersError } = await db
-                .from('users')
-                .select('*')
-                .eq('role', 'agent');
+            const applications = allApps || [];
+
+            // Load lenders
+            const { data: lenders, error: lendersError } = await db
+                .from('lenders')
+                .select('id, name');
+
+            // Load vendors
+            const { data: vendors, error: vendorsError } = await db
+                .from('vendors')
+                .select('id');
+
+            // Load vendor contacts
+            const { data: vendorContacts, error: vendorContactsError } = await db
+                .from('vendor_contacts')
+                .select('id');
+
+            // Calculate deals received this month
+            if (!appError && applications.length >= 0) {
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+                const dealsThisMonth = applications
+                    .filter(app => {
+                        if (!app.submitted_at) return false;
+                        const submittedDate = new Date(app.submitted_at);
+                        return submittedDate.getMonth() === currentMonth && submittedDate.getFullYear() === currentYear;
+                    })
+                    .length;
+                document.getElementById('dealsThisMonth').textContent = dealsThisMonth;
+
+                // Set month label
+                const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                document.getElementById('dealsMonthLabel').textContent = monthName;
+            }
+
+            // Calculate pipeline value (active deals)
+            const { data: deals, error: dealsError } = await db
+                .from('deals')
+                .select('deal_amount, currency, status');
 
             if (!dealsError && deals) {
-                document.getElementById('totalDeals').textContent = deals.length;
-
-                // Calculate pipeline value (active deals)
                 const activeDealStatuses = ['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
                 const activeDealValue = deals
                     .filter(d => activeDealStatuses.includes(d.status))
                     .reduce((sum, d) => sum + (d.deal_amount || 0), 0);
                 document.getElementById('pipelineValue').textContent = formatCurrency(activeDealValue);
-
-                // Calculate funded this month
-                const now = new Date();
-                const currentMonth = now.getMonth();
-                const currentYear = now.getFullYear();
-                const fundedThisMonth = deals
-                    .filter(d => {
-                        if (!d.close_date || d.status !== 'Funded') return false;
-                        const closeDate = new Date(d.close_date);
-                        return closeDate.getMonth() === currentMonth && closeDate.getFullYear() === currentYear;
-                    })
-                    .reduce((sum, d) => sum + (d.deal_amount || 0), 0);
-                document.getElementById('fundedThisMonth').textContent = formatCurrency(fundedThisMonth);
             }
 
-            if (!usersError && users) {
-                document.getElementById('activeAgents').textContent = users.length;
+            // Set lender count
+            if (!lendersError && lenders) {
+                document.getElementById('totalLenders').textContent = lenders.length;
             }
 
-            // Load recent applications
-            if (!appError && applications) {
+            // Set vendor count and contacts
+            if (!vendorsError && vendors) {
+                document.getElementById('totalVendors').textContent = vendors.length;
+            }
+            if (!vendorContactsError && vendorContacts) {
+                document.getElementById('vendorSalesPeople').textContent = vendorContacts.length + ' sales contacts';
+            }
+
+            // Load recent applications for intake table (show latest 15)
+            if (!appError) {
+                const recentApps = applications.slice(0, 15);
                 const tbody = document.getElementById('recentAppBody');
-                tbody.innerHTML = applications.map(app => `
-                    <tr>
-                        <td><strong>${app.application_id || 'N/A'}</strong></td>
-                        <td>${app.full_name || 'N/A'}</td>
-                        <td>${app.business_name || 'N/A'}</td>
-                        <td>${app.funding_amount_requested ? formatCurrency(app.funding_amount_requested) : (app.funding_amount_text || 'N/A')}</td>
-                        <td>${getStatusBadge(app.status)}</td>
-                        <td>${formatDate(app.submitted_at)}</td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = recentApps.map(app => {
+                    const moveButtonHtml = (app.status !== 'Moved to Pipeline')
+                        ? `<button class="btn btn-gold btn-sm" onclick="moveToPipeline('${app.id}')">Move to Pipeline</button>`
+                        : '';
+
+                    return `
+                        <tr>
+                            <td><strong>${app.application_id || 'N/A'}</strong></td>
+                            <td>${app.full_name || 'N/A'}</td>
+                            <td>${app.business_name || 'N/A'}</td>
+                            <td>${app.funding_amount_requested ? formatCurrency(app.funding_amount_requested) : (app.funding_amount_text || 'N/A')}</td>
+                            <td>${app.source_channel || 'Online'}</td>
+                            <td>
+                                <select class="status-dropdown" onchange="updateAppStatus('${app.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                                    <option value="Application Received" ${app.status === 'Application Received' ? 'selected' : ''}>Application Received</option>
+                                    <option value="Under Review" ${app.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
+                                    <option value="Info Requested" ${app.status === 'Info Requested' ? 'selected' : ''}>Info Requested</option>
+                                    <option value="Moved to Pipeline" ${app.status === 'Moved to Pipeline' ? 'selected' : ''}>Moved to Pipeline</option>
+                                    <option value="Declined" ${app.status === 'Declined' ? 'selected' : ''}>Declined</option>
+                                </select>
+                            </td>
+                            <td>${formatDate(app.submitted_at)}</td>
+                            <td>${moveButtonHtml}</td>
+                        </tr>
+                    `;
+                }).join('');
             }
         } catch (error) {
             console.error('Dashboard load error:', error);
@@ -1763,27 +1848,79 @@
 
     async function loadDeals() {
         try {
+            // Load lenders cache if needed
+            if (cachedLenders.length === 0) {
+                const { data: lenderList } = await db
+                    .from('lenders')
+                    .select('id, name')
+                    .order('name');
+                cachedLenders = lenderList || [];
+            }
+
+            // Fetch deals with joined application and lender data
             const { data, error } = await db
                 .from('deals')
-                .select('*')
+                .select('*, applications(application_id, full_name), lenders(name)')
                 .order('date_submitted', { ascending: false });
 
             if (error) throw error;
 
-            const tbody = document.getElementById('dealsBody');
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No deals found. Click "+ New Deal" to create one.</td></tr>';
-                return;
-            }
+            allDeals = data || [];
+            renderDealsTable(allDeals);
+        } catch (error) {
+            console.error('Load deals error:', error);
+        }
+    }
 
-            tbody.innerHTML = data.map(deal => `
+    function renderDealsTable(data) {
+        const tbody = document.getElementById('dealsBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No deals found. Click "+ New Deal" to create one.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(deal => {
+            const afNumber = deal.applications?.application_id || deal.deal_number || 'N/A';
+            const company = deal.company_name || 'N/A';
+            const amount = formatCurrency(deal.deal_amount || 0) + ' ' + (deal.currency || 'USD');
+            const lenderName = deal.lenders?.name || '';
+
+            return `
                 <tr>
-                    <td><strong>${deal.deal_number || 'N/A'}</strong></td>
-                    <td>${deal.company_name || 'N/A'}</td>
-                    <td>${formatCurrency(deal.deal_amount || 0)} ${deal.currency || 'USD'}</td>
-                    <td>${deal.product_type || 'N/A'}</td>
+                    <td><strong>${afNumber}</strong></td>
+                    <td>${company}</td>
+                    <td>${amount}</td>
                     <td>
-                        <select class="status-dropdown" onchange="updateDealStatus(${deal.id}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                        <select class="status-dropdown" onchange="updateDealField('${deal.id}', 'product_type', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                            <option value="Equipment Lease/Finance" ${deal.product_type === 'Equipment Lease/Finance' ? 'selected' : ''}>Equipment Lease/Finance</option>
+                            <option value="Working Capital Loan" ${deal.product_type === 'Working Capital Loan' ? 'selected' : ''}>Working Capital Loan</option>
+                            <option value="Business Line of Credit" ${deal.product_type === 'Business Line of Credit' ? 'selected' : ''}>Business Line of Credit</option>
+                            <option value="SBA Loans" ${deal.product_type === 'SBA Loans' ? 'selected' : ''}>SBA Loans</option>
+                            <option value="Invoice Factoring" ${deal.product_type === 'Invoice Factoring' ? 'selected' : ''}>Invoice Factoring</option>
+                            <option value="Merchant Cash Advance" ${deal.product_type === 'Merchant Cash Advance' ? 'selected' : ''}>Merchant Cash Advance</option>
+                            <option value="Commercial Mortgage" ${deal.product_type === 'Commercial Mortgage' ? 'selected' : ''}>Commercial Mortgage</option>
+                            <option value="Startup Financing" ${deal.product_type === 'Startup Financing' ? 'selected' : ''}>Startup Financing</option>
+                            <option value="Franchise Financing" ${deal.product_type === 'Franchise Financing' ? 'selected' : ''}>Franchise Financing</option>
+                            <option value="Other" ${deal.product_type === 'Other' ? 'selected' : ''}>Other</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select class="status-dropdown" onchange="updateDealField('${deal.id}', 'source', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                            <option value="Online" ${deal.source === 'Online' ? 'selected' : ''}>Online</option>
+                            <option value="Agent Referral" ${deal.source === 'Agent Referral' ? 'selected' : ''}>Agent Referral</option>
+                            <option value="Direct" ${deal.source === 'Direct' ? 'selected' : ''}>Direct</option>
+                            <option value="Vendor" ${deal.source === 'Vendor' ? 'selected' : ''}>Vendor</option>
+                            <option value="Repeat Client" ${deal.source === 'Repeat Client' ? 'selected' : ''}>Repeat Client</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select class="status-dropdown" onchange="updateDealField('${deal.id}', 'assigned_lender_id', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                            <option value="">Select Lender</option>
+                            ${cachedLenders.map(lender => `<option value="${lender.id}" ${deal.assigned_lender_id === lender.id ? 'selected' : ''}>${lender.name}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="status-dropdown" onchange="updateDealField('${deal.id}', 'status', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
                             ${getDealStatusOptions(deal.status)}
                         </select>
                     </td>
@@ -1792,42 +1929,127 @@
                         <button class="btn btn-secondary btn-sm" onclick="viewDeal('${deal.id}')">View</button>
                     </td>
                 </tr>
-            `).join('');
-        } catch (error) {
-            console.error('Load deals error:', error);
-        }
+            `;
+        }).join('');
     }
 
-    async function loadApplications() {
+    function filterDeals() {
+        const searchTerm = document.getElementById('dealSearch')?.value?.toLowerCase() || '';
+        const statusFilter = document.getElementById('dealStatusFilter')?.value || '';
+        const sourceFilter = document.getElementById('dealSourceFilter')?.value || '';
+        const productFilter = document.getElementById('dealProductFilter')?.value || '';
+
+        const filtered = allDeals.filter(deal => {
+            const afNumber = (deal.applications?.application_id || deal.deal_number || '').toLowerCase();
+            const company = (deal.company_name || '').toLowerCase();
+            const product = (deal.product_type || '').toLowerCase();
+            const source = (deal.source || '').toLowerCase();
+            const lenderName = (deal.lenders?.name || '').toLowerCase();
+
+            const matchesSearch = !searchTerm ||
+                afNumber.includes(searchTerm) ||
+                company.includes(searchTerm) ||
+                product.includes(searchTerm) ||
+                source.includes(searchTerm) ||
+                lenderName.includes(searchTerm);
+
+            const matchesStatus = !statusFilter || deal.status === statusFilter;
+            const matchesSource = !sourceFilter || deal.source === sourceFilter;
+            const matchesProduct = !productFilter || deal.product_type === productFilter;
+
+            return matchesSearch && matchesStatus && matchesSource && matchesProduct;
+        });
+
+        renderDealsTable(filtered);
+    }
+
+    async function moveToPipeline(applicationId) {
         try {
-            const { data, error } = await db
+            // Fetch the application
+            const { data: application, error: appError } = await db
                 .from('applications')
-                .select('*')
-                .order('submitted_at', { ascending: false });
+                .select('*, application_products(product)')
+                .eq('id', applicationId)
+                .single();
 
-            if (error) throw error;
-
-            const tbody = document.getElementById('applicationsBody');
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No applications found.</td></tr>';
+            if (appError) throw appError;
+            if (!application) {
+                alert('Application not found');
                 return;
             }
 
-            tbody.innerHTML = data.map(app => `
-                <tr>
-                    <td><strong>${app.application_id || 'N/A'}</strong></td>
-                    <td>${app.full_name || 'N/A'}</td>
-                    <td>${app.business_name || 'N/A'}</td>
-                    <td>${app.funding_amount_requested ? formatCurrency(app.funding_amount_requested) : (app.funding_amount_text || 'N/A')}</td>
-                    <td>${getStatusBadge(app.status)}</td>
-                    <td>${formatDate(app.submitted_at)}</td>
-                    <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewApplication('${app.id}')">View</button>
-                    </td>
-                </tr>
-            `).join('');
+            // Determine product type from application_products or default
+            let productType = 'Other';
+            if (application.application_products && application.application_products.length > 0) {
+                productType = application.application_products[0].product || 'Other';
+            }
+
+            // Create new deal
+            const { data: newDeal, error: dealError } = await db
+                .from('deals')
+                .insert({
+                    company_name: application.business_name,
+                    deal_amount: application.funding_amount_requested,
+                    application_id: application.id,
+                    source: application.source_channel || 'Online',
+                    product_type: productType,
+                    date_submitted: new Date().toISOString(),
+                    status: 'Prospect'
+                })
+                .select()
+                .single();
+
+            if (dealError) throw dealError;
+
+            // Update application status
+            const { error: updateError } = await db
+                .from('applications')
+                .update({ status: 'Moved to Pipeline' })
+                .eq('id', applicationId);
+
+            if (updateError) throw updateError;
+
+            // Refresh dashboard and deals
+            await loadDashboard();
+            await loadDeals();
+
+            alert('Application moved to pipeline successfully!');
         } catch (error) {
-            console.error('Load applications error:', error);
+            console.error('Move to pipeline error:', error);
+            alert('Error moving application to pipeline: ' + error.message);
+        }
+    }
+
+    async function updateDealField(dealId, field, value) {
+        try {
+            const { error } = await db
+                .from('deals')
+                .update({ [field]: value || null })
+                .eq('id', dealId);
+
+            if (error) throw error;
+
+            // Refresh the deals table
+            await loadDeals();
+        } catch (error) {
+            console.error('Update deal field error:', error);
+            alert('Error updating deal: ' + error.message);
+        }
+    }
+
+    async function updateAppStatus(appId, newStatus) {
+        try {
+            const { error } = await db
+                .from('applications')
+                .update({ status: newStatus })
+                .eq('id', appId);
+
+            if (error) throw error;
+
+            await loadDashboard();
+        } catch (error) {
+            console.error('Update app status error:', error);
+            alert('Error updating status: ' + error.message);
         }
     }
 
@@ -2053,7 +2275,8 @@
                 await loadDeals();
                 break;
             case 'applications':
-                await loadApplications();
+                // Redirect applications to deals
+                await loadDeals();
                 break;
             case 'agents':
                 await loadAgents();
@@ -2179,8 +2402,16 @@
         document.getElementById('dealModal').classList.remove('active');
     }
 
-    function openAddDealModal() {
+    async function openAddDealModal() {
         document.getElementById('addDealForm').reset();
+        // Populate lender dropdown
+        if (cachedLenders.length === 0) {
+            const { data: lenderList } = await db.from('lenders').select('id, name').order('name');
+            cachedLenders = lenderList || [];
+        }
+        const lenderSelect = document.getElementById('dealLender');
+        lenderSelect.innerHTML = '<option value="">None</option>' +
+            cachedLenders.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
         document.getElementById('addDealModal').classList.add('active');
     }
 
@@ -2192,15 +2423,17 @@
         event.preventDefault();
 
         try {
+            const lenderVal = document.getElementById('dealLender').value;
             const { data, error } = await db
                 .from('deals')
                 .insert([{
-                    deal_number: document.getElementById('dealNumber').value,
                     company_name: document.getElementById('companyName').value,
                     deal_amount: parseFloat(document.getElementById('dealAmount').value),
                     currency: document.getElementById('dealCurrency').value,
                     product_type: document.getElementById('productType').value,
+                    source: document.getElementById('dealSource').value,
                     status: document.getElementById('dealStatus').value,
+                    assigned_lender_id: lenderVal || null,
                     date_submitted: new Date().toISOString()
                 }])
                 .select();
