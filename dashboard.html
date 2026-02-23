@@ -643,6 +643,21 @@
             </div>
             <button type="submit" class="btn btn-primary">Sign In</button>
         </form>
+        <div style="text-align: center; margin-top: 15px;">
+            <a href="#" id="forgotPasswordLink" onclick="showForgotPassword(event)" style="color: var(--gold); text-decoration: none; font-size: 14px;">Forgot your password?</a>
+        </div>
+        <div id="forgotPasswordForm" style="display: none; margin-top: 15px;">
+            <p style="font-size: 14px; color: var(--text-light); margin-bottom: 10px;">Enter your email and we'll send you a password reset link.</p>
+            <div class="form-group">
+                <label for="resetEmail">Email Address</label>
+                <input type="email" id="resetEmail" required>
+            </div>
+            <button onclick="handleForgotPassword()" class="btn btn-primary">Send Reset Link</button>
+            <div style="text-align: center; margin-top: 10px;">
+                <a href="#" onclick="hideForgotPassword(event)" style="color: var(--text-light); text-decoration: none; font-size: 13px;">Back to login</a>
+            </div>
+            <div id="resetMessage" style="display: none; margin-top: 10px; padding: 10px; border-radius: 4px; font-size: 14px;"></div>
+        </div>
     </div>
 </div>
 
@@ -1042,6 +1057,54 @@
     // ============================================
     // Authentication
     // ============================================
+
+    function showForgotPassword(e) {
+        e.preventDefault();
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('forgotPasswordLink').style.display = 'none';
+        document.getElementById('forgotPasswordForm').style.display = 'block';
+        document.getElementById('loginError').textContent = '';
+    }
+
+    function hideForgotPassword(e) {
+        e.preventDefault();
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('forgotPasswordLink').style.display = 'inline';
+        document.getElementById('forgotPasswordForm').style.display = 'none';
+        document.getElementById('resetMessage').style.display = 'none';
+    }
+
+    async function handleForgotPassword() {
+        const email = document.getElementById('resetEmail').value;
+        const msgEl = document.getElementById('resetMessage');
+        if (!email) {
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#FEE2E2';
+            msgEl.style.color = '#DC2626';
+            msgEl.textContent = 'Please enter your email address.';
+            return;
+        }
+        try {
+            const { error } = await db.auth.resetPasswordForEmail(email, {
+                redirectTo: window.location.origin + '/dashboard.html'
+            });
+            msgEl.style.display = 'block';
+            if (error) {
+                msgEl.style.background = '#FEE2E2';
+                msgEl.style.color = '#DC2626';
+                msgEl.textContent = 'Error: ' + error.message;
+            } else {
+                msgEl.style.background = '#D1FAE5';
+                msgEl.style.color = '#065F46';
+                msgEl.textContent = 'Password reset link sent! Check your email.';
+            }
+        } catch (err) {
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#FEE2E2';
+            msgEl.style.color = '#DC2626';
+            msgEl.textContent = 'Something went wrong. Please try again.';
+        }
+    }
 
     async function handleLogin(event) {
         event.preventDefault();
