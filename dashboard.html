@@ -743,9 +743,81 @@
                     </div>
                 </div>
 
+                <!-- Agent Referral Link & Marketing Hub (agents only) -->
+                <div id="agentReferralCard" class="table-container" style="display: none;">
+                    <div class="table-header">
+                        <div class="table-title">Your Referral Link & Marketing Hub</div>
+                    </div>
+                    <div style="padding: 20px; background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%); border-radius: 8px;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: 600; color: #0D1E3D; margin-bottom: 8px;">Your Unique Referral URL:</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="text" id="agentReferralUrl" readonly
+                                    style="flex: 1; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 4px; background: white; font-family: monospace; font-size: 13px;">
+                                <button class="btn btn-gold btn-sm" onclick="copyReferralLink()">Copy Link</button>
+                            </div>
+                            <small style="display: block; color: #666; margin-top: 8px;">Share this link with potential clients. They'll be automatically matched to you when they apply.</small>
+                        </div>
+                        <div style="display: flex; gap: 30px; border-top: 1px solid rgba(13,30,61,0.1); padding-top: 15px;">
+                            <div>
+                                <label style="display: block; font-weight: 600; color: #0D1E3D; margin-bottom: 4px;">Your Referral Slug:</label>
+                                <span id="agentReferralSlug" style="font-family: monospace; font-size: 14px; color: #334155;"></span>
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: 600; color: #0D1E3D; margin-bottom: 4px;">Your Partner Page:</label>
+                                <a id="agentPartnerLink" href="#" target="_blank" style="font-size: 14px; color: #2563EB; text-decoration: underline;">View your page</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent Commission Tracking (agents only) -->
+                <div id="agentCommissionsSection" class="table-container" style="display: none;">
+                    <div class="table-header">
+                        <div class="table-title">Your Commission Tracking</div>
+                    </div>
+                    <div class="stats-grid" style="margin-bottom: 15px;">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Deals</div>
+                            <div class="stat-value" id="commTotalDeals">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Funded Deals</div>
+                            <div class="stat-value" id="commFundedDeals">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Funded Volume</div>
+                            <div class="stat-value" id="commTotalVolume">$0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Commissions</div>
+                            <div class="stat-value" id="commTotalEarned">$0</div>
+                        </div>
+                    </div>
+                    <div id="pendingCommissionsAlert" style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 6px; padding: 12px 16px; margin-bottom: 15px; display: none;">
+                        <strong style="color: #92400E;">Pending Commissions:</strong>
+                        <span id="pendingCommissionAmount" style="color: #92400E; margin-left: 8px;">$0</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Deal</th>
+                                <th>Deal Amount</th>
+                                <th>Commission %</th>
+                                <th>Commission Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="commissionsBody">
+                            <tr><td colspan="5" class="empty-state">No commissions recorded yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
                 <div class="table-container">
                     <div class="table-header">
                         <div class="table-title">Recent Applications (Intake)</div>
+                        <button id="agentAddAppBtn" class="btn btn-gold btn-sm" onclick="openAddApplicationModal()" style="display: none;">+ Add Application</button>
                     </div>
                     <table id="recentApplicationsTable">
                         <thead>
@@ -1018,6 +1090,118 @@
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeDealModal()">Close</button>
         </div>
+    </div>
+</div>
+
+<!-- Add Application Modal (for agents) -->
+<div id="addApplicationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>New Application</h2>
+            <button class="modal-close" onclick="closeAddApplicationModal()">&times;</button>
+        </div>
+        <form id="addApplicationForm" onsubmit="handleAddApplication(event)">
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Full Name <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="appFullName" required>
+                </div>
+                <div class="modal-field">
+                    <label>Email <span style="color: var(--danger);">*</span></label>
+                    <input type="email" id="appEmail" required>
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Phone <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="appPhone" required>
+                </div>
+                <div class="modal-field">
+                    <label>Business Name <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="appBusinessName" required>
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Time in Business <span style="color: var(--danger);">*</span></label>
+                    <select id="appTimeInBusiness" required>
+                        <option value="">Select</option>
+                        <option value="Less than 1 Year">Less than 1 Year</option>
+                        <option value="1 - 2 years">1 - 2 years</option>
+                        <option value="2 - 5 years">2 - 5 years</option>
+                        <option value="5 - 10 years">5 - 10 years</option>
+                        <option value="Over 10 years">Over 10 years</option>
+                    </select>
+                </div>
+                <div class="modal-field">
+                    <label>Annual Revenue <span style="color: var(--danger);">*</span></label>
+                    <select id="appAnnualRevenue" required>
+                        <option value="">Select</option>
+                        <option value="Under $500k">Under $500k</option>
+                        <option value="$500k - $1m">$500k - $1m</option>
+                        <option value="$1m - $5M">$1m - $5M</option>
+                        <option value="$5M - $10M">$5M - $10M</option>
+                        <option value="$10M - $25M">$10M - $25M</option>
+                        <option value="Over $25m">Over $25m</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Funding Amount <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="appFundingAmount" required placeholder="e.g., $50,000">
+                </div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px;">Financing Type(s) <span style="color: var(--danger);">*</span></label>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="Equipment Leasing"> Equipment Leasing
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="MCA"> MCA
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="CSBFL"> CSBFL
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="SRED"> SRED
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="Private Debt"> Private Debt
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="Factoring"> Factoring
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="Merchant Advance"> Merchant Advance
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="Commercial Mortgage"> Commercial Mortgage
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="SBA"> SBA
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="Loans"> Loans
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="Trade Finance"> Trade Finance
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;">
+                        <input type="checkbox" name="app_financing_type" value="Working Capital Loan"> Working Capital
+                    </label>
+                </div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px;">Description</label>
+                <textarea id="appDescription" style="width: 100%; min-height: 80px; resize: vertical; padding: 8px; border: 1px solid #D1D5DB; border-radius: 4px;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAddApplicationModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Submit Application</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -1422,80 +1606,6 @@
     </div>
 </div>
 
-<!-- Add Application Modal -->
-<div id="addApplicationModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>New Application</h2>
-            <button class="modal-close" onclick="closeAddApplicationModal()">✕</button>
-        </div>
-        <div class="modal-body">
-            <form id="addApplicationForm" onsubmit="handleAddApplication(event)">
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Full Name <span style="color: var(--danger);">*</span></label>
-                        <input type="text" id="appFullName" required>
-                    </div>
-                    <div class="modal-field">
-                        <label>Email <span style="color: var(--danger);">*</span></label>
-                        <input type="email" id="appEmail" required>
-                    </div>
-                </div>
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Phone</label>
-                        <input type="text" id="appPhone">
-                    </div>
-                    <div class="modal-field">
-                        <label>Business Name</label>
-                        <input type="text" id="appBusinessName">
-                    </div>
-                </div>
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Time in Business</label>
-                        <select id="appTimeInBusiness">
-                            <option value="">Select</option>
-                            <option value="Less than 1 Year">Less than 1 Year</option>
-                            <option value="1 - 2 years">1 - 2 years</option>
-                            <option value="2 - 5 years">2 - 5 years</option>
-                            <option value="5 - 10 years">5 - 10 years</option>
-                            <option value="Over 10 years">Over 10 years</option>
-                        </select>
-                    </div>
-                    <div class="modal-field">
-                        <label>Annual Revenue</label>
-                        <select id="appAnnualRevenue">
-                            <option value="">Select</option>
-                            <option value="Under $500k">Under $500k</option>
-                            <option value="$500k - $1m">$500k - $1m</option>
-                            <option value="$1m - $5M">$1m - $5M</option>
-                            <option value="$5M - $10M">$5M - $10M</option>
-                            <option value="$10M - $25M">$10M - $25M</option>
-                            <option value="Over $25m">Over $25m</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Funding Amount</label>
-                        <input type="text" id="appFundingAmount">
-                    </div>
-                </div>
-                <div class="modal-row full">
-                    <div class="modal-field">
-                        <label>Description</label>
-                        <textarea id="appDescription" style="min-height: 100px; resize: vertical;"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeAddApplicationModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Application</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 <!-- CSV Import Modal -->
 <div id="csvImportModal" class="modal">
@@ -1766,6 +1876,246 @@
     }
 
     // ============================================
+    // Agent Portal: Referral Link & Marketing Hub
+    // ============================================
+
+    async function displayAgentReferralCard() {
+        const isAgent = !['super_admin', 'admin'].includes(currentUserRole) && currentUserId;
+        const referralCard = document.getElementById('agentReferralCard');
+        if (!isAgent) {
+            if (referralCard) referralCard.style.display = 'none';
+            return;
+        }
+        try {
+            const { data, error } = await db
+                .from('users')
+                .select('id, full_name, referral_slug')
+                .eq('id', currentUserId)
+                .single();
+            if (error) throw error;
+            if (data && data.referral_slug) {
+                const baseUrl = window.location.origin + '/application.html';
+                const referralUrl = baseUrl + '?ref=' + data.referral_slug;
+                document.getElementById('agentReferralUrl').value = referralUrl;
+                document.getElementById('agentReferralSlug').textContent = data.referral_slug;
+                const partnerLink = document.getElementById('agentPartnerLink');
+                partnerLink.href = referralUrl;
+                partnerLink.textContent = 'View your referral page';
+            }
+            referralCard.style.display = 'block';
+        } catch (err) {
+            console.error('Error loading referral data:', err);
+        }
+    }
+
+    function copyReferralLink() {
+        const urlInput = document.getElementById('agentReferralUrl');
+        urlInput.select();
+        urlInput.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(urlInput.value).then(() => {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.style.background = '#10B981';
+            setTimeout(() => { btn.textContent = originalText; btn.style.background = ''; }, 2000);
+        }).catch(() => {
+            document.execCommand('copy');
+        });
+    }
+
+    // ============================================
+    // Agent Portal: Application Submission
+    // ============================================
+
+    function openAddApplicationModal() {
+        document.getElementById('addApplicationModal').style.display = 'flex';
+    }
+
+    function closeAddApplicationModal() {
+        document.getElementById('addApplicationModal').style.display = 'none';
+        document.getElementById('addApplicationForm').reset();
+    }
+
+    async function handleAddApplication(event) {
+        event.preventDefault();
+        const fullName = document.getElementById('appFullName').value.trim();
+        const email = document.getElementById('appEmail').value.trim();
+        const phone = document.getElementById('appPhone').value.trim();
+        const businessName = document.getElementById('appBusinessName').value.trim();
+        const timeInBusiness = document.getElementById('appTimeInBusiness').value;
+        const annualRevenue = document.getElementById('appAnnualRevenue').value;
+        const fundingAmount = document.getElementById('appFundingAmount').value.trim();
+        const description = document.getElementById('appDescription').value.trim();
+
+        const financingTypes = Array.from(document.querySelectorAll('input[name="app_financing_type"]:checked')).map(cb => cb.value);
+        if (financingTypes.length === 0) {
+            alert('Please select at least one financing type.');
+            return;
+        }
+
+        const isAgent = !['super_admin', 'admin'].includes(currentUserRole);
+
+        try {
+            // Get agent's referral_slug for tracking
+            let agentSlug = null;
+            if (isAgent && currentUserId) {
+                const { data: agentData } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+                if (agentData) agentSlug = agentData.referral_slug;
+            }
+
+            const { data: appData, error: appError } = await db
+                .from('applications')
+                .insert([{
+                    full_name: fullName,
+                    email: email,
+                    phone: phone,
+                    business_name: businessName,
+                    time_in_business: timeInBusiness,
+                    annual_revenue: annualRevenue,
+                    funding_amount_text: fundingAmount,
+                    description: description,
+                    source_agent_id: isAgent ? currentUserId : null,
+                    source_channel: isAgent ? 'Agent' : 'Direct',
+                    referral_slug: agentSlug,
+                    status: 'Application Received'
+                }])
+                .select();
+
+            if (appError) throw appError;
+            if (!appData || appData.length === 0) throw new Error('Failed to create application');
+
+            const appRecord = appData[0];
+
+            // Insert financing products into junction table
+            const productInserts = financingTypes.map(p => ({
+                application_id: appRecord.id,
+                product: p
+            }));
+            if (productInserts.length > 0) {
+                const { error: prodError } = await db.from('application_products').insert(productInserts);
+                if (prodError) console.warn('Product insert warning:', prodError);
+            }
+
+            alert('Application created successfully! ID: ' + (appRecord.application_id || appRecord.id));
+            closeAddApplicationModal();
+            loadDashboard();
+        } catch (err) {
+            console.error('Error creating application:', err);
+            alert('Error creating application: ' + (err.message || 'Unknown error'));
+        }
+    }
+
+    // ============================================
+    // Agent Portal: Commission Tracking
+    // ============================================
+
+    async function loadAgentCommissions() {
+        const isAgent = !['super_admin', 'admin'].includes(currentUserRole) && currentUserId;
+        const section = document.getElementById('agentCommissionsSection');
+        if (!isAgent) {
+            if (section) section.style.display = 'none';
+            return;
+        }
+        section.style.display = 'block';
+
+        try {
+            // Load deals for this agent to calculate stats
+            const { data: agentDeals, error: dealsErr } = await db
+                .from('deals')
+                .select('id, company_name, deal_amount, status, agent_fee_pct, agent_fee_amount')
+                .eq('source_agent_id', currentUserId);
+
+            if (!dealsErr && agentDeals) {
+                const totalDeals = agentDeals.length;
+                const fundedDeals = agentDeals.filter(d => d.status === 'Funded').length;
+                const totalVolume = agentDeals.filter(d => d.status === 'Funded').reduce((s, d) => s + (d.deal_amount || 0), 0);
+
+                document.getElementById('commTotalDeals').textContent = totalDeals;
+                document.getElementById('commFundedDeals').textContent = fundedDeals;
+                document.getElementById('commTotalVolume').textContent = formatCurrency(totalVolume);
+            }
+
+            // Try to load from commissions table
+            const { data: commissions, error: commErr } = await db
+                .from('commissions')
+                .select('id, deal_id, deal_amount, commission_pct, commission_amount, status, created_at, deals(company_name)')
+                .eq('agent_id', currentUserId)
+                .order('created_at', { ascending: false });
+
+            if (!commErr && commissions && commissions.length > 0) {
+                // Use commissions table data
+                const totalEarned = commissions.filter(c => c.status === 'Paid').reduce((s, c) => s + (c.commission_amount || 0), 0);
+                const pendingAmount = commissions.filter(c => c.status === 'Pending' || c.status === 'Approved').reduce((s, c) => s + (c.commission_amount || 0), 0);
+
+                document.getElementById('commTotalEarned').textContent = formatCurrency(totalEarned);
+
+                const pendingAlert = document.getElementById('pendingCommissionsAlert');
+                if (pendingAmount > 0) {
+                    pendingAlert.style.display = 'block';
+                    document.getElementById('pendingCommissionAmount').textContent = formatCurrency(pendingAmount);
+                } else {
+                    pendingAlert.style.display = 'none';
+                }
+
+                renderCommissionsTable(commissions);
+            } else {
+                // Fall back to deals table agent_fee_amount
+                if (!dealsErr && agentDeals) {
+                    const totalFees = agentDeals.filter(d => d.status === 'Funded').reduce((s, d) => s + (d.agent_fee_amount || 0), 0);
+                    document.getElementById('commTotalEarned').textContent = formatCurrency(totalFees);
+
+                    // Render from deals
+                    const dealsWithFees = agentDeals.filter(d => d.agent_fee_pct || d.agent_fee_amount);
+                    renderCommissionsFromDeals(dealsWithFees);
+                }
+                document.getElementById('pendingCommissionsAlert').style.display = 'none';
+            }
+        } catch (err) {
+            console.error('Error loading commissions:', err);
+        }
+    }
+
+    function renderCommissionsTable(commissions) {
+        const tbody = document.getElementById('commissionsBody');
+        if (!commissions || commissions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No commissions recorded yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = commissions.map(c => {
+            const dealName = c.deals ? c.deals.company_name : 'Unknown';
+            const statusColors = { Pending: '#F59E0B', Approved: '#3B82F6', Paid: '#10B981', Cancelled: '#EF4444' };
+            const color = statusColors[c.status] || '#666';
+            return '<tr>' +
+                '<td><strong>' + dealName + '</strong></td>' +
+                '<td>' + formatCurrency(c.deal_amount || 0) + '</td>' +
+                '<td>' + (c.commission_pct || 0).toFixed(2) + '%</td>' +
+                '<td>' + formatCurrency(c.commission_amount || 0) + '</td>' +
+                '<td><span style="background:' + color + '20;color:' + color + ';padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">' + c.status + '</span></td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    function renderCommissionsFromDeals(deals) {
+        const tbody = document.getElementById('commissionsBody');
+        if (!deals || deals.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No commissions recorded yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = deals.map(d => {
+            const status = d.status === 'Funded' ? 'Paid' : 'Pending';
+            const statusColors = { Pending: '#F59E0B', Paid: '#10B981' };
+            const color = statusColors[status] || '#666';
+            return '<tr>' +
+                '<td><strong>' + (d.company_name || 'N/A') + '</strong></td>' +
+                '<td>' + formatCurrency(d.deal_amount || 0) + '</td>' +
+                '<td>' + (d.agent_fee_pct || 0).toFixed(2) + '%</td>' +
+                '<td>' + formatCurrency(d.agent_fee_amount || 0) + '</td>' +
+                '<td><span style="background:' + color + '20;color:' + color + ';padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">' + status + '</span></td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    // ============================================
     // Navigation
     // ============================================
 
@@ -1915,6 +2265,20 @@
                     `;
                 }).join('');
             }
+
+            // === Agent Portal Features ===
+            const isAgentUser = !['super_admin', 'admin'].includes(currentUserRole) && currentUserId;
+
+            // Show/hide agent referral card
+            await displayAgentReferralCard();
+
+            // Show/hide Add Application button for agents
+            const addAppBtn = document.getElementById('agentAddAppBtn');
+            if (addAppBtn) addAppBtn.style.display = isAgentUser ? 'inline-block' : 'none';
+
+            // Load agent commissions
+            await loadAgentCommissions();
+
         } catch (error) {
             console.error('Dashboard load error:', error);
         }
@@ -4599,66 +4963,6 @@
         } catch (error) {
             console.error('Delete lender contact error:', error);
             alert('Error deleting contact: ' + error.message);
-        }
-    }
-
-    // ============================================
-    // Application Management - Add New
-    // ============================================
-
-    function openAddApplicationModal() {
-        document.getElementById('addApplicationForm').reset();
-        document.getElementById('addApplicationModal').classList.add('active');
-    }
-
-    function closeAddApplicationModal() {
-        document.getElementById('addApplicationModal').classList.remove('active');
-    }
-
-    async function handleAddApplication(event) {
-        event.preventDefault();
-
-        try {
-            const fundingAmount = document.getElementById('appFundingAmount').value;
-            let fundingAmountRequested = null;
-            let fundingAmountText = null;
-
-            // Try to parse as number, otherwise store as text
-            if (fundingAmount) {
-                const parsed = parseFloat(fundingAmount.replace(/[^0-9.]/g, ''));
-                if (!isNaN(parsed)) {
-                    fundingAmountRequested = parsed;
-                } else {
-                    fundingAmountText = fundingAmount;
-                }
-            }
-
-            const { data, error } = await db
-                .from('applications')
-                .insert([{
-                    full_name: document.getElementById('appFullName').value,
-                    email: document.getElementById('appEmail').value,
-                    phone: document.getElementById('appPhone').value || null,
-                    business_name: document.getElementById('appBusinessName').value || null,
-                    time_in_business: document.getElementById('appTimeInBusiness').value || null,
-                    annual_revenue: document.getElementById('appAnnualRevenue').value || null,
-                    funding_amount_requested: fundingAmountRequested,
-                    funding_amount_text: fundingAmountText,
-                    description: document.getElementById('appDescription').value || null,
-                    status: 'Submitted',
-                    submitted_at: new Date().toISOString()
-                }])
-                .select();
-
-            if (error) throw error;
-
-            closeAddApplicationModal();
-            await loadApplications();
-            await loadDashboard();
-            alert('Application created successfully!');
-        } catch (error) {
-            console.error('Add application error:', error);
-            alert('Error creating application: ' + error.message);
         }
     }
 

@@ -856,6 +856,25 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                     if (productError) console.warn('Warning: Could not insert products:', productError);
                 }
 
+                // Auto-match referral slug to agent and populate source_agent_id
+                if (referralSlug) {
+                    try {
+                        const { data: agentMatch } = await db
+                            .from('users')
+                            .select('id')
+                            .eq('referral_slug', referralSlug)
+                            .eq('role', 'agent')
+                            .single();
+                        if (agentMatch) {
+                            await db.from('applications')
+                                .update({ source_agent_id: agentMatch.id, source_channel: 'Agent Referral' })
+                                .eq('id', appRecord.id);
+                        }
+                    } catch (matchErr) {
+                        console.warn('Agent matching optional:', matchErr);
+                    }
+                }
+
                 // Show success message
                 appForm.style.display = 'none';
                 successMsg.style.display = 'block';
