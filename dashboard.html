@@ -771,10 +771,10 @@
                     </div>
                 </div>
 
-                <!-- Agent Commission Tracking (agents only) -->
+                <!-- Agent Deals & Commission Tracking (agents only) -->
                 <div id="agentCommissionsSection" class="table-container" style="display: none;">
                     <div class="table-header">
-                        <div class="table-title">Your Commission Tracking</div>
+                        <div class="table-title">Your Deals & Commissions</div>
                     </div>
                     <div class="stats-grid" style="margin-bottom: 15px;">
                         <div class="stat-card">
@@ -801,11 +801,11 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Deal</th>
+                                <th>Company</th>
                                 <th>Deal Amount</th>
-                                <th>Commission %</th>
-                                <th>Commission Amount</th>
-                                <th>Status</th>
+                                <th>Your Fee %</th>
+                                <th>Your Fee $</th>
+                                <th>Deal Status</th>
                             </tr>
                         </thead>
                         <tbody id="commissionsBody">
@@ -2059,14 +2059,13 @@
 
                 renderCommissionsTable(commissions);
             } else {
-                // Fall back to deals table agent_fee_amount
+                // Fall back to deals table — show ALL agent deals
                 if (!dealsErr && agentDeals) {
                     const totalFees = agentDeals.filter(d => d.status === 'Funded').reduce((s, d) => s + (d.agent_fee_amount || 0), 0);
                     document.getElementById('commTotalEarned').textContent = formatCurrency(totalFees);
 
-                    // Render from deals
-                    const dealsWithFees = agentDeals.filter(d => d.agent_fee_pct || d.agent_fee_amount);
-                    renderCommissionsFromDeals(dealsWithFees);
+                    // Render ALL deals (not just ones with fees)
+                    renderCommissionsFromDeals(agentDeals);
                 }
                 document.getElementById('pendingCommissionsAlert').style.display = 'none';
             }
@@ -2098,19 +2097,26 @@
     function renderCommissionsFromDeals(deals) {
         const tbody = document.getElementById('commissionsBody');
         if (!deals || deals.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No commissions recorded yet.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No deals yet.</td></tr>';
             return;
         }
         tbody.innerHTML = deals.map(d => {
-            const status = d.status === 'Funded' ? 'Paid' : 'Pending';
-            const statusColors = { Pending: '#F59E0B', Paid: '#10B981' };
-            const color = statusColors[status] || '#666';
+            const dealStatus = d.status || 'Prospect';
+            const statusColors = {
+                'Prospect': '#6B7280', 'Quote sent': '#3B82F6', 'Info received': '#8B5CF6',
+                'In Credit': '#F59E0B', 'Approved': '#10B981', 'Approval sent': '#10B981',
+                'Docs requested': '#F59E0B', 'Docs out for signing': '#F59E0B',
+                'In funding': '#3B82F6', 'Funded': '#10B981', 'Declined': '#EF4444', 'Dead approval': '#EF4444'
+            };
+            const color = statusColors[dealStatus] || '#6B7280';
+            const feeDisplay = d.agent_fee_pct ? (d.agent_fee_pct).toFixed(2) + '%' : '-';
+            const feeAmount = d.agent_fee_amount ? formatCurrency(d.agent_fee_amount) : '-';
             return '<tr>' +
                 '<td><strong>' + (d.company_name || 'N/A') + '</strong></td>' +
                 '<td>' + formatCurrency(d.deal_amount || 0) + '</td>' +
-                '<td>' + (d.agent_fee_pct || 0).toFixed(2) + '%</td>' +
-                '<td>' + formatCurrency(d.agent_fee_amount || 0) + '</td>' +
-                '<td><span style="background:' + color + '20;color:' + color + ';padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">' + status + '</span></td>' +
+                '<td>' + feeDisplay + '</td>' +
+                '<td>' + feeAmount + '</td>' +
+                '<td><span style="background:' + color + '20;color:' + color + ';padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">' + dealStatus + '</span></td>' +
                 '</tr>';
         }).join('');
     }
