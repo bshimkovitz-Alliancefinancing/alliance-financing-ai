@@ -771,6 +771,48 @@
                     </div>
                 </div>
 
+                <!-- Agent Marketing Toolkit (agents only) -->
+                <div id="agentMarketingToolkit" class="table-container" style="display: none;">
+                    <div class="table-header" style="cursor: pointer;" onclick="toggleMarketingToolkit()">
+                        <div class="table-title">Marketing Toolkit</div>
+                        <span id="marketingToggleIcon" style="font-size: 18px; color: #666; transition: transform 0.3s;">&#9660;</span>
+                    </div>
+                    <div id="marketingToolkitBody" style="display: none; padding: 20px;">
+                        <!-- Email Template Tabs -->
+                        <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+                            <button class="btn btn-sm" onclick="showEmailTemplate('mortgage')" id="tabMortgage" style="background: var(--gold); color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: 600;">Mortgage Brokers</button>
+                            <button class="btn btn-sm" onclick="showEmailTemplate('insurance')" id="tabInsurance" style="background: #e2e8f0; color: #334155; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Insurance Brokers</button>
+                            <button class="btn btn-sm" onclick="showEmailTemplate('accountants')" id="tabAccountants" style="background: #e2e8f0; color: #334155; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Accountants / CFOs</button>
+                            <button class="btn btn-sm" onclick="showEmailTemplate('followup')" id="tabFollowup" style="background: #e2e8f0; color: #334155; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Follow-Up</button>
+                        </div>
+
+                        <!-- Subject Line Options -->
+                        <div id="emailSubjectLine" style="margin-bottom: 12px; padding: 10px; background: #FEF3C7; border-radius: 6px;">
+                            <strong style="color: #92400E;">Subject Line Options:</strong>
+                            <div id="emailSubjects" style="margin-top: 6px; color: #78350F; font-size: 13px; line-height: 1.6;"></div>
+                        </div>
+
+                        <!-- Email Body -->
+                        <div style="position: relative;">
+                            <textarea id="emailTemplateBody" readonly style="width: 100%; min-height: 350px; padding: 15px; border: 1px solid #CBD5E1; border-radius: 6px; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; background: #f8fafc; resize: vertical;"></textarea>
+                            <button onclick="copyEmailTemplate()" style="position: absolute; top: 10px; right: 10px; padding: 6px 14px; background: var(--gold); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px;">Copy Email</button>
+                        </div>
+
+                        <!-- PDF One-Pagers -->
+                        <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%); border-radius: 8px;">
+                            <div style="font-weight: 600; color: #0D1E3D; margin-bottom: 10px;">PDF One-Pagers (attach to your emails)</div>
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap;" id="pdfAttachments">
+                                <span style="color: #666; font-size: 13px;">PDF attachments will be available here once uploaded.</span>
+                            </div>
+                        </div>
+
+                        <!-- Usage Tips -->
+                        <div style="margin-top: 15px; padding: 12px; background: #f1f5f9; border-radius: 6px; font-size: 12px; color: #64748b; line-height: 1.5;">
+                            <strong>Tips:</strong> Personalize the [First Name] before sending. Attach the matching PDF one-pager to each email. All application links include your referral tracking automatically.
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Agent Deals Section (agents only) -->
                 <div id="agentCommissionsSection" class="table-container" style="display: none;">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
@@ -1858,20 +1900,25 @@
     // Agent Portal: Referral Link & Marketing Hub
     // ============================================
 
+    let agentProfile = null; // stores agent's full profile for marketing templates
+
     async function displayAgentReferralCard() {
         const isAgent = !['super_admin', 'admin'].includes(currentUserRole) && currentUserId;
         const referralCard = document.getElementById('agentReferralCard');
+        const marketingToolkit = document.getElementById('agentMarketingToolkit');
         if (!isAgent) {
             if (referralCard) referralCard.style.display = 'none';
+            if (marketingToolkit) marketingToolkit.style.display = 'none';
             return;
         }
         try {
             const { data, error } = await db
                 .from('users')
-                .select('id, full_name, referral_slug')
+                .select('id, full_name, email, phone, referral_slug')
                 .eq('id', currentUserId)
                 .single();
             if (error) throw error;
+            agentProfile = data;
             if (data && data.referral_slug) {
                 const baseUrl = window.location.origin + '/application.html';
                 const referralUrl = baseUrl + '?ref=' + data.referral_slug;
@@ -1882,6 +1929,11 @@
                 partnerLink.textContent = 'View your referral page';
             }
             referralCard.style.display = 'block';
+            if (marketingToolkit) {
+                marketingToolkit.style.display = 'block';
+                populateMarketingTemplates();
+                showEmailTemplate('mortgage');
+            }
         } catch (err) {
             console.error('Error loading referral data:', err);
         }
@@ -1897,6 +1949,124 @@
             btn.textContent = 'Copied!';
             btn.style.background = '#10B981';
             setTimeout(() => { btn.textContent = originalText; btn.style.background = ''; }, 2000);
+        }).catch(() => {
+            document.execCommand('copy');
+        });
+    }
+
+    // ============================================
+    // Agent Portal: Marketing Toolkit
+    // ============================================
+
+    function toggleMarketingToolkit() {
+        const body = document.getElementById('marketingToolkitBody');
+        const icon = document.getElementById('marketingToggleIcon');
+        if (body.style.display === 'none') {
+            body.style.display = 'block';
+            icon.style.transform = 'rotate(180deg)';
+        } else {
+            body.style.display = 'none';
+            icon.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    function getAgentSignature() {
+        if (!agentProfile) return '';
+        const name = agentProfile.full_name || 'Agent Name';
+        const email = agentProfile.email || '';
+        const phone = agentProfile.phone || '1-800-660-3660';
+        const slug = agentProfile.referral_slug || '';
+        const pageUrl = window.location.origin + '/' + slug;
+        return name + '\nSenior Technology & Commercial Finance Consultant\nAlliance Financing Group Ltd.\n' + phone + '\n' + email;
+    }
+
+    function getAgentLink() {
+        if (!agentProfile) return 'alliancefinancing.ai';
+        return 'alliancefinancing.ai/' + (agentProfile.referral_slug || '');
+    }
+
+    function getAgentAppLink() {
+        if (!agentProfile) return '';
+        return window.location.origin + '/application.html?ref=' + (agentProfile.referral_slug || '');
+    }
+
+    function populateMarketingTemplates() {
+        const name = agentProfile ? agentProfile.full_name : 'Agent Name';
+        const sig = getAgentSignature();
+        const link = getAgentLink();
+
+        window.emailTemplates = {
+            mortgage: {
+                subjects: [
+                    'Your mortgage clients need more than a mortgage — are you capturing that revenue?',
+                    'A referral fee on every equipment or working capital deal your clients close',
+                    'The financing deals your clients are doing without you'
+                ],
+                body: 'Hi [First Name],\n\nAs a Senior Technology & Commercial Finance Consultant, I partner with Alliance Financing Group \u2014 a Canadian commercial finance company with 35+ years in the business and relationships with over 70 lenders across Canada and the US.\n\nHere\u2019s the opportunity: many of your commercial mortgage clients also need equipment financing, working capital, factoring, or merchant advances. Right now those deals are walking out the door to someone else. Alliance lets you refer those clients and earn a fee on every funded deal \u2014 with zero additional licensing required.\n\nWhat your clients get access to:\n\u2022 Equipment leasing & financing ($2,500 \u2013 $10M+)\n\u2022 Working capital, factoring, and accounts receivable financing\n\u2022 Merchant cash advances (funded in 24-48 hours)\n\u2022 Lines of credit, term loans, and SBA/SBL programs\n\nWhat you get:\n\u2022 Referral fees on every funded transaction\n\u2022 A dedicated team that handles the entire process\n\u2022 Your client relationship stays 100% intact\n\nI\u2019ve attached a one-page overview with more detail. If this makes sense for your practice, I\u2019d welcome a quick 10-minute call to walk through how it works.\n\nYou can also see the full product suite and submit applications directly at: ' + link + '\n\nBest regards,\n' + sig
+            },
+            insurance: {
+                subjects: [
+                    'You insure the business \u2014 why not finance it too?',
+                    'Your clients are buying equipment. Are you getting paid for the referral?',
+                    'A new revenue stream from your existing book of business'
+                ],
+                body: 'Hi [First Name],\n\nI wanted to connect because I think there\u2019s a natural fit between what you do and what I can offer.\n\nAs a commercial insurance agent, you already know when your clients are growing \u2014 they\u2019re adding equipment, expanding locations, buying vehicles, or building out inventory. Every one of those moments is also a financing opportunity.\n\nI\u2019m a Senior Technology & Commercial Finance Consultant working with Alliance Financing Group, a 35-year-old commercial finance company with 70+ lending partners. When you refer a client who needs financing, I handle everything from application to funding \u2014 and you earn a referral fee on every deal that closes.\n\nThink about your recent client interactions:\n\u2022 A client purchasing new equipment that needs to be insured\n\u2022 A business owner mentioning cash flow challenges\n\u2022 A client expanding or opening a new location\n\u2022 A policy renewal conversation that reveals growth plans\n\nEach of these is a referral opportunity. One introduction. That\u2019s all it takes.\n\nProducts available for your clients:\n\u2022 Equipment leasing & financing ($2,500 \u2013 $10M+)\n\u2022 Working capital, factoring, and AR financing\n\u2022 Merchant cash advances (24-48 hour funding)\n\u2022 Sale-leasebacks to unlock capital in owned equipment\n\u2022 Business acquisition financing\n\nI\u2019ve attached a one-pager with more details. Happy to jump on a quick call to explain how the referral process works \u2014 it\u2019s simpler than you\u2019d expect.\n\nDirect link: ' + link + '\n\nBest regards,\n' + sig
+            },
+            accountants: {
+                subjects: [
+                    'Your clients ask you about financing \u2014 here\u2019s a better answer',
+                    'A referral partnership that makes your advisory practice more valuable',
+                    'Capital access for your clients. Revenue for your practice.'
+                ],
+                body: 'Hi [First Name],\n\nAs an accountant or fractional CFO, you\u2019re often the first person a business owner turns to when they need capital \u2014 whether it\u2019s for growth, equipment, working capital, or restructuring.\n\nThe challenge is that most accounting professionals don\u2019t have a reliable financing partner to refer to. That\u2019s where I come in.\n\nI\u2019m a Senior Technology & Commercial Finance Consultant working with Alliance Financing Group \u2014 35 years in commercial finance, 70+ lending partners, and an AI-powered platform that matches businesses with the right funding source. When you introduce a client, I manage the entire process from application to close \u2014 and you earn a referral fee on every funded deal.\n\nWhere this fits into your practice:\n\u2022 Financial review reveals a client needs working capital or bridge financing\n\u2022 Business planning identifies equipment or expansion capital requirements\n\u2022 Tax planning uncovers lease vs. buy optimization opportunities\n\u2022 A client needs to restructure or consolidate business debt\n\u2022 Your fractional CFO engagement requires sourcing growth capital\n\nThe full product suite includes:\n\u2022 Equipment leasing & financing ($2,500 \u2013 $10M+)\n\u2022 Working capital: factoring, AR financing, inventory financing, term loans\n\u2022 Merchant cash advances for cash-flow-intensive businesses\n\u2022 Lines of credit and revolving operating facilities\n\u2022 Commercial mortgages, SBA/SBL loans, and business acquisition financing\n\nThe process is confidential, professional, and designed to strengthen your client relationship \u2014 not compete with it.\n\nI\u2019ve attached a one-pager for your reference. I\u2019d welcome a 10-minute call to walk you through how the referral partnership works and answer any questions.\n\nDirect link: ' + link + '\n\nBest regards,\n' + sig
+            },
+            followup: {
+                subjects: [
+                    'Following up \u2014 quick question'
+                ],
+                body: 'Hi [First Name],\n\nI sent a note last week about a referral partnership with Alliance Financing Group. I know your inbox is busy, so I\u2019ll keep this short:\n\nIf you have clients who need equipment financing, working capital, or any form of business funding \u2014 I can handle the entire process and you earn a referral fee. No extra work on your end.\n\nWorth a 10-minute call? Happy to work around your schedule.\n\nBest,\n' + sig
+            }
+        };
+    }
+
+    function showEmailTemplate(templateKey) {
+        if (!window.emailTemplates || !window.emailTemplates[templateKey]) return;
+        const template = window.emailTemplates[templateKey];
+
+        // Update subjects
+        const subjectsDiv = document.getElementById('emailSubjects');
+        subjectsDiv.innerHTML = template.subjects.map(s => '\u2022 ' + s).join('<br>');
+
+        // Update body
+        document.getElementById('emailTemplateBody').value = template.body;
+
+        // Update tab styling
+        ['mortgage', 'insurance', 'accountants', 'followup'].forEach(key => {
+            const tab = document.getElementById('tab' + key.charAt(0).toUpperCase() + key.slice(1));
+            if (tab) {
+                if (key === templateKey) {
+                    tab.style.background = 'var(--gold)';
+                    tab.style.color = 'white';
+                    tab.style.fontWeight = '600';
+                } else {
+                    tab.style.background = '#e2e8f0';
+                    tab.style.color = '#334155';
+                    tab.style.fontWeight = 'normal';
+                }
+            }
+        });
+    }
+
+    function copyEmailTemplate() {
+        const textarea = document.getElementById('emailTemplateBody');
+        textarea.select();
+        textarea.setSelectionRange(0, 999999);
+        navigator.clipboard.writeText(textarea.value).then(() => {
+            const btn = event.target;
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.style.background = '#10B981';
+            setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 2000);
         }).catch(() => {
             document.execCommand('copy');
         });
