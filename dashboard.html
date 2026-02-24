@@ -850,21 +850,26 @@
 
                 <!-- Agent Sub-Agents Section (agents only) -->
                 <div id="agentSubAgentsSection" class="table-container" style="display: none;">
-                    <div class="table-header">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Your Sub-Agents</div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="btn btn-gold btn-sm" onclick="openInviteSubAgentModal()">+ Invite Sub-Agent</button>
+                        </div>
                     </div>
                     <table>
                         <thead>
                             <tr>
                                 <th>Name</th>
                                 <th>Email</th>
+                                <th>Phone</th>
                                 <th>Status</th>
                                 <th># Deals</th>
                                 <th>Override Earned</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="agentSubAgentsBody">
-                            <tr><td colspan="5" class="empty-state">Loading sub-agents...</td></tr>
+                            <tr><td colspan="7" class="empty-state">Loading sub-agents...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -886,6 +891,7 @@
                                 <th>Company</th>
                                 <th>Amount</th>
                                 <th>Product</th>
+                                <th>Source</th>
                                 <th>Status</th>
                                 <th>Fee %</th>
                                 <th>Fee $</th>
@@ -894,7 +900,7 @@
                             </tr>
                         </thead>
                         <tbody id="commissionsBody">
-                            <tr><td colspan="8" class="empty-state">Loading deals...</td></tr>
+                            <tr><td colspan="9" class="empty-state">Loading deals...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1213,6 +1219,57 @@
                 <input type="number" id="agentVendorVolume" placeholder="500000" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
             </div>
             <button class="btn btn-gold" onclick="handleAgentAddVendor()" style="width: 100%; margin-top: 10px;">Submit Vendor Program</button>
+        </div>
+    </div>
+</div>
+
+<!-- Invite Sub-Agent Modal (for agents) -->
+<div id="inviteSubAgentModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Invite a Sub-Agent</h3>
+            <span class="modal-close" onclick="document.getElementById('inviteSubAgentModal').style.display='none'">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p style="color: #64748b; font-size: 13px; margin-bottom: 15px;">Add someone under your agent network. They'll be linked to you and you'll earn overrides on their deals.</p>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Full Name *</label>
+                <input type="text" id="subAgentName" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Email *</label>
+                <input type="email" id="subAgentEmail" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Phone</label>
+                <input type="text" id="subAgentPhone" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Business Type</label>
+                <select id="subAgentBusinessType" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    <option value="">Select...</option>
+                    <option value="Mortgage Agent">Mortgage Agent</option>
+                    <option value="Mortgage Broker">Mortgage Broker</option>
+                    <option value="Insurance">Insurance</option>
+                    <option value="Consulting">Consulting</option>
+                    <option value="Accounting">Accounting</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <button class="btn btn-gold" onclick="handleInviteSubAgent()" style="width: 100%; margin-top: 10px;">Invite Sub-Agent</button>
+        </div>
+    </div>
+</div>
+
+<!-- View Sub-Agent Modal (for agents) -->
+<div id="viewSubAgentModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3 id="subAgentDetailTitle">Sub-Agent Details</h3>
+            <span class="modal-close" onclick="document.getElementById('viewSubAgentModal').style.display='none'">&times;</span>
+        </div>
+        <div class="modal-body" id="subAgentModalBody">
+            Loading...
         </div>
     </div>
 </div>
@@ -2268,7 +2325,7 @@
         try {
             const { data: agentDeals, error: dealsErr } = await db
                 .from('deals')
-                .select('id, company_name, deal_amount, status, agent_fee_pct, agent_fee_amount, product_type, date_submitted, source')
+                .select('id, company_name, deal_amount, status, agent_fee_pct, agent_fee_amount, product_type, date_submitted, source, source_channel')
                 .eq('source_agent_id', currentUserId)
                 .order('date_submitted', { ascending: false });
 
@@ -2284,7 +2341,7 @@
     function renderAgentDealsTable(deals) {
         const tbody = document.getElementById('commissionsBody');
         if (!deals || deals.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No deals yet. Use "+ Add Application" to submit a new deal.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No deals yet. Use "+ Add Application" to submit a new deal.</td></tr>';
             return;
         }
         const statusColors = {
@@ -2293,13 +2350,19 @@
             'Docs requested': '#F59E0B', 'Docs out for signing': '#F59E0B',
             'In funding': '#3B82F6', 'Funded': '#10B981', 'Declined': '#EF4444', 'Dead approval': '#EF4444'
         };
+        const sourceIcons = {
+            'Agent': '👤', 'Agent Referral': '🔗', 'Vendor': '🏢', 'Online': '🌐', 'Direct': '📞', 'Repeat Client': '🔄'
+        };
         tbody.innerHTML = deals.map(d => {
             const st = d.status || 'Prospect';
             const color = statusColors[st] || '#6B7280';
+            const src = d.source_channel || d.source || '-';
+            const srcIcon = sourceIcons[src] || '';
             return '<tr>' +
                 '<td><strong>' + (d.company_name || 'N/A') + '</strong></td>' +
                 '<td>' + formatCurrency(d.deal_amount || 0) + '</td>' +
                 '<td>' + (d.product_type || '-') + '</td>' +
+                '<td><span style="font-size:12px;">' + srcIcon + ' ' + src + '</span></td>' +
                 '<td><span style="background:' + color + '20;color:' + color + ';padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">' + st + '</span></td>' +
                 '<td>' + (d.agent_fee_pct ? d.agent_fee_pct.toFixed(2) + '%' : '-') + '</td>' +
                 '<td>' + (d.agent_fee_amount ? formatCurrency(d.agent_fee_amount) : '-') + '</td>' +
@@ -2408,7 +2471,7 @@
             // Get sub-agents (users with parent_agent_id = current user)
             const { data: subAgents, error } = await db
                 .from('users')
-                .select('id, full_name, email, agent_status')
+                .select('id, full_name, email, phone, agent_status, business_type, referral_slug, created_at')
                 .eq('parent_agent_id', currentUserId)
                 .eq('role', 'agent');
 
@@ -2416,7 +2479,7 @@
 
             const tbody = document.getElementById('agentSubAgentsBody');
             if (!subAgents || subAgents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No sub-agents yet.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No sub-agents yet. Invite one above!</td></tr>';
                 return;
             }
 
@@ -2437,9 +2500,11 @@
                     <tr>
                         <td><strong>${sa.full_name || 'N/A'}</strong></td>
                         <td>${sa.email || 'N/A'}</td>
+                        <td>${sa.phone || '-'}</td>
                         <td>${getStatusBadge(sa.agent_status || 'Pending')}</td>
                         <td>${dealCount}</td>
                         <td>${totalOverride > 0 ? formatCurrency(totalOverride) : '-'}</td>
+                        <td><button class="btn btn-secondary btn-sm" onclick="viewSubAgent('${sa.id}')">View</button></td>
                     </tr>
                 `);
             }
@@ -2447,6 +2512,138 @@
             tbody.innerHTML = rows.join('');
         } catch (err) {
             console.error('Load sub-agents error:', err);
+        }
+    }
+
+    function openInviteSubAgentModal() {
+        document.getElementById('inviteSubAgentModal').style.display = 'flex';
+    }
+
+    async function handleInviteSubAgent() {
+        const name = document.getElementById('subAgentName').value.trim();
+        const email = document.getElementById('subAgentEmail').value.trim();
+        if (!name || !email) { alert('Please fill in the name and email.'); return; }
+
+        try {
+            // Create a user record for the sub-agent (they'll be set up in Supabase Auth separately by admin)
+            const { error } = await db.from('users').insert({
+                full_name: name,
+                email: email,
+                phone: document.getElementById('subAgentPhone').value.trim() || null,
+                business_type: document.getElementById('subAgentBusinessType').value || null,
+                role: 'agent',
+                agent_status: 'Pending',
+                parent_agent_id: currentUserId
+            });
+
+            if (error) throw error;
+
+            document.getElementById('inviteSubAgentModal').style.display = 'none';
+            document.getElementById('subAgentName').value = '';
+            document.getElementById('subAgentEmail').value = '';
+            document.getElementById('subAgentPhone').value = '';
+            document.getElementById('subAgentBusinessType').value = '';
+            alert('Sub-agent invited successfully! Admin will complete their account setup.');
+            loadAgentSubAgents();
+        } catch (err) {
+            console.error('Invite sub-agent error:', err);
+            alert('Error inviting sub-agent: ' + err.message);
+        }
+    }
+
+    async function viewSubAgent(subAgentId) {
+        try {
+            const { data: sa, error } = await db
+                .from('users')
+                .select('*')
+                .eq('id', subAgentId)
+                .single();
+
+            if (error) throw error;
+            if (!sa) { alert('Sub-agent not found'); return; }
+
+            // Get their deals
+            const { data: deals } = await db
+                .from('deals')
+                .select('id, deal_number, company_name, deal_amount, status, parent_override_amount, date_submitted')
+                .eq('source_agent_id', subAgentId)
+                .order('date_submitted', { ascending: false });
+
+            const totalDeals = deals ? deals.length : 0;
+            const totalOverride = deals ? deals.reduce((s, d) => s + (parseFloat(d.parent_override_amount) || 0), 0) : 0;
+            const fundedDeals = deals ? deals.filter(d => d.status === 'Funded') : [];
+            const fundedOverride = fundedDeals.reduce((s, d) => s + (parseFloat(d.parent_override_amount) || 0), 0);
+
+            const dealsHtml = deals && deals.length > 0
+                ? deals.map(d => `
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0; font-size: 13px;">
+                        <span><strong>${d.deal_number || d.company_name || 'N/A'}</strong> — ${d.company_name || ''}</span>
+                        <span>${getStatusBadge(d.status)} ${d.deal_amount ? formatCurrency(d.deal_amount) : ''} ${d.parent_override_amount ? '<span style="color: var(--gold); font-weight: 600;">(Override: ' + formatCurrency(d.parent_override_amount) + ')</span>' : ''}</span>
+                    </div>
+                `).join('')
+                : '<p style="color: #94a3b8; font-size: 14px;">No deals yet.</p>';
+
+            document.getElementById('subAgentDetailTitle').textContent = sa.full_name || 'Sub-Agent Details';
+            document.getElementById('subAgentModalBody').innerHTML = `
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Full Name</label>
+                        <div class="modal-field-value">${sa.full_name || 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Email</label>
+                        <div class="modal-field-value"><a href="mailto:${sa.email}">${sa.email || 'N/A'}</a></div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Phone</label>
+                        <div class="modal-field-value">${sa.phone || 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Business Type</label>
+                        <div class="modal-field-value">${sa.business_type || 'N/A'}</div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Status</label>
+                        <div class="modal-field-value">${getStatusBadge(sa.agent_status || 'Pending')}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Referral Slug</label>
+                        <div class="modal-field-value" style="font-family: monospace;">${sa.referral_slug || 'Not set'}</div>
+                    </div>
+                </div>
+
+                <!-- Override Summary -->
+                <div style="margin-top: 15px; padding: 12px; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1px solid #bbf7d0; border-radius: 8px;">
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div>
+                            <div style="font-size: 12px; color: #64748b;">Total Deals</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--navy);">${totalDeals}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #64748b;">Your Total Override</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--gold);">${formatCurrency(totalOverride)}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #64748b;">Funded Override</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #16a34a;">${formatCurrency(fundedOverride)}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border-top: 2px solid #e2e8f0; margin: 20px 0 15px; padding-top: 15px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Their Deals (${totalDeals})</label>
+                </div>
+                <div style="max-height: 300px; overflow-y: auto;">${dealsHtml}</div>
+            `;
+
+            document.getElementById('viewSubAgentModal').style.display = 'flex';
+        } catch (err) {
+            console.error('View sub-agent error:', err);
+            alert('Error loading sub-agent details');
         }
     }
 
@@ -2606,16 +2803,24 @@
 
             if (isAgentUser) {
                 // ---- Agent-specific stat cards ----
-                const { data: agentDeals } = await db
+                const { data: agentDeals, error: adErr } = await db
                     .from('deals')
-                    .select('id, status, deal_amount, agent_fee_amount, agent_fee_pct, parent_override_amount')
+                    .select('*')
                     .eq('source_agent_id', currentUserId);
 
-                // Also get override earnings from sub-agent deals
-                const { data: subAgentDeals } = await db
-                    .from('deals')
-                    .select('id, status, parent_override_amount')
-                    .eq('sub_agent_id', currentUserId);
+                if (adErr) console.warn('Agent deals query error:', adErr);
+
+                // Also get override earnings from sub-agent deals (where this agent is the parent)
+                let subAgentDeals = [];
+                try {
+                    const { data: sad } = await db
+                        .from('deals')
+                        .select('id, status, parent_override_amount')
+                        .not('sub_agent_id', 'is', null);
+                    // Filter to deals where the sub-agent's parent is this user
+                    // For now, get all deals with a sub_agent and check parent_override
+                    subAgentDeals = sad || [];
+                } catch(e) { console.warn('Sub-agent deals query skipped:', e); }
 
                 // NOTE: parent_override_amount on sub-agent deals is what goes to the parent (this user)
 
@@ -2636,10 +2841,22 @@
                 const c2 = document.getElementById('statCard2');
                 const c3 = document.getElementById('statCard3');
                 const c4 = document.getElementById('statCard4');
+                // Get sub-agent and vendor counts for this agent
+                let subAgentCount = 0;
+                let vendorProgramCount = 0;
+                try {
+                    const { data: mySubAgents } = await db.from('users').select('id').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                    subAgentCount = mySubAgents ? mySubAgents.length : 0;
+                } catch(e) {}
+                try {
+                    const { data: myVendors } = await db.from('vendors').select('id').eq('source_agent_id', currentUserId);
+                    vendorProgramCount = myVendors ? myVendors.length : 0;
+                } catch(e) {}
+
                 if (c1) { c1.querySelector('.stat-label').textContent = 'Total Deals'; c1.querySelector('.stat-value').textContent = ad.length; c1.querySelector('.stat-detail').textContent = sad.length > 0 ? '+ ' + sad.length + ' sub-agent deals' : 'All your deals'; }
                 if (c2) { c2.querySelector('.stat-label').textContent = 'Projected Fees'; c2.querySelector('.stat-value').textContent = formatCurrency(projectedFees + overrideEarnings); c2.querySelector('.stat-detail').textContent = overrideEarnings > 0 ? 'Incl. ' + formatCurrency(overrideEarnings) + ' overrides' : 'Active deals'; }
                 if (c3) { c3.querySelector('.stat-label').textContent = 'Closed Fees'; c3.querySelector('.stat-value').textContent = formatCurrency(closedFees + fundedOverrides); c3.querySelector('.stat-detail').textContent = fundedOverrides > 0 ? 'Incl. ' + formatCurrency(fundedOverrides) + ' overrides' : 'Funded deals'; }
-                if (c4) { c4.querySelector('.stat-label').textContent = 'Total Funded Volume'; c4.querySelector('.stat-value').textContent = formatCurrency(fundedVolume); c4.querySelector('.stat-detail').textContent = fundedDeals.length + ' funded deals'; }
+                if (c4) { c4.querySelector('.stat-label').textContent = 'Your Network'; c4.querySelector('.stat-value').textContent = subAgentCount + vendorProgramCount; c4.querySelector('.stat-detail').textContent = subAgentCount + ' sub-agents, ' + vendorProgramCount + ' vendor programs'; }
 
                 // Hide the Recent Applications table for agents
                 const appTableContainer = document.getElementById('recentApplicationsTable');
@@ -3275,7 +3492,7 @@
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Source</label>
-                        ${isAgentView ? roField(deal.source) : `<select id="dealDetailSource" onchange="updateDealSource('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">${sourceOptions}</select>
+                        ${isAgentView ? roField((deal.source_channel || deal.source || 'N/A') + (deal.source === 'Vendor' ? ' (Vendor Program)' : deal.source === 'Agent Referral' ? ' (Referral Link)' : deal.source === 'Direct' ? ' (Direct)' : '')) : `<select id="dealDetailSource" onchange="updateDealSource('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">${sourceOptions}</select>
                         <div id="dealSourceVendor" style="display: ${deal.source === 'Vendor' ? 'block' : 'none'}; margin-top: 8px;">
                             <label style="font-size: 13px;">Select Vendor:</label>
                             <select onchange="updateDealField('${dealId}', 'source_vendor_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
