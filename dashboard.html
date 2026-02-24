@@ -771,45 +771,32 @@
                     </div>
                 </div>
 
-                <!-- Agent Deals & Commission Tracking (agents only) -->
+                <!-- Agent Deals Section (agents only) -->
                 <div id="agentCommissionsSection" class="table-container" style="display: none;">
-                    <div class="table-header">
-                        <div class="table-title">Your Deals & Commissions</div>
-                    </div>
-                    <div class="stats-grid" style="margin-bottom: 15px;">
-                        <div class="stat-card">
-                            <div class="stat-label">Total Deals</div>
-                            <div class="stat-value" id="commTotalDeals">0</div>
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
+                        <div class="table-title">Your Deals</div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" id="agentDealSearch" placeholder="Search company, product, status..."
+                                oninput="filterAgentDeals()"
+                                style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; min-width: 250px;">
+                            <button class="btn btn-gold btn-sm" onclick="openAddApplicationModal()">+ Add Application</button>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Funded Deals</div>
-                            <div class="stat-value" id="commFundedDeals">0</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Total Funded Volume</div>
-                            <div class="stat-value" id="commTotalVolume">$0</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Total Commissions</div>
-                            <div class="stat-value" id="commTotalEarned">$0</div>
-                        </div>
-                    </div>
-                    <div id="pendingCommissionsAlert" style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 6px; padding: 12px 16px; margin-bottom: 15px; display: none;">
-                        <strong style="color: #92400E;">Pending Commissions:</strong>
-                        <span id="pendingCommissionAmount" style="color: #92400E; margin-left: 8px;">$0</span>
                     </div>
                     <table>
                         <thead>
                             <tr>
                                 <th>Company</th>
-                                <th>Deal Amount</th>
-                                <th>Your Fee %</th>
-                                <th>Your Fee $</th>
-                                <th>Deal Status</th>
+                                <th>Amount</th>
+                                <th>Product</th>
+                                <th>Status</th>
+                                <th>Fee %</th>
+                                <th>Fee $</th>
+                                <th>Date</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="commissionsBody">
-                            <tr><td colspan="5" class="empty-state">No commissions recorded yet.</td></tr>
+                            <tr><td colspan="8" class="empty-state">Loading deals...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -817,7 +804,6 @@
                 <div class="table-container">
                     <div class="table-header">
                         <div class="table-title">Recent Applications (Intake)</div>
-                        <button id="agentAddAppBtn" class="btn btn-gold btn-sm" onclick="openAddApplicationModal()" style="display: none;">+ Add Application</button>
                     </div>
                     <table id="recentApplicationsTable">
                         <thead>
@@ -1861,18 +1847,11 @@
             }
         });
 
-        // Hide admin-only stat cards for agents
-        if (!isAdmin) {
-            const card3 = document.getElementById('statCard3');
-            const card4 = document.getElementById('statCard4');
-            if (card3) card3.style.display = 'none';
-            if (card4) card4.style.display = 'none';
-        } else {
-            const card3 = document.getElementById('statCard3');
-            const card4 = document.getElementById('statCard4');
-            if (card3) card3.style.display = 'block';
-            if (card4) card4.style.display = 'block';
-        }
+        // Show all 4 stat cards for both roles (agents get different labels/values set in loadDashboard)
+        const card3 = document.getElementById('statCard3');
+        const card4 = document.getElementById('statCard4');
+        if (card3) card3.style.display = 'block';
+        if (card4) card4.style.display = 'block';
     }
 
     // ============================================
@@ -2009,6 +1988,8 @@
     // Agent Portal: Commission Tracking
     // ============================================
 
+    let agentDealsCache = [];
+
     async function loadAgentCommissions() {
         const isAgent = !['super_admin', 'admin'].includes(currentUserRole) && currentUserId;
         const section = document.getElementById('agentCommissionsSection');
@@ -2019,106 +2000,59 @@
         section.style.display = 'block';
 
         try {
-            // Load deals for this agent to calculate stats
             const { data: agentDeals, error: dealsErr } = await db
                 .from('deals')
-                .select('id, company_name, deal_amount, status, agent_fee_pct, agent_fee_amount')
-                .eq('source_agent_id', currentUserId);
+                .select('id, company_name, deal_amount, status, agent_fee_pct, agent_fee_amount, product_type, date_submitted, source')
+                .eq('source_agent_id', currentUserId)
+                .order('date_submitted', { ascending: false });
 
             if (!dealsErr && agentDeals) {
-                const totalDeals = agentDeals.length;
-                const fundedDeals = agentDeals.filter(d => d.status === 'Funded').length;
-                const totalVolume = agentDeals.filter(d => d.status === 'Funded').reduce((s, d) => s + (d.deal_amount || 0), 0);
-
-                document.getElementById('commTotalDeals').textContent = totalDeals;
-                document.getElementById('commFundedDeals').textContent = fundedDeals;
-                document.getElementById('commTotalVolume').textContent = formatCurrency(totalVolume);
-            }
-
-            // Try to load from commissions table
-            const { data: commissions, error: commErr } = await db
-                .from('commissions')
-                .select('id, deal_id, deal_amount, commission_pct, commission_amount, status, created_at, deals(company_name)')
-                .eq('agent_id', currentUserId)
-                .order('created_at', { ascending: false });
-
-            if (!commErr && commissions && commissions.length > 0) {
-                // Use commissions table data
-                const totalEarned = commissions.filter(c => c.status === 'Paid').reduce((s, c) => s + (c.commission_amount || 0), 0);
-                const pendingAmount = commissions.filter(c => c.status === 'Pending' || c.status === 'Approved').reduce((s, c) => s + (c.commission_amount || 0), 0);
-
-                document.getElementById('commTotalEarned').textContent = formatCurrency(totalEarned);
-
-                const pendingAlert = document.getElementById('pendingCommissionsAlert');
-                if (pendingAmount > 0) {
-                    pendingAlert.style.display = 'block';
-                    document.getElementById('pendingCommissionAmount').textContent = formatCurrency(pendingAmount);
-                } else {
-                    pendingAlert.style.display = 'none';
-                }
-
-                renderCommissionsTable(commissions);
-            } else {
-                // Fall back to deals table — show ALL agent deals
-                if (!dealsErr && agentDeals) {
-                    const totalFees = agentDeals.filter(d => d.status === 'Funded').reduce((s, d) => s + (d.agent_fee_amount || 0), 0);
-                    document.getElementById('commTotalEarned').textContent = formatCurrency(totalFees);
-
-                    // Render ALL deals (not just ones with fees)
-                    renderCommissionsFromDeals(agentDeals);
-                }
-                document.getElementById('pendingCommissionsAlert').style.display = 'none';
+                agentDealsCache = agentDeals;
+                renderAgentDealsTable(agentDeals);
             }
         } catch (err) {
-            console.error('Error loading commissions:', err);
+            console.error('Error loading agent deals:', err);
         }
     }
 
-    function renderCommissionsTable(commissions) {
-        const tbody = document.getElementById('commissionsBody');
-        if (!commissions || commissions.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No commissions recorded yet.</td></tr>';
-            return;
-        }
-        tbody.innerHTML = commissions.map(c => {
-            const dealName = c.deals ? c.deals.company_name : 'Unknown';
-            const statusColors = { Pending: '#F59E0B', Approved: '#3B82F6', Paid: '#10B981', Cancelled: '#EF4444' };
-            const color = statusColors[c.status] || '#666';
-            return '<tr>' +
-                '<td><strong>' + dealName + '</strong></td>' +
-                '<td>' + formatCurrency(c.deal_amount || 0) + '</td>' +
-                '<td>' + (c.commission_pct || 0).toFixed(2) + '%</td>' +
-                '<td>' + formatCurrency(c.commission_amount || 0) + '</td>' +
-                '<td><span style="background:' + color + '20;color:' + color + ';padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">' + c.status + '</span></td>' +
-                '</tr>';
-        }).join('');
-    }
-
-    function renderCommissionsFromDeals(deals) {
+    function renderAgentDealsTable(deals) {
         const tbody = document.getElementById('commissionsBody');
         if (!deals || deals.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No deals yet.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No deals yet. Use "+ Add Application" to submit a new deal.</td></tr>';
             return;
         }
+        const statusColors = {
+            'Prospect': '#6B7280', 'Quote sent': '#3B82F6', 'Info received': '#8B5CF6',
+            'In Credit': '#F59E0B', 'Approved': '#10B981', 'Approval sent': '#10B981',
+            'Docs requested': '#F59E0B', 'Docs out for signing': '#F59E0B',
+            'In funding': '#3B82F6', 'Funded': '#10B981', 'Declined': '#EF4444', 'Dead approval': '#EF4444'
+        };
         tbody.innerHTML = deals.map(d => {
-            const dealStatus = d.status || 'Prospect';
-            const statusColors = {
-                'Prospect': '#6B7280', 'Quote sent': '#3B82F6', 'Info received': '#8B5CF6',
-                'In Credit': '#F59E0B', 'Approved': '#10B981', 'Approval sent': '#10B981',
-                'Docs requested': '#F59E0B', 'Docs out for signing': '#F59E0B',
-                'In funding': '#3B82F6', 'Funded': '#10B981', 'Declined': '#EF4444', 'Dead approval': '#EF4444'
-            };
-            const color = statusColors[dealStatus] || '#6B7280';
-            const feeDisplay = d.agent_fee_pct ? (d.agent_fee_pct).toFixed(2) + '%' : '-';
-            const feeAmount = d.agent_fee_amount ? formatCurrency(d.agent_fee_amount) : '-';
+            const st = d.status || 'Prospect';
+            const color = statusColors[st] || '#6B7280';
             return '<tr>' +
                 '<td><strong>' + (d.company_name || 'N/A') + '</strong></td>' +
                 '<td>' + formatCurrency(d.deal_amount || 0) + '</td>' +
-                '<td>' + feeDisplay + '</td>' +
-                '<td>' + feeAmount + '</td>' +
-                '<td><span style="background:' + color + '20;color:' + color + ';padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">' + dealStatus + '</span></td>' +
+                '<td>' + (d.product_type || '-') + '</td>' +
+                '<td><span style="background:' + color + '20;color:' + color + ';padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">' + st + '</span></td>' +
+                '<td>' + (d.agent_fee_pct ? d.agent_fee_pct.toFixed(2) + '%' : '-') + '</td>' +
+                '<td>' + (d.agent_fee_amount ? formatCurrency(d.agent_fee_amount) : '-') + '</td>' +
+                '<td>' + formatDate(d.date_submitted) + '</td>' +
+                '<td><button class="btn btn-secondary btn-sm" onclick="viewDeal(\'' + d.id + '\')">View</button></td>' +
                 '</tr>';
         }).join('');
+    }
+
+    function filterAgentDeals() {
+        const term = (document.getElementById('agentDealSearch').value || '').toLowerCase();
+        if (!term) { renderAgentDealsTable(agentDealsCache); return; }
+        const filtered = agentDealsCache.filter(d =>
+            (d.company_name || '').toLowerCase().includes(term) ||
+            (d.product_type || '').toLowerCase().includes(term) ||
+            (d.status || '').toLowerCase().includes(term) ||
+            (d.source || '').toLowerCase().includes(term)
+        );
+        renderAgentDealsTable(filtered);
     }
 
     // ============================================
@@ -2275,14 +2209,41 @@
             // === Agent Portal Features ===
             const isAgentUser = !['super_admin', 'admin'].includes(currentUserRole) && currentUserId;
 
+            if (isAgentUser) {
+                // ---- Agent-specific stat cards ----
+                const { data: agentDeals } = await db
+                    .from('deals')
+                    .select('id, status, deal_amount, agent_fee_amount, agent_fee_pct')
+                    .eq('source_agent_id', currentUserId);
+
+                const ad = agentDeals || [];
+                const fundedDeals = ad.filter(d => d.status === 'Funded');
+                const activeDeals = ad.filter(d => d.status !== 'Funded' && d.status !== 'Declined' && d.status !== 'Dead approval');
+                const projectedFees = activeDeals.reduce((s, d) => s + (d.agent_fee_amount || 0), 0);
+                const closedFees = fundedDeals.reduce((s, d) => s + (d.agent_fee_amount || 0), 0);
+                const fundedVolume = fundedDeals.reduce((s, d) => s + (d.deal_amount || 0), 0);
+
+                // Relabel and populate agent stat cards
+                const c1 = document.getElementById('statCard1');
+                const c2 = document.getElementById('statCard2');
+                const c3 = document.getElementById('statCard3');
+                const c4 = document.getElementById('statCard4');
+                if (c1) { c1.querySelector('.stat-label').textContent = 'Total Deals'; c1.querySelector('.stat-value').textContent = ad.length; c1.querySelector('.stat-detail').textContent = 'All your deals'; }
+                if (c2) { c2.querySelector('.stat-label').textContent = 'Projected Fees'; c2.querySelector('.stat-value').textContent = formatCurrency(projectedFees); c2.querySelector('.stat-detail').textContent = 'Active deals'; }
+                if (c3) { c3.querySelector('.stat-label').textContent = 'Closed Fees'; c3.querySelector('.stat-value').textContent = formatCurrency(closedFees); c3.querySelector('.stat-detail').textContent = 'Funded deals'; }
+                if (c4) { c4.querySelector('.stat-label').textContent = 'Total Funded Volume'; c4.querySelector('.stat-value').textContent = formatCurrency(fundedVolume); c4.querySelector('.stat-detail').textContent = fundedDeals.length + ' funded deals'; }
+
+                // Hide the Recent Applications table for agents
+                const appTableContainer = document.getElementById('recentApplicationsTable');
+                if (appTableContainer && appTableContainer.closest('.table-container')) {
+                    appTableContainer.closest('.table-container').style.display = 'none';
+                }
+            }
+
             // Show/hide agent referral card
             await displayAgentReferralCard();
 
-            // Show/hide Add Application button for agents
-            const addAppBtn = document.getElementById('agentAddAppBtn');
-            if (addAppBtn) addAppBtn.style.display = isAgentUser ? 'inline-block' : 'none';
-
-            // Load agent commissions
+            // Load agent deals section
             await loadAgentCommissions();
 
         } catch (error) {
@@ -2787,6 +2748,10 @@
                 cachedAgents = agentList || [];
             }
 
+            // Check if agent viewing (read-only for most fields)
+            const isAgentView = !['super_admin', 'admin'].includes(currentUserRole);
+            const roField = (val) => `<div style="padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; min-height: 20px;">${val || '-'}</div>`;
+
             // Build product type options
             const productTypes = ['Equipment Leasing', 'MCA', 'CSBFL', 'SRED', 'Private Debt', 'Factoring', 'Merchant Advance', 'Commercial Mortgage', 'SBA', 'Loans', 'Trade Finance', 'Working Capital Loan', 'Business Line of Credit', 'Startup Financing', 'Franchise Financing', 'Other'];
             const productTypeOptions = productTypes.map(pt => `<option value="${pt}" ${deal.product_type === pt ? 'selected' : ''}>${pt}</option>`).join('');
@@ -2841,17 +2806,18 @@
                 </div>
             `).join('');
 
+            const lenderName = deal.lenders?.name || cachedLenders.find(l => l.id === deal.assigned_lender_id)?.name || 'None';
             const modalBody = document.getElementById('dealModalBody');
             modalBody.innerHTML = `
                 <!-- Row 1: AF # and Company Name -->
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>AF #</label>
-                        <div class="modal-field-value" style="padding: 6px 10px;">${deal.applications?.application_id || deal.deal_number || 'Auto-generated'}</div>
+                        <div style="padding: 6px 10px;">${deal.applications?.application_id || deal.deal_number || 'Auto-generated'}</div>
                     </div>
                     <div class="modal-field">
                         <label>Company Name</label>
-                        <input type="text" value="${deal.company_name || ''}" onblur="updateDealField('${dealId}', 'company_name', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                        ${isAgentView ? roField(deal.company_name) : `<input type="text" value="${deal.company_name || ''}" onblur="updateDealField('${dealId}', 'company_name', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                     </div>
                 </div>
 
@@ -2859,13 +2825,11 @@
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Deal Amount</label>
-                        <input type="number" value="${deal.deal_amount || ''}" onblur="updateDealField('${dealId}', 'deal_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                        ${isAgentView ? roField(deal.deal_amount ? formatCurrency(deal.deal_amount) : '') : `<input type="number" value="${deal.deal_amount || ''}" onblur="updateDealField('${dealId}', 'deal_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                     </div>
                     <div class="modal-field">
                         <label>Currency</label>
-                        <select onchange="updateDealField('${dealId}', 'currency', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
-                            ${currencyOptions}
-                        </select>
+                        ${isAgentView ? roField(deal.currency || 'CAD') : `<select onchange="updateDealField('${dealId}', 'currency', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">${currencyOptions}</select>`}
                     </div>
                 </div>
 
@@ -2873,16 +2837,11 @@
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Product Type</label>
-                        <select onchange="updateDealField('${dealId}', 'product_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
-                            <option value="">Select Product Type</option>
-                            ${productTypeOptions}
-                        </select>
+                        ${isAgentView ? roField(deal.product_type) : `<select onchange="updateDealField('${dealId}', 'product_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;"><option value="">Select Product Type</option>${productTypeOptions}</select>`}
                     </div>
                     <div class="modal-field">
                         <label>Status</label>
-                        <select onchange="updateDealField('${dealId}', 'status', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
-                            ${getDealStatusOptions(deal.status)}
-                        </select>
+                        ${isAgentView ? roField(deal.status) : `<select onchange="updateDealField('${dealId}', 'status', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">${getDealStatusOptions(deal.status)}</select>`}
                     </div>
                 </div>
 
@@ -2890,9 +2849,7 @@
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Source</label>
-                        <select id="dealDetailSource" onchange="updateDealSource('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
-                            ${sourceOptions}
-                        </select>
+                        ${isAgentView ? roField(deal.source) : `<select id="dealDetailSource" onchange="updateDealSource('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">${sourceOptions}</select>
                         <div id="dealSourceVendor" style="display: ${deal.source === 'Vendor' ? 'block' : 'none'}; margin-top: 8px;">
                             <label style="font-size: 13px;">Select Vendor:</label>
                             <select onchange="updateDealField('${dealId}', 'source_vendor_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
@@ -2906,19 +2863,58 @@
                                 <option value="">Select Agent</option>
                                 ${cachedAgents.map(a => `<option value="${a.id}" ${deal.source_agent_id === a.id ? 'selected' : ''}>${a.full_name}</option>`).join('')}
                             </select>
-                        </div>
+                        </div>`}
                     </div>
                     <div class="modal-field">
                         <label>Assigned Lender</label>
-                        <select onchange="updateDealField('${dealId}', 'assigned_lender_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                        ${isAgentView ? roField(lenderName) : `<select onchange="updateDealField('${dealId}', 'assigned_lender_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
                             <option value="">None</option>
                             ${cachedLenders.map(l => `<option value="${l.id}" ${deal.assigned_lender_id === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
-                        </select>
+                        </select>`}
                     </div>
                 </div>
 
-                <!-- Row 5: Syndicated and Expected Close Month -->
+                <!-- Row 5: Expected Close and Dates -->
                 <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Expected Close Month</label>
+                        ${isAgentView ? roField(deal.expected_close_month) : `<input type="text" value="${deal.expected_close_month || ''}" onblur="updateDealField('${dealId}', 'expected_close_month', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                    </div>
+                    <div class="modal-field">
+                        <label>Date Submitted</label>
+                        ${isAgentView ? roField(formatDate(deal.date_submitted)) : `<input type="date" value="${deal.date_submitted ? deal.date_submitted.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'date_submitted', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                    </div>
+                </div>
+
+                <!-- Row 6: Commission Info (read-only for agents, editable for admins) -->
+                <div style="margin-top: 15px; padding: 15px; background: ${isAgentView ? '#f0fdf4' : '#fff'}; border: 1px solid ${isAgentView ? '#bbf7d0' : 'transparent'}; border-radius: 8px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); margin-bottom: 10px; display: block;">${isAgentView ? 'Your Commission' : 'Fee Details'}</label>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>${isAgentView ? 'Your Fee %' : 'Agent Fee %'}</label>
+                            ${isAgentView ? roField(deal.agent_fee_pct ? deal.agent_fee_pct + '%' : 'Not set') : `<input type="number" step="0.01" value="${deal.agent_fee_pct || ''}" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>${isAgentView ? 'Your Fee Amount' : 'Agent Fee Amount'}</label>
+                            ${isAgentView ? roField(deal.agent_fee_amount ? formatCurrency(deal.agent_fee_amount) : 'Not set') : `<input type="number" step="0.01" value="${deal.agent_fee_amount || ''}" onblur="updateDealField('${dealId}', 'agent_fee_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    ${!isAgentView ? `
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Gross Fee %</label>
+                            <input type="number" step="0.01" value="${deal.gross_fee_pct || ''}" onblur="updateDealField('${dealId}', 'gross_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                        </div>
+                        <div class="modal-field">
+                            <label>Alliance Net Fee</label>
+                            <input type="number" step="0.01" value="${deal.alliance_net_fee || ''}" onblur="updateDealField('${dealId}', 'alliance_net_fee', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                        </div>
+                    </div>` : ''}
+                </div>
+
+                ${!isAgentView ? `
+                <!-- Admin-only: Syndicated and additional dates -->
+                <div class="modal-row" style="margin-top: 15px;">
                     <div class="modal-field">
                         <label style="display: flex; align-items: center;">
                             <input type="checkbox" ${deal.is_syndicated ? 'checked' : ''} onchange="updateDealField('${dealId}', 'is_syndicated', this.checked)" style="margin-right: 8px; cursor: pointer;">
@@ -2926,48 +2922,10 @@
                         </label>
                     </div>
                     <div class="modal-field">
-                        <label>Expected Close Month</label>
-                        <input type="text" value="${deal.expected_close_month || ''}" onblur="updateDealField('${dealId}', 'expected_close_month', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                    </div>
-                </div>
-
-                <!-- Row 6: Fee Section -->
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Gross Fee %</label>
-                        <input type="number" step="0.01" value="${deal.gross_fee_pct || ''}" onblur="updateDealField('${dealId}', 'gross_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                    </div>
-                    <div class="modal-field">
-                        <label>Agent Fee %</label>
-                        <input type="number" step="0.01" value="${deal.agent_fee_pct || ''}" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                    </div>
-                </div>
-
-                <!-- Row 7: Net Fee and Agent Fee Amount -->
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Alliance Net Fee</label>
-                        <input type="number" step="0.01" value="${deal.alliance_net_fee || ''}" onblur="updateDealField('${dealId}', 'alliance_net_fee', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                    </div>
-                    <div class="modal-field">
-                        <label>Agent Fee Amount</label>
-                        <input type="number" step="0.01" value="${deal.agent_fee_amount || ''}" onblur="updateDealField('${dealId}', 'agent_fee_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                    </div>
-                </div>
-
-                <!-- Row 8: Submission and Close Dates -->
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Date Submitted</label>
-                        <input type="date" value="${deal.date_submitted ? deal.date_submitted.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'date_submitted', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                    </div>
-                    <div class="modal-field">
                         <label>Close Date</label>
                         <input type="date" value="${deal.close_date ? deal.close_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'close_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                 </div>
-
-                <!-- Row 9: Start and End Dates -->
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Start Date</label>
@@ -2979,12 +2937,10 @@
                     </div>
                 </div>
 
-                <!-- Syndication Section -->
+                <!-- Syndication Section (admin only) -->
                 <div id="syndicationSection" style="display: ${deal.is_syndicated ? 'block' : 'none'}; margin-top: 20px;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px; display: block;">Syndication Partners</label>
-
                     ${syndicationRows || '<div style="color: #999; padding: 10px;">No syndication entries yet.</div>'}
-
                     <div style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px; border: 1px solid var(--border-gray);">
                         <div style="font-weight: 600; margin-bottom: 12px; color: var(--navy);">Add Syndication Entry</div>
                         <div class="modal-row">
@@ -3011,7 +2967,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>` : ''}
 
                 <!-- Client Contacts Section -->
                 <div style="margin-top: 20px;">
