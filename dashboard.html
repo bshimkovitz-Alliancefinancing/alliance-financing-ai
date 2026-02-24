@@ -721,22 +721,22 @@
             <!-- Dashboard Page -->
             <div id="dashboard" class="page-section active">
                 <div class="stats-grid">
-                    <div class="stat-card">
+                    <div class="stat-card" id="statCard1">
                         <div class="stat-label">Deals Received This Month</div>
                         <div class="stat-value" id="dealsThisMonth">0</div>
                         <div class="stat-detail" id="dealsMonthLabel">Current month</div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card" id="statCard2">
                         <div class="stat-label">Active Pipeline Value</div>
                         <div class="stat-value" id="pipelineValue">$0</div>
                         <div class="stat-detail">In progress + pending</div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card" id="statCard3">
                         <div class="stat-label">Number of Lenders</div>
                         <div class="stat-value" id="totalLenders">0</div>
                         <div class="stat-detail">Total lending partners</div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card" id="statCard4">
                         <div class="stat-label">Vendor Programs</div>
                         <div class="stat-value" id="totalVendors">0</div>
                         <div class="stat-detail" id="vendorSalesPeople">0 sales contacts</div>
@@ -1601,6 +1601,10 @@
     let lenderContactCount = 1;
     let vendorContactCount = 1;
 
+    // Role-based access control
+    let currentUserRole = 'agent';  // default to most restricted
+    let currentUserId = null;       // the user's ID from the users table (NOT auth_id)
+
     // ============================================
     // Authentication
     // ============================================
@@ -1670,18 +1674,20 @@
 
             currentUser = data.user;
 
-            // Get user name from database (optional - dashboard works even if this fails)
+            // Get user name and role from database (optional - dashboard works even if this fails)
             let displayName = email;
             let displayRole = 'admin';
             try {
                 const { data: userData } = await db
                     .from('users')
-                    .select('role, full_name')
+                    .select('id, role, full_name')
                     .eq('email', email)
                     .maybeSingle();
                 if (userData) {
                     displayName = userData.full_name || email;
                     displayRole = userData.role || 'admin';
+                    currentUserRole = userData.role || 'admin';
+                    currentUserId = userData.id;
                 }
             } catch (e) {
                 console.log('User lookup optional, continuing...', e);
@@ -1692,6 +1698,9 @@
             document.getElementById('appContainer').style.display = 'flex';
             document.getElementById('userEmailDisplay').textContent = email;
             document.getElementById('currentUser').textContent = `${displayName} (${displayRole})`;
+
+            // Apply role-based access
+            applyRoleAccess();
 
             // Load dashboard
             loadDashboard();
@@ -1704,12 +1713,55 @@
         try {
             await db.auth.signOut();
             currentUser = null;
+            currentUserRole = 'agent';
+            currentUserId = null;
+            // Re-show all nav items in case an admin logs out and agent logs in
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.style.display = 'flex';
+            });
             document.getElementById('loginScreen').style.display = 'flex';
             document.getElementById('appContainer').style.display = 'none';
             document.getElementById('loginForm').reset();
             document.getElementById('loginError').textContent = '';
         } catch (error) {
             console.error('Logout error:', error);
+        }
+    }
+
+    // ============================================
+    // Role-Based Access Control
+    // ============================================
+
+    function applyRoleAccess() {
+        const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
+        // Hide/show nav items based on role
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            const label = item.querySelector('span:last-child').textContent.trim();
+            // Agents can only see Dashboard and Deal Pipeline
+            if (!isAdmin) {
+                if (['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions'].includes(label)) {
+                    item.style.display = 'none';
+                } else {
+                    item.style.display = 'flex';
+                }
+            } else {
+                item.style.display = 'flex';
+            }
+        });
+
+        // Hide admin-only stat cards for agents
+        if (!isAdmin) {
+            const card3 = document.getElementById('statCard3');
+            const card4 = document.getElementById('statCard4');
+            if (card3) card3.style.display = 'none';
+            if (card4) card4.style.display = 'none';
+        } else {
+            const card3 = document.getElementById('statCard3');
+            const card4 = document.getElementById('statCard4');
+            if (card3) card3.style.display = 'block';
+            if (card4) card4.style.display = 'block';
         }
     }
 
@@ -1756,11 +1808,12 @@
 
     async function loadDashboard() {
         try {
-            // Load ALL applications for monthly count, then show recent in table
-            const { data: allApps, error: appError } = await db
-                .from('applications')
-                .select('*')
-                .order('submitted_at', { ascending: false });
+            // Load applications with role-based filtering
+            let appQuery = db.from('applications').select('*').order('submitted_at', { ascending: false });
+            if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
+                appQuery = appQuery.eq('source_agent_id', currentUserId);
+            }
+            const { data: allApps, error: appError } = await appQuery;
 
             const applications = allApps || [];
 
@@ -1798,10 +1851,12 @@
                 document.getElementById('dealsMonthLabel').textContent = monthName;
             }
 
-            // Calculate pipeline value (active deals)
-            const { data: deals, error: dealsError } = await db
-                .from('deals')
-                .select('deal_amount, currency, status');
+            // Calculate pipeline value (active deals) with role-based filtering
+            let dealsQuery = db.from('deals').select('deal_amount, currency, status');
+            if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
+                dealsQuery = dealsQuery.eq('source_agent_id', currentUserId);
+            }
+            const { data: deals, error: dealsError } = await dealsQuery;
 
             if (!dealsError && deals) {
                 const activeDealStatuses = ['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
@@ -1828,10 +1883,23 @@
             if (!appError) {
                 const recentApps = applications.filter(app => app.status !== 'Moved to Pipeline').slice(0, 15);
                 const tbody = document.getElementById('recentAppBody');
+                const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
                 tbody.innerHTML = recentApps.map(app => {
-                    const moveButtonHtml = (app.status !== 'Moved to Pipeline')
+                    const moveButtonHtml = (isAdmin && app.status !== 'Moved to Pipeline')
                         ? `<button class="btn btn-gold btn-sm" onclick="moveToPipeline('${app.id}')">Move to Pipeline</button>`
                         : '';
+
+                    // For agents, show status as badge instead of dropdown
+                    const statusHtml = isAdmin
+                        ? `<select class="status-dropdown" onchange="updateAppStatus('${app.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                            <option value="Application Received" ${app.status === 'Application Received' ? 'selected' : ''}>Application Received</option>
+                            <option value="Under Review" ${app.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
+                            <option value="Info Requested" ${app.status === 'Info Requested' ? 'selected' : ''}>Info Requested</option>
+                            <option value="Moved to Pipeline" ${app.status === 'Moved to Pipeline' ? 'selected' : ''}>Moved to Pipeline</option>
+                            <option value="Declined" ${app.status === 'Declined' ? 'selected' : ''}>Declined</option>
+                        </select>`
+                        : `<span style="padding: 5px 8px; border-radius: 4px; background: #F3F4F6; font-size: 13px;">${app.status}</span>`;
 
                     return `
                         <tr>
@@ -1840,15 +1908,7 @@
                             <td>${app.business_name || 'N/A'}</td>
                             <td>${app.funding_amount_requested ? formatCurrency(app.funding_amount_requested) : (app.funding_amount_text || 'N/A')}</td>
                             <td>${app.source_channel || 'Online'}</td>
-                            <td>
-                                <select class="status-dropdown" onchange="updateAppStatus('${app.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
-                                    <option value="Application Received" ${app.status === 'Application Received' ? 'selected' : ''}>Application Received</option>
-                                    <option value="Under Review" ${app.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
-                                    <option value="Info Requested" ${app.status === 'Info Requested' ? 'selected' : ''}>Info Requested</option>
-                                    <option value="Moved to Pipeline" ${app.status === 'Moved to Pipeline' ? 'selected' : ''}>Moved to Pipeline</option>
-                                    <option value="Declined" ${app.status === 'Declined' ? 'selected' : ''}>Declined</option>
-                                </select>
-                            </td>
+                            <td>${statusHtml}</td>
                             <td>${formatDate(app.submitted_at)}</td>
                             <td>${moveButtonHtml}</td>
                         </tr>
@@ -1871,11 +1931,17 @@
                 cachedLenders = lenderList || [];
             }
 
-            // Fetch deals with joined application and lender data
-            const { data, error } = await db
+            // Fetch deals with role-based filtering
+            let dealsQuery = db
                 .from('deals')
                 .select('*, applications(application_id, full_name), lenders(name)')
                 .order('date_submitted', { ascending: false });
+
+            if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
+                dealsQuery = dealsQuery.eq('source_agent_id', currentUserId);
+            }
+
+            const { data, error } = await dealsQuery;
 
             if (error) throw error;
 
@@ -1893,37 +1959,48 @@
             return;
         }
 
+        const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
         tbody.innerHTML = data.map(deal => {
             const afNumber = deal.applications?.application_id || deal.deal_number || 'N/A';
             const company = deal.company_name || 'N/A';
             const amount = formatCurrency(deal.deal_amount || 0) + ' ' + (deal.currency || 'USD');
             const lenderName = deal.lenders?.name || '';
 
+            // Product column - read-only for agents
+            const productHtml = isAdmin
+                ? `<select class="status-dropdown" onchange="updateDealField('${deal.id}', 'product_type', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                    ${['Equipment Leasing','MCA','CSBFL','SRED','Private Debt','Factoring','Merchant Advance','Commercial Mortgage','SBA','Loans','Trade Finance','Working Capital Loan','Business Line of Credit','Startup Financing','Franchise Financing','Other'].map(pt => `<option value="${pt}" ${deal.product_type === pt ? 'selected' : ''}>${pt}</option>`).join('')}
+                </select>`
+                : `${deal.product_type || 'N/A'}`;
+
+            // Source column - read-only for agents
+            const sourceHtml = isAdmin
+                ? `<select class="status-dropdown" onchange="updateDealField('${deal.id}', 'source', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                    <option value="Online" ${deal.source === 'Online' ? 'selected' : ''}>Online</option>
+                    <option value="Agent Referral" ${deal.source === 'Agent Referral' ? 'selected' : ''}>Agent Referral</option>
+                    <option value="Direct" ${deal.source === 'Direct' ? 'selected' : ''}>Direct</option>
+                    <option value="Vendor" ${deal.source === 'Vendor' ? 'selected' : ''}>Vendor</option>
+                    <option value="Repeat Client" ${deal.source === 'Repeat Client' ? 'selected' : ''}>Repeat Client</option>
+                </select>`
+                : `${deal.source || 'N/A'}`;
+
+            // Lender column - read-only for agents
+            const lenderHtml = isAdmin
+                ? `<select class="status-dropdown" onchange="updateDealField('${deal.id}', 'assigned_lender_id', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                    <option value="">Select Lender</option>
+                    ${cachedLenders.map(lender => `<option value="${lender.id}" ${deal.assigned_lender_id === lender.id ? 'selected' : ''}>${lender.name}</option>`).join('')}
+                </select>`
+                : `${lenderName || 'N/A'}`;
+
             return `
                 <tr>
                     <td><strong>${afNumber}</strong></td>
                     <td>${company}</td>
                     <td>${amount}</td>
-                    <td>
-                        <select class="status-dropdown" onchange="updateDealField('${deal.id}', 'product_type', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
-                            ${['Equipment Leasing','MCA','CSBFL','SRED','Private Debt','Factoring','Merchant Advance','Commercial Mortgage','SBA','Loans','Trade Finance','Working Capital Loan','Business Line of Credit','Startup Financing','Franchise Financing','Other'].map(pt => `<option value="${pt}" ${deal.product_type === pt ? 'selected' : ''}>${pt}</option>`).join('')}
-                        </select>
-                    </td>
-                    <td>
-                        <select class="status-dropdown" onchange="updateDealField('${deal.id}', 'source', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
-                            <option value="Online" ${deal.source === 'Online' ? 'selected' : ''}>Online</option>
-                            <option value="Agent Referral" ${deal.source === 'Agent Referral' ? 'selected' : ''}>Agent Referral</option>
-                            <option value="Direct" ${deal.source === 'Direct' ? 'selected' : ''}>Direct</option>
-                            <option value="Vendor" ${deal.source === 'Vendor' ? 'selected' : ''}>Vendor</option>
-                            <option value="Repeat Client" ${deal.source === 'Repeat Client' ? 'selected' : ''}>Repeat Client</option>
-                        </select>
-                    </td>
-                    <td>
-                        <select class="status-dropdown" onchange="updateDealField('${deal.id}', 'assigned_lender_id', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
-                            <option value="">Select Lender</option>
-                            ${cachedLenders.map(lender => `<option value="${lender.id}" ${deal.assigned_lender_id === lender.id ? 'selected' : ''}>${lender.name}</option>`).join('')}
-                        </select>
-                    </td>
+                    <td>${productHtml}</td>
+                    <td>${sourceHtml}</td>
+                    <td>${lenderHtml}</td>
                     <td>
                         <select class="status-dropdown" onchange="updateDealField('${deal.id}', 'status', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
                             ${getDealStatusOptions(deal.status)}
