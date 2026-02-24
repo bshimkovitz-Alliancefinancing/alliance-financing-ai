@@ -827,12 +827,13 @@
                                 <th>Vendor Name</th>
                                 <th>Product</th>
                                 <th>Country</th>
+                                <th>Salespeople</th>
                                 <th>Projected Vol.</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody id="agentVendorsBody">
-                            <tr><td colspan="5" class="empty-state">Loading vendor programs...</td></tr>
+                            <tr><td colspan="6" class="empty-state">Loading vendor programs...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1114,6 +1115,7 @@
                                 <th>Product</th>
                                 <th>Country</th>
                                 <th>Source Agent</th>
+                                <th>Salespeople</th>
                                 <th>Projected Vol.</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -1121,7 +1123,7 @@
                         </thead>
                         <tbody id="vendorsBody">
                             <tr>
-                                <td colspan="8" class="empty-state">Loading...</td>
+                                <td colspan="9" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1878,6 +1880,7 @@
     let cachedLenders = [];
     let cachedVendors = [];
     let cachedAgents = [];
+    let cachedVendorContacts = [];  // For salespeople tracking
     let lenderContactCount = 1;
     let vendorContactCount = 1;
 
@@ -2429,9 +2432,21 @@
 
             if (error) throw error;
 
+            // Fetch salespeople counts for agent's vendors
+            const vendorIds = (vendors || []).map(v => v.id);
+            let vendorSPCounts = {};
+            if (vendorIds.length > 0) {
+                const { data: vcData } = await db.from('vendor_contacts').select('id, vendor_id, status').in('vendor_id', vendorIds);
+                (vcData || []).forEach(vc => {
+                    if (vc.status !== 'Left Company') {
+                        vendorSPCounts[vc.vendor_id] = (vendorSPCounts[vc.vendor_id] || 0) + 1;
+                    }
+                });
+            }
+
             const tbody = document.getElementById('agentVendorsBody');
             if (!vendors || vendors.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No vendor programs yet. Submit one above!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No vendor programs yet. Submit one above!</td></tr>';
                 return;
             }
 
@@ -2440,6 +2455,7 @@
                     <td><strong>${v.name || 'N/A'}</strong></td>
                     <td>${v.product_description || 'N/A'}</td>
                     <td>${v.country || 'N/A'}</td>
+                    <td style="text-align: center;"><span style="background: ${(vendorSPCounts[v.id] || 0) > 0 ? '#EFF6FF' : '#f5f5f5'}; color: ${(vendorSPCounts[v.id] || 0) > 0 ? '#3B82F6' : '#999'}; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 13px;">${vendorSPCounts[v.id] || 0}</span></td>
                     <td>${v.projected_volume ? formatCurrency(v.projected_volume) : '-'}</td>
                     <td>${getStatusBadge(v.status || 'Pending')}</td>
                 </tr>
@@ -3213,6 +3229,10 @@
                 const { data: agts } = await db.from('users').select('id, full_name').eq('role', 'agent');
                 cachedAgents = agts || [];
             }
+            // Fetch all vendor contacts for salespeople counts
+            const { data: vcData } = await db.from('vendor_contacts').select('id, vendor_id, contact_name, status');
+            cachedVendorContacts = vcData || [];
+
             const { data, error } = await db
                 .from('vendors')
                 .select('*')
@@ -3230,7 +3250,7 @@
     function renderVendorsTable(data) {
         const tbody = document.getElementById('vendorsBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No vendors found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No vendors found.</td></tr>';
             return;
         }
 
@@ -3242,6 +3262,8 @@
             const agentName = vendor.source_agent_id && cachedAgents.length > 0
                 ? (cachedAgents.find(a => a.id === vendor.source_agent_id) || {}).full_name || 'Unknown'
                 : '-';
+            // Count salespeople (active vendor contacts) for this vendor
+            const spCount = cachedVendorContacts.filter(vc => vc.vendor_id === vendor.id && vc.status !== 'Left Company').length;
 
             return `
             <tr>
@@ -3250,6 +3272,7 @@
                 <td>${vendor.product_description || 'N/A'}</td>
                 <td>${vendor.country || 'N/A'}</td>
                 <td>${agentName}</td>
+                <td style="text-align: center;"><span style="background: ${spCount > 0 ? '#EFF6FF' : '#f5f5f5'}; color: ${spCount > 0 ? '#3B82F6' : '#999'}; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 13px;">${spCount}</span></td>
                 <td>${vendor.projected_volume ? formatCurrency(vendor.projected_volume) : 'N/A'}</td>
                 <td>
                     <select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
@@ -3522,10 +3545,16 @@
                         ${isAgentView ? roField((deal.source_channel || deal.source || 'N/A') + (deal.source === 'Vendor' ? ' (Vendor Program)' : deal.source === 'Agent Referral' ? ' (Referral Link)' : deal.source === 'Direct' ? ' (Direct)' : '')) : `<select id="dealDetailSource" onchange="updateDealSource('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">${sourceOptions}</select>
                         <div id="dealSourceVendor" style="display: ${deal.source === 'Vendor' ? 'block' : 'none'}; margin-top: 8px;">
                             <label style="font-size: 13px;">Select Vendor:</label>
-                            <select onchange="updateDealField('${dealId}', 'source_vendor_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            <select id="dealVendorSelect" onchange="updateDealField('${dealId}', 'source_vendor_id', this.value); loadVendorSalespeople('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
                                 <option value="">Select Vendor</option>
                                 ${cachedVendors.map(v => `<option value="${v.id}" ${deal.source_vendor_id === v.id ? 'selected' : ''}>${v.name}</option>`).join('')}
                             </select>
+                            <div id="dealSalespersonContainer" style="margin-top: 8px; display: ${deal.source_vendor_id ? 'block' : 'none'};">
+                                <label style="font-size: 13px;">Salesperson:</label>
+                                <select id="dealSalespersonSelect" onchange="updateDealField('${dealId}', 'vendor_salesperson_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                                    <option value="">Select Salesperson</option>
+                                </select>
+                            </div>
                         </div>
                         <div id="dealSourceAgent" style="display: ${deal.source === 'Agent Referral' ? 'block' : 'none'}; margin-top: 8px;">
                             <label style="font-size: 13px;">Select Agent:</label>
@@ -3757,6 +3786,11 @@
             `;
 
             document.getElementById('dealModal').classList.add('active');
+
+            // Auto-load salesperson dropdown if deal has a vendor source
+            if (deal.source === 'Vendor' && deal.source_vendor_id) {
+                loadVendorSalespeople(dealId, deal.source_vendor_id);
+            }
         } catch (error) {
             console.error('View deal error:', error);
             alert('Error loading deal details: ' + error.message);
@@ -3794,6 +3828,48 @@
         await updateDealField(dealId, 'source', source);
         document.getElementById('dealSourceVendor').style.display = source === 'Vendor' ? 'block' : 'none';
         document.getElementById('dealSourceAgent').style.display = source === 'Agent Referral' ? 'block' : 'none';
+        // Hide salesperson dropdown when source changes away from Vendor
+        const spContainer = document.getElementById('dealSalespersonContainer');
+        if (spContainer && source !== 'Vendor') spContainer.style.display = 'none';
+    }
+
+    async function loadVendorSalespeople(dealId, vendorId) {
+        const container = document.getElementById('dealSalespersonContainer');
+        const select = document.getElementById('dealSalespersonSelect');
+        if (!container || !select) return;
+
+        if (!vendorId) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+        select.innerHTML = '<option value="">Loading...</option>';
+
+        try {
+            const { data: contacts } = await db.from('vendor_contacts')
+                .select('id, contact_name, role_title, status')
+                .eq('vendor_id', vendorId)
+                .order('contact_name');
+
+            const activeContacts = (contacts || []).filter(c => c.status !== 'Left Company');
+
+            // Get current deal's salesperson
+            const { data: deal } = await db.from('deals').select('vendor_salesperson_id').eq('id', dealId).single();
+            const currentSpId = deal?.vendor_salesperson_id || '';
+
+            select.innerHTML = '<option value="">No Salesperson</option>' +
+                activeContacts.map(c =>
+                    `<option value="${c.id}" ${currentSpId === c.id ? 'selected' : ''}>${c.contact_name}${c.role_title ? ' (' + c.role_title + ')' : ''}</option>`
+                ).join('');
+
+            if (activeContacts.length === 0) {
+                select.innerHTML = '<option value="">No salespeople for this vendor</option>';
+            }
+        } catch (err) {
+            console.error('Load vendor salespeople error:', err);
+            select.innerHTML = '<option value="">Error loading salespeople</option>';
+        }
     }
 
     async function addSyndication(dealId) {
@@ -4825,6 +4901,26 @@
 
             if (contactsError) console.warn('Could not load contacts:', contactsError);
 
+            // Fetch deals linked to this vendor's salespeople
+            let spDeals = [];
+            try {
+                const { data: spd } = await db.from('deals').select('id, company_name, deal_amount, status, vendor_salesperson_id').eq('source_vendor_id', vendorId);
+                spDeals = spd || [];
+            } catch(e) { console.warn('Could not load vendor deals:', e); }
+
+            // Build salesperson deal stats lookup
+            const spDealStats = {};
+            spDeals.forEach(d => {
+                const spId = d.vendor_salesperson_id || '_unassigned';
+                if (!spDealStats[spId]) spDealStats[spId] = { count: 0, volume: 0, funded: 0, fundedVol: 0 };
+                spDealStats[spId].count++;
+                spDealStats[spId].volume += (d.deal_amount || 0);
+                if (d.status === 'Funded' || d.status === 'Closed') {
+                    spDealStats[spId].funded++;
+                    spDealStats[spId].fundedVol += (d.deal_amount || 0);
+                }
+            });
+
             // Parse admin notes
             let notes = [];
             try {
@@ -4872,6 +4968,15 @@
                                     ${c.phone ? `<div>Phone: ${c.phone}</div>` : ''}
                                     ${c.role_title ? `<div>Role: ${c.role_title}</div>` : ''}
                                 </div>
+                                ${(() => {
+                                    const stats = spDealStats[c.id];
+                                    if (!stats) return '<div style="font-size: 12px; color: #94a3b8; margin-top: 6px; font-style: italic;">No deals linked yet</div>';
+                                    return '<div style="display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap;">' +
+                                        '<div style="background: #EFF6FF; padding: 4px 10px; border-radius: 6px; font-size: 12px;"><strong style="color: #3B82F6;">' + stats.count + '</strong> <span style="color: #64748b;">Deals</span></div>' +
+                                        '<div style="background: #F0FDF4; padding: 4px 10px; border-radius: 6px; font-size: 12px;"><strong style="color: #10B981;">' + stats.funded + '</strong> <span style="color: #64748b;">Funded</span></div>' +
+                                        '<div style="background: #FFF7ED; padding: 4px 10px; border-radius: 6px; font-size: 12px;"><strong style="color: #F59E0B;">' + formatCurrency(stats.volume) + '</strong> <span style="color: #64748b;">Volume</span></div>' +
+                                    '</div>';
+                                })()}
                             </div>
                             <div id="vendorContactEdit_${c.id}" style="display: none; flex: 1;">
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
@@ -5000,12 +5105,37 @@
                     </div>
                     `;
                 })()}
+                <!-- Salespeople Summary -->
+                ${spDeals.length > 0 ? `
+                <div style="margin-top: 20px; padding: 15px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); margin-bottom: 10px; display: block;">Deal Summary by Source</label>
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <div style="background: white; padding: 10px 16px; border-radius: 6px; border: 1px solid #E2E8F0; min-width: 100px; text-align: center;">
+                            <div style="font-size: 22px; font-weight: 700; color: var(--navy);">${spDeals.length}</div>
+                            <div style="font-size: 12px; color: var(--text-light);">Total Deals</div>
+                        </div>
+                        <div style="background: white; padding: 10px 16px; border-radius: 6px; border: 1px solid #E2E8F0; min-width: 100px; text-align: center;">
+                            <div style="font-size: 22px; font-weight: 700; color: var(--success);">${spDeals.filter(d => d.status === 'Funded' || d.status === 'Closed').length}</div>
+                            <div style="font-size: 12px; color: var(--text-light);">Funded</div>
+                        </div>
+                        <div style="background: white; padding: 10px 16px; border-radius: 6px; border: 1px solid #E2E8F0; min-width: 100px; text-align: center;">
+                            <div style="font-size: 22px; font-weight: 700; color: var(--gold);">${formatCurrency(spDeals.reduce((s,d) => s + (d.deal_amount || 0), 0))}</div>
+                            <div style="font-size: 12px; color: var(--text-light);">Total Volume</div>
+                        </div>
+                        <div style="background: white; padding: 10px 16px; border-radius: 6px; border: 1px solid #E2E8F0; min-width: 100px; text-align: center;">
+                            <div style="font-size: 22px; font-weight: 700; color: #3B82F6;">${(contacts || []).filter(c => c.status !== 'Left Company').length}</div>
+                            <div style="font-size: 12px; color: var(--text-light);">Active Salespeople</div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
                 <div class="modal-row full" style="margin-top: 20px;">
                     <div class="modal-field">
-                        <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Contacts</label>
+                        <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Salespeople / Contacts</label>
                         <div id="vendorContactsContainer" style="margin-bottom: 15px;">${contactsHtml}</div>
                         <div style="background: #f9f9f9; padding: 12px; border-radius: 4px; border: 1px solid var(--border-gray);">
-                            <h4 style="font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 10px;">Add New Contact</h4>
+                            <h4 style="font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 10px;">Add New Salesperson / Contact</h4>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                                 <input type="text" id="newVendorContactName" placeholder="Name" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
                                 <input type="email" id="newVendorContactEmail" placeholder="Email" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
