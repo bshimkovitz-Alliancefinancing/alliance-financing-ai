@@ -802,18 +802,7 @@
                         <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%); border-radius: 8px;">
                             <div style="font-weight: 600; color: #0D1E3D; margin-bottom: 10px;">PDF One-Pagers (attach to your emails)</div>
                             <div style="display: flex; gap: 12px; flex-wrap: wrap;" id="pdfAttachments">
-                                <a href="pdfs/Alliance_Overview-Pj.pdf" target="_blank" download style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid #CBD5E1; border-radius: 6px; text-decoration: none; color: #0D1E3D; font-size: 13px; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.borderColor='#C5A572';this.style.background='#FFFBF0'" onmouseout="this.style.borderColor='#CBD5E1';this.style.background='white'">
-                                    📄 Alliance Overview
-                                </a>
-                                <a href="pdfs/paul-morrison-mortgage-brokers-a9b08ec8.pdf" target="_blank" download style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid #CBD5E1; border-radius: 6px; text-decoration: none; color: #0D1E3D; font-size: 13px; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.borderColor='#C5A572';this.style.background='#FFFBF0'" onmouseout="this.style.borderColor='#CBD5E1';this.style.background='white'">
-                                    📄 Mortgage Brokers One-Pager
-                                </a>
-                                <a href="pdfs/paul-morrison-insurance-brokers-a626986e.pdf" target="_blank" download style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid #CBD5E1; border-radius: 6px; text-decoration: none; color: #0D1E3D; font-size: 13px; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.borderColor='#C5A572';this.style.background='#FFFBF0'" onmouseout="this.style.borderColor='#CBD5E1';this.style.background='white'">
-                                    📄 Insurance Brokers One-Pager
-                                </a>
-                                <a href="pdfs/paul-morrison-accountants-cfos-164326bd.pdf" target="_blank" download style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid #CBD5E1; border-radius: 6px; text-decoration: none; color: #0D1E3D; font-size: 13px; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.borderColor='#C5A572';this.style.background='#FFFBF0'" onmouseout="this.style.borderColor='#CBD5E1';this.style.background='white'">
-                                    📄 Accountants & CFOs One-Pager
-                                </a>
+                                <span style="color: #666; font-size: 13px;">Loading PDFs...</span>
                             </div>
                         </div>
 
@@ -2085,6 +2074,7 @@
             if (marketingToolkit) {
                 marketingToolkit.style.display = 'block';
                 populateMarketingTemplates();
+                populateAgentPDFs();
                 showEmailTemplate('mortgage');
             }
         } catch (err) {
@@ -2141,6 +2131,40 @@
     function getAgentAppLink() {
         if (!agentProfile) return '';
         return window.location.origin + '/application.html?ref=' + (agentProfile.referral_slug || '');
+    }
+
+    function populateAgentPDFs() {
+        const container = document.getElementById('pdfAttachments');
+        if (!container || !agentProfile) return;
+
+        const slug = agentProfile.referral_slug || '';
+        const btnStyle = 'display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid #CBD5E1; border-radius: 6px; text-decoration: none; color: #0D1E3D; font-size: 13px; font-weight: 500; transition: all 0.2s;';
+
+        // Agent-specific PDF mappings
+        const agentPDFs = {
+            'paul-morrison': [
+                { file: 'pdfs/Alliance_Overview-Pj.pdf', label: 'Alliance Overview' },
+                { file: 'pdfs/paul-morrison-mortgage-brokers-a9b08ec8.pdf', label: 'Mortgage Brokers One-Pager' },
+                { file: 'pdfs/paul-morrison-insurance-brokers-a626986e.pdf', label: 'Insurance Brokers One-Pager' },
+                { file: 'pdfs/paul-morrison-accountants-cfos-164326bd.pdf', label: 'Accountants & CFOs One-Pager' }
+            ],
+            'lee-harrison': [
+                { file: 'pdfs/Alliance_Overview_LH.pdf', label: 'Alliance Overview' }
+            ]
+        };
+
+        const pdfs = agentPDFs[slug] || [];
+        if (pdfs.length === 0) {
+            container.innerHTML = '<span style="color: #666; font-size: 13px;">No PDFs available yet. Contact admin to upload your materials.</span>';
+            return;
+        }
+
+        container.innerHTML = pdfs.map(p =>
+            '<a href="' + p.file + '" target="_blank" download style="' + btnStyle + '" ' +
+            'onmouseover="this.style.borderColor=\'#C5A572\';this.style.background=\'#FFFBF0\'" ' +
+            'onmouseout="this.style.borderColor=\'#CBD5E1\';this.style.background=\'white\'">' +
+            '📄 ' + p.label + '</a>'
+        ).join('');
     }
 
     function populateMarketingTemplates() {
