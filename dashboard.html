@@ -824,6 +824,51 @@
                     </div>
                 </div>
 
+                <!-- Agent Vendor Programs Section (agents only) -->
+                <div id="agentVendorProgramsSection" class="table-container" style="display: none;">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
+                        <div class="table-title">Your Vendor Programs</div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="btn btn-gold btn-sm" onclick="openAgentAddVendorModal()">+ Submit Vendor</button>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Vendor Name</th>
+                                <th>Product</th>
+                                <th>Country</th>
+                                <th>Projected Vol.</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agentVendorsBody">
+                            <tr><td colspan="5" class="empty-state">Loading vendor programs...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Agent Sub-Agents Section (agents only) -->
+                <div id="agentSubAgentsSection" class="table-container" style="display: none;">
+                    <div class="table-header">
+                        <div class="table-title">Your Sub-Agents</div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th># Deals</th>
+                                <th>Override Earned</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agentSubAgentsBody">
+                            <tr><td colspan="5" class="empty-state">Loading sub-agents...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
                 <!-- Agent Deals Section (agents only) -->
                 <div id="agentCommissionsSection" class="table-container" style="display: none;">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
@@ -976,6 +1021,7 @@
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>Phone</th>
+                                <th>Parent Agent</th>
                                 <th>Status</th>
                                 <th>Referral Slug</th>
                                 <th>Actions</th>
@@ -1072,6 +1118,7 @@
                                 <th>Website</th>
                                 <th>Product</th>
                                 <th>Country</th>
+                                <th>Source Agent</th>
                                 <th>Projected Vol.</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -1079,7 +1126,7 @@
                         </thead>
                         <tbody id="vendorsBody">
                             <tr>
-                                <td colspan="7" class="empty-state">Loading...</td>
+                                <td colspan="8" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1128,6 +1175,44 @@
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeDealModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Vendor Modal (for agents) -->
+<div id="agentAddVendorModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Submit a Vendor Program</h3>
+            <span class="modal-close" onclick="document.getElementById('agentAddVendorModal').style.display='none'">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Vendor / Company Name *</label>
+                <input type="text" id="agentVendorName" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Website</label>
+                <input type="text" id="agentVendorWebsite" placeholder="www.example.com" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Product Description *</label>
+                <input type="text" id="agentVendorProduct" placeholder="e.g. Computer equipment, office furniture..." style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Country</label>
+                <select id="agentVendorCountry" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    <option value="Canada">Canada</option>
+                    <option value="United States">United States</option>
+                    <option value="UK">UK</option>
+                    <option value="Germany">Germany</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Estimated Annual Volume ($)</label>
+                <input type="number" id="agentVendorVolume" placeholder="500000" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
+            <button class="btn btn-gold" onclick="handleAgentAddVendor()" style="width: 100%; margin-top: 10px;">Submit Vendor Program</button>
         </div>
     </div>
 </div>
@@ -2237,6 +2322,135 @@
     }
 
     // ============================================
+    // Agent Vendor Programs
+    // ============================================
+
+    async function loadAgentVendors() {
+        const section = document.getElementById('agentVendorProgramsSection');
+        if (!section) return;
+        section.style.display = 'block';
+
+        try {
+            const { data: vendors, error } = await db
+                .from('vendors')
+                .select('id, name, product_description, country, projected_volume, status')
+                .eq('source_agent_id', currentUserId)
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            const tbody = document.getElementById('agentVendorsBody');
+            if (!vendors || vendors.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No vendor programs yet. Submit one above!</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = vendors.map(v => `
+                <tr>
+                    <td><strong>${v.name || 'N/A'}</strong></td>
+                    <td>${v.product_description || 'N/A'}</td>
+                    <td>${v.country || 'N/A'}</td>
+                    <td>${v.projected_volume ? formatCurrency(v.projected_volume) : '-'}</td>
+                    <td>${getStatusBadge(v.status || 'Pending')}</td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error('Load agent vendors error:', err);
+        }
+    }
+
+    function openAgentAddVendorModal() {
+        document.getElementById('agentAddVendorModal').style.display = 'flex';
+    }
+
+    async function handleAgentAddVendor() {
+        const name = document.getElementById('agentVendorName').value.trim();
+        const product = document.getElementById('agentVendorProduct').value.trim();
+        if (!name || !product) { alert('Please fill in the vendor name and product description.'); return; }
+
+        try {
+            const { error } = await db.from('vendors').insert({
+                name: name,
+                website: document.getElementById('agentVendorWebsite').value.trim() || null,
+                product_description: product,
+                country: document.getElementById('agentVendorCountry').value,
+                projected_volume: document.getElementById('agentVendorVolume').value ? parseFloat(document.getElementById('agentVendorVolume').value) : null,
+                source_agent_id: currentUserId,
+                status: 'Active'
+            });
+
+            if (error) throw error;
+
+            document.getElementById('agentAddVendorModal').style.display = 'none';
+            // Clear form
+            document.getElementById('agentVendorName').value = '';
+            document.getElementById('agentVendorWebsite').value = '';
+            document.getElementById('agentVendorProduct').value = '';
+            document.getElementById('agentVendorVolume').value = '';
+            alert('Vendor program submitted successfully!');
+            loadAgentVendors();
+        } catch (err) {
+            console.error('Add vendor error:', err);
+            alert('Error submitting vendor: ' + err.message);
+        }
+    }
+
+    // ============================================
+    // Agent Sub-Agents
+    // ============================================
+
+    async function loadAgentSubAgents() {
+        const section = document.getElementById('agentSubAgentsSection');
+        if (!section) return;
+        section.style.display = 'block';
+
+        try {
+            // Get sub-agents (users with parent_agent_id = current user)
+            const { data: subAgents, error } = await db
+                .from('users')
+                .select('id, full_name, email, agent_status')
+                .eq('parent_agent_id', currentUserId)
+                .eq('role', 'agent');
+
+            if (error) throw error;
+
+            const tbody = document.getElementById('agentSubAgentsBody');
+            if (!subAgents || subAgents.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No sub-agents yet.</td></tr>';
+                return;
+            }
+
+            // For each sub-agent, get their deals and overrides
+            const rows = [];
+            for (const sa of subAgents) {
+                const { data: saDeals } = await db
+                    .from('deals')
+                    .select('id, parent_override_amount')
+                    .eq('source_agent_id', sa.id);
+
+                const dealCount = saDeals ? saDeals.length : 0;
+                const totalOverride = saDeals
+                    ? saDeals.reduce((sum, d) => sum + (parseFloat(d.parent_override_amount) || 0), 0)
+                    : 0;
+
+                rows.push(`
+                    <tr>
+                        <td><strong>${sa.full_name || 'N/A'}</strong></td>
+                        <td>${sa.email || 'N/A'}</td>
+                        <td>${getStatusBadge(sa.agent_status || 'Pending')}</td>
+                        <td>${dealCount}</td>
+                        <td>${totalOverride > 0 ? formatCurrency(totalOverride) : '-'}</td>
+                    </tr>
+                `);
+            }
+
+            tbody.innerHTML = rows.join('');
+        } catch (err) {
+            console.error('Load sub-agents error:', err);
+        }
+    }
+
+    // ============================================
     // Navigation
     // ============================================
 
@@ -2394,24 +2608,37 @@
                 // ---- Agent-specific stat cards ----
                 const { data: agentDeals } = await db
                     .from('deals')
-                    .select('id, status, deal_amount, agent_fee_amount, agent_fee_pct')
+                    .select('id, status, deal_amount, agent_fee_amount, agent_fee_pct, parent_override_amount')
                     .eq('source_agent_id', currentUserId);
 
+                // Also get override earnings from sub-agent deals
+                const { data: subAgentDeals } = await db
+                    .from('deals')
+                    .select('id, status, parent_override_amount')
+                    .eq('sub_agent_id', currentUserId);
+
+                // NOTE: parent_override_amount on sub-agent deals is what goes to the parent (this user)
+
                 const ad = agentDeals || [];
+                const sad = subAgentDeals || [];
                 const fundedDeals = ad.filter(d => d.status === 'Funded');
                 const activeDeals = ad.filter(d => d.status !== 'Funded' && d.status !== 'Declined' && d.status !== 'Dead approval');
                 const projectedFees = activeDeals.reduce((s, d) => s + (d.agent_fee_amount || 0), 0);
                 const closedFees = fundedDeals.reduce((s, d) => s + (d.agent_fee_amount || 0), 0);
                 const fundedVolume = fundedDeals.reduce((s, d) => s + (d.deal_amount || 0), 0);
 
+                // Add override earnings from sub-agent deals
+                const overrideEarnings = sad.reduce((s, d) => s + (parseFloat(d.parent_override_amount) || 0), 0);
+                const fundedOverrides = sad.filter(d => d.status === 'Funded').reduce((s, d) => s + (parseFloat(d.parent_override_amount) || 0), 0);
+
                 // Relabel and populate agent stat cards
                 const c1 = document.getElementById('statCard1');
                 const c2 = document.getElementById('statCard2');
                 const c3 = document.getElementById('statCard3');
                 const c4 = document.getElementById('statCard4');
-                if (c1) { c1.querySelector('.stat-label').textContent = 'Total Deals'; c1.querySelector('.stat-value').textContent = ad.length; c1.querySelector('.stat-detail').textContent = 'All your deals'; }
-                if (c2) { c2.querySelector('.stat-label').textContent = 'Projected Fees'; c2.querySelector('.stat-value').textContent = formatCurrency(projectedFees); c2.querySelector('.stat-detail').textContent = 'Active deals'; }
-                if (c3) { c3.querySelector('.stat-label').textContent = 'Closed Fees'; c3.querySelector('.stat-value').textContent = formatCurrency(closedFees); c3.querySelector('.stat-detail').textContent = 'Funded deals'; }
+                if (c1) { c1.querySelector('.stat-label').textContent = 'Total Deals'; c1.querySelector('.stat-value').textContent = ad.length; c1.querySelector('.stat-detail').textContent = sad.length > 0 ? '+ ' + sad.length + ' sub-agent deals' : 'All your deals'; }
+                if (c2) { c2.querySelector('.stat-label').textContent = 'Projected Fees'; c2.querySelector('.stat-value').textContent = formatCurrency(projectedFees + overrideEarnings); c2.querySelector('.stat-detail').textContent = overrideEarnings > 0 ? 'Incl. ' + formatCurrency(overrideEarnings) + ' overrides' : 'Active deals'; }
+                if (c3) { c3.querySelector('.stat-label').textContent = 'Closed Fees'; c3.querySelector('.stat-value').textContent = formatCurrency(closedFees + fundedOverrides); c3.querySelector('.stat-detail').textContent = fundedOverrides > 0 ? 'Incl. ' + formatCurrency(fundedOverrides) + ' overrides' : 'Funded deals'; }
                 if (c4) { c4.querySelector('.stat-label').textContent = 'Total Funded Volume'; c4.querySelector('.stat-value').textContent = formatCurrency(fundedVolume); c4.querySelector('.stat-detail').textContent = fundedDeals.length + ' funded deals'; }
 
                 // Hide the Recent Applications table for agents
@@ -2424,8 +2651,10 @@
             // Show/hide agent referral card
             await displayAgentReferralCard();
 
-            // Load agent deals section
+            // Load agent sections
             await loadAgentCommissions();
+            await loadAgentVendors();
+            await loadAgentSubAgents();
 
         } catch (error) {
             console.error('Dashboard load error:', error);
@@ -2659,15 +2888,22 @@
 
             const tbody = document.getElementById('agentsBody');
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No agents found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No agents found.</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = data.map(agent => `
+            // Build lookup for parent agent names
+            const agentLookup = {};
+            data.forEach(a => { agentLookup[a.id] = a.full_name || a.email || 'Unknown'; });
+
+            tbody.innerHTML = data.map(agent => {
+                const parentName = agent.parent_agent_id ? (agentLookup[agent.parent_agent_id] || 'Unknown') : '-';
+                return `
                 <tr>
                     <td><strong>${agent.full_name || 'N/A'}</strong></td>
                     <td>${agent.email || 'N/A'}</td>
                     <td>${agent.phone || 'N/A'}</td>
+                    <td>${parentName}</td>
                     <td>
                         <select onchange="updateAgentStatus('${agent.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
                             ${'AIA,MOU,Active,Inactive,Pending'.split(',').map(s => `<option value="${s}" ${(agent.agent_status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
@@ -2678,7 +2914,7 @@
                         <button class="btn btn-secondary btn-sm" onclick="viewAgent('${agent.id}')">View</button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         } catch (error) {
             console.error('Load agents error:', error);
         }
@@ -2728,6 +2964,11 @@
 
     async function loadVendors() {
         try {
+            // Ensure agents are cached for source agent lookup
+            if (cachedAgents.length === 0) {
+                const { data: agts } = await db.from('users').select('id, full_name').eq('role', 'agent');
+                cachedAgents = agts || [];
+            }
             const { data, error } = await db
                 .from('vendors')
                 .select('*')
@@ -2745,7 +2986,7 @@
     function renderVendorsTable(data) {
         const tbody = document.getElementById('vendorsBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No vendors found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No vendors found.</td></tr>';
             return;
         }
 
@@ -2754,6 +2995,9 @@
             if (websiteUrl !== '#' && !websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
                 websiteUrl = 'https://' + websiteUrl;
             }
+            const agentName = vendor.source_agent_id && cachedAgents.length > 0
+                ? (cachedAgents.find(a => a.id === vendor.source_agent_id) || {}).full_name || 'Unknown'
+                : '-';
 
             return `
             <tr>
@@ -2761,6 +3005,7 @@
                 <td><a href="${websiteUrl}" target="_blank">${vendor.website ? 'Visit' : 'N/A'}</a></td>
                 <td>${vendor.product_description || 'N/A'}</td>
                 <td>${vendor.country || 'N/A'}</td>
+                <td>${agentName}</td>
                 <td>${vendor.projected_volume ? formatCurrency(vendor.projected_volume) : 'N/A'}</td>
                 <td>
                     <select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
@@ -3069,7 +3314,7 @@
 
                 <!-- Row 6: Commission Info (read-only for agents, editable for admins) -->
                 <div style="margin-top: 15px; padding: 15px; background: ${isAgentView ? '#f0fdf4' : '#fff'}; border: 1px solid ${isAgentView ? '#bbf7d0' : 'transparent'}; border-radius: 8px;">
-                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); margin-bottom: 10px; display: block;">${isAgentView ? 'Your Commission' : 'Fee Details'}</label>
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); margin-bottom: 10px; display: block;">${isAgentView ? 'Your Commission' : 'Fee Details & Commission Split'}</label>
                     <div class="modal-row">
                         <div class="modal-field">
                             <label>${isAgentView ? 'Your Fee %' : 'Agent Fee %'}</label>
@@ -3081,7 +3326,45 @@
                         </div>
                     </div>
                     ${!isAgentView ? `
-                    <div class="modal-row">
+                    <!-- Sub-Agent Commission (admin only) -->
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e2e8f0;">
+                        <label style="font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 8px; display: block;">Sub-Agent Split</label>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Sub-Agent</label>
+                                <select onchange="updateDealField('${dealId}', 'sub_agent_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                                    <option value="">None</option>
+                                    ${cachedAgents.map(a => '<option value="' + a.id + '"' + (deal.sub_agent_id === a.id ? ' selected' : '') + '>' + (a.full_name || 'Agent') + '</option>').join('')}
+                                </select>
+                            </div>
+                            <div class="modal-field">
+                                <label>Sub-Agent Fee %</label>
+                                <input type="number" step="0.01" value="${deal.sub_agent_fee_pct || ''}" onblur="updateDealField('${dealId}', 'sub_agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Sub-Agent Fee $</label>
+                                <input type="number" step="0.01" value="${deal.sub_agent_fee_amount || ''}" onblur="updateDealField('${dealId}', 'sub_agent_fee_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                            <div class="modal-field">
+                                <label>Parent Override %</label>
+                                <input type="number" step="0.01" value="${deal.parent_override_pct || ''}" onblur="updateDealField('${dealId}', 'parent_override_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Parent Override $</label>
+                                <input type="number" step="0.01" value="${deal.parent_override_amount || ''}" onblur="updateDealField('${dealId}', 'parent_override_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                            <div class="modal-field">
+                                <label>Alliance Fee %</label>
+                                <input type="number" step="0.01" value="${deal.alliance_fee_pct || ''}" onblur="updateDealField('${dealId}', 'alliance_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Gross Fee & Alliance Net -->
+                    <div class="modal-row" style="margin-top: 12px;">
                         <div class="modal-field">
                             <label>Gross Fee %</label>
                             <input type="number" step="0.01" value="${deal.gross_fee_pct || ''}" onblur="updateDealField('${dealId}', 'gross_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
@@ -3090,7 +3373,26 @@
                             <label>Alliance Net Fee</label>
                             <input type="number" step="0.01" value="${deal.alliance_net_fee || ''}" onblur="updateDealField('${dealId}', 'alliance_net_fee', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                         </div>
-                    </div>` : ''}
+                    </div>
+                    <!-- Commission Summary -->
+                    ${(() => {
+                        const amt = deal.deal_amount || 0;
+                        const agentFee = deal.agent_fee_amount || 0;
+                        const subFee = deal.sub_agent_fee_amount || 0;
+                        const parentOvr = deal.parent_override_amount || 0;
+                        const allianceNet = deal.alliance_net_fee || 0;
+                        if (agentFee || subFee || parentOvr || allianceNet) {
+                            return '<div style="margin-top: 12px; padding: 10px; background: #f8fafc; border-radius: 6px; font-size: 13px;">' +
+                                '<strong>Commission Summary:</strong> ' +
+                                'Agent: ' + formatCurrency(agentFee) +
+                                (subFee ? ' | Sub-Agent: ' + formatCurrency(subFee) : '') +
+                                (parentOvr ? ' | Parent Override: ' + formatCurrency(parentOvr) : '') +
+                                (allianceNet ? ' | Alliance Net: ' + formatCurrency(allianceNet) : '') +
+                                '</div>';
+                        }
+                        return '';
+                    })()}
+                    ` : ''}
                 </div>
 
                 ${!isAgentView ? `
@@ -3801,6 +4103,19 @@
                 `<option value="${s}" ${(agent.business_type || '') === s ? 'selected' : ''}>${s}</option>`
             ).join('');
 
+            // Build parent agent options (exclude self)
+            if (cachedAgents.length === 0) {
+                const { data: agts } = await db.from('users').select('id, full_name, email').eq('role', 'agent');
+                cachedAgents = agts || [];
+            }
+            const parentAgentOptions = cachedAgents
+                .filter(a => a.id !== agentId)
+                .map(a => `<option value="${a.id}" ${agent.parent_agent_id === a.id ? 'selected' : ''}>${a.full_name || a.email}</option>`)
+                .join('');
+
+            // Get sub-agents count
+            const subAgents = cachedAgents.filter(a => a.parent_agent_id === agentId);
+
             document.getElementById('agentDetailTitle').textContent = agent.full_name || 'Agent Details';
             const modalBody = document.getElementById('agentModalBody');
             modalBody.innerHTML = `
@@ -3842,6 +4157,21 @@
                                 ${businessTypeOptions}
                             </select>
                         </div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Parent Agent</label>
+                        <div class="modal-field-value">
+                            <select onchange="updateAgentField('${agentId}', 'parent_agent_id', this.value || null)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                                <option value="">No Parent (Top-Level)</option>
+                                ${parentAgentOptions}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Sub-Agents</label>
+                        <div class="modal-field-value">${subAgents.length > 0 ? subAgents.map(s => s.full_name || s.email).join(', ') : 'None'}</div>
                     </div>
                 </div>
                 <div class="modal-row">
@@ -4228,6 +4558,11 @@
 
     async function viewVendor(vendorId) {
         try {
+            // Ensure agents are cached for source agent dropdown
+            if (cachedAgents.length === 0) {
+                const { data: agts } = await db.from('users').select('id, full_name, email').eq('role', 'agent');
+                cachedAgents = agts || [];
+            }
             // Fetch vendor details
             const { data: vendor, error: vendorError } = await db
                 .from('vendors')
@@ -4370,10 +4705,17 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-row full">
-                    <div class="modal-field">
+                <div class="modal-row">
+                    <div class="modal-field" style="flex: 2;">
                         <label>Product Description</label>
                         <div class="modal-field-value">${vendor.product_description || 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Source Agent</label>
+                        <select onchange="updateVendorField('${vendorId}', 'source_agent_id', this.value || null)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer; width: 100%;">
+                            <option value="">No Agent</option>
+                            ${cachedAgents.map(a => '<option value="' + a.id + '"' + (vendor.source_agent_id === a.id ? ' selected' : '') + '>' + (a.full_name || a.email) + '</option>').join('')}
+                        </select>
                     </div>
                 </div>
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
