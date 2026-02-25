@@ -4378,6 +4378,7 @@
     var currentDocUploadApplicationId = null;
 
     function showDocumentUploadModal(dealId, applicationId) {
+        if (!['super_admin', 'admin'].includes(currentUserRole)) { alert('Document management is restricted to administrators.'); return; }
         currentDocUploadDealId = dealId;
         currentDocUploadApplicationId = applicationId;
         document.getElementById('docTypeSelect').value = '';
@@ -4486,6 +4487,9 @@
     }
 
     function buildDocumentsHtml(documents, parentDealId, parentAppId) {
+        // Compliance: Only super_admin and admin can see sensitive documents
+        if (!['super_admin', 'admin'].includes(currentUserRole)) return '';
+
         var docTypeLabels = {
             bank_statement: 'Bank Statement', processing_statement: 'Processing Statement',
             photo_id: 'Photo ID', void_cheque: 'Void Cheque', business_license: 'Business License',
