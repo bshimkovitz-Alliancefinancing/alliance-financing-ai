@@ -1934,6 +1934,8 @@
                     <option value="tax_return">Tax Return</option>
                     <option value="financial_statements">Financial Statements</option>
                     <option value="credit_report">Credit Report</option>
+                    <option value="equipment_quote">Equipment Quote / Invoice</option>
+                    <option value="ap_ar_aging">AP / AR Aging Report</option>
                     <option value="other">Other</option>
                 </select>
             </div>
@@ -1998,6 +2000,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script>
     // ============================================
     // BERNIE: Paste your Supabase anon key below
@@ -4314,7 +4318,9 @@
                     bank1Name: 'Bank Name', bank1Officer: 'Bank Officer', bank1Phone: 'Bank Phone',
                     arOutstanding: 'AR Outstanding', arTerms: 'AR Terms',
                     arMonthlySales: 'AR Monthly Sales', arInvoiceSell: 'AR Invoice Amount',
-                    gstFedId: 'GST / Federal ID Number', taxId: 'GST / Federal ID Number'
+                    gstFedId: 'GST / Federal ID Number', taxId: 'GST / Federal ID Number',
+                    ownerSinSsn: 'SIN / SSN', principal1SinSsn: 'Principal 1 SIN / SSN', o1SinSsn: 'Owner 1 SIN / SSN',
+                    ownerHomeStatus: 'Home Status'
                 };
                 // Skip internal/meta fields
                 const skipFields = ['formType', 'applicationId', 'submittedAt', 'referralSource', 'signatureName', 'signatureTimestamp'];
@@ -4417,14 +4423,382 @@
                     </div>
                 </div>
                 ${signatureHtml}
+                ${['super_admin','admin'].includes(currentUserRole) && app.signature_name ? `
+                <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="generateLenderPackage('${app.id}')" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                        📋 Generate Lender Package (Print / PDF)
+                    </button>
+                    <button onclick="downloadLenderZip('${app.id}')" id="zipDownloadBtn" style="background: #059669; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                        📦 Download Complete Package (ZIP)
+                    </button>
+                </div>` : ''}
                 ${fullDataHtml}
                 ${buildDocumentsHtml(appDocuments || [], null, appId)}
             `;
+
+            // Store app data for lender package generation
+            window._currentAppData = app;
 
             document.getElementById('applicationModal').classList.add('active');
         } catch (error) {
             console.error('View application error:', error);
             alert('Error loading application details');
+        }
+    }
+
+    // ============================================
+    // Generate Lender Package — printable/PDF-ready
+    // ============================================
+    async function generateLenderPackage(appId) {
+        var app = window._currentAppData;
+        if (!app) { alert('Application data not available. Please reopen the application.'); return; }
+
+        // Fetch documents for this application
+        var appDocsList = [];
+        try {
+            var { data: docs } = await db.from('documents').select('*').eq('application_id', app.id).order('uploaded_at', { ascending: false });
+            if (docs && docs.length > 0) {
+                for (var di = 0; di < docs.length; di++) {
+                    var doc = docs[di];
+                    var signedUrl = '';
+                    try {
+                        var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(doc.file_path, 604800);
+                        if (urlData) signedUrl = urlData.signedUrl;
+                    } catch(e) { console.warn('Could not sign URL for', doc.file_name); }
+                    appDocsList.push({ name: doc.file_name, type: doc.document_type, size: doc.file_size_bytes, url: signedUrl, uploadedAt: doc.uploaded_at });
+                }
+            }
+        } catch(e) { console.warn('Could not fetch application documents:', e); }
+
+        var fd = app.form_data || {};
+        var formTypeLabels = {
+            'merchant-advance': 'Merchant Cash Advance',
+            'leasing': 'Equipment Leasing',
+            'working-capital': 'Working Capital & Factoring'
+        };
+        var formTypeDisplay = formTypeLabels[app.form_type] || app.form_type || 'N/A';
+
+        // Build field label map
+        var labelMap = {
+            advanceAmount:'Advance Amount Requested',fundsPurpose:'Purpose of Funds',legalName:'Legal Business Name',tradeName:'Trade Name / DBA',
+            bizAddress:'Business Address',bizCity:'City',bizProv:'Province/State',bizPostal:'Postal/Zip',bizCountry:'Country',bizPhone:'Business Phone',
+            bizEmail:'Business Email',gstFedId:'GST / Federal ID Number',taxId:'GST / Federal ID Number',industry:'Industry',timeInBusiness:'Time in Business',
+            numEmployees:'Number of Employees',monthlyRevenue:'Monthly Revenue',cardSales:'Monthly Card Sales',annualRevenue:'Annual Revenue',
+            processor:'Credit Card Processor',bankName:'Bank Name',currentMCA:'Current MCA?',mcaBalance:'MCA Balance',existingLoans:'Existing Loans?',
+            loanPayment:'Loan Payment',taxLiens:'Tax Liens?',taxArrears:'Tax Arrears?',
+            ownerName:'Owner Full Name',ownerTitle:'Owner Title',ownerPct:'Ownership %',ownerDOB:'Date of Birth',ownerPhone:'Phone',
+            ownerAddress:'Home Address',ownerEmail:'Email',ownerSinSsn:'SIN / SSN',
+            owner2Name:'Second Owner Name',owner2Title:'Second Owner Title',owner2Pct:'Second Owner %',owner2DOB:'Second Owner DOB',owner2Phone:'Second Owner Phone',
+            equipmentDescription:'Equipment Description',equipmentCost:'Equipment Cost',vendorName:'Vendor Name',equipmentCondition:'Condition',
+            businessLegalName:'Legal Business Name',businessPhone:'Business Phone',businessEmail:'Business Email',
+            contactName:'Contact Name',bizDescription:'Business Description',businessStartDate:'Business Start Date',
+            principal1Name:'Principal 1 Name',principal1Title:'Principal 1 Title',principal1Ownership:'Principal 1 Ownership %',
+            principal1DOB:'Principal 1 DOB',principal1Phone:'Principal 1 Phone',principal1Address:'Principal 1 Address',
+            principal1City:'Principal 1 City',principal1Prov:'Principal 1 Province/State',principal1Postal:'Principal 1 Postal/Zip',
+            principal1SinSsn:'Principal 1 SIN / SSN',
+            financingType:'Financing Type',amountRequested:'Amount Requested',useOfFunds:'Use of Funds',
+            o1Name:'Owner 1 Name',o1Title:'Owner 1 Title',o1Pct:'Owner 1 Ownership %',o1Phone:'Owner 1 Phone',
+            o1DOB:'Owner 1 DOB',o1Address:'Owner 1 Address',o1SinSsn:'Owner 1 SIN / SSN',
+            dateIncorporated:'Date Incorporated',yrsOwner:'Years as Owner',annualSales:'Annual Sales',
+            arOutstanding:'AR Outstanding',arTerms:'AR Terms',arMonthlySales:'AR Monthly Sales',
+            structure:'Business Structure',ownerHomeStatus:'Home Status'
+        };
+        var skipFields = ['formType','applicationId','submittedAt','referralSource','signatureName','signatureTimestamp'];
+
+        // Build form data rows
+        var formDataRows = '';
+        if (fd && typeof fd === 'object') {
+            var entries = Object.entries(fd).filter(function(e) { return e[1] && e[1].toString().trim() && !skipFields.includes(e[0]); });
+            entries.forEach(function(e) {
+                var label = labelMap[e[0]] || e[0].replace(/([A-Z])/g, ' $1').replace(/^./, function(s){return s.toUpperCase();});
+                formDataRows += '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;width:35%;background:#f8f9fa;">' + label + '</td><td style="padding:8px 12px;border:1px solid #ddd;">' + e[1] + '</td></tr>';
+            });
+        }
+
+        var sigDate = app.signature_timestamp ? new Date(app.signature_timestamp).toLocaleString('en-US', {
+            year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZoneName:'short'
+        }) : 'N/A';
+
+        var html = '<!DOCTYPE html><html><head><title>Lender Package - ' + (app.application_id || '') + '</title>' +
+            '<style>' +
+            'body{font-family:Arial,Helvetica,sans-serif;margin:40px;color:#333;line-height:1.6}' +
+            '.header{text-align:center;border-bottom:3px solid #1a365d;padding-bottom:20px;margin-bottom:30px}' +
+            '.header h1{color:#1a365d;margin:0;font-size:24px}' +
+            '.header p{color:#666;margin:5px 0 0}' +
+            '.section{margin-bottom:25px}' +
+            '.section h2{color:#1a365d;font-size:16px;border-bottom:2px solid #e2e8f0;padding-bottom:8px;margin-bottom:12px}' +
+            'table{width:100%;border-collapse:collapse;margin-bottom:15px}' +
+            'td{padding:8px 12px;border:1px solid #ddd;font-size:13px}' +
+            '.signature-box{background:#f0f7ff;border:2px solid #1a365d;border-radius:8px;padding:20px;margin-top:20px}' +
+            '.signature-box .sig-name{font-size:22px;font-style:italic;font-weight:700;color:#1a365d;margin:10px 0}' +
+            '.signature-box .sig-meta{font-size:12px;color:#64748b}' +
+            '.consent-text{font-size:11px;color:#666;margin-top:15px;padding:15px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;line-height:1.5}' +
+            '.footer{margin-top:40px;text-align:center;font-size:11px;color:#999;border-top:1px solid #e2e8f0;padding-top:15px}' +
+            '@media print{body{margin:20px}button{display:none !important}}' +
+            '</style></head><body>' +
+            '<div class="header">' +
+            '<h1>Alliance Financing Group Ltd.</h1>' +
+            '<p>35+ Years of Commercial Financing Excellence</p>' +
+            '<p style="font-size:12px;color:#999">1-800-660-3660 ext. 222 &nbsp;|&nbsp; info@alliancefinancing.ai &nbsp;|&nbsp; alliancefinancing.ai</p>' +
+            '</div>' +
+            '<div style="text-align:center;margin-bottom:25px">' +
+            '<h2 style="color:#1a365d;font-size:20px;margin:0">Credit Application — ' + formTypeDisplay + '</h2>' +
+            '<p style="color:#666;margin:5px 0">Application ID: <strong>' + (app.application_id || 'N/A') + '</strong> &nbsp;|&nbsp; Submitted: <strong>' + (app.submitted_at ? new Date(app.submitted_at).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}) : 'N/A') + '</strong></p>' +
+            '</div>' +
+            '<div class="section"><h2>Applicant Summary</h2>' +
+            '<table>' +
+            '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Full Name</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.full_name || 'N/A') + '</td></tr>' +
+            '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Business Name</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.business_name || 'N/A') + '</td></tr>' +
+            '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Email</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.email || 'N/A') + '</td></tr>' +
+            '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Phone</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.phone || 'N/A') + '</td></tr>' +
+            '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Time in Business</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.time_in_business || 'N/A') + '</td></tr>' +
+            '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Funding Requested</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.funding_amount_text || (app.funding_amount_requested ? '$' + Number(app.funding_amount_requested).toLocaleString() : 'N/A')) + '</td></tr>' +
+            '</table></div>' +
+            '<div class="section"><h2>Complete Application Details</h2>' +
+            '<table>' + formDataRows + '</table></div>' +
+            '<div class="section"><h2>Electronic Signature & Authorization</h2>' +
+            '<div class="signature-box">' +
+            '<p style="margin:0;font-size:13px;color:#64748b">The applicant has electronically signed this application:</p>' +
+            '<div class="sig-name">"' + (app.signature_name || 'N/A') + '"</div>' +
+            '<div class="sig-meta">Date & Time: ' + sigDate + '</div>' +
+            '<div class="sig-meta">Application ID: ' + (app.application_id || 'N/A') + '</div>' +
+            '<div class="sig-meta">IP-based electronic signature captured at time of submission</div>' +
+            '</div>' +
+            '<div class="consent-text">' +
+            '<strong>Authorization Statement:</strong> The applicant confirmed that the information provided is true and complete, and authorized Alliance Financing Group Ltd. and its partners to obtain credit reports, verify business information with banks, processors, and third parties, and to use this information to evaluate the application. This electronic signature is legally binding under the <em>Personal Information Protection and Electronic Documents Act</em> (PIPEDA) and applicable provincial and state laws.' +
+            '</div></div>' +
+            (function() {
+                if (appDocsList.length === 0) return '';
+                var docTypeLabels = {
+                    bank_statement:'Bank Statement', processing_statement:'Processing Statement',
+                    photo_id:'Photo ID', void_cheque:'Void Cheque', business_license:'Business License',
+                    tax_return:'Tax Return', financial_statements:'Financial Statements',
+                    credit_report:'Credit Report', equipment_quote:'Equipment Quote / Invoice',
+                    ap_ar_aging:'AP / AR Aging Report', other:'Other'
+                };
+                var docRows = appDocsList.map(function(d) {
+                    var typeLabel = docTypeLabels[d.type] || d.type || 'Other';
+                    var sizeMB = d.size ? (d.size / 1024 / 1024).toFixed(2) + ' MB' : 'N/A';
+                    var uploaded = d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'}) : 'N/A';
+                    var link = d.url ? '<a href="' + d.url + '" target="_blank" style="color:#3B82F6;text-decoration:none;font-weight:600">Download</a>' : '<span style="color:#999">Unavailable</span>';
+                    return '<tr>' +
+                        '<td style="padding:8px 12px;border:1px solid #ddd;">' + d.name + '</td>' +
+                        '<td style="padding:8px 12px;border:1px solid #ddd;">' + typeLabel + '</td>' +
+                        '<td style="padding:8px 12px;border:1px solid #ddd;">' + sizeMB + '</td>' +
+                        '<td style="padding:8px 12px;border:1px solid #ddd;">' + uploaded + '</td>' +
+                        '<td style="padding:8px 12px;border:1px solid #ddd;text-align:center">' + link + '</td></tr>';
+                }).join('');
+                return '<div class="section"><h2>Supporting Documents (' + appDocsList.length + ' files attached)</h2>' +
+                    '<table><tr style="background:#f8f9fa"><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600">File Name</td>' +
+                    '<td style="padding:8px 12px;border:1px solid #ddd;font-weight:600">Type</td>' +
+                    '<td style="padding:8px 12px;border:1px solid #ddd;font-weight:600">Size</td>' +
+                    '<td style="padding:8px 12px;border:1px solid #ddd;font-weight:600">Uploaded</td>' +
+                    '<td style="padding:8px 12px;border:1px solid #ddd;font-weight:600">Link</td></tr>' +
+                    docRows + '</table>' +
+                    '<p style="font-size:11px;color:#999;margin-top:8px">Document download links are valid for 7 days from the date this package was generated. If links have expired, generate a new lender package from the dashboard.</p>' +
+                    '</div>';
+            })() +
+            '<div class="footer">' +
+            '<p>This document was generated by Alliance Financing Group Ltd. — Confidential Lender Package</p>' +
+            '<p>Generated on: ' + new Date().toLocaleString() + '</p>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:20px"><button onclick="window.print()" style="background:#1a365d;color:white;border:none;padding:12px 30px;border-radius:6px;cursor:pointer;font-size:15px;font-weight:600">Print / Save as PDF</button></div>' +
+            '</body></html>';
+
+        var win = window.open('', '_blank');
+        win.document.write(html);
+        win.document.close();
+    }
+
+    // ============================================
+    // Download Complete Lender Package as ZIP
+    // ============================================
+    async function downloadLenderZip(appId) {
+        var app = window._currentAppData;
+        if (!app) { alert('Application data not available. Please reopen the application.'); return; }
+
+        var btn = document.getElementById('zipDownloadBtn');
+        var origText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ Building ZIP...';
+
+        try {
+            var zip = new JSZip();
+            var docsFolder = zip.folder('Supporting_Documents');
+
+            // --- Build the application summary HTML ---
+            var fd = app.form_data || {};
+            var formTypeLabels = {
+                'merchant-advance': 'Merchant Cash Advance',
+                'leasing': 'Equipment Leasing',
+                'working-capital': 'Working Capital & Factoring'
+            };
+            var formTypeDisplay = formTypeLabels[app.form_type] || app.form_type || 'N/A';
+
+            var labelMap = {
+                advanceAmount:'Advance Amount Requested',fundsPurpose:'Purpose of Funds',legalName:'Legal Business Name',tradeName:'Trade Name / DBA',
+                bizAddress:'Business Address',bizCity:'City',bizProv:'Province/State',bizPostal:'Postal/Zip',bizCountry:'Country',bizPhone:'Business Phone',
+                bizEmail:'Business Email',gstFedId:'GST / Federal ID Number',taxId:'GST / Federal ID Number',industry:'Industry',timeInBusiness:'Time in Business',
+                numEmployees:'Number of Employees',monthlyRevenue:'Monthly Revenue',cardSales:'Monthly Card Sales',annualRevenue:'Annual Revenue',
+                processor:'Credit Card Processor',bankName:'Bank Name',currentMCA:'Current MCA?',mcaBalance:'MCA Balance',existingLoans:'Existing Loans?',
+                loanPayment:'Loan Payment',taxLiens:'Tax Liens?',taxArrears:'Tax Arrears?',
+                ownerName:'Owner Full Name',ownerTitle:'Owner Title',ownerPct:'Ownership %',ownerDOB:'Date of Birth',ownerPhone:'Phone',
+                ownerAddress:'Home Address',ownerEmail:'Email',ownerSinSsn:'SIN / SSN',
+                owner2Name:'Second Owner Name',owner2Title:'Second Owner Title',owner2Pct:'Second Owner %',owner2DOB:'Second Owner DOB',owner2Phone:'Second Owner Phone',
+                equipmentDescription:'Equipment Description',equipmentCost:'Equipment Cost',vendorName:'Vendor Name',equipmentCondition:'Condition',
+                businessLegalName:'Legal Business Name',businessPhone:'Business Phone',businessEmail:'Business Email',
+                contactName:'Contact Name',bizDescription:'Business Description',businessStartDate:'Business Start Date',
+                principal1Name:'Principal 1 Name',principal1Title:'Principal 1 Title',principal1Ownership:'Principal 1 Ownership %',
+                principal1DOB:'Principal 1 DOB',principal1Phone:'Principal 1 Phone',principal1Address:'Principal 1 Address',
+                principal1City:'Principal 1 City',principal1Prov:'Principal 1 Province/State',principal1Postal:'Principal 1 Postal/Zip',
+                principal1SinSsn:'Principal 1 SIN / SSN',
+                financingType:'Financing Type',amountRequested:'Amount Requested',useOfFunds:'Use of Funds',
+                o1Name:'Owner 1 Name',o1Title:'Owner 1 Title',o1Pct:'Owner 1 Ownership %',o1Phone:'Owner 1 Phone',
+                o1DOB:'Owner 1 DOB',o1Address:'Owner 1 Address',o1SinSsn:'Owner 1 SIN / SSN',
+                dateIncorporated:'Date Incorporated',yrsOwner:'Years as Owner',annualSales:'Annual Sales',
+                arOutstanding:'AR Outstanding',arTerms:'AR Terms',arMonthlySales:'AR Monthly Sales',
+                structure:'Business Structure',ownerHomeStatus:'Home Status'
+            };
+            var skipFields = ['formType','applicationId','submittedAt','referralSource','signatureName','signatureTimestamp'];
+
+            var formDataRows = '';
+            if (fd && typeof fd === 'object') {
+                Object.entries(fd).filter(function(e) { return e[1] && e[1].toString().trim() && !skipFields.includes(e[0]); })
+                .forEach(function(e) {
+                    var label = labelMap[e[0]] || e[0].replace(/([A-Z])/g, ' $1').replace(/^./, function(s){return s.toUpperCase();});
+                    formDataRows += '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;width:35%;background:#f8f9fa;">' + label + '</td><td style="padding:8px 12px;border:1px solid #ddd;">' + e[1] + '</td></tr>';
+                });
+            }
+
+            var sigDate = app.signature_timestamp ? new Date(app.signature_timestamp).toLocaleString('en-US', {
+                year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZoneName:'short'
+            }) : 'N/A';
+
+            var summaryHtml = '<!DOCTYPE html><html><head><title>Lender Package - ' + (app.application_id || '') + '</title>' +
+                '<style>' +
+                'body{font-family:Arial,Helvetica,sans-serif;margin:40px;color:#333;line-height:1.6}' +
+                '.header{text-align:center;border-bottom:3px solid #1a365d;padding-bottom:20px;margin-bottom:30px}' +
+                '.header h1{color:#1a365d;margin:0;font-size:24px}' +
+                '.header p{color:#666;margin:5px 0 0}' +
+                '.section{margin-bottom:25px}' +
+                '.section h2{color:#1a365d;font-size:16px;border-bottom:2px solid #e2e8f0;padding-bottom:8px;margin-bottom:12px}' +
+                'table{width:100%;border-collapse:collapse;margin-bottom:15px}' +
+                'td{padding:8px 12px;border:1px solid #ddd;font-size:13px}' +
+                '.signature-box{background:#f0f7ff;border:2px solid #1a365d;border-radius:8px;padding:20px;margin-top:20px}' +
+                '.signature-box .sig-name{font-size:22px;font-style:italic;font-weight:700;color:#1a365d;margin:10px 0}' +
+                '.signature-box .sig-meta{font-size:12px;color:#64748b}' +
+                '.consent-text{font-size:11px;color:#666;margin-top:15px;padding:15px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;line-height:1.5}' +
+                '.footer{margin-top:40px;text-align:center;font-size:11px;color:#999;border-top:1px solid #e2e8f0;padding-top:15px}' +
+                '@media print{body{margin:20px}}' +
+                '</style></head><body>' +
+                '<div class="header">' +
+                '<h1>Alliance Financing Group Ltd.</h1>' +
+                '<p>35+ Years of Commercial Financing Excellence</p>' +
+                '<p style="font-size:12px;color:#999">1-800-660-3660 ext. 222 | info@alliancefinancing.ai | alliancefinancing.ai</p>' +
+                '</div>' +
+                '<div style="text-align:center;margin-bottom:25px">' +
+                '<h2 style="color:#1a365d;font-size:20px;margin:0">Credit Application — ' + formTypeDisplay + '</h2>' +
+                '<p style="color:#666;margin:5px 0">Application ID: <strong>' + (app.application_id || 'N/A') + '</strong> | Submitted: <strong>' + (app.submitted_at ? new Date(app.submitted_at).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}) : 'N/A') + '</strong></p>' +
+                '</div>' +
+                '<div class="section"><h2>Applicant Summary</h2>' +
+                '<table>' +
+                '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Full Name</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.full_name || 'N/A') + '</td></tr>' +
+                '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Business Name</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.business_name || 'N/A') + '</td></tr>' +
+                '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Email</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.email || 'N/A') + '</td></tr>' +
+                '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Phone</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.phone || 'N/A') + '</td></tr>' +
+                '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Time in Business</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.time_in_business || 'N/A') + '</td></tr>' +
+                '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Funding Requested</td><td style="border:1px solid #ddd;padding:8px 12px">' + (app.funding_amount_text || (app.funding_amount_requested ? '$' + Number(app.funding_amount_requested).toLocaleString() : 'N/A')) + '</td></tr>' +
+                '</table></div>' +
+                '<div class="section"><h2>Complete Application Details</h2>' +
+                '<table>' + formDataRows + '</table></div>' +
+                '<div class="section"><h2>Electronic Signature & Authorization</h2>' +
+                '<div class="signature-box">' +
+                '<p style="margin:0;font-size:13px;color:#64748b">The applicant has electronically signed this application:</p>' +
+                '<div class="sig-name">"' + (app.signature_name || 'N/A') + '"</div>' +
+                '<div class="sig-meta">Date & Time: ' + sigDate + '</div>' +
+                '<div class="sig-meta">Application ID: ' + (app.application_id || 'N/A') + '</div>' +
+                '<div class="sig-meta">IP-based electronic signature captured at time of submission</div>' +
+                '</div>' +
+                '<div class="consent-text">' +
+                '<strong>Authorization Statement:</strong> The applicant confirmed that the information provided is true and complete, and authorized Alliance Financing Group Ltd. and its partners to obtain credit reports, verify business information with banks, processors, and third parties, and to use this information to evaluate the application. This electronic signature is legally binding under the <em>Personal Information Protection and Electronic Documents Act</em> (PIPEDA) and applicable provincial and state laws.' +
+                '</div></div>';
+
+            // --- Fetch and add supporting documents ---
+            var docTypeLabels = {
+                bank_statement:'Bank_Statement', processing_statement:'Processing_Statement',
+                photo_id:'Photo_ID', void_cheque:'Void_Cheque', business_license:'Business_License',
+                tax_return:'Tax_Return', financial_statements:'Financial_Statements',
+                credit_report:'Credit_Report', equipment_quote:'Equipment_Quote',
+                ap_ar_aging:'AP_AR_Aging', other:'Other'
+            };
+
+            var fileList = [];
+            try {
+                btn.textContent = '⏳ Fetching documents...';
+                var { data: docs } = await db.from('documents').select('*').eq('application_id', app.id).order('uploaded_at', { ascending: false });
+                if (docs && docs.length > 0) {
+                    for (var di = 0; di < docs.length; di++) {
+                        var doc = docs[di];
+                        btn.textContent = '⏳ Downloading ' + (di + 1) + ' of ' + docs.length + '...';
+                        try {
+                            // Download the actual file blob
+                            var { data: fileBlob, error: dlError } = await db.storage
+                                .from('deal-documents')
+                                .download(doc.file_path);
+                            if (dlError) { console.warn('Could not download', doc.file_name, dlError); continue; }
+
+                            // Create a clean filename with type prefix
+                            var typePrefix = docTypeLabels[doc.document_type] || 'Document';
+                            var cleanName = typePrefix + '_' + doc.file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                            docsFolder.file(cleanName, fileBlob);
+                            fileList.push({ name: cleanName, type: doc.document_type, originalName: doc.file_name, size: doc.file_size_bytes });
+                        } catch(e) { console.warn('Error downloading ' + doc.file_name + ':', e); }
+                    }
+                }
+            } catch(e) { console.warn('Could not fetch documents:', e); }
+
+            // Add document manifest to summary
+            if (fileList.length > 0) {
+                summaryHtml += '<div class="section"><h2>Supporting Documents (' + fileList.length + ' files included in this ZIP)</h2>' +
+                    '<table><tr style="background:#f8f9fa"><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600">File Name in ZIP</td>' +
+                    '<td style="padding:8px 12px;border:1px solid #ddd;font-weight:600">Document Type</td>' +
+                    '<td style="padding:8px 12px;border:1px solid #ddd;font-weight:600">Original File Name</td></tr>';
+                fileList.forEach(function(f) {
+                    var typeDisplay = f.type ? f.type.replace(/_/g, ' ').replace(/\b\w/g, function(l){return l.toUpperCase();}) : 'Other';
+                    summaryHtml += '<tr><td style="padding:8px 12px;border:1px solid #ddd;">Supporting_Documents/' + f.name + '</td>' +
+                        '<td style="padding:8px 12px;border:1px solid #ddd;">' + typeDisplay + '</td>' +
+                        '<td style="padding:8px 12px;border:1px solid #ddd;">' + f.originalName + '</td></tr>';
+                });
+                summaryHtml += '</table>' +
+                    '<p style="font-size:11px;color:#666;margin-top:8px">All supporting documents are included in the Supporting_Documents folder within this ZIP file.</p>' +
+                    '</div>';
+            } else {
+                summaryHtml += '<div class="section"><h2>Supporting Documents</h2>' +
+                    '<p style="color:#666">No supporting documents have been uploaded for this application yet.</p></div>';
+            }
+
+            summaryHtml += '<div class="footer">' +
+                '<p>This document was generated by Alliance Financing Group Ltd. — Confidential Lender Package</p>' +
+                '<p>Generated on: ' + new Date().toLocaleString() + '</p>' +
+                '</div></body></html>';
+
+            // Add summary to ZIP
+            zip.file('Application_Summary_' + (app.application_id || 'unknown') + '.html', summaryHtml);
+
+            // Generate and download ZIP
+            btn.textContent = '⏳ Creating ZIP file...';
+            var content = await zip.generateAsync({ type: 'blob' });
+            var zipName = 'Lender_Package_' + (app.application_id || 'unknown') + '_' + new Date().toISOString().split('T')[0] + '.zip';
+            saveAs(content, zipName);
+
+            btn.disabled = false;
+            btn.textContent = origText;
+
+        } catch (error) {
+            console.error('ZIP generation error:', error);
+            alert('Error creating ZIP package: ' + (error.message || 'Unknown error'));
+            btn.disabled = false;
+            btn.textContent = origText;
         }
     }
 
@@ -4607,7 +4981,7 @@
         try {
             var { data, error } = await db.storage
                 .from('deal-documents')
-                .createSignedUrl(filePath, 3600);
+                .createSignedUrl(filePath, 604800);
             if (error) throw error;
             window.open(data.signedUrl, '_blank');
         } catch (error) {
@@ -4639,7 +5013,8 @@
             bank_statement: 'Bank Statement', processing_statement: 'Processing Statement',
             photo_id: 'Photo ID', void_cheque: 'Void Cheque', business_license: 'Business License',
             tax_return: 'Tax Return', financial_statements: 'Financial Statements',
-            credit_report: 'Credit Report', other: 'Other'
+            credit_report: 'Credit Report', equipment_quote: 'Equipment Quote / Invoice',
+            ap_ar_aging: 'AP / AR Aging Report', other: 'Other'
         };
 
         var addBtnHtml = ['super_admin', 'admin'].includes(currentUserRole)
