@@ -1854,6 +1854,52 @@
     </div>
 </div>
 
+<!-- Document Upload Modal -->
+<div id="documentUploadModal" class="modal">
+    <div class="modal-content" style="max-width: 550px;">
+        <div class="modal-header">
+            <h2>Upload Document</h2>
+            <button class="modal-close" onclick="closeDocumentUploadModal()">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <div class="modal-field" style="margin-bottom: 15px;">
+                <label>Document Type <span style="color: var(--danger);">*</span></label>
+                <select id="docTypeSelect" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
+                    <option value="">Select Type...</option>
+                    <option value="bank_statement">Bank Statement</option>
+                    <option value="processing_statement">Processing Statement</option>
+                    <option value="photo_id">Photo ID</option>
+                    <option value="void_cheque">Void Cheque</option>
+                    <option value="business_license">Business License</option>
+                    <option value="tax_return">Tax Return</option>
+                    <option value="financial_statements">Financial Statements</option>
+                    <option value="credit_report">Credit Report</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="modal-field" style="margin-bottom: 15px;">
+                <label>File <span style="color: var(--danger);">*</span></label>
+                <input type="file" id="docFileInput" accept=".pdf,.png,.jpg,.jpeg" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
+                <small style="color: var(--text-light); font-size: 12px; margin-top: 5px; display: block;">PDF, PNG, JPG — max 10MB</small>
+            </div>
+            <div class="modal-field" style="margin-bottom: 15px;">
+                <label>Notes (optional)</label>
+                <textarea id="docNotesInput" rows="3" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px; resize: vertical;"></textarea>
+            </div>
+            <div id="docUploadProgress" style="display: none; margin-bottom: 15px;">
+                <div style="width: 100%; height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden;">
+                    <div id="docUploadProgressBar" style="width: 0%; height: 100%; background: #10B981; transition: width 0.3s;"></div>
+                </div>
+                <p id="docUploadProgressText" style="margin-top: 5px; font-size: 12px; color: #666;">Uploading...</p>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding: 15px 20px; border-top: 1px solid var(--border-gray); display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn-secondary" onclick="closeDocumentUploadModal()">Cancel</button>
+            <button class="btn btn-primary" id="docUploadBtn" onclick="submitDocumentUpload()">Upload Document</button>
+        </div>
+    </div>
+</div>
+
 <!-- Vendor Detail Modal -->
 <div id="vendorDetailModal" class="modal">
     <div class="modal-content">
@@ -3206,6 +3252,15 @@
 
             if (updateError) throw updateError;
 
+            // Link any application documents to the new deal
+            if (newDeal && newDeal.id) {
+                const { error: docLinkError } = await db
+                    .from('documents')
+                    .update({ deal_id: newDeal.id })
+                    .eq('application_id', applicationId);
+                if (docLinkError) console.warn('Could not link documents to deal:', docLinkError);
+            }
+
             // Refresh dashboard and deals
             await loadDashboard();
             await loadDeals();
@@ -3540,6 +3595,13 @@
                 .from('deal_syndication')
                 .select('*, lenders(name)')
                 .eq('deal_id', dealId);
+
+            // Fetch documents for this deal
+            const { data: dealDocuments } = await db
+                .from('documents')
+                .select('*')
+                .eq('deal_id', dealId)
+                .order('uploaded_at', { ascending: false });
 
             // Load cached lookups
             if (cachedLenders.length === 0) {
@@ -3897,6 +3959,8 @@
                         <button onclick="addDealNote('${dealId}')" style="padding: 8px 16px; background: var(--gold); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Add Note</button>
                     </div>
                 </div>
+
+                ${buildDocumentsHtml(dealDocuments || [], dealId, null)}
             `;
 
             document.getElementById('dealModal').classList.add('active');
@@ -4128,6 +4192,13 @@
 
             if (error) throw error;
 
+            // Fetch documents for this application
+            const { data: appDocuments } = await db
+                .from('documents')
+                .select('*')
+                .eq('application_id', appId)
+                .order('uploaded_at', { ascending: false });
+
             // Format form type display
             const formTypeLabels = {
                 'leasing': 'Equipment Leasing',
@@ -4286,6 +4357,7 @@
                 </div>
                 ${signatureHtml}
                 ${fullDataHtml}
+                ${buildDocumentsHtml(appDocuments || [], null, appId)}
             `;
 
             document.getElementById('applicationModal').classList.add('active');
@@ -4297,6 +4369,172 @@
 
     function closeApplicationModal() {
         document.getElementById('applicationModal').classList.remove('active');
+    }
+
+    // ============================================
+    // Document Management
+    // ============================================
+    var currentDocUploadDealId = null;
+    var currentDocUploadApplicationId = null;
+
+    function showDocumentUploadModal(dealId, applicationId) {
+        currentDocUploadDealId = dealId;
+        currentDocUploadApplicationId = applicationId;
+        document.getElementById('docTypeSelect').value = '';
+        document.getElementById('docFileInput').value = '';
+        document.getElementById('docNotesInput').value = '';
+        document.getElementById('docUploadProgress').style.display = 'none';
+        document.getElementById('docUploadBtn').disabled = false;
+        document.getElementById('docUploadBtn').textContent = 'Upload Document';
+        document.getElementById('documentUploadModal').classList.add('active');
+    }
+
+    function closeDocumentUploadModal() {
+        document.getElementById('documentUploadModal').classList.remove('active');
+        currentDocUploadDealId = null;
+        currentDocUploadApplicationId = null;
+    }
+
+    async function submitDocumentUpload() {
+        var docType = document.getElementById('docTypeSelect').value;
+        var fileInput = document.getElementById('docFileInput');
+        var notes = document.getElementById('docNotesInput').value;
+        var file = fileInput.files[0];
+
+        if (!docType) { alert('Please select a document type.'); return; }
+        if (!file) { alert('Please select a file to upload.'); return; }
+        if (file.size > 10 * 1024 * 1024) { alert('File exceeds 10MB limit.'); return; }
+
+        var btn = document.getElementById('docUploadBtn');
+        btn.disabled = true;
+        btn.textContent = 'Uploading...';
+        document.getElementById('docUploadProgress').style.display = 'block';
+        document.getElementById('docUploadProgressBar').style.width = '30%';
+
+        try {
+            var folder = currentDocUploadDealId ? 'deals/' + currentDocUploadDealId : 'applications/' + currentDocUploadApplicationId;
+            var filePath = folder + '/' + Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+            var { data: uploadData, error: uploadError } = await db.storage
+                .from('deal-documents')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            document.getElementById('docUploadProgressBar').style.width = '70%';
+
+            var docRecord = {
+                file_name: file.name,
+                file_path: filePath,
+                file_type: file.type,
+                file_size_bytes: file.size,
+                document_type: docType,
+                notes: notes || null,
+                uploaded_by: currentUserId,
+                uploaded_by_name: currentUser ? currentUser.full_name : 'Admin'
+            };
+            if (currentDocUploadDealId) docRecord.deal_id = currentDocUploadDealId;
+            if (currentDocUploadApplicationId) docRecord.application_id = currentDocUploadApplicationId;
+
+            var { error: docError } = await db.from('documents').insert([docRecord]);
+            if (docError) throw docError;
+
+            document.getElementById('docUploadProgressBar').style.width = '100%';
+            document.getElementById('docUploadProgressText').textContent = 'Upload complete!';
+
+            setTimeout(function() {
+                closeDocumentUploadModal();
+                if (currentDocUploadDealId) viewDeal(currentDocUploadDealId);
+                else if (currentDocUploadApplicationId) viewApplication(currentDocUploadApplicationId);
+            }, 500);
+
+        } catch (error) {
+            console.error('Document upload error:', error);
+            alert('Error uploading document: ' + (error.message || 'Unknown error'));
+            btn.disabled = false;
+            btn.textContent = 'Upload Document';
+            document.getElementById('docUploadProgress').style.display = 'none';
+        }
+    }
+
+    async function downloadDocument(filePath, fileName) {
+        try {
+            var { data, error } = await db.storage
+                .from('deal-documents')
+                .createSignedUrl(filePath, 3600);
+            if (error) throw error;
+            window.open(data.signedUrl, '_blank');
+        } catch (error) {
+            console.error('Download error:', error);
+            alert('Error downloading document: ' + (error.message || 'Unknown error'));
+        }
+    }
+
+    async function deleteDocument(docId, filePath, parentDealId, parentAppId) {
+        if (!confirm('Are you sure you want to delete this document? This cannot be undone.')) return;
+        try {
+            await db.storage.from('deal-documents').remove([filePath]);
+            var { error } = await db.from('documents').delete().eq('id', docId);
+            if (error) throw error;
+            alert('Document deleted.');
+            if (parentDealId) viewDeal(parentDealId);
+            else if (parentAppId) viewApplication(parentAppId);
+        } catch (error) {
+            console.error('Delete document error:', error);
+            alert('Error deleting document: ' + (error.message || 'Unknown error'));
+        }
+    }
+
+    function buildDocumentsHtml(documents, parentDealId, parentAppId) {
+        var docTypeLabels = {
+            bank_statement: 'Bank Statement', processing_statement: 'Processing Statement',
+            photo_id: 'Photo ID', void_cheque: 'Void Cheque', business_license: 'Business License',
+            tax_return: 'Tax Return', financial_statements: 'Financial Statements',
+            credit_report: 'Credit Report', other: 'Other'
+        };
+
+        var addBtnHtml = ['super_admin', 'admin'].includes(currentUserRole)
+            ? '<button class="btn btn-secondary btn-sm" onclick="showDocumentUploadModal(' +
+              (parentDealId ? "'" + parentDealId + "'" : 'null') + ', ' +
+              (parentAppId ? "'" + parentAppId + "'" : 'null') +
+              ')" style="padding: 4px 12px; font-size: 12px;">+ Add Document</button>'
+            : '';
+
+        var docsRows = '';
+        if (documents && documents.length > 0) {
+            docsRows = documents.map(function(doc) {
+                var typeLabel = docTypeLabels[doc.document_type] || doc.document_type || 'Other';
+                var sizeMB = doc.file_size_bytes ? (doc.file_size_bytes / 1024 / 1024).toFixed(2) + ' MB' : '';
+                var uploaded = doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : '';
+                var uploader = doc.uploaded_by_name || 'Unknown';
+                var deleteBtn = ['super_admin', 'admin'].includes(currentUserRole)
+                    ? '<button onclick="deleteDocument(\'' + doc.id + '\', \'' + doc.file_path + '\', ' +
+                      (parentDealId ? "'" + parentDealId + "'" : 'null') + ', ' +
+                      (parentAppId ? "'" + parentAppId + "'" : 'null') +
+                      ')" style="padding:4px 10px;background:#FEE2E2;color:#DC2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Delete</button>'
+                    : '';
+                return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:8px;">' +
+                    '<div style="flex:1">' +
+                    '<div style="font-weight:600;font-size:13px;color:var(--navy);">' + doc.file_name + '</div>' +
+                    '<div style="font-size:11px;color:#64748b;margin-top:3px;">' +
+                    '<span style="background:#EFF6FF;color:#3B82F6;padding:1px 6px;border-radius:8px;font-weight:600;margin-right:6px;">' + typeLabel + '</span>' +
+                    sizeMB + (uploaded ? ' • ' + uploaded : '') + ' • by ' + uploader +
+                    (doc.notes ? ' • <em>' + doc.notes + '</em>' : '') +
+                    '</div></div>' +
+                    '<div style="display:flex;gap:6px;margin-left:10px;flex-shrink:0;">' +
+                    '<button onclick="downloadDocument(\'' + doc.file_path + '\', \'' + doc.file_name + '\')" style="padding:4px 10px;background:#3B82F6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Download</button>' +
+                    deleteBtn +
+                    '</div></div>';
+            }).join('');
+        } else {
+            docsRows = '<p style="color:#999;font-size:13px;">No documents attached yet.</p>';
+        }
+
+        return '<div style="margin-top:20px;border-top:2px solid var(--border-gray);padding-top:15px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+            '<label style="font-size:15px;font-weight:600;color:var(--navy);">Documents (' + (documents ? documents.length : 0) + ')</label>' +
+            addBtnHtml +
+            '</div>' + docsRows + '</div>';
     }
 
     // ============================================
@@ -6534,7 +6772,7 @@
     // ============================================
 
     window.onclick = function(event) {
-        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'lenderDetailModal', 'agentDetailModal'];
+        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'lenderDetailModal', 'agentDetailModal', 'documentUploadModal'];
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (event.target === modal) {

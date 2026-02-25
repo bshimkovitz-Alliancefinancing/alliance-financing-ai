@@ -231,6 +231,25 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
             </div>
         </div>
 
+        <div class="section-title">Supporting Documents</div>
+        <div style="background:#F0F9FF;border:1px solid #BFDBFE;border-radius:.75rem;padding:1.25rem;margin-bottom:1.5rem">
+            <h3 style="color:#1E40AF;font-size:.9375rem;margin-bottom:.75rem;margin-top:0">Bank Statements Upload (Optional)</h3>
+            <p style="color:#1E40AF;font-size:.875rem;margin-bottom:1rem;line-height:1.6">Upload your last 6 months of bank statements now, or email them to <strong>info@alliancefinancing.ai</strong> with your Application ID after submission.</p>
+            <div id="dropZone" style="border:2px dashed #3B82F6;border-radius:.75rem;padding:2rem;text-align:center;cursor:pointer;transition:all .2s;background:white" onclick="document.getElementById('bankStatementsInput').click()">
+                <svg style="width:32px;height:32px;margin:0 auto .75rem;color:#3B82F6;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <p style="margin:0 0 .5rem;color:#333;font-weight:500">Drag and drop PDFs or images here, or click to select</p>
+                <p style="margin:0;color:#666;font-size:.875rem">PDF, PNG, JPG — max 10MB per file</p>
+                <input type="file" id="bankStatementsInput" multiple accept=".pdf,.png,.jpg,.jpeg" style="display:none">
+            </div>
+            <div id="uploadedFilesList"></div>
+            <div id="uploadProgress" style="display:none;margin-top:1rem">
+                <div style="width:100%;height:8px;background:#E5E7EB;border-radius:4px;overflow:hidden">
+                    <div id="progressBar" style="width:0%;height:100%;background:#10B981;transition:width .3s"></div>
+                </div>
+                <p id="progressText" style="margin-top:.5rem;font-size:.875rem;color:#666"></p>
+            </div>
+        </div>
+
         <div class="section-title">E-Signature & Authorization</div>
         <div class="form-group full" style="margin-bottom:1rem">
             <label>Print Your Full Legal Name (Electronic Signature) *</label>
@@ -291,6 +310,70 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
 const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ============================================
+// File Upload Handling
+// ============================================
+var selectedBankStatements = [];
+
+(function initFileUpload() {
+    document.addEventListener('DOMContentLoaded', function() {
+        var dropZone = document.getElementById('dropZone');
+        var fileInput = document.getElementById('bankStatementsInput');
+
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.style.backgroundColor = '#EFF6FF';
+            dropZone.style.borderColor = '#2563EB';
+        });
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.style.backgroundColor = 'white';
+            dropZone.style.borderColor = '#3B82F6';
+        });
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.style.backgroundColor = 'white';
+            dropZone.style.borderColor = '#3B82F6';
+            handleFileSelection(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', function(e) {
+            handleFileSelection(e.target.files);
+        });
+    });
+})();
+
+function handleFileSelection(files) {
+    var validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+    var maxSize = 10 * 1024 * 1024;
+    for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        if (!validTypes.includes(file.type)) { alert(file.name + ' is not a supported file type. Please upload PDF, PNG, or JPG files.'); continue; }
+        if (file.size > maxSize) { alert(file.name + ' exceeds the 10MB limit.'); continue; }
+        if (!selectedBankStatements.find(function(f) { return f.name === file.name && f.size === file.size; })) {
+            selectedBankStatements.push(file);
+        }
+    }
+    renderFilesList();
+}
+
+function renderFilesList() {
+    var listDiv = document.getElementById('uploadedFilesList');
+    if (selectedBankStatements.length === 0) { listDiv.innerHTML = ''; return; }
+    listDiv.innerHTML = '<div style="margin-top:1rem"><strong style="color:#333;font-size:.9375rem">Selected Files (' + selectedBankStatements.length + '):</strong></div>' +
+        selectedBankStatements.map(function(file, idx) {
+            var sizeMB = (file.size / 1024 / 1024).toFixed(2);
+            var icon = file.type === 'application/pdf' ? '📄' : '🖼️';
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.75rem;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:.5rem;margin-top:.5rem">' +
+                '<div style="flex:1"><p style="margin:0;color:#333;font-weight:500;font-size:.9375rem">' + icon + ' ' + file.name + '</p>' +
+                '<p style="margin:.25rem 0 0 0;color:#666;font-size:.875rem">' + sizeMB + ' MB</p></div>' +
+                '<button type="button" onclick="removeFile(' + idx + ')" style="padding:.5rem .75rem;background:#FEE2E2;color:#DC2626;border:none;border-radius:.375rem;cursor:pointer;font-size:.875rem">Remove</button></div>';
+        }).join('');
+}
+
+function removeFile(idx) {
+    selectedBankStatements.splice(idx, 1);
+    renderFilesList();
+}
 
 // Capture referral from URL
 (function(){
@@ -390,10 +473,49 @@ async function submitMCAApp(){
             }]);
         }
 
+        // Upload bank statements to Supabase Storage
+        if (selectedBankStatements.length > 0 && appData && appData.length > 0) {
+            var appUUID = appData[0].id;
+            btn.textContent = 'Uploading documents...';
+            document.getElementById('uploadProgress').style.display = 'block';
+
+            for (var fi = 0; fi < selectedBankStatements.length; fi++) {
+                var file = selectedBankStatements[fi];
+                var filePath = 'applications/' + appUUID + '/' + Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+                var { data: uploadData, error: uploadError } = await db.storage
+                    .from('deal-documents')
+                    .upload(filePath, file);
+
+                if (uploadError) {
+                    console.error('Upload error for ' + file.name + ':', uploadError);
+                    continue; // Don't fail the whole submission for upload errors
+                }
+
+                // Create document record
+                await db.from('documents').insert([{
+                    application_id: appUUID,
+                    file_name: file.name,
+                    file_path: filePath,
+                    file_type: file.type,
+                    file_size_bytes: file.size,
+                    document_type: 'bank_statement',
+                    uploaded_by_name: document.getElementById('ownerName').value || 'Applicant',
+                    notes: 'Uploaded with MCA application ' + appId
+                }]);
+
+                // Update progress
+                var progress = ((fi + 1) / selectedBankStatements.length) * 100;
+                document.getElementById('progressBar').style.width = progress + '%';
+                document.getElementById('progressText').textContent = 'Uploaded ' + (fi + 1) + ' of ' + selectedBankStatements.length + ' files';
+            }
+        }
+
         // Show success
         document.getElementById('formCard').style.display='none';
         document.getElementById('successMsg').style.display='block';
         document.getElementById('appId').textContent=appId;
+        document.getElementById('uploadProgress').style.display='none';
         window.scrollTo({top:0,behavior:'smooth'});
 
     } catch(error) {
