@@ -43,7 +43,7 @@ body{font-family:var(--font);background:var(--slate-50);color:var(--slate-800);l
 .form-group{display:flex;flex-direction:column}
 .form-group.full{grid-column:1/-1}
 .form-group label{font-size:.8125rem;font-weight:600;color:var(--slate-600);margin-bottom:.25rem}
-.form-group input,.form-group select,.form-group textarea{padding:.625rem .75rem;border:1.5px solid var(--slate-200);border-radius:.5rem;font-size:.9375rem;font-family:var(--font);transition:border .2s;outline:none}
+.form-group input,.form-group select,.form-group textarea{padding:.625rem .75rem;border:1.5px solid var(--slate-200);border-radius:.5rem;font-size:.9375rem;font-family:var(--font);transition:border .2s;outline:none;width:100%;box-sizing:border-box}
 .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
 .form-group textarea{resize:vertical;min-height:80px}
 .checkbox-row{display:flex;gap:1.5rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
@@ -152,6 +152,9 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
         <div class="form-row">
             <div class="form-group"><label>Business Phone *</label><input type="tel" id="bizPhone" required></div>
             <div class="form-group"><label>Business Email *</label><input type="email" id="bizEmail" required></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>GST or Federal ID Number *</label><input type="text" id="gstFedId" required placeholder="e.g. 123456789 RT0001"></div>
         </div>
         <div class="form-row">
             <div class="form-group"><label>Industry / Type of Business *</label><input type="text" id="industry" required placeholder="e.g. Restaurant, Retail, Auto Repair"></div>
@@ -412,7 +415,7 @@ async function submitMCAApp(){
 
     if(!document.getElementById('consentCheck').checked){alert('Please accept the consent and authorization.');return;}
 
-    var required=['advanceAmount','fundsPurpose','legalName','bizAddress','bizCity','bizProv','bizPostal','bizPhone','bizEmail','industry','timeInBusiness','monthlyRevenue','cardSales','annualRevenue','bankName','ownerName','ownerTitle','ownerPct','ownerDOB','ownerPhone','ownerAddress','ownerEmail'];
+    var required=['advanceAmount','fundsPurpose','legalName','bizAddress','bizCity','bizProv','bizPostal','bizPhone','bizEmail','gstFedId','industry','timeInBusiness','monthlyRevenue','cardSales','annualRevenue','bankName','ownerName','ownerTitle','ownerPct','ownerDOB','ownerPhone','ownerAddress','ownerEmail'];
     for(var i=0;i<required.length;i++){var el=document.getElementById(required[i]);if(!el.value.trim()){el.focus();el.style.borderColor='#EF4444';alert('Please fill in all required fields.');return;}}
 
     btn.disabled=true;btn.textContent='Submitting...';
@@ -421,7 +424,7 @@ async function submitMCAApp(){
     var now = new Date().toISOString();
 
     // Collect ALL form fields
-    var fields=['advanceAmount','fundsPurpose','legalName','tradeName','bizAddress','bizCity','bizProv','bizPostal','bizCountry','bizPhone','bizEmail','industry','timeInBusiness','numEmployees','monthlyRevenue','cardSales','annualRevenue','processor','bankName','currentMCA','mcaBalance','existingLoans','loanPayment','taxLiens','taxArrears','ownerName','ownerTitle','ownerPct','ownerDOB','ownerPhone','ownerAddress','ownerEmail','owner2Name','owner2Title','owner2Pct','owner2DOB','owner2Phone'];
+    var fields=['advanceAmount','fundsPurpose','legalName','tradeName','bizAddress','bizCity','bizProv','bizPostal','bizCountry','bizPhone','bizEmail','gstFedId','industry','timeInBusiness','numEmployees','monthlyRevenue','cardSales','annualRevenue','processor','bankName','currentMCA','mcaBalance','existingLoans','loanPayment','taxLiens','taxArrears','ownerName','ownerTitle','ownerPct','ownerDOB','ownerPhone','ownerAddress','ownerEmail','owner2Name','owner2Title','owner2Pct','owner2DOB','owner2Phone'];
     var formData={formType:'merchant-advance',applicationId:appId,submittedAt:now,referralSource:document.getElementById('referralSource').value,structure:document.querySelector('input[name="structure"]:checked').value,signatureName:sigName,signatureTimestamp:now};
     fields.forEach(function(f){var el=document.getElementById(f);if(el)formData[f]=el.value;});
 
