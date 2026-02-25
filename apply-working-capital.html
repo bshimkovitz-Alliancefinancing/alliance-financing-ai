@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
 nav{position:fixed;top:0;width:100%;background:rgba(255,255,255,.95);backdrop-filter:blur(12px);border-bottom:1px solid #e2e8f0;z-index:1000;padding:1.25rem 0}
 .nav-container{max-width:1200px;margin:0 auto;padding:0 2rem;display:grid;grid-template-columns:auto 1fr auto;align-items:center}
@@ -264,6 +265,22 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
             <div class="form-group"><label>If Yes, to Whom?</label><input type="text" id="arPledgedTo"></div>
         </div>
 
+        <div class="section-title">E-Signature & Authorization</div>
+        <div class="form-group full" style="margin-bottom:1rem">
+            <label>Print Your Full Legal Name (Electronic Signature) *</label>
+            <input type="text" id="signatureName" required placeholder="Your full legal name as it appears on official ID" style="font-size:1.1rem;font-weight:600;border:2px solid var(--primary);padding:.75rem">
+        </div>
+        <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:.75rem;padding:1.25rem;margin-bottom:1rem">
+            <p style="color:#1E40AF;font-size:.875rem;line-height:1.6;margin-bottom:.5rem">
+                By typing your name above and submitting this application, you are electronically signing this document.
+                This electronic signature is legally binding and has the same effect as a handwritten signature under the
+                <em>Personal Information Protection and Electronic Documents Act</em> (PIPEDA) and applicable provincial and state laws.
+            </p>
+            <p style="color:#1E40AF;font-size:.8125rem">
+                Signature date &amp; time: <strong id="sigTimestamp">Will be recorded on submission</strong>
+            </p>
+        </div>
+
         <div class="consent-text">
             <label><input type="checkbox" id="consentCheck" required style="margin-right:.5rem">
             I confirm that the information provided on this application is true and complete. I authorize Alliance Financing Group Ltd., its agents and all third parties contacted regarding this financing facility to use this information to confirm the identity and creditworthiness of all parties listed. I agree that credit reports and credit information may be obtained from any credit reporting agency or credit grantor, and may be held, used, exchanged and disclosed for such purposes.</label>
@@ -295,8 +312,6 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
     </div>
 </div>
 
-<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
-
 <footer>
     <div class="footer-container">
         <div class="footer-brand"><h3>Alliance Financing Group Ltd.</h3><p>35 years of commercial financing expertise meets AI-powered technology.</p><p style="margin-top:1rem"><strong>Phone:</strong> <a href="tel:+18006603660" style="color:inherit;text-decoration:none">1-800-660-3660 ext. 222</a><br><strong>Email:</strong> <a href="mailto:info@alliancefinancing.ai" style="color:inherit;text-decoration:none">info@alliancefinancing.ai</a></p></div>
@@ -308,24 +323,144 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
 </footer>
 
 <script>
-(function(){var params=new URLSearchParams(window.location.search);var ref=params.get('ref')||params.get('referral')||'';if(ref){document.getElementById('referralSource').value=ref;document.getElementById('refBanner').style.display='block';document.getElementById('refName').textContent=ref.replace(/-/g,' ').replace(/\b\w/g,function(l){return l.toUpperCase()})}})();
+const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function submitWCApp(){
+// Capture referral from URL
+(function(){
+    var params=new URLSearchParams(window.location.search);
+    var ref=params.get('ref')||params.get('referral')||'';
+    if(ref){
+        document.getElementById('referralSource').value=ref;
+        document.getElementById('refBanner').style.display='block';
+        document.getElementById('refName').textContent=ref.replace(/-/g,' ').replace(/\b\w/g,function(l){return l.toUpperCase()});
+    }
+})();
+
+// Update signature timestamp as user types
+document.getElementById('signatureName').addEventListener('input', function() {
+    if (this.value.trim()) {
+        document.getElementById('sigTimestamp').textContent = new Date().toLocaleString('en-US', {
+            year: 'numeric', month: 'long', day: 'numeric',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short'
+        });
+    } else {
+        document.getElementById('sigTimestamp').textContent = 'Will be recorded on submission';
+    }
+});
+
+async function submitWCApp(){
     var btn=document.getElementById('submitBtn');
+
+    // Validate e-signature
+    var sigName = document.getElementById('signatureName').value.trim();
+    if(!sigName){
+        document.getElementById('signatureName').focus();
+        document.getElementById('signatureName').style.borderColor='#EF4444';
+        alert('Please enter your full legal name for the electronic signature.');
+        return;
+    }
+
     if(!document.getElementById('consentCheck').checked){alert('Please accept the consent and authorization.');return;}
+
     var required=['financingType','amountRequested','useOfFunds','legalName','bizAddress','bizCity','bizProv','bizPostal','bizPhone','contactName','bizEmail','dateIncorporated','annualSales','o1Name','o1Title','o1Pct','o1DOB','o1Address','bank1Name'];
     for(var i=0;i<required.length;i++){var el=document.getElementById(required[i]);if(!el.value.trim()){el.focus();el.style.borderColor='#EF4444';alert('Please fill in all required fields.');return;}}
+
     btn.disabled=true;btn.textContent='Submitting...';
+
     var appId='ALF-WC-'+Date.now().toString(36).toUpperCase();
+    var now = new Date().toISOString();
+
+    // Collect ALL form fields
     var fields=['financingType','amountRequested','useOfFunds','legalName','tradeName','bizAddress','bizCity','bizProv','bizPostal','bizCountry','bizPhone','bizFax','contactName','bizEmail','dateIncorporated','yrsOwner','taxId','numEmployees','annualSales','activeAccounts','o1Name','o1Title','o1Pct','o1Phone','o1DOB','o1Address','o2Name','o2Title','o2Pct','o2Phone','o2DOB','o2Address','bankruptcy','taxArrears','bank1Name','bank1Officer','bank1Acct','bank1Phone','hasLOC','locWith','locLimit','trade1Name','trade1Contact','trade1Phone','trade2Name','trade2Contact','trade2Phone','arOutstanding','arTerms','arMonthlySales','arActiveAccounts','arInvoiceSell','arMonthly','arPledged','arPledgedTo'];
-    var data={formType:'working-capital',applicationId:appId,submittedAt:new Date().toISOString(),referralSource:document.getElementById('referralSource').value,structure:document.querySelector('input[name="structure"]:checked').value,ownerHomeStatus:document.querySelector('input[name="o1Home"]:checked').value};
-    fields.forEach(function(f){var el=document.getElementById(f);if(el)data[f]=el.value;});
-    
-    var SCRIPT_URL='APPS_SCRIPT_URL_HERE';
-    var tempForm=document.createElement('form');tempForm.method='POST';tempForm.action=SCRIPT_URL;tempForm.target='hidden_iframe';
-    var input=document.createElement('input');input.type='hidden';input.name='data';input.value=JSON.stringify(data);
-    tempForm.appendChild(input);document.body.appendChild(tempForm);tempForm.submit();document.body.removeChild(tempForm);
-    setTimeout(function(){document.getElementById('formCard').style.display='none';document.getElementById('successMsg').style.display='block';document.getElementById('appId').textContent=appId;window.scrollTo({top:0,behavior:'smooth'});},1500);
+    var formData={formType:'working-capital',applicationId:appId,submittedAt:now,referralSource:document.getElementById('referralSource').value,signatureName:sigName,signatureTimestamp:now};
+
+    // Safely get structure radio
+    var structureEl = document.querySelector('input[name="structure"]:checked');
+    if (structureEl) formData.structure = structureEl.value;
+
+    // Safely get home status radio
+    var homeEl = document.querySelector('input[name="o1Home"]:checked');
+    if (homeEl) formData.ownerHomeStatus = homeEl.value;
+
+    fields.forEach(function(f){var el=document.getElementById(f);if(el)formData[f]=el.value;});
+
+    // Map financing type to product
+    var financingType = document.getElementById('financingType').value;
+    var productMapping = {
+        'Factoring': 'Factoring',
+        'Working Capital': 'Working Capital',
+        'Term Loan': 'Loans',
+        'Operating Line': 'Business Line of Credit',
+        'Purchase Order Financing': 'Trade Finance',
+        'Inventory Financing': 'Working Capital',
+        'SBL Loan': 'CSBFL',
+        'Export Financing': 'Trade Finance',
+        'Sale-Leaseback': 'Equipment Leasing'
+    };
+    var product = productMapping[financingType] || 'Working Capital';
+
+    try {
+        // Look up agent ID from referral slug
+        var referralSlug = document.getElementById('referralSource').value;
+        var sourceAgentId = null;
+        if (referralSlug) {
+            var { data: agentData } = await db.from('users').select('id').eq('referral_slug', referralSlug).maybeSingle();
+            if (agentData) sourceAgentId = agentData.id;
+        }
+
+        // Parse funding amount
+        var amtStr = document.getElementById('amountRequested').value.replace(/[$,]/g, '');
+        var fundingAmount = parseFloat(amtStr) || null;
+        var salesStr = document.getElementById('annualSales').value.replace(/[$,]/g, '');
+        var annualRev = parseFloat(salesStr) || null;
+
+        // Insert into applications table
+        var { data: appData, error: appError } = await db.from('applications').insert([{
+            application_id: appId,
+            full_name: document.getElementById('o1Name').value,
+            email: document.getElementById('bizEmail').value,
+            phone: document.getElementById('bizPhone').value,
+            business_name: document.getElementById('legalName').value,
+            time_in_business: document.getElementById('dateIncorporated').value,
+            annual_revenue: annualRev,
+            funding_amount_requested: fundingAmount,
+            funding_amount_text: document.getElementById('amountRequested').value,
+            description: financingType + ' - ' + document.getElementById('useOfFunds').value.substring(0, 200),
+            source_agent_id: sourceAgentId,
+            source_channel: referralSlug ? 'Agent' : 'Online',
+            referral_slug: referralSlug || null,
+            status: 'Application Received',
+            submitted_at: now,
+            form_type: 'working-capital',
+            form_data: formData,
+            signature_name: sigName,
+            signature_timestamp: now
+        }]).select();
+
+        if (appError) throw appError;
+
+        // Insert product
+        if (appData && appData.length > 0) {
+            await db.from('application_products').insert([{
+                application_id: appData[0].id,
+                product: product
+            }]);
+        }
+
+        // Show success
+        document.getElementById('formCard').style.display='none';
+        document.getElementById('successMsg').style.display='block';
+        document.getElementById('appId').textContent=appId;
+        window.scrollTo({top:0,behavior:'smooth'});
+
+    } catch(error) {
+        console.error('Submission error:', error);
+        alert('There was an error submitting your application. Please try again or contact us at info@alliancefinancing.ai\n\nError: ' + (error.message || 'Unknown error'));
+        btn.disabled=false;
+        btn.textContent='Submit Application';
+    }
 }
 </script>
 </body>

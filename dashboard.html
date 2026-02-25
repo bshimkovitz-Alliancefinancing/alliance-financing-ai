@@ -768,6 +768,37 @@
                                 <a id="agentPartnerLink" href="#" target="_blank" style="font-size: 14px; color: #2563EB; text-decoration: underline;">View your landing page</a>
                             </div>
                         </div>
+                        <!-- Application Form Links -->
+                        <div style="border-top: 1px solid rgba(13,30,61,0.1); padding-top: 15px; margin-top: 15px;">
+                            <label style="display: block; font-weight: 600; color: #0D1E3D; margin-bottom: 10px;">Client Application Forms (share these with your clients):</label>
+                            <div id="agentAppFormLinks" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent Referral Applications (agents only) -->
+                <div id="agentReferralAppsCard" class="table-container" style="display: none;">
+                    <div class="table-header">
+                        <div class="table-title">My Referral Applications</div>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Application ID</th>
+                                    <th>Type</th>
+                                    <th>Client Name</th>
+                                    <th>Business</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Submitted</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agentReferralAppsBody">
+                                <tr><td colspan="7" style="text-align: center; padding: 30px; color: #999;">Loading applications...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -2072,6 +2103,28 @@
                 const partnerLink = document.getElementById('agentPartnerLink');
                 partnerLink.href = landingPageUrl;
                 partnerLink.textContent = 'View your landing page';
+
+                // Populate application form links
+                const slug = data.referral_slug;
+                const baseUrl = window.location.origin;
+                const formLinks = [
+                    { name: 'Equipment Leasing', url: baseUrl + '/apply-leasing.html?ref=' + slug, icon: '🏗️', color: '#059669' },
+                    { name: 'Merchant Cash Advance', url: baseUrl + '/apply-merchant-advance.html?ref=' + slug, icon: '💰', color: '#D97706' },
+                    { name: 'Working Capital & Factoring', url: baseUrl + '/apply-working-capital.html?ref=' + slug, icon: '📊', color: '#2563EB' }
+                ];
+                const linksContainer = document.getElementById('agentAppFormLinks');
+                if (linksContainer) {
+                    linksContainer.innerHTML = formLinks.map(f => `
+                        <div style="background: white; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 15px; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 20px;">${f.icon}</span>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 13px; color: #0D1E3D;">${f.name}</div>
+                                <a href="${f.url}" target="_blank" style="font-size: 11px; color: ${f.color}; word-break: break-all;">Open Form</a>
+                            </div>
+                            <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${f.url}');this.textContent='Copied!';this.style.background='#10B981';setTimeout(()=>{this.textContent='Copy';this.style.background=''},2000)" style="padding: 4px 10px; font-size: 11px; background: #E2E8F0; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Copy</button>
+                        </div>
+                    `).join('');
+                }
             }
             referralCard.style.display = 'block';
             if (marketingToolkit) {
@@ -2594,6 +2647,66 @@
         }
     }
 
+    // ============================================
+    // Agent Portal: My Referral Applications
+    // ============================================
+    async function loadAgentReferralApps() {
+        const card = document.getElementById('agentReferralAppsCard');
+        const tbody = document.getElementById('agentReferralAppsBody');
+        if (!card || !tbody) return;
+        if (['super_admin', 'admin'].includes(currentUserRole)) { card.style.display = 'none'; return; }
+
+        try {
+            // Get agent's referral slug
+            const { data: agent } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+            if (!agent || !agent.referral_slug) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999;">No referral slug configured. Contact admin.</td></tr>';
+                card.style.display = 'block';
+                return;
+            }
+
+            // Fetch applications with this referral slug
+            const { data: apps, error } = await db
+                .from('applications')
+                .select('id, application_id, form_type, full_name, business_name, funding_amount_text, funding_amount_requested, status, submitted_at')
+                .eq('referral_slug', agent.referral_slug)
+                .order('submitted_at', { ascending: false });
+
+            if (error) throw error;
+
+            const formTypeLabels = {
+                'leasing': 'Equipment Leasing',
+                'merchant-advance': 'Merchant Advance',
+                'working-capital': 'Working Capital'
+            };
+
+            if (!apps || apps.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999;">No applications yet. Share your referral links to get started!</td></tr>';
+            } else {
+                tbody.innerHTML = apps.map(a => {
+                    const formLabel = formTypeLabels[a.form_type] || a.form_type || 'Standard';
+                    const amount = a.funding_amount_requested ? formatCurrency(a.funding_amount_requested) : (a.funding_amount_text || 'N/A');
+                    const submitted = a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : 'N/A';
+                    return `<tr style="cursor:pointer" onclick="viewApplication('${a.id}')">
+                        <td><strong>${a.application_id || 'N/A'}</strong></td>
+                        <td><span style="background:#EFF6FF;color:#3B82F6;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${formLabel}</span></td>
+                        <td>${a.full_name || 'N/A'}</td>
+                        <td>${a.business_name || 'N/A'}</td>
+                        <td>${amount}</td>
+                        <td>${getStatusBadge(a.status)}</td>
+                        <td>${submitted}</td>
+                    </tr>`;
+                }).join('');
+            }
+
+            card.style.display = 'block';
+        } catch (err) {
+            console.error('Load agent referral apps error:', err);
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#c00;">Error loading applications</td></tr>';
+            card.style.display = 'block';
+        }
+    }
+
     async function viewSubAgent(subAgentId) {
         try {
             const { data: sa, error } = await db
@@ -2915,6 +3028,7 @@
             await loadAgentCommissions();
             await loadAgentVendors();
             await loadAgentSubAgents();
+            await loadAgentReferralApps();
 
         } catch (error) {
             console.error('Dashboard load error:', error);
@@ -4014,12 +4128,104 @@
 
             if (error) throw error;
 
+            // Format form type display
+            const formTypeLabels = {
+                'leasing': 'Equipment Leasing',
+                'merchant-advance': 'Merchant Cash Advance',
+                'working-capital': 'Working Capital & Factoring'
+            };
+            const formTypeDisplay = formTypeLabels[app.form_type] || app.form_type || 'Standard';
+
+            // Build full application data view from form_data JSONB
+            let fullDataHtml = '';
+            if (app.form_data && typeof app.form_data === 'object') {
+                const fd = app.form_data;
+                // Nice field labels
+                const labels = {
+                    equipmentDescription: 'Equipment Description', equipmentCost: 'Equipment Cost',
+                    vendorName: 'Vendor/Supplier', equipmentCondition: 'Condition',
+                    businessLegalName: 'Business Legal Name', legalName: 'Business Legal Name',
+                    tradeName: 'Trade Name', businessPhone: 'Business Phone', bizPhone: 'Business Phone',
+                    businessEmail: 'Business Email', bizEmail: 'Business Email',
+                    businessAddress: 'Business Address', bizAddress: 'Business Address',
+                    city: 'City', bizCity: 'City', province: 'Province/State', bizProv: 'Province/State',
+                    postalCode: 'Postal/Zip', bizPostal: 'Postal/Zip', country: 'Country', bizCountry: 'Country',
+                    contactName: 'Contact Name', contactTitle: 'Contact Title',
+                    businessDescription: 'Business Description', bizDescription: 'Business Description',
+                    businessStartDate: 'Business Start Date', dateIncorporated: 'Date Incorporated',
+                    structure: 'Business Structure',
+                    principal1Name: 'Principal 1 Name', principal1Title: 'Principal 1 Title',
+                    principal1Ownership: 'Principal 1 Ownership %', principal1DOB: 'Principal 1 DOB',
+                    principal1Phone: 'Principal 1 Phone', principal1Address: 'Principal 1 Address',
+                    principal1City: 'Principal 1 City', principal1Prov: 'Principal 1 Prov/State',
+                    principal1Postal: 'Principal 1 Postal',
+                    principal2Name: 'Principal 2 Name', principal2Title: 'Principal 2 Title',
+                    principal2Ownership: 'Principal 2 Ownership %', principal2DOB: 'Principal 2 DOB',
+                    principal2Phone: 'Principal 2 Phone', principal2Address: 'Principal 2 Address',
+                    insuranceBroker: 'Insurance Broker', insuranceContact: 'Insurance Contact',
+                    insurancePhone: 'Insurance Phone', landlord: 'Landlord',
+                    landlordContact: 'Landlord Contact', landlordPhone: 'Landlord Phone',
+                    advanceAmount: 'Advance Amount', fundsPurpose: 'Purpose of Funds',
+                    industry: 'Industry', timeInBusiness: 'Time in Business',
+                    monthlyRevenue: 'Monthly Revenue', cardSales: 'Monthly Card Sales',
+                    annualRevenue: 'Annual Revenue', annualSales: 'Annual Sales',
+                    processor: 'Merchant Processor', bankName: 'Bank Name',
+                    currentMCA: 'Current MCA?', mcaBalance: 'MCA Balance',
+                    existingLoans: 'Existing Loans?', loanPayment: 'Loan Payment',
+                    taxLiens: 'Tax Liens?', taxArrears: 'Tax Arrears?',
+                    ownerName: 'Owner Name', ownerTitle: 'Owner Title',
+                    ownerPct: 'Ownership %', ownerDOB: 'Owner DOB',
+                    ownerPhone: 'Owner Phone', ownerAddress: 'Owner Address', ownerEmail: 'Owner Email',
+                    o1Name: 'Owner 1 Name', o1Title: 'Owner 1 Title', o1Pct: 'Owner 1 %',
+                    o1DOB: 'Owner 1 DOB', o1Phone: 'Owner 1 Phone', o1Address: 'Owner 1 Address',
+                    financingType: 'Financing Type', amountRequested: 'Amount Requested',
+                    useOfFunds: 'Use of Funds', numEmployees: 'Employees',
+                    bank1Name: 'Bank Name', bank1Officer: 'Bank Officer', bank1Phone: 'Bank Phone',
+                    arOutstanding: 'AR Outstanding', arTerms: 'AR Terms',
+                    arMonthlySales: 'AR Monthly Sales', arInvoiceSell: 'AR Invoice Amount'
+                };
+                // Skip internal/meta fields
+                const skipFields = ['formType', 'applicationId', 'submittedAt', 'referralSource', 'signatureName', 'signatureTimestamp'];
+                const entries = Object.entries(fd).filter(([k, v]) => v && v.toString().trim() && !skipFields.includes(k));
+                if (entries.length > 0) {
+                    fullDataHtml = '<div style="margin-top: 20px; border-top: 2px solid var(--border-gray); padding-top: 15px;">' +
+                        '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">' +
+                        '<label style="font-size: 15px; font-weight: 600; color: var(--navy);">Full Application Data</label>' +
+                        '<button class="btn btn-secondary btn-sm" onclick="this.parentElement.nextElementSibling.style.display=this.parentElement.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.textContent=this.textContent===\'Show Details\'?\'Hide Details\':\'Show Details\'" style="padding: 4px 12px; font-size: 12px;">Show Details</button>' +
+                        '</div>' +
+                        '<div style="display: none;">' +
+                        '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">' +
+                        entries.map(([k, v]) => {
+                            const label = labels[k] || k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                            return '<div style="padding: 6px 10px; background: #f8fafc; border-radius: 4px; font-size: 13px;">' +
+                                '<span style="color: var(--text-light); font-size: 11px; display: block;">' + label + '</span>' +
+                                '<span style="color: var(--text-dark); font-weight: 500;">' + String(v) + '</span></div>';
+                        }).join('') +
+                        '</div></div></div>';
+                }
+            }
+
+            // Build signature section
+            let signatureHtml = '';
+            if (app.signature_name) {
+                signatureHtml = `
+                <div style="margin-top: 15px; padding: 12px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px;">
+                    <label style="font-size: 13px; font-weight: 600; color: #1E40AF; display: block; margin-bottom: 6px;">Electronic Signature</label>
+                    <div style="font-size: 15px; font-weight: 600; color: var(--navy); font-style: italic;">"${app.signature_name}"</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Signed: ${app.signature_timestamp ? new Date(app.signature_timestamp).toLocaleString() : 'N/A'}</div>
+                </div>`;
+            }
+
             const modalBody = document.getElementById('applicationModalBody');
             modalBody.innerHTML = `
                 <div class="modal-row">
-                    <div class="modal-field full">
+                    <div class="modal-field">
                         <label>Application ID</label>
                         <div class="modal-field-value">${app.application_id || 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Form Type</label>
+                        <div class="modal-field-value"><span style="background: #EFF6FF; color: #3B82F6; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 13px;">${formTypeDisplay}</span></div>
                     </div>
                 </div>
                 <div class="modal-row">
@@ -4049,7 +4255,7 @@
                     </div>
                     <div class="modal-field">
                         <label>Annual Revenue</label>
-                        <div class="modal-field-value">${app.annual_revenue || 'N/A'}</div>
+                        <div class="modal-field-value">${app.annual_revenue ? formatCurrency(app.annual_revenue) : 'N/A'}</div>
                     </div>
                 </div>
                 <div class="modal-row">
@@ -4073,7 +4279,13 @@
                         <label>Submitted</label>
                         <div class="modal-field-value">${formatDate(app.submitted_at)}</div>
                     </div>
+                    <div class="modal-field">
+                        <label>Source</label>
+                        <div class="modal-field-value">${app.source_channel || 'N/A'}${app.referral_slug ? ' (Ref: ' + app.referral_slug + ')' : ''}</div>
+                    </div>
                 </div>
+                ${signatureHtml}
+                ${fullDataHtml}
             `;
 
             document.getElementById('applicationModal').classList.add('active');
