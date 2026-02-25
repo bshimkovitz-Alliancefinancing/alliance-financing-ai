@@ -927,8 +927,12 @@
                 </div>
 
                 <div class="table-container">
-                    <div class="table-header">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Recent Applications (Intake)</div>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <button class="btn btn-gold btn-sm" onclick="openAddApplicationModal()">+ Add Application</button>
+                            <button class="btn btn-secondary btn-sm" onclick="openSendApplicationModal()" style="padding: 4px 12px; font-size: 12px;">Send Application Form</button>
+                        </div>
                     </div>
                     <table id="recentApplicationsTable">
                         <thead>
@@ -1850,6 +1854,62 @@
                     <button type="submit" id="csvSubmitBtn" class="btn btn-primary" style="display: none;">Import Data</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Send Application Form Modal -->
+<div id="sendApplicationModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2>Send Application Form</h2>
+            <button class="modal-close" onclick="closeSendApplicationModal()">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <p style="color: var(--text-light); font-size: 14px; margin-bottom: 20px;">Select an application form type below. You can copy the link to share directly, or enter a client's email to send it to them.</p>
+
+            <div style="display: grid; gap: 12px; margin-bottom: 20px;">
+                <div id="sendAppLeasing" class="send-app-card" onclick="selectSendAppType('leasing')" style="display: flex; align-items: center; gap: 12px; padding: 14px; border: 2px solid #E2E8F0; border-radius: 8px; cursor: pointer; transition: all .2s;">
+                    <span style="font-size: 24px;">🏗️</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: var(--navy); font-size: 14px;">Equipment Leasing</div>
+                        <div style="font-size: 12px; color: var(--text-light);">Full equipment lease application with principal info</div>
+                    </div>
+                </div>
+                <div id="sendAppMca" class="send-app-card" onclick="selectSendAppType('mca')" style="display: flex; align-items: center; gap: 12px; padding: 14px; border: 2px solid #E2E8F0; border-radius: 8px; cursor: pointer; transition: all .2s;">
+                    <span style="font-size: 24px;">💰</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: var(--navy); font-size: 14px;">Merchant Cash Advance</div>
+                        <div style="font-size: 12px; color: var(--text-light);">MCA application with revenue, bank statements upload</div>
+                    </div>
+                </div>
+                <div id="sendAppWc" class="send-app-card" onclick="selectSendAppType('wc')" style="display: flex; align-items: center; gap: 12px; padding: 14px; border: 2px solid #E2E8F0; border-radius: 8px; cursor: pointer; transition: all .2s;">
+                    <span style="font-size: 24px;">📊</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: var(--navy); font-size: 14px;">Working Capital & Factoring</div>
+                        <div style="font-size: 12px; color: var(--text-light);">Working capital, factoring, term loans, credit lines</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sendAppLinkSection" style="display: none;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; color: var(--navy); margin-bottom: 6px;">Application Link:</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="sendAppLinkUrl" readonly style="flex: 1; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-family: monospace; font-size: 12px; background: #F8FAFC;">
+                        <button class="btn btn-gold btn-sm" onclick="copySendAppLink()">Copy Link</button>
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid var(--border-gray); padding-top: 15px;">
+                    <label style="display: block; font-weight: 600; color: var(--navy); margin-bottom: 6px;">Or email the form to a client:</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <input type="email" id="sendAppClientEmail" placeholder="client@company.com" style="flex: 1; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
+                        <input type="text" id="sendAppClientName" placeholder="Client name (optional)" style="flex: 1; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="emailSendAppLink()" style="width: 100%;">Open Email to Send</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -4373,6 +4433,90 @@
     }
 
     // ============================================
+    // Send Application Form
+    // ============================================
+    var selectedSendAppType = null;
+
+    function openSendApplicationModal() {
+        selectedSendAppType = null;
+        document.getElementById('sendAppLinkSection').style.display = 'none';
+        ['sendAppLeasing', 'sendAppMca', 'sendAppWc'].forEach(function(id) {
+            document.getElementById(id).style.borderColor = '#E2E8F0';
+            document.getElementById(id).style.background = 'white';
+        });
+        document.getElementById('sendAppClientEmail').value = '';
+        document.getElementById('sendAppClientName').value = '';
+        document.getElementById('sendApplicationModal').classList.add('active');
+    }
+
+    function closeSendApplicationModal() {
+        document.getElementById('sendApplicationModal').classList.remove('active');
+    }
+
+    function selectSendAppType(type) {
+        selectedSendAppType = type;
+        var baseUrl = window.location.origin;
+        var formUrls = {
+            leasing: baseUrl + '/apply-leasing.html',
+            mca: baseUrl + '/apply-merchant-advance.html',
+            wc: baseUrl + '/apply-working-capital.html'
+        };
+
+        // Highlight selected card
+        var cardMap = { leasing: 'sendAppLeasing', mca: 'sendAppMca', wc: 'sendAppWc' };
+        Object.keys(cardMap).forEach(function(key) {
+            var el = document.getElementById(cardMap[key]);
+            if (key === type) {
+                el.style.borderColor = 'var(--gold)';
+                el.style.background = '#FFFBEB';
+            } else {
+                el.style.borderColor = '#E2E8F0';
+                el.style.background = 'white';
+            }
+        });
+
+        document.getElementById('sendAppLinkUrl').value = formUrls[type];
+        document.getElementById('sendAppLinkSection').style.display = 'block';
+    }
+
+    function copySendAppLink() {
+        var input = document.getElementById('sendAppLinkUrl');
+        navigator.clipboard.writeText(input.value).then(function() {
+            var btn = event.target;
+            btn.textContent = 'Copied!';
+            btn.style.background = '#10B981';
+            setTimeout(function() { btn.textContent = 'Copy Link'; btn.style.background = ''; }, 2000);
+        });
+    }
+
+    function emailSendAppLink() {
+        var email = document.getElementById('sendAppClientEmail').value.trim();
+        var clientName = document.getElementById('sendAppClientName').value.trim() || 'there';
+        var link = document.getElementById('sendAppLinkUrl').value;
+
+        if (!email) { alert('Please enter the client\'s email address.'); return; }
+        if (!selectedSendAppType) { alert('Please select an application type first.'); return; }
+
+        var typeNames = { leasing: 'Equipment Leasing', mca: 'Merchant Cash Advance', wc: 'Working Capital & Factoring' };
+        var typeName = typeNames[selectedSendAppType];
+
+        var subject = encodeURIComponent('Alliance Financing - ' + typeName + ' Application');
+        var body = encodeURIComponent(
+            'Hi ' + clientName + ',\n\n' +
+            'Thank you for your interest in financing with Alliance Financing Group.\n\n' +
+            'Please complete our ' + typeName + ' application at the link below:\n\n' +
+            link + '\n\n' +
+            'If you have any questions, please don\'t hesitate to reach out.\n\n' +
+            'Best regards,\n' +
+            'Alliance Financing Group Ltd.\n' +
+            '1-800-660-3660 ext. 222\n' +
+            'info@alliancefinancing.ai'
+        );
+
+        window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
+    }
+
+    // ============================================
     // Document Management
     // ============================================
     var currentDocUploadDealId = null;
@@ -6777,7 +6921,7 @@
     // ============================================
 
     window.onclick = function(event) {
-        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'lenderDetailModal', 'agentDetailModal', 'documentUploadModal'];
+        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'lenderDetailModal', 'agentDetailModal', 'documentUploadModal', 'sendApplicationModal'];
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (event.target === modal) {
