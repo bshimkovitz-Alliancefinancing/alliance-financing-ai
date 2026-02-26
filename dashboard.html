@@ -2526,23 +2526,33 @@
         }
         section.style.display = 'block';
 
+        window.archivedAppIds = [];
         try {
             const { data: agentDeals, error: dealsErr } = await db
                 .from('deals')
-                .select('id, company_name, deal_amount, status, agent_fee_pct, agent_fee_amount, product_type, date_submitted, source, source_channel, is_archived, application_id')
+                .select('*')
                 .eq('source_agent_id', currentUserId)
                 .order('date_submitted', { ascending: false });
 
-            if (!dealsErr && agentDeals) {
+            if (dealsErr) {
+                console.error('Agent deals query error:', dealsErr);
+                renderAgentDealsTable([]);
+                return;
+            }
+
+            if (agentDeals) {
                 // Filter out archived deals from agent view
                 var visibleDeals = agentDeals.filter(function(d) { return !d.is_archived; });
                 // Track archived deal application IDs to hide from referral apps
                 window.archivedAppIds = agentDeals.filter(function(d) { return d.is_archived && d.application_id; }).map(function(d) { return d.application_id; });
                 agentDealsCache = visibleDeals;
                 renderAgentDealsTable(visibleDeals);
+            } else {
+                renderAgentDealsTable([]);
             }
         } catch (err) {
             console.error('Error loading agent deals:', err);
+            renderAgentDealsTable([]);
         }
     }
 
