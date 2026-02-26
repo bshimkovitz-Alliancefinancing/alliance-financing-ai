@@ -4098,8 +4098,10 @@
                         </div>`}
                     </div>
                     <div class="modal-field">
-                        <label>Assigned Lender</label>
-                        ${isAgentView ? roField(lenderName) : `<select onchange="updateDealField('${dealId}', 'assigned_lender_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                        ${isAgentView ? (() => {
+                            const vendorName = deal.source_vendor_id ? (cachedVendors.find(v => v.id === deal.source_vendor_id)?.name || 'N/A') : 'None';
+                            return '<label>Vendor</label>' + roField(vendorName);
+                        })() : `<label>Assigned Lender</label><select onchange="updateDealField('${dealId}', 'assigned_lender_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
                             <option value="">None</option>
                             ${cachedLenders.map(l => `<option value="${l.id}" ${deal.assigned_lender_id === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
                         </select>`}
