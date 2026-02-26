@@ -2527,7 +2527,7 @@
         try {
             const { data: agentDeals, error: dealsErr } = await db
                 .from('deals')
-                .select('id, company_name, deal_amount, status, agent_fee_pct, agent_fee_amount, product_type, date_submitted, source, source_channel')
+                .select('id, company_name, deal_amount, status, agent_fee_pct, agent_fee_amount, product_type, date_submitted, source, source_channel, is_archived')
                 .eq('source_agent_id', currentUserId)
                 .order('date_submitted', { ascending: false });
 
@@ -2556,11 +2556,12 @@
             'Agent': '👤', 'Agent Referral': '🔗', 'Vendor': '🏢', 'Online': '🌐', 'Direct': '📞', 'Repeat Client': '🔄'
         };
         tbody.innerHTML = deals.map(d => {
-            const st = d.status || 'Prospect';
-            const color = statusColors[st] || '#6B7280';
+            const isArchived = d.is_archived;
+            const st = isArchived ? 'Archived' : (d.status || 'Prospect');
+            const color = isArchived ? '#9CA3AF' : (statusColors[d.status] || '#6B7280');
             const src = d.source_channel || d.source || '-';
             const srcIcon = sourceIcons[src] || '';
-            return '<tr>' +
+            return '<tr style="' + (isArchived ? 'opacity:0.5;' : '') + '">' +
                 '<td><strong>' + (d.company_name || 'N/A') + '</strong></td>' +
                 '<td>' + formatCurrency(d.deal_amount || 0) + '</td>' +
                 '<td>' + (d.product_type || '-') + '</td>' +

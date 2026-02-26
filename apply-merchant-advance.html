@@ -553,16 +553,17 @@ async function submitMCAApp(){
                 }
 
                 // Create document record
-                await db.from('documents').insert([{
+                var { error: docInsertError } = await db.from('documents').insert([{
                     application_id: appUUID,
                     file_name: file.name,
                     file_path: filePath,
                     file_type: file.type,
                     file_size_bytes: file.size,
-                    document_type: 'other',
+                    document_type: 'bank_statement',
                     uploaded_by_name: document.getElementById('ownerName').value || 'Applicant',
                     notes: 'Uploaded with MCA application ' + appId
                 }]);
+                if (docInsertError) console.error('Document record error for ' + file.name + ':', docInsertError);
 
                 // Update progress
                 var progress = ((fi + 1) / selectedBankStatements.length) * 100;
