@@ -861,6 +861,7 @@
                                 <th>Salespeople</th>
                                 <th>Projected Vol.</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="agentVendorsBody">
@@ -1255,6 +1256,19 @@
                 <input type="number" id="agentVendorVolume" placeholder="500000" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
             </div>
             <button class="btn btn-gold" onclick="handleAgentAddVendor()" style="width: 100%; margin-top: 10px;">Submit Vendor Program</button>
+        </div>
+    </div>
+</div>
+
+<!-- Agent Vendor Detail Modal -->
+<div id="agentVendorDetailModal" class="modal">
+    <div class="modal-content" style="max-width: 650px;">
+        <div class="modal-header">
+            <h3 id="agentVendorDetailTitle">Vendor Details</h3>
+            <span class="modal-close" onclick="document.getElementById('agentVendorDetailModal').style.display='none'">&times;</span>
+        </div>
+        <div class="modal-body" id="agentVendorDetailBody">
+            Loading...
         </div>
     </div>
 </div>
@@ -2637,7 +2651,7 @@
 
             const tbody = document.getElementById('agentVendorsBody');
             if (!vendors || vendors.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No vendor programs yet. Submit one above!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No vendor programs yet. Submit one above!</td></tr>';
                 return;
             }
 
@@ -2649,6 +2663,7 @@
                     <td style="text-align: center;"><span style="background: ${(vendorSPCounts[v.id] || 0) > 0 ? '#EFF6FF' : '#f5f5f5'}; color: ${(vendorSPCounts[v.id] || 0) > 0 ? '#3B82F6' : '#999'}; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 13px;">${vendorSPCounts[v.id] || 0}</span></td>
                     <td>${v.projected_volume ? formatCurrency(v.projected_volume) : '-'}</td>
                     <td>${getStatusBadge(v.status || 'Pending')}</td>
+                    <td><button class="btn btn-secondary btn-sm" onclick="viewAgentVendor('${v.id}')">View</button></td>
                 </tr>
             `).join('');
         } catch (err) {
@@ -2689,6 +2704,115 @@
         } catch (err) {
             console.error('Add vendor error:', err);
             alert('Error submitting vendor: ' + err.message);
+        }
+    }
+
+    // ============================================
+    // Agent Vendor Detail (Salespeople)
+    // ============================================
+
+    async function viewAgentVendor(vendorId) {
+        try {
+            const { data: vendor, error: vErr } = await db.from('vendors').select('*').eq('id', vendorId).single();
+            if (vErr) throw vErr;
+
+            const { data: contacts, error: cErr } = await db.from('vendor_contacts').select('*').eq('vendor_id', vendorId).order('contact_name');
+
+            document.getElementById('agentVendorDetailTitle').textContent = vendor.name || 'Vendor Details';
+
+            const contactsHtml = (contacts && contacts.length > 0)
+                ? contacts.map(c => {
+                    const statusColor = (c.status === 'Left Company') ? 'var(--danger)' : (c.status === 'Inactive') ? 'var(--warning)' : 'var(--success)';
+                    const contactStatus = c.status || 'Active';
+                    return `
+                    <div style="background: #f5f5f5; padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #e2e8f0; ${contactStatus === 'Left Company' ? 'opacity: 0.6;' : ''}">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-weight: 600; color: var(--navy);">${c.contact_name || 'N/A'}</span>
+                                    <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${statusColor}; color: white;">${contactStatus}</span>
+                                </div>
+                                <div style="font-size: 13px; color: var(--text-light); margin-top: 4px;">
+                                    ${c.email ? '<div>Email: <a href="mailto:' + c.email + '">' + c.email + '</a></div>' : ''}
+                                    ${c.phone ? '<div>Phone: ' + c.phone + '</div>' : ''}
+                                    ${c.role_title ? '<div>Role: ' + c.role_title + '</div>' : ''}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                                <select onchange="agentUpdateContactStatus('${c.id}', '${vendorId}', this.value)" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 11px; cursor: pointer;">
+                                    ${'Active,Inactive,Left Company'.split(',').map(s => '<option value="' + s + '"' + (contactStatus === s ? ' selected' : '') + '>' + s + '</option>').join('')}
+                                </select>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No salespeople added yet.</p>';
+
+            document.getElementById('agentVendorDetailBody').innerHTML = `
+                <div style="margin-bottom: 15px; padding: 12px; background: #F8FAFC; border-radius: 6px; border: 1px solid #E2E8F0;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+                        <div><strong>Product:</strong> ${vendor.product_description || 'N/A'}</div>
+                        <div><strong>Country:</strong> ${vendor.country || 'N/A'}</div>
+                        <div><strong>Website:</strong> ${vendor.website ? '<a href="' + (vendor.website.startsWith('http') ? vendor.website : 'https://' + vendor.website) + '" target="_blank">' + vendor.website + '</a>' : 'N/A'}</div>
+                        <div><strong>Status:</strong> ${vendor.status || 'N/A'}</div>
+                    </div>
+                </div>
+                <div style="border-top: 2px solid var(--border-gray); padding-top: 15px; margin-bottom: 10px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Salespeople / Contacts (${(contacts || []).filter(c => c.status !== 'Left Company').length} active)</label>
+                </div>
+                <div id="agentVendorContactsList">${contactsHtml}</div>
+                <div style="background: #f9f9f9; padding: 12px; border-radius: 6px; border: 1px solid var(--border-gray); margin-top: 15px;">
+                    <h4 style="font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 10px;">Add New Salesperson</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <input type="text" id="agentNewContactName" placeholder="Name *" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                        <input type="email" id="agentNewContactEmail" placeholder="Email" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <input type="text" id="agentNewContactPhone" placeholder="Phone" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                        <input type="text" id="agentNewContactRole" placeholder="Role/Title" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    </div>
+                    <button class="btn btn-gold btn-sm" onclick="agentAddVendorContact('${vendorId}')" style="margin-top: 10px;">Add Salesperson</button>
+                </div>
+            `;
+
+            document.getElementById('agentVendorDetailModal').style.display = 'flex';
+        } catch (error) {
+            console.error('View agent vendor error:', error);
+            alert('Error loading vendor details: ' + error.message);
+        }
+    }
+
+    async function agentAddVendorContact(vendorId) {
+        const name = document.getElementById('agentNewContactName').value.trim();
+        if (!name) { alert('Please enter the salesperson name.'); return; }
+
+        try {
+            const { error } = await db.from('vendor_contacts').insert({
+                vendor_id: vendorId,
+                contact_name: name,
+                email: document.getElementById('agentNewContactEmail').value.trim() || null,
+                phone: document.getElementById('agentNewContactPhone').value.trim() || null,
+                role_title: document.getElementById('agentNewContactRole').value.trim() || null,
+                status: 'Active'
+            });
+            if (error) throw error;
+            await viewAgentVendor(vendorId);
+            loadAgentVendors();
+        } catch (err) {
+            console.error('Add contact error:', err);
+            alert('Error adding salesperson: ' + err.message);
+        }
+    }
+
+    async function agentUpdateContactStatus(contactId, vendorId, newStatus) {
+        try {
+            const { error } = await db.from('vendor_contacts').update({ status: newStatus }).eq('id', contactId);
+            if (error) throw error;
+            await viewAgentVendor(vendorId);
+            loadAgentVendors();
+        } catch (err) {
+            console.error('Update contact status error:', err);
+            alert('Error updating status: ' + err.message);
         }
     }
 
