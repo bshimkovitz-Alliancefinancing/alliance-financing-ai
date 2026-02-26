@@ -2819,8 +2819,20 @@
             };
 
             // Filter out applications whose linked deals are archived
+            // First check cached archivedAppIds, then also query deals table for any archived deals linked to these apps
+            var appIds = (apps || []).map(function(a) { return a.id; });
+            var extraArchivedIds = [];
+            if (appIds.length > 0) {
+                try {
+                    var { data: archivedDeals } = await db.from('deals').select('application_id').eq('is_archived', true).in('application_id', appIds);
+                    if (archivedDeals) {
+                        extraArchivedIds = archivedDeals.map(function(d) { return d.application_id; });
+                    }
+                } catch(e) { console.log('Archive check optional:', e); }
+            }
+            var allArchivedAppIds = (window.archivedAppIds || []).concat(extraArchivedIds);
             var visibleApps = (apps || []).filter(function(a) {
-                return !(window.archivedAppIds && window.archivedAppIds.includes(a.id));
+                return !allArchivedAppIds.includes(a.id);
             });
 
             if (visibleApps.length === 0) {
