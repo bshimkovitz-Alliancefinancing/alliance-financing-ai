@@ -727,9 +727,16 @@ async function submitLeaseApp(){
             for (var fi = 0; fi < selectedEquipFiles.length; fi++) {
                 var file = selectedEquipFiles[fi];
                 var filePath = 'applications/' + appUUID + '/' + Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-                var { data: uploadData, error: uploadError } = await db.storage
-                    .from('deal-documents').upload(filePath, file);
-                if (uploadError) { console.warn('Upload error for ' + file.name + ':', uploadError); continue; }
+                // Direct REST API upload - bypasses JS client RLS issues
+                try {
+                    var uploadUrl = SUPABASE_URL + '/storage/v1/object/deal-documents/' + filePath;
+                    var uploadResp = await fetch(uploadUrl, {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY, 'x-upsert': 'true' },
+                        body: file
+                    });
+                    if (!uploadResp.ok) { console.warn('Upload error for ' + file.name); continue; }
+                } catch (uploadErr) { console.warn('Upload error for ' + file.name + ':', uploadErr); continue; }
                 await db.from('documents').insert([{
                     application_id: appUUID,
                     file_name: file.name,

@@ -5109,6 +5109,25 @@
         currentDocUploadApplicationId = null;
     }
 
+    async function uploadToStorage(bucketName, filePath, file) {
+        // Direct REST API upload - bypasses JS client RLS issues
+        var url = SUPABASE_URL + '/storage/v1/object/' + bucketName + '/' + filePath;
+        var response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                'apikey': SUPABASE_ANON_KEY,
+                'x-upsert': 'true'
+            },
+            body: file
+        });
+        if (!response.ok) {
+            var errBody = await response.json().catch(function() { return { error: response.statusText }; });
+            throw new Error(errBody.message || errBody.error || 'Upload failed (' + response.status + ')');
+        }
+        return await response.json();
+    }
+
     async function submitDocumentUpload() {
         var docType = document.getElementById('docTypeSelect').value;
         var fileInput = document.getElementById('docFileInput');
@@ -5129,11 +5148,7 @@
             var folder = currentDocUploadDealId ? 'deals/' + currentDocUploadDealId : 'applications/' + currentDocUploadApplicationId;
             var filePath = folder + '/' + Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
-            var { data: uploadData, error: uploadError } = await db.storage
-                .from('deal-documents')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
+            await uploadToStorage('deal-documents', filePath, file);
 
             document.getElementById('docUploadProgressBar').style.width = '70%';
 
@@ -5151,7 +5166,10 @@
             if (currentDocUploadApplicationId) docRecord.application_id = currentDocUploadApplicationId;
 
             var { error: docError } = await db.from('documents').insert([docRecord]);
-            if (docError) throw docError;
+            if (docError) {
+                alert('DOCUMENTS TABLE insert failed: ' + docError.message);
+                throw docError;
+            }
 
             document.getElementById('docUploadProgressBar').style.width = '100%';
             document.getElementById('docUploadProgressText').textContent = 'Upload complete!';
