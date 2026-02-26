@@ -2039,6 +2039,7 @@
     // Role-based access control
     let currentUserRole = 'agent';  // default to most restricted
     let currentUserId = null;       // the user's ID from the users table (NOT auth_id)
+    let currentUserName = 'Admin';  // display name from users table
 
     // ============================================
     // Authentication
@@ -2123,6 +2124,7 @@
                     displayRole = userData.role || 'admin';
                     currentUserRole = userData.role || 'admin';
                     currentUserId = userData.id;
+                    currentUserName = userData.full_name || email;
                 }
             } catch (e) {
                 console.log('User lookup optional, continuing...', e);
@@ -5160,7 +5162,7 @@
                 document_type: docType,
                 notes: notes || null,
                 uploaded_by: currentUserId,
-                uploaded_by_name: currentUser ? currentUser.full_name : 'Admin'
+                uploaded_by_name: currentUserName || 'Admin'
             };
             if (currentDocUploadDealId) docRecord.deal_id = currentDocUploadDealId;
             if (currentDocUploadApplicationId) docRecord.application_id = currentDocUploadApplicationId;
@@ -5174,10 +5176,12 @@
             document.getElementById('docUploadProgressBar').style.width = '100%';
             document.getElementById('docUploadProgressText').textContent = 'Upload complete!';
 
+            var refreshDealId = currentDocUploadDealId;
+            var refreshAppId = currentDocUploadApplicationId;
             setTimeout(function() {
                 closeDocumentUploadModal();
-                if (currentDocUploadDealId) viewDeal(currentDocUploadDealId);
-                else if (currentDocUploadApplicationId) viewApplication(currentDocUploadApplicationId);
+                if (refreshDealId) viewDeal(refreshDealId);
+                else if (refreshAppId) viewApplication(refreshAppId);
             }, 500);
 
         } catch (error) {
