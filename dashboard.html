@@ -986,6 +986,7 @@
                                 <option value="Funded">Funded</option>
                                 <option value="Declined">Declined</option>
                                 <option value="Dead approval">Dead approval</option>
+                                <option value="Withdrawn">Withdrawn</option>
                             </select>
                             <select id="dealSourceFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
                                 <option value="">All Sources</option>
@@ -1499,6 +1500,7 @@
                             <option value="Funded">Funded</option>
                             <option value="Declined">Declined</option>
                             <option value="Dead approval">Dead approval</option>
+                            <option value="Withdrawn">Withdrawn</option>
                         </select>
                     </div>
                 </div>
@@ -2527,13 +2529,17 @@
         try {
             const { data: agentDeals, error: dealsErr } = await db
                 .from('deals')
-                .select('id, company_name, deal_amount, status, agent_fee_pct, agent_fee_amount, product_type, date_submitted, source, source_channel, is_archived')
+                .select('id, company_name, deal_amount, status, agent_fee_pct, agent_fee_amount, product_type, date_submitted, source, source_channel, is_archived, application_id')
                 .eq('source_agent_id', currentUserId)
                 .order('date_submitted', { ascending: false });
 
             if (!dealsErr && agentDeals) {
-                agentDealsCache = agentDeals;
-                renderAgentDealsTable(agentDeals);
+                // Filter out archived deals from agent view
+                var visibleDeals = agentDeals.filter(function(d) { return !d.is_archived; });
+                // Track archived deal application IDs to hide from referral apps
+                window.archivedAppIds = agentDeals.filter(function(d) { return d.is_archived && d.application_id; }).map(function(d) { return d.application_id; });
+                agentDealsCache = visibleDeals;
+                renderAgentDealsTable(visibleDeals);
             }
         } catch (err) {
             console.error('Error loading agent deals:', err);
@@ -2550,7 +2556,7 @@
             'Prospect': '#6B7280', 'Quote sent': '#3B82F6', 'Info received': '#8B5CF6',
             'In Credit': '#F59E0B', 'Approved': '#10B981', 'Approval sent': '#10B981',
             'Docs requested': '#F59E0B', 'Docs out for signing': '#F59E0B',
-            'In funding': '#3B82F6', 'Funded': '#10B981', 'Declined': '#EF4444', 'Dead approval': '#EF4444'
+            'In funding': '#3B82F6', 'Funded': '#10B981', 'Declined': '#EF4444', 'Dead approval': '#EF4444', 'Withdrawn': '#9F1239'
         };
         const sourceIcons = {
             'Agent': '👤', 'Agent Referral': '🔗', 'Vendor': '🏢', 'Online': '🌐', 'Direct': '📞', 'Repeat Client': '🔄'
@@ -2800,10 +2806,15 @@
                 'working-capital': 'Working Capital'
             };
 
-            if (!apps || apps.length === 0) {
+            // Filter out applications whose linked deals are archived
+            var visibleApps = (apps || []).filter(function(a) {
+                return !(window.archivedAppIds && window.archivedAppIds.includes(a.id));
+            });
+
+            if (visibleApps.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999;">No applications yet. Share your referral links to get started!</td></tr>';
             } else {
-                tbody.innerHTML = apps.map(a => {
+                tbody.innerHTML = visibleApps.map(a => {
                     const formLabel = formTypeLabels[a.form_type] || a.form_type || 'Standard';
                     const amount = a.funding_amount_requested ? formatCurrency(a.funding_amount_requested) : (a.funding_amount_text || 'N/A');
                     const submitted = a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : 'N/A';
@@ -3201,7 +3212,8 @@
         'In funding': { bg: '#EDE9FE', text: '#6D28D9', border: '#C4B5FD' },
         'Funded': { bg: '#DCFCE7', text: '#14532D', border: '#22C55E' },
         'Declined': { bg: '#FEF2F2', text: '#991B1B', border: '#FCA5A5' },
-        'Dead approval': { bg: '#F1F5F9', text: '#475569', border: '#94A3B8' }
+        'Dead approval': { bg: '#F1F5F9', text: '#475569', border: '#94A3B8' },
+        'Withdrawn': { bg: '#FFF1F2', text: '#9F1239', border: '#FDA4AF' }
     };
 
     function getStatusBadge(status) {
@@ -3212,7 +3224,7 @@
     // Deal tab categories
     var activeDealStatuses = ['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
     var bookedDealStatuses = ['Funded'];
-    var deadDealStatuses = ['Declined', 'Dead approval'];
+    var deadDealStatuses = ['Declined', 'Dead approval', 'Withdrawn'];
     var currentDealTab = 'active';
 
     function switchDealTab(tab) {
@@ -3251,7 +3263,7 @@
         'In funding': 1, 'Docs out for signing': 2, 'Docs requested': 3,
         'Approval sent': 4, 'Approved': 5, 'In Credit': 6,
         'Info received': 7, 'Quote sent': 8, 'Prospect': 9,
-        'Funded': 10, 'Declined': 11, 'Dead approval': 12
+        'Funded': 10, 'Declined': 11, 'Dead approval': 12, 'Withdrawn': 13
     };
 
     function renderDealsTable(data) {
@@ -4201,7 +4213,7 @@
     }
 
     function getDealStatusOptions(currentStatus) {
-        const statuses = ['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding', 'Funded', 'Declined', 'Dead approval'];
+        const statuses = ['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding', 'Funded', 'Declined', 'Dead approval', 'Withdrawn'];
         return statuses.map(s => `<option value="${s}" ${s === currentStatus ? 'selected' : ''}>${s}</option>`).join('');
     }
 
