@@ -546,6 +546,32 @@ async function submitWCApp(){
         }
         var annualRevRange = annRevNum > 0 ? getRevenueRange(annRevNum) : null;
 
+        // Map date incorporated to time_in_business enum
+        function getTimeInBusinessEnum(dateStr) {
+            var parts = dateStr.match(/(\d{1,2})\s*[\/\-]\s*(\d{4})/);
+            if (!parts) {
+                // Try just a year
+                var yearMatch = dateStr.match(/(\d{4})/);
+                if (yearMatch) {
+                    var years = (new Date().getFullYear()) - parseInt(yearMatch[1]);
+                    if (years < 1) return 'Less than 1 Year';
+                    if (years < 2) return '1 - 2 years';
+                    if (years < 5) return '2 - 5 years';
+                    if (years < 10) return '5 - 10 years';
+                    return 'Over 10 years';
+                }
+                return null;
+            }
+            var startDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, 1);
+            var years = (new Date() - startDate) / (365.25 * 24 * 60 * 60 * 1000);
+            if (years < 1) return 'Less than 1 Year';
+            if (years < 2) return '1 - 2 years';
+            if (years < 5) return '2 - 5 years';
+            if (years < 10) return '5 - 10 years';
+            return 'Over 10 years';
+        }
+        var timeInBizEnum = getTimeInBusinessEnum(document.getElementById('dateIncorporated').value);
+
         // Insert into applications table
         var { data: appData, error: appError } = await db.from('applications').insert([{
             application_id: appId,
@@ -553,7 +579,7 @@ async function submitWCApp(){
             email: document.getElementById('bizEmail').value,
             phone: document.getElementById('bizPhone').value,
             business_name: document.getElementById('legalName').value,
-            time_in_business: document.getElementById('dateIncorporated').value,
+            time_in_business: timeInBizEnum,
             annual_revenue: annualRevRange,
             funding_amount_requested: fundingAmount,
             funding_amount_text: document.getElementById('amountRequested').value,
