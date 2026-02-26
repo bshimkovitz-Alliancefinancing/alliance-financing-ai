@@ -236,8 +236,14 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
 
         <div class="section-title">Supporting Documents</div>
         <div style="background:#F0F9FF;border:1px solid #BFDBFE;border-radius:.75rem;padding:1.25rem;margin-bottom:1.5rem">
-            <h3 style="color:#1E40AF;font-size:.9375rem;margin-bottom:.75rem;margin-top:0">Bank Statements Upload (Optional)</h3>
-            <p style="color:#1E40AF;font-size:.875rem;margin-bottom:1rem;line-height:1.6">Upload your last 6 months of bank statements now, or email them to <strong>info@alliancefinancing.ai</strong> with your Application ID after submission.</p>
+            <h3 style="color:#1E40AF;font-size:.9375rem;margin-bottom:.75rem;margin-top:0">Upload Supporting Documents (Optional)</h3>
+            <p style="color:#1E40AF;font-size:.875rem;margin-bottom:.5rem;line-height:1.6">Speed up your approval by uploading documents now. Files larger than 10MB can be emailed to <strong>info@alliancefinancing.ai</strong> with your Tracking Number after submission.</p>
+            <ul style="color:#1E40AF;font-size:.8125rem;margin:0 0 1rem 1.25rem;line-height:1.8">
+                <li>Last 6 months of business bank statements</li>
+                <li>Last 3 months of merchant processing statements (if available)</li>
+                <li>Government-issued photo ID for all owners</li>
+                <li>Void business cheque</li>
+            </ul>
             <div id="dropZone" style="border:2px dashed #3B82F6;border-radius:.75rem;padding:2rem;text-align:center;cursor:pointer;transition:all .2s;background:white" onclick="document.getElementById('bankStatementsInput').click()">
                 <svg style="width:32px;height:32px;margin:0 auto .75rem;color:#3B82F6;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 <p style="margin:0 0 .5rem;color:#333;font-weight:500">Drag and drop PDFs or images here, or click to select</p>
@@ -296,15 +302,24 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
             <a href="https://alliancefinancing.ai" target="_blank" style="display:inline-block;background:var(--primary);color:white;padding:.75rem 1.5rem;border-radius:.5rem;text-decoration:none;font-weight:600;font-size:1rem">Visit AllianceFinancing.ai</a>
         </div>
         <div class="doc-instructions">
-            <h3>📎 Supporting Documents Required</h3>
-            <p style="margin-bottom:.5rem;color:#166534">Please email the following to <strong>info@alliancefinancing.ai</strong> with your Tracking Number in the subject line:</p>
+            <h3>📎 Supporting Documents</h3>
+            <p style="margin-bottom:.5rem;color:#166534">If you haven't already uploaded the following documents with your application, please forward them to <strong>info@alliancefinancing.ai</strong> with your Tracking Number in the subject line:</p>
             <ul>
-                <li>Last 4 months of business bank statements</li>
-                <li>Last 4 months of merchant processing statements</li>
+                <li>Last 6 months of business bank statements</li>
+                <li>Last 3 months of merchant processing statements (if available)</li>
                 <li>Government-issued photo ID for all owners</li>
                 <li>Void business cheque</li>
                 <li>Copy of business license (if applicable)</li>
             </ul>
+            <p style="margin-top:.75rem;color:#166534;font-size:.875rem">Files larger than 10MB can be emailed separately.</p>
+        </div>
+        <div id="agentContactInfo" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;border-radius:.75rem;padding:1.25rem;margin-bottom:1.5rem;text-align:left">
+            <h3 style="margin:0 0 .75rem;color:#92400E;font-size:1rem">📞 Your Agent Contact</h3>
+            <p style="color:#92400E;font-size:.9375rem;margin:0;line-height:1.8" id="agentContactDetails"></p>
+        </div>
+        <div style="background:#F5F3FF;border:1px solid #C4B5FD;border-radius:.75rem;padding:1.25rem;text-align:left">
+            <h3 style="margin:0 0 .5rem;color:#5B21B6;font-size:1rem">💬 Questions?</h3>
+            <p style="color:#5B21B6;font-size:.9375rem;margin:0;line-height:1.6">Contact us at <strong><a href="mailto:info@alliancefinancing.ai" style="color:#5B21B6">info@alliancefinancing.ai</a></strong> or call <strong><a href="tel:+18776603660" style="color:#5B21B6">1-877-660-3660 ext. 222</a></strong></p>
         </div>
     </div>
 </div>
@@ -455,8 +470,17 @@ async function submitMCAApp(){
         var referralSlug = document.getElementById('referralSource').value;
         var sourceAgentId = null;
         if (referralSlug) {
-            var { data: agentData } = await db.from('users').select('id').eq('referral_slug', referralSlug).maybeSingle();
-            if (agentData) sourceAgentId = agentData.id;
+            var { data: agentData, error: agentLookupErr } = await db.from('users').select('id, full_name, email, phone, referral_slug').ilike('referral_slug', referralSlug).maybeSingle();
+            if (agentLookupErr) console.warn('Agent lookup error:', agentLookupErr);
+            if (agentData) {
+                sourceAgentId = agentData.id;
+                formData.agentName = agentData.full_name || '';
+                formData.agentEmail = agentData.email || '';
+                formData.agentPhone = agentData.phone || '';
+                console.log('Agent found:', agentData.full_name, agentData.id);
+            } else {
+                console.warn('No agent found for referral slug:', referralSlug);
+            }
         }
 
         // Parse funding amount
@@ -535,7 +559,7 @@ async function submitMCAApp(){
                     file_path: filePath,
                     file_type: file.type,
                     file_size_bytes: file.size,
-                    document_type: 'bank_statement',
+                    document_type: 'supporting_document',
                     uploaded_by_name: document.getElementById('ownerName').value || 'Applicant',
                     notes: 'Uploaded with MCA application ' + appId
                 }]);
@@ -552,6 +576,16 @@ async function submitMCAApp(){
         document.getElementById('successMsg').style.display='block';
         document.getElementById('appId').textContent=appId;
         document.getElementById('uploadProgress').style.display='none';
+
+        // Show agent contact info if from referral
+        if (formData.agentName) {
+            var agentInfo = '<strong>' + formData.agentName + '</strong>';
+            if (formData.agentEmail) agentInfo += '<br>Email: <a href="mailto:' + formData.agentEmail + '" style="color:#92400E">' + formData.agentEmail + '</a>';
+            if (formData.agentPhone) agentInfo += '<br>Phone: <a href="tel:' + formData.agentPhone.replace(/[^+\d]/g,'') + '" style="color:#92400E">' + formData.agentPhone + '</a>';
+            document.getElementById('agentContactDetails').innerHTML = agentInfo;
+            document.getElementById('agentContactInfo').style.display = 'block';
+        }
+
         window.scrollTo({top:0,behavior:'smooth'});
 
     } catch(error) {

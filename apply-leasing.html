@@ -376,8 +376,8 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
             <a href="https://alliancefinancing.ai" target="_blank" style="display:inline-block;background:var(--primary);color:white;padding:.75rem 1.5rem;border-radius:.5rem;text-decoration:none;font-weight:600;font-size:1rem">Visit AllianceFinancing.ai</a>
         </div>
         <div class="doc-instructions">
-            <h3>📎 Supporting Documents Required</h3>
-            <p style="margin-bottom:.5rem;color:#166534">Please email the following documents to <strong>info@alliancefinancing.ai</strong> with your Tracking Number in the subject line:</p>
+            <h3>📎 Supporting Documents</h3>
+            <p style="margin-bottom:.5rem;color:#166534">If you haven't already uploaded the following documents with your application, please forward them to <strong>info@alliancefinancing.ai</strong> with your Tracking Number in the subject line:</p>
             <ul>
                 <li>Equipment quote or invoice from vendor</li>
                 <li>Most recent 2 years of business financial statements</li>
@@ -385,6 +385,15 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
                 <li>Government-issued ID for all principals/guarantors</li>
                 <li>Void business cheque</li>
             </ul>
+            <p style="margin-top:.75rem;color:#166534;font-size:.875rem">Files larger than 10MB can be emailed separately.</p>
+        </div>
+        <div id="agentContactInfo" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;border-radius:.75rem;padding:1.25rem;margin-bottom:1.5rem;text-align:left">
+            <h3 style="margin:0 0 .75rem;color:#92400E;font-size:1rem">📞 Your Agent Contact</h3>
+            <p style="color:#92400E;font-size:.9375rem;margin:0;line-height:1.8" id="agentContactDetails"></p>
+        </div>
+        <div style="background:#F5F3FF;border:1px solid #C4B5FD;border-radius:.75rem;padding:1.25rem;text-align:left">
+            <h3 style="margin:0 0 .5rem;color:#5B21B6;font-size:1rem">💬 Questions?</h3>
+            <p style="color:#5B21B6;font-size:.9375rem;margin:0;line-height:1.6">Contact us at <strong><a href="mailto:info@alliancefinancing.ai" style="color:#5B21B6">info@alliancefinancing.ai</a></strong> or call <strong><a href="tel:+18776603660" style="color:#5B21B6">1-877-660-3660 ext. 222</a></strong></p>
         </div>
     </div>
 </div>
@@ -651,8 +660,14 @@ async function submitLeaseApp(){
         var referralSlug = document.getElementById('referralSource').value;
         var sourceAgentId = null;
         if (referralSlug) {
-            var { data: agentData } = await db.from('users').select('id').eq('referral_slug', referralSlug).maybeSingle();
-            if (agentData) sourceAgentId = agentData.id;
+            var { data: agentData, error: agentLookupErr } = await db.from('users').select('id, full_name, email, phone, referral_slug').ilike('referral_slug', referralSlug).maybeSingle();
+            if (agentLookupErr) console.warn('Agent lookup error:', agentLookupErr);
+            if (agentData) {
+                sourceAgentId = agentData.id;
+                formData.agentName = agentData.full_name || '';
+                formData.agentEmail = agentData.email || '';
+                formData.agentPhone = agentData.phone || '';
+            }
         }
 
         // Parse funding amount (remove $ and commas)
@@ -736,6 +751,16 @@ async function submitLeaseApp(){
         document.getElementById('successMsg').style.display='block';
         document.getElementById('appId').textContent=appId;
         document.getElementById('uploadProgress').style.display='none';
+
+        // Show agent contact info if from referral
+        if (formData.agentName) {
+            var agentInfo = '<strong>' + formData.agentName + '</strong>';
+            if (formData.agentEmail) agentInfo += '<br>Email: <a href="mailto:' + formData.agentEmail + '" style="color:#92400E">' + formData.agentEmail + '</a>';
+            if (formData.agentPhone) agentInfo += '<br>Phone: <a href="tel:' + formData.agentPhone.replace(/[^+\d]/g,'') + '" style="color:#92400E">' + formData.agentPhone + '</a>';
+            document.getElementById('agentContactDetails').innerHTML = agentInfo;
+            document.getElementById('agentContactInfo').style.display = 'block';
+        }
+
         window.scrollTo({top:0,behavior:'smooth'});
 
     } catch(error) {

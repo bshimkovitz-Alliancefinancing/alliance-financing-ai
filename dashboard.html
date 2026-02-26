@@ -4320,7 +4320,8 @@
                     arMonthlySales: 'AR Monthly Sales', arInvoiceSell: 'AR Invoice Amount',
                     gstFedId: 'GST / Federal ID Number', taxId: 'GST / Federal ID Number',
                     ownerSinSsn: 'SIN / SSN', principal1SinSsn: 'Principal 1 SIN / SSN', o1SinSsn: 'Owner 1 SIN / SSN',
-                    ownerHomeStatus: 'Home Status'
+                    ownerHomeStatus: 'Home Status',
+                    agentName: 'Referring Agent', agentEmail: 'Agent Email', agentPhone: 'Agent Phone'
                 };
                 // Skip internal/meta fields
                 const skipFields = ['formType', 'applicationId', 'submittedAt', 'referralSource', 'signatureName', 'signatureTimestamp'];
@@ -4422,6 +4423,16 @@
                         <div class="modal-field-value">${app.source_channel || 'N/A'}${app.referral_slug ? ' (Ref: ' + app.referral_slug + ')' : ''}</div>
                     </div>
                 </div>
+                ${app.source_agent_id ? await (async function() {
+                    var { data: agentInfo } = await db.from('users').select('full_name, email, phone').eq('id', app.source_agent_id).maybeSingle();
+                    if (!agentInfo) return '';
+                    return '<div style="margin-top: 12px; padding: 12px; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px;">' +
+                        '<label style="font-size: 13px; font-weight: 600; color: #92400E; display: block; margin-bottom: 6px;">Referring Agent</label>' +
+                        '<div style="font-size: 14px; color: #333;"><strong>' + (agentInfo.full_name || 'N/A') + '</strong>' +
+                        (agentInfo.email ? ' &nbsp;|&nbsp; <a href="mailto:' + agentInfo.email + '">' + agentInfo.email + '</a>' : '') +
+                        (agentInfo.phone ? ' &nbsp;|&nbsp; ' + agentInfo.phone : '') +
+                        '</div></div>';
+                })() : ''}
                 ${signatureHtml}
                 ${['super_admin','admin'].includes(currentUserRole) && app.signature_name ? `
                 <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
@@ -4574,7 +4585,7 @@
                     photo_id:'Photo ID', void_cheque:'Void Cheque', business_license:'Business License',
                     tax_return:'Tax Return', financial_statements:'Financial Statements',
                     credit_report:'Credit Report', equipment_quote:'Equipment Quote / Invoice',
-                    ap_ar_aging:'AP / AR Aging Report', other:'Other'
+                    ap_ar_aging:'AP / AR Aging Report', supporting_document:'Supporting Document', other:'Other'
                 };
                 var docRows = appDocsList.map(function(d) {
                     var typeLabel = docTypeLabels[d.type] || d.type || 'Other';
@@ -5014,7 +5025,7 @@
             photo_id: 'Photo ID', void_cheque: 'Void Cheque', business_license: 'Business License',
             tax_return: 'Tax Return', financial_statements: 'Financial Statements',
             credit_report: 'Credit Report', equipment_quote: 'Equipment Quote / Invoice',
-            ap_ar_aging: 'AP / AR Aging Report', other: 'Other'
+            ap_ar_aging: 'AP / AR Aging Report', supporting_document: 'Supporting Document', other: 'Other'
         };
 
         var addBtnHtml = ['super_admin', 'admin'].includes(currentUserRole)
