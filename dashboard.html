@@ -961,8 +961,15 @@
                 <div class="table-container">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Deal Pipeline</div>
+                        <!-- Pipeline View Tabs -->
+                        <div id="dealTabs" style="display:flex;gap:0;border:1px solid #ccc;border-radius:6px;overflow:hidden;font-size:13px;">
+                            <button class="deal-tab active" data-tab="active" onclick="switchDealTab('active')" style="padding:7px 16px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:var(--navy);color:white;transition:all .2s;">Active <span id="dealCountActive" style="background:rgba(255,255,255,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                            <button class="deal-tab" data-tab="booked" onclick="switchDealTab('booked')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Funded / Booked <span id="dealCountBooked" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                            <button class="deal-tab" data-tab="dead" onclick="switchDealTab('dead')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Declined / Dead <span id="dealCountDead" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                            <button class="deal-tab" data-tab="archived" onclick="switchDealTab('archived')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#666;transition:all .2s;">Archived <span id="dealCountArchived" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                        </div>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <input type="text" id="dealSearch" placeholder="Search AF#, company, product, lender..."
+                            <input type="text" id="dealSearch" placeholder="Search AF#, AFG#, company, product, lender..."
                                 oninput="filterDeals()"
                                 style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 280px;">
                             <select id="dealStatusFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
@@ -1017,6 +1024,7 @@
                         <thead>
                             <tr>
                                 <th>AF #</th>
+                                <th>AFG #</th>
                                 <th>Company</th>
                                 <th>Amount</th>
                                 <th>Product</th>
@@ -1029,7 +1037,7 @@
                         </thead>
                         <tbody id="dealsBody">
                             <tr>
-                                <td colspan="9" class="empty-state">Loading...</td>
+                                <td colspan="10" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1205,7 +1213,8 @@
         </div>
         <div class="modal-body" id="dealModalBody">
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+            <div id="dealModalArchiveBtn"></div>
             <button class="btn btn-secondary" onclick="closeDealModal()">Close</button>
         </div>
     </div>
@@ -3171,26 +3180,103 @@
             if (error) throw error;
 
             allDeals = data || [];
-            renderDealsTable(allDeals);
+            updateDealTabCounts();
+            filterDeals();
         } catch (error) {
             console.error('Load deals error:', error);
         }
     }
 
+    // Status color map for badges
+    var dealStatusColors = {
+        'Prospect': { bg: '#EFF6FF', text: '#1D4ED8', border: '#93C5FD' },
+        'Quote sent': { bg: '#F0F9FF', text: '#0369A1', border: '#7DD3FC' },
+        'Info received': { bg: '#ECFDF5', text: '#047857', border: '#6EE7B7' },
+        'In Credit': { bg: '#FFFBEB', text: '#B45309', border: '#FCD34D' },
+        'Approved': { bg: '#F0FDF4', text: '#15803D', border: '#86EFAC' },
+        'Approval sent': { bg: '#F0FDF4', text: '#166534', border: '#4ADE80' },
+        'Docs requested': { bg: '#FFF7ED', text: '#C2410C', border: '#FDBA74' },
+        'Docs out for signing': { bg: '#FEF3C7', text: '#92400E', border: '#FCD34D' },
+        'In funding': { bg: '#EDE9FE', text: '#6D28D9', border: '#C4B5FD' },
+        'Funded': { bg: '#DCFCE7', text: '#14532D', border: '#22C55E' },
+        'Declined': { bg: '#FEF2F2', text: '#991B1B', border: '#FCA5A5' },
+        'Dead approval': { bg: '#F1F5F9', text: '#475569', border: '#94A3B8' }
+    };
+
+    function getStatusBadge(status) {
+        var colors = dealStatusColors[status] || { bg: '#F1F5F9', text: '#475569', border: '#94A3B8' };
+        return '<span style="display:inline-block;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;background:' + colors.bg + ';color:' + colors.text + ';border:1px solid ' + colors.border + ';white-space:nowrap;">' + (status || 'N/A') + '</span>';
+    }
+
+    // Deal tab categories
+    var activeDealStatuses = ['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
+    var bookedDealStatuses = ['Funded'];
+    var deadDealStatuses = ['Declined', 'Dead approval'];
+    var currentDealTab = 'active';
+
+    function switchDealTab(tab) {
+        currentDealTab = tab;
+        // Update tab button styles
+        document.querySelectorAll('#dealTabs .deal-tab').forEach(function(btn) {
+            if (btn.dataset.tab === tab) {
+                btn.style.background = 'var(--navy)';
+                btn.style.color = 'white';
+                btn.style.fontWeight = '600';
+            } else {
+                btn.style.background = '#f8fafc';
+                btn.style.color = '#333';
+                btn.style.fontWeight = '500';
+            }
+        });
+        filterDeals();
+    }
+
+    function updateDealTabCounts() {
+        var active = 0, booked = 0, dead = 0, archived = 0;
+        (allDeals || []).forEach(function(d) {
+            if (d.is_archived) { archived++; }
+            else if (bookedDealStatuses.includes(d.status)) { booked++; }
+            else if (deadDealStatuses.includes(d.status)) { dead++; }
+            else { active++; }
+        });
+        var elA = document.getElementById('dealCountActive'); if (elA) elA.textContent = active;
+        var elB = document.getElementById('dealCountBooked'); if (elB) elB.textContent = booked;
+        var elD = document.getElementById('dealCountDead'); if (elD) elD.textContent = dead;
+        var elAr = document.getElementById('dealCountArchived'); if (elAr) elAr.textContent = archived;
+    }
+
+    // Status priority for sorting within Active tab
+    var statusPriority = {
+        'In funding': 1, 'Docs out for signing': 2, 'Docs requested': 3,
+        'Approval sent': 4, 'Approved': 5, 'In Credit': 6,
+        'Info received': 7, 'Quote sent': 8, 'Prospect': 9,
+        'Funded': 10, 'Declined': 11, 'Dead approval': 12
+    };
+
     function renderDealsTable(data) {
         const tbody = document.getElementById('dealsBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No deals found. Click "+ New Deal" to create one.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No deals found in this view.</td></tr>';
             return;
         }
 
         const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
+        // Sort by status priority then date
+        data.sort(function(a, b) {
+            var pa = statusPriority[a.status] || 99;
+            var pb = statusPriority[b.status] || 99;
+            if (pa !== pb) return pa - pb;
+            return new Date(b.date_submitted || 0) - new Date(a.date_submitted || 0);
+        });
+
         tbody.innerHTML = data.map(deal => {
             const afNumber = deal.applications?.application_id || deal.deal_number || 'N/A';
+            const afgNumber = deal.afg_number || '';
             const company = deal.company_name || 'N/A';
             const amount = formatCurrency(deal.deal_amount || 0) + ' ' + (deal.currency || 'USD');
             const lenderName = deal.lenders?.name || '';
+            const isArchived = deal.is_archived;
 
             // Product column - read-only for agents
             const productHtml = isAdmin
@@ -3218,22 +3304,27 @@
                 </select>`
                 : `${lenderName || 'N/A'}`;
 
+            // Archive button for admins
+            const archiveBtn = isAdmin
+                ? (isArchived
+                    ? `<button class="btn btn-sm" onclick="toggleArchiveDeal('${deal.id}', false)" style="padding:3px 8px;font-size:11px;background:#f0fdf4;color:#166534;border:1px solid #86efac;border-radius:3px;cursor:pointer;" title="Unarchive">Restore</button>`
+                    : `<button class="btn btn-sm" onclick="toggleArchiveDeal('${deal.id}', true)" style="padding:3px 8px;font-size:11px;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:3px;cursor:pointer;" title="Archive this deal">Archive</button>`)
+                : '';
+
             return `
-                <tr>
+                <tr style="${isArchived ? 'opacity:0.6;' : ''}">
                     <td><strong>${afNumber}</strong></td>
+                    <td style="font-size:12px;color:#6D28D9;font-weight:600;">${afgNumber ? afgNumber : '<span style="color:#ccc;font-weight:400;">—</span>'}</td>
                     <td>${company}</td>
                     <td>${amount}</td>
                     <td>${productHtml}</td>
                     <td>${sourceHtml}</td>
                     <td>${lenderHtml}</td>
-                    <td>
-                        <select class="status-dropdown" onchange="updateDealField('${deal.id}', 'status', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
-                            ${getDealStatusOptions(deal.status)}
-                        </select>
-                    </td>
+                    <td>${isAdmin ? `<select class="status-dropdown" onchange="updateDealField('${deal.id}', 'status', this.value)" style="padding:5px 8px;border-radius:4px;border:1px solid #ccc;font-size:13px;cursor:pointer;">${getDealStatusOptions(deal.status)}</select>` : getStatusBadge(deal.status)}</td>
                     <td>${formatDate(deal.date_submitted)}</td>
-                    <td>
+                    <td style="white-space:nowrap;">
                         <button class="btn btn-secondary btn-sm" onclick="viewDeal('${deal.id}')">View</button>
+                        ${archiveBtn}
                     </td>
                 </tr>
             `;
@@ -3247,7 +3338,20 @@
         const productFilter = document.getElementById('dealProductFilter')?.value || '';
 
         const filtered = allDeals.filter(deal => {
+            // Tab filter first
+            var isArchived = deal.is_archived;
+            if (currentDealTab === 'archived') {
+                if (!isArchived) return false;
+            } else if (currentDealTab === 'booked') {
+                if (isArchived || !bookedDealStatuses.includes(deal.status)) return false;
+            } else if (currentDealTab === 'dead') {
+                if (isArchived || !deadDealStatuses.includes(deal.status)) return false;
+            } else { // active
+                if (isArchived || bookedDealStatuses.includes(deal.status) || deadDealStatuses.includes(deal.status)) return false;
+            }
+
             const afNumber = (deal.applications?.application_id || deal.deal_number || '').toLowerCase();
+            const afgNumber = (deal.afg_number || '').toLowerCase();
             const company = (deal.company_name || '').toLowerCase();
             const product = (deal.product_type || '').toLowerCase();
             const source = (deal.source || '').toLowerCase();
@@ -3255,6 +3359,7 @@
 
             const matchesSearch = !searchTerm ||
                 afNumber.includes(searchTerm) ||
+                afgNumber.includes(searchTerm) ||
                 company.includes(searchTerm) ||
                 product.includes(searchTerm) ||
                 source.includes(searchTerm) ||
@@ -3268,6 +3373,22 @@
         });
 
         renderDealsTable(filtered);
+    }
+
+    async function toggleArchiveDeal(dealId, archive) {
+        var action = archive ? 'archive' : 'restore';
+        if (!confirm('Are you sure you want to ' + action + ' this deal?')) return;
+        try {
+            const { error } = await db.from('deals').update({ is_archived: archive }).eq('id', dealId);
+            if (error) throw error;
+            // Update local cache
+            var deal = allDeals.find(d => d.id === dealId);
+            if (deal) deal.is_archived = archive;
+            updateDealTabCounts();
+            filterDeals();
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
     }
 
     async function moveToPipeline(applicationId) {
@@ -3742,11 +3863,15 @@
             const lenderName = deal.lenders?.name || cachedLenders.find(l => l.id === deal.assigned_lender_id)?.name || 'None';
             const modalBody = document.getElementById('dealModalBody');
             modalBody.innerHTML = `
-                <!-- Row 1: AF # and Company Name -->
-                <div class="modal-row">
+                <!-- Row 1: AF #, AFG # and Company Name -->
+                <div class="modal-row" style="grid-template-columns: 1fr 1fr 2fr;">
                     <div class="modal-field">
                         <label>AF #</label>
                         <div style="padding: 6px 10px;">${deal.applications?.application_id || deal.deal_number || 'Auto-generated'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>AFG # <span style="font-weight:400;color:#6D28D9;font-size:11px;">(Booking #)</span></label>
+                        ${isAgentView ? roField(deal.afg_number || 'Not yet assigned') : `<input type="text" value="${deal.afg_number || ''}" placeholder="Enter when booked" onblur="updateDealField('${dealId}', 'afg_number', this.value)" style="padding: 6px 10px; border: 1px solid #c4b5fd; border-radius: 4px; font-size: 14px; width: 100%; background: #faf5ff;">`}
                     </div>
                     <div class="modal-field">
                         <label>Company Name</label>
@@ -4026,6 +4151,18 @@
 
                 ${buildDocumentsHtml(dealDocuments || [], dealId, null)}
             `;
+
+            // Archive/Restore button in modal footer
+            var archiveBtnEl = document.getElementById('dealModalArchiveBtn');
+            if (archiveBtnEl && !isAgentView) {
+                if (deal.is_archived) {
+                    archiveBtnEl.innerHTML = '<button class="btn btn-sm" onclick="toggleArchiveDeal(\'' + dealId + '\', false); closeDealModal();" style="padding:6px 16px;background:#f0fdf4;color:#166534;border:1px solid #86efac;border-radius:4px;cursor:pointer;">Restore from Archive</button>';
+                } else {
+                    archiveBtnEl.innerHTML = '<button class="btn btn-sm" onclick="toggleArchiveDeal(\'' + dealId + '\', true); closeDealModal();" style="padding:6px 16px;background:#fef2f2;color:#991b1b;border:1px solid #fca5a5;border-radius:4px;cursor:pointer;">Archive Deal</button>';
+                }
+            } else if (archiveBtnEl) {
+                archiveBtnEl.innerHTML = '';
+            }
 
             document.getElementById('dealModal').classList.add('active');
 
