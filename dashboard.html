@@ -3420,6 +3420,7 @@
                     deal_amount: application.funding_amount_requested,
                     application_id: application.id,
                     source: application.source_channel || 'Online',
+                    source_agent_id: application.source_agent_id || null,
                     product_type: productType,
                     date_submitted: new Date().toISOString(),
                     status: 'Prospect'
@@ -3879,6 +3880,12 @@
                     </div>
                 </div>
 
+                <!-- Referring Agent Banner (if from agent referral) -->
+                ${deal.source_agent_id ? `<div id="dealAgentBanner" style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;">
+                    <span style="font-size:20px;">👤</span>
+                    <div id="dealAgentBannerInfo" style="font-size:13px;color:#92400E;line-height:1.5;"><strong>Referring Agent:</strong> Loading...</div>
+                </div>` : ''}
+
                 <!-- Row 2: Deal Amount and Currency -->
                 <div class="modal-row">
                     <div class="modal-field">
@@ -4165,6 +4172,22 @@
             }
 
             document.getElementById('dealModal').classList.add('active');
+
+            // Load referring agent info banner
+            if (deal.source_agent_id) {
+                (async function() {
+                    try {
+                        var { data: agentInfo } = await db.from('users').select('full_name, email, phone').eq('id', deal.source_agent_id).maybeSingle();
+                        var bannerEl = document.getElementById('dealAgentBannerInfo');
+                        if (bannerEl && agentInfo) {
+                            var html = '<strong>Referring Agent:</strong> ' + (agentInfo.full_name || 'Unknown');
+                            if (agentInfo.email) html += ' &nbsp;|&nbsp; ' + agentInfo.email;
+                            if (agentInfo.phone) html += ' &nbsp;|&nbsp; ' + agentInfo.phone;
+                            bannerEl.innerHTML = html;
+                        }
+                    } catch(e) { console.warn('Agent banner load error:', e); }
+                })();
+            }
 
             // Auto-load salesperson dropdown if deal has a vendor source
             if (deal.source === 'Vendor' && deal.source_vendor_id) {
