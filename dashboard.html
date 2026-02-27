@@ -751,6 +751,19 @@
                     </div>
                 </div>
 
+                <!-- Admin Quick Actions (super_admin only) -->
+                <div id="adminQuickActions" class="table-container" style="display: none;">
+                    <div style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div class="table-title" style="margin: 0;">Quick Actions</div>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <button class="btn btn-gold btn-sm" onclick="openAddApplicationModal()">+ Add Application</button>
+                            <button class="btn btn-gold btn-sm" onclick="openAgentAddVendorModal()">+ Submit Vendor</button>
+                            <button class="btn btn-gold btn-sm" onclick="openInviteSubAgentModal()">+ Invite Agent</button>
+                            <button class="btn btn-secondary btn-sm" onclick="openSendApplicationModal()" style="padding: 4px 12px; font-size: 12px;">Send Application Form</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Agent Referral Link & Marketing Hub (agents only) -->
                 <div id="agentReferralCard" class="table-container" style="display: none;">
                     <div class="table-header">
@@ -3664,14 +3677,22 @@
                 }
             }
 
+            // Show admin quick actions bar
+            const adminQuickActions = document.getElementById('adminQuickActions');
+            if (adminQuickActions && ['super_admin', 'admin'].includes(currentUserRole)) {
+                adminQuickActions.style.display = 'block';
+            }
+
             // Show/hide agent referral card
             await displayAgentReferralCard();
 
-            // Load agent sections
-            await loadAgentCommissions();
-            await loadAgentVendors();
-            await loadAgentSubAgents();
-            await loadAgentReferralApps();
+            // Load agent-only sections (skip for admins)
+            if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
+                await loadAgentCommissions();
+                await loadAgentVendors();
+                await loadAgentSubAgents();
+                await loadAgentReferralApps();
+            }
 
         } catch (error) {
             console.error('Dashboard load error:', error);
