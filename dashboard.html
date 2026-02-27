@@ -2480,7 +2480,17 @@
         const slug = agentProfile.referral_slug || '';
         const btnStyle = 'display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid #CBD5E1; border-radius: 6px; text-decoration: none; color: #0D1E3D; font-size: 13px; font-weight: 500; transition: all 0.2s;';
 
-        // Agent-specific PDF mappings
+        // Generic marketing materials (Carrie Rotman / company-level)
+        const genericPDFs = [
+            { file: 'marketing/Alliance_Overview.pptx', label: 'Alliance Overview' },
+            { file: 'marketing/alliance-mortgage-brokers.pdf', label: 'Mortgage Brokers One-Pager' },
+            { file: 'marketing/alliance-insurance-brokers.pdf', label: 'Insurance Brokers One-Pager' },
+            { file: 'marketing/alliance-accountants-cfos.pdf', label: 'Accountants & CFOs One-Pager' },
+            { file: 'marketing/alliance-product-guide.pdf', label: 'Product Guide' },
+            { file: 'marketing/alliance-partner-handbook.pdf', label: 'Partner Handbook' }
+        ];
+
+        // Agent-specific PDF mappings (override generic if agent has personalized versions)
         const agentPDFs = {
             'paul-morrison': [
                 { file: 'pdfs/Alliance_Overview-Pj.pdf', label: 'Alliance Overview' },
@@ -2496,11 +2506,8 @@
             ]
         };
 
-        const pdfs = agentPDFs[slug] || [];
-        if (pdfs.length === 0) {
-            container.innerHTML = '<span style="color: #666; font-size: 13px;">No PDFs available yet. Contact admin to upload your materials.</span>';
-            return;
-        }
+        // Use agent-specific if available, otherwise use generic
+        const pdfs = agentPDFs[slug] || genericPDFs;
 
         container.innerHTML = pdfs.map(p =>
             '<a href="' + p.file + '" target="_blank" download style="' + btnStyle + '" ' +
