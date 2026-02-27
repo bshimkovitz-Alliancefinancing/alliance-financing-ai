@@ -702,6 +702,10 @@
                 <span class="nav-icon">🏢</span>
                 <span>Alliance Financing</span>
             </div>
+            <div class="nav-item" id="teamNav" onclick="showPage('team')" style="display: none;">
+                <span class="nav-icon">👤</span>
+                <span>Team</span>
+            </div>
         </div>
 
         <div class="sidebar-footer">
@@ -1462,13 +1466,41 @@
                 </div>
             </div>
 
+            <!-- Team Members Page -->
+            <div id="team" class="page-section">
+                <div class="table-container">
+                    <div class="table-header">
+                        <div class="table-title">Team Members</div>
+                        <button class="btn btn-gold btn-sm" onclick="openAddTeamMemberModal()">+ Add Team Member</button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table id="teamMembersTable" style="min-width: 600px;">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Title</th>
+                                    <th>Active</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teamMembersBody">
+                                <tr>
+                                    <td colspan="5" class="empty-state">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
 
 <!-- Deal Detail Modal -->
 <div id="dealModal" class="modal">
-    <div class="modal-content" style="max-width: 900px;">
+    <div class="modal-content" style="max-width: 1000px;">
         <div class="modal-header">
             <h2>Deal Details</h2>
             <button class="modal-close" onclick="closeDealModal()">✕</button>
@@ -2290,6 +2322,44 @@
     </div>
 </div>
 
+<!-- Add/Edit Team Member Modal -->
+<div id="addTeamMemberModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="teamMemberModalTitle">Add Team Member</h2>
+            <button class="modal-close" onclick="document.getElementById('addTeamMemberModal').classList.remove('active')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Full Name</label>
+                    <input type="text" id="teamMemberName" placeholder="Enter full name" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                </div>
+                <div class="modal-field">
+                    <label>Email</label>
+                    <input type="email" id="teamMemberEmail" placeholder="Enter email" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Title / Role</label>
+                    <input type="text" id="teamMemberTitle" placeholder="e.g. Account Manager" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                </div>
+                <div class="modal-field">
+                    <label style="display: flex; align-items: center;">
+                        <input type="checkbox" id="teamMemberActive" checked style="margin-right: 8px; cursor: pointer;">
+                        Active
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="document.getElementById('addTeamMemberModal').classList.remove('active')">Cancel</button>
+            <button class="btn btn-gold" onclick="handleAddTeamMember()" id="teamMemberSaveBtn">Add Member</button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -2314,6 +2384,7 @@
     let cachedVendors = [];
     let cachedAgents = [];
     let cachedVendorContacts = [];  // For salespeople tracking
+    let cachedTeamMembers = [];
     let lenderContactCount = 1;
     let vendorContactCount = 1;
 
@@ -2460,7 +2531,7 @@
             const label = item.querySelector('span:last-child').textContent.trim();
             // Agents can only see Dashboard and Deal Pipeline
             if (!isAdmin) {
-                if (['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing'].includes(label)) {
+                if (['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing', 'Team'].includes(label)) {
                     item.style.display = 'none';
                 } else if (label === 'Marketing') {
                     item.style.display = 'flex';
@@ -3483,7 +3554,8 @@
             'vendors': 'Vendors',
             'contacts': 'Contact Submissions',
             'alliance': 'Alliance Financing Group',
-            'marketing': 'Marketing'
+            'marketing': 'Marketing',
+            'team': 'Team Members'
         };
         document.getElementById('pageTitle').textContent = titles[pageName] || 'Dashboard';
         currentPage = pageName;
@@ -4270,6 +4342,130 @@
     }
 
     // ============================================
+    // Team Members Management
+    // ============================================
+
+    async function loadTeamMembers() {
+        try {
+            const { data, error } = await db
+                .from('team_members')
+                .select('*')
+                .order('full_name', { ascending: true });
+
+            if (error) throw error;
+
+            const tbody = document.getElementById('teamMembersBody');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No team members found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(member => `
+                <tr>
+                    <td><strong>${member.full_name || 'N/A'}</strong></td>
+                    <td>${member.email || 'N/A'}</td>
+                    <td>${member.role_title || 'N/A'}</td>
+                    <td>
+                        <span style="display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; background: ${member.is_active ? '#D1FAE5' : '#FEE2E2'}; color: ${member.is_active ? '#065F46' : '#991B1B'};">
+                            ${member.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="toggleTeamMemberActive('${member.id}', ${!member.is_active})" style="margin-right: 5px;">${member.is_active ? 'Deactivate' : 'Activate'}</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTeamMember('${member.id}', '${member.full_name}')">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Load team members error:', error);
+            document.getElementById('teamMembersBody').innerHTML = '<tr><td colspan="5" class="empty-state">Error loading team members.</td></tr>';
+        }
+    }
+
+    function openAddTeamMemberModal() {
+        document.getElementById('teamMemberName').value = '';
+        document.getElementById('teamMemberEmail').value = '';
+        document.getElementById('teamMemberTitle').value = '';
+        document.getElementById('teamMemberActive').checked = true;
+        document.getElementById('teamMemberModalTitle').textContent = 'Add Team Member';
+        document.getElementById('teamMemberSaveBtn').textContent = 'Add Member';
+        document.getElementById('addTeamMemberModal').classList.add('active');
+    }
+
+    async function handleAddTeamMember() {
+        const fullName = document.getElementById('teamMemberName').value.trim();
+        const email = document.getElementById('teamMemberEmail').value.trim();
+        const roleTitle = document.getElementById('teamMemberTitle').value.trim();
+        const isActive = document.getElementById('teamMemberActive').checked;
+
+        if (!fullName || !email) {
+            alert('Please fill in Name and Email.');
+            return;
+        }
+
+        try {
+            const { data, error } = await db
+                .from('team_members')
+                .insert([
+                    {
+                        full_name: fullName,
+                        email: email,
+                        role_title: roleTitle || null,
+                        is_active: isActive
+                    }
+                ])
+                .select();
+
+            if (error) throw error;
+
+            document.getElementById('addTeamMemberModal').classList.remove('active');
+            cachedTeamMembers = []; // Reset cache to reload fresh data
+            await loadTeamMembers();
+        } catch (error) {
+            console.error('Add team member error:', error);
+            alert('Error adding team member: ' + error.message);
+        }
+    }
+
+    async function toggleTeamMemberActive(memberId, newStatus) {
+        try {
+            const { error } = await db
+                .from('team_members')
+                .update({ is_active: newStatus })
+                .eq('id', memberId);
+
+            if (error) throw error;
+
+            cachedTeamMembers = []; // Reset cache
+            await loadTeamMembers();
+        } catch (error) {
+            console.error('Toggle team member active error:', error);
+            alert('Error updating team member: ' + error.message);
+        }
+    }
+
+    async function deleteTeamMember(memberId, memberName) {
+        if (!confirm(`Delete team member "${memberName}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const { error } = await db
+                .from('team_members')
+                .delete()
+                .eq('id', memberId);
+
+            if (error) throw error;
+
+            cachedTeamMembers = []; // Reset cache
+            await loadTeamMembers();
+        } catch (error) {
+            console.error('Delete team member error:', error);
+            alert('Error deleting team member: ' + error.message);
+        }
+    }
+
+    // ============================================
     // Alliance Financing Group - House Deals
     // ============================================
 
@@ -4387,6 +4583,9 @@
             case 'marketing':
                 await loadMarketingPage();
                 break;
+            case 'team':
+                await loadTeamMembers();
+                break;
         }
     }
 
@@ -4498,35 +4697,55 @@
             `).join('');
 
             const lenderName = deal.lenders?.name || cachedLenders.find(l => l.id === deal.assigned_lender_id)?.name || 'None';
+
+            // Load team members if not cached
+            if (cachedTeamMembers.length === 0) {
+                const { data: tmList } = await db.from('team_members').select('id, full_name, role_title').eq('is_active', true).order('full_name');
+                cachedTeamMembers = tmList || [];
+            }
+
+            const teamMemberOptions = cachedTeamMembers.map(t => `<option value="${t.id}" ${deal.internal_account_manager_id === t.id ? 'selected' : ''}>${t.full_name}${t.role_title ? ' (' + t.role_title + ')' : ''}</option>`).join('');
+
+            const statusOptions = getDealStatusOptions(deal.status);
+
             const modalBody = document.getElementById('dealModalBody');
             modalBody.innerHTML = `
-                <!-- Row 1: AF #, AFG # and Company Name -->
-                <div class="modal-row" style="grid-template-columns: 1fr 1fr 2fr;">
-                    <div class="modal-field">
-                        <label>AF #</label>
-                        <div style="padding: 6px 10px;">${deal.applications?.application_id || deal.deal_number || 'Auto-generated'}</div>
+                <!-- Section 1: Header with Status -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: #F8FAFC; border-radius: 8px;">
+                    <div>
+                        <span style="font-size: 13px; color: #64748b;">AF #</span>
+                        <div style="font-size: 18px; font-weight: 700; color: var(--navy);">${deal.applications?.application_id || deal.deal_number || 'N/A'}</div>
                     </div>
-                    <div class="modal-field">
-                        <label>AFG # <span style="font-weight:400;color:#6D28D9;font-size:11px;">(Booking #)</span></label>
-                        ${isAgentView ? roField(deal.afg_number || 'Not yet assigned') : `<input type="text" value="${deal.afg_number || ''}" placeholder="Enter when booked" onblur="updateDealField('${dealId}', 'afg_number', this.value)" style="padding: 6px 10px; border: 1px solid #c4b5fd; border-radius: 4px; font-size: 14px; width: 100%; background: #faf5ff;">`}
+                    <div>
+                        <span style="font-size: 13px; color: #64748b;">AFG # (Booking)</span>
+                        ${isAgentView ? roField(deal.afg_number || 'Not yet assigned') : `<input type="text" value="${deal.afg_number || ''}" placeholder="Enter when booked" onblur="updateDealField('${dealId}', 'afg_number', this.value)" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 200px;">`}
                     </div>
-                    <div class="modal-field">
-                        <label>Company Name</label>
-                        ${isAgentView ? roField(deal.company_name) : `<input type="text" value="${deal.company_name || ''}" onblur="updateDealField('${dealId}', 'company_name', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                    <div>
+                        <label style="font-size: 13px; color: #64748b; display: block;">Status</label>
+                        ${isAgentView ? roField(deal.status) : `<select onchange="updateDealField('${dealId}', 'status', this.value)" style="padding: 8px 12px; border-radius: 6px; border: 2px solid var(--gold); font-size: 14px; font-weight: 600; background: white; cursor: pointer;">${statusOptions}</select>`}
                     </div>
                 </div>
 
-                <!-- Referring Agent Banner (if from agent referral) -->
-                ${deal.source_agent_id ? `<div id="dealAgentBanner" style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;">
-                    <span style="font-size:20px;">👤</span>
-                    <div id="dealAgentBannerInfo" style="font-size:13px;color:#92400E;line-height:1.5;"><strong>Referring Agent:</strong> Loading...</div>
-                </div>` : ''}
+                <!-- Section 2: Deal Overview -->
+                <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Deal Overview</h3>
 
-                <!-- Row 2: Deal Amount and Currency -->
+                <!-- Row 1: Client Name | Amount Requested -->
                 <div class="modal-row">
                     <div class="modal-field">
-                        <label>Deal Amount</label>
-                        ${isAgentView ? roField(deal.deal_amount ? formatCurrency(deal.deal_amount) : '') : `<input type="number" value="${deal.deal_amount || ''}" onblur="updateDealField('${dealId}', 'deal_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        <label>Client Name</label>
+                        ${isAgentView ? roField(deal.company_name) : `<input type="text" value="${deal.company_name || ''}" onblur="updateDealField('${dealId}', 'company_name', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                    </div>
+                    <div class="modal-field">
+                        <label>Amount Requested</label>
+                        ${isAgentView ? roField(deal.amount_requested ? formatCurrency(deal.amount_requested) : '') : `<input type="number" value="${deal.amount_requested || ''}" onblur="updateDealField('${dealId}', 'amount_requested', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                    </div>
+                </div>
+
+                <!-- Row 2: Financing Type | Currency -->
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Financing Type</label>
+                        ${isAgentView ? roField(deal.product_type) : `<select onchange="updateDealField('${dealId}', 'product_type', this.value); toggleProductDetails('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;"><option value="">Select Product Type</option>${productTypeOptions}</select>`}
                     </div>
                     <div class="modal-field">
                         <label>Currency</label>
@@ -4534,178 +4753,237 @@
                     </div>
                 </div>
 
-                <!-- Row 3: Product Type and Status -->
+                <!-- Row 3: Vendor | Source Contact -->
                 <div class="modal-row">
                     <div class="modal-field">
-                        <label>Product Type</label>
-                        ${isAgentView ? roField(deal.product_type) : `<select onchange="updateDealField('${dealId}', 'product_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;"><option value="">Select Product Type</option>${productTypeOptions}</select>`}
+                        <label>Vendor</label>
+                        ${isAgentView ? roField(deal.source_vendor_id ? (cachedVendors.find(v => v.id === deal.source_vendor_id)?.name || 'N/A') : 'None') : `<select id="dealVendorSelect2" onchange="updateDealField('${dealId}', 'source_vendor_id', this.value); loadSourceContacts('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            <option value="">None</option>
+                            ${cachedVendors.map(v => `<option value="${v.id}" ${deal.source_vendor_id === v.id ? 'selected' : ''}>${v.name}</option>`).join('')}
+                        </select>`}
                     </div>
                     <div class="modal-field">
-                        <label>Status</label>
-                        ${isAgentView ? roField(deal.status) : `<select onchange="updateDealField('${dealId}', 'status', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">${getDealStatusOptions(deal.status)}</select>`}
+                        <label>Source Contact</label>
+                        <div id="dealSourceContactContainer" style="display: ${isAgentView ? 'none' : (deal.source_vendor_id ? 'block' : 'none')};">
+                            <select id="dealSourceContactSelect" onchange="updateDealField('${dealId}', 'source_contact_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                                <option value="">Select Contact</option>
+                            </select>
+                        </div>
+                        ${isAgentView ? roField('-') : ''}
                     </div>
                 </div>
 
-                <!-- Row 4: Source and Assigned Lender -->
+                <!-- Row 4: Agent | Internal Account Manager -->
                 <div class="modal-row">
                     <div class="modal-field">
-                        <label>Source</label>
-                        ${isAgentView ? roField((deal.source_channel || deal.source || 'N/A') + (deal.source === 'Vendor' ? ' (Vendor Program)' : deal.source === 'Agent Referral' ? ' (Referral Link)' : deal.source === 'Direct' ? ' (Direct)' : '')) : `<select id="dealDetailSource" onchange="updateDealSource('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">${sourceOptions}</select>
-                        <div id="dealSourceVendor" style="display: ${deal.source === 'Vendor' ? 'block' : 'none'}; margin-top: 8px;">
-                            <label style="font-size: 13px;">Select Vendor:</label>
-                            <select id="dealVendorSelect" onchange="updateDealField('${dealId}', 'source_vendor_id', this.value); loadVendorSalespeople('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
-                                <option value="">Select Vendor</option>
-                                ${cachedVendors.map(v => `<option value="${v.id}" ${deal.source_vendor_id === v.id ? 'selected' : ''}>${v.name}</option>`).join('')}
-                            </select>
-                            <div id="dealSalespersonContainer" style="margin-top: 8px; display: ${deal.source_vendor_id ? 'block' : 'none'};">
-                                <label style="font-size: 13px;">Salesperson:</label>
-                                <select id="dealSalespersonSelect" onchange="updateDealField('${dealId}', 'vendor_salesperson_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
-                                    <option value="">Select Salesperson</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div id="dealSourceAgent" style="display: ${deal.source === 'Agent Referral' ? 'block' : 'none'}; margin-top: 8px;">
-                            <label style="font-size: 13px;">Select Agent:</label>
-                            <select onchange="updateDealField('${dealId}', 'source_agent_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
-                                <option value="">Select Agent</option>
-                                ${cachedAgents.map(a => `<option value="${a.id}" ${deal.source_agent_id === a.id ? 'selected' : ''}>${a.full_name}</option>`).join('')}
-                            </select>
-                        </div>`}
+                        <label>Agent</label>
+                        ${isAgentView ? roField(deal.source_agent_id ? (cachedAgents.find(a => a.id === deal.source_agent_id)?.full_name || 'N/A') : 'None') : `<select onchange="updateDealField('${dealId}', 'source_agent_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            <option value="">None</option>
+                            ${cachedAgents.map(a => `<option value="${a.id}" ${deal.source_agent_id === a.id ? 'selected' : ''}>${a.full_name}</option>`).join('')}
+                        </select>`}
                     </div>
                     <div class="modal-field">
-                        ${isAgentView ? (() => {
-                            const vendorName = deal.source_vendor_id ? (cachedVendors.find(v => v.id === deal.source_vendor_id)?.name || 'N/A') : 'None';
-                            return '<label>Vendor</label>' + roField(vendorName);
-                        })() : `<label>Assigned Lender</label><select onchange="updateDealField('${dealId}', 'assigned_lender_id', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                        <label>Internal Account Manager</label>
+                        ${isAgentView ? roField('-') : `<select onchange="updateDealField('${dealId}', 'internal_account_manager_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
                             <option value="">None</option>
-                            ${cachedLenders.map(l => `<option value="${l.id}" ${deal.assigned_lender_id === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+                            ${teamMemberOptions}
                         </select>`}
                     </div>
                 </div>
 
-                <!-- Row 5: Expected Close and Dates -->
+                <!-- Row 5: Source | Origination Date -->
                 <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Source</label>
+                        ${isAgentView ? roField(deal.source || 'N/A') : `<select onchange="updateDealField('${dealId}', 'source', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">${sourceOptions}</select>`}
+                    </div>
+                    <div class="modal-field">
+                        <label>Origination Date</label>
+                        ${isAgentView ? roField(formatDate(deal.origination_date)) : `<input type="date" value="${deal.origination_date ? deal.origination_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'origination_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                    </div>
+                </div>
+
+                <!-- Section 3: Approval & Dates -->
+                <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Approval & Dates</h3>
+
+                <!-- Row 1: Assigned Lender | Syndicated -->
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Assigned Lender</label>
+                        ${isAgentView ? roField(lenderName) : `<select onchange="updateDealField('${dealId}', 'assigned_lender_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            <option value="">None</option>
+                            ${cachedLenders.map(l => `<option value="${l.id}" ${deal.assigned_lender_id === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+                        </select>`}
+                    </div>
+                    <div class="modal-field">
+                        <label style="display: flex; align-items: center;">
+                            ${isAgentView ? roField(deal.is_syndicated ? 'Yes' : 'No') : `<input type="checkbox" ${deal.is_syndicated ? 'checked' : ''} onchange="updateDealField('${dealId}', 'is_syndicated', this.checked); document.getElementById('syndicationSection').style.display = this.checked ? 'block' : 'none';" style="margin-right: 8px; cursor: pointer;">
+                            Syndicated`}
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Row 2: Approval Amount | Approval Date -->
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Approval Amount</label>
+                        ${isAgentView ? roField(deal.approval_amount ? formatCurrency(deal.approval_amount) : '') : `<input type="number" value="${deal.approval_amount || ''}" onblur="updateDealField('${dealId}', 'approval_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                    </div>
+                    <div class="modal-field">
+                        <label>Approval Date</label>
+                        ${isAgentView ? roField(formatDate(deal.approval_date)) : `<input type="date" value="${deal.approval_date ? deal.approval_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'approval_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                    </div>
+                </div>
+
+                <!-- Row 3: Expiry Date | Expected Close Month -->
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Expiry Date</label>
+                        ${isAgentView ? roField(formatDate(deal.expiry_date)) : `<input type="date" value="${deal.expiry_date ? deal.expiry_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'expiry_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                    </div>
                     <div class="modal-field">
                         <label>Expected Close Month</label>
                         ${isAgentView ? roField(deal.expected_close_month) : `<input type="text" value="${deal.expected_close_month || ''}" onblur="updateDealField('${dealId}', 'expected_close_month', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                     </div>
-                    <div class="modal-field">
-                        <label>Date Submitted</label>
-                        ${isAgentView ? roField(formatDate(deal.date_submitted)) : `<input type="date" value="${deal.date_submitted ? deal.date_submitted.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'date_submitted', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
-                    </div>
                 </div>
 
-                <!-- Row 6: Commission Info (read-only for agents, editable for admins) -->
-                <div style="margin-top: 15px; padding: 15px; background: ${isAgentView ? '#f0fdf4' : '#fff'}; border: 1px solid ${isAgentView ? '#bbf7d0' : 'transparent'}; border-radius: 8px;">
-                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); margin-bottom: 10px; display: block;">${isAgentView ? 'Your Commission' : 'Fee Details & Commission Split'}</label>
-                    <div class="modal-row">
-                        <div class="modal-field">
-                            <label>${isAgentView ? 'Your Fee %' : 'Agent Fee %'}</label>
-                            ${isAgentView ? roField(deal.agent_fee_pct ? deal.agent_fee_pct + '%' : 'Not set') : `<input type="number" step="0.01" value="${deal.agent_fee_pct || ''}" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
-                        </div>
-                        <div class="modal-field">
-                            <label>${isAgentView ? 'Your Fee Amount' : 'Agent Fee Amount'}</label>
-                            ${isAgentView ? roField(deal.agent_fee_amount ? formatCurrency(deal.agent_fee_amount) : 'Not set') : `<input type="number" step="0.01" value="${deal.agent_fee_amount || ''}" onblur="updateDealField('${dealId}', 'agent_fee_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
-                        </div>
-                    </div>
-                    ${!isAgentView ? `
-                    <!-- Sub-Agent Commission (admin only) -->
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e2e8f0;">
-                        <label style="font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 8px; display: block;">Sub-Agent Split</label>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Sub-Agent</label>
-                                <select onchange="updateDealField('${dealId}', 'sub_agent_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                                    <option value="">None</option>
-                                    ${cachedAgents.map(a => '<option value="' + a.id + '"' + (deal.sub_agent_id === a.id ? ' selected' : '') + '>' + (a.full_name || 'Agent') + '</option>').join('')}
-                                </select>
-                            </div>
-                            <div class="modal-field">
-                                <label>Sub-Agent Fee %</label>
-                                <input type="number" step="0.01" value="${deal.sub_agent_fee_pct || ''}" onblur="updateDealField('${dealId}', 'sub_agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Sub-Agent Fee $</label>
-                                <input type="number" step="0.01" value="${deal.sub_agent_fee_amount || ''}" onblur="updateDealField('${dealId}', 'sub_agent_fee_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                            <div class="modal-field">
-                                <label>Parent Override %</label>
-                                <input type="number" step="0.01" value="${deal.parent_override_pct || ''}" onblur="updateDealField('${dealId}', 'parent_override_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Parent Override $</label>
-                                <input type="number" step="0.01" value="${deal.parent_override_amount || ''}" onblur="updateDealField('${dealId}', 'parent_override_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                            <div class="modal-field">
-                                <label>Alliance Fee %</label>
-                                <input type="number" step="0.01" value="${deal.alliance_fee_pct || ''}" onblur="updateDealField('${dealId}', 'alliance_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Gross Fee & Alliance Net -->
-                    <div class="modal-row" style="margin-top: 12px;">
-                        <div class="modal-field">
-                            <label>Gross Fee %</label>
-                            <input type="number" step="0.01" value="${deal.gross_fee_pct || ''}" onblur="updateDealField('${dealId}', 'gross_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                        </div>
-                        <div class="modal-field">
-                            <label>Alliance Net Fee</label>
-                            <input type="number" step="0.01" value="${deal.alliance_net_fee || ''}" onblur="updateDealField('${dealId}', 'alliance_net_fee', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                        </div>
-                    </div>
-                    <!-- Commission Summary -->
-                    ${(() => {
-                        const amt = deal.deal_amount || 0;
-                        const agentFee = deal.agent_fee_amount || 0;
-                        const subFee = deal.sub_agent_fee_amount || 0;
-                        const parentOvr = deal.parent_override_amount || 0;
-                        const allianceNet = deal.alliance_net_fee || 0;
-                        if (agentFee || subFee || parentOvr || allianceNet) {
-                            return '<div style="margin-top: 12px; padding: 10px; background: #f8fafc; border-radius: 6px; font-size: 13px;">' +
-                                '<strong>Commission Summary:</strong> ' +
-                                'Agent: ' + formatCurrency(agentFee) +
-                                (subFee ? ' | Sub-Agent: ' + formatCurrency(subFee) : '') +
-                                (parentOvr ? ' | Parent Override: ' + formatCurrency(parentOvr) : '') +
-                                (allianceNet ? ' | Alliance Net: ' + formatCurrency(allianceNet) : '') +
-                                '</div>';
-                        }
-                        return '';
-                    })()}
-                    ` : ''}
-                </div>
-
-                ${!isAgentView ? `
-                <!-- Admin-only: Syndicated and additional dates -->
-                <div class="modal-row" style="margin-top: 15px;">
-                    <div class="modal-field">
-                        <label style="display: flex; align-items: center;">
-                            <input type="checkbox" ${deal.is_syndicated ? 'checked' : ''} onchange="updateDealField('${dealId}', 'is_syndicated', this.checked)" style="margin-right: 8px; cursor: pointer;">
-                            Syndicated
-                        </label>
-                    </div>
-                    <div class="modal-field">
-                        <label>Close Date</label>
-                        <input type="date" value="${deal.close_date ? deal.close_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'close_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                    </div>
-                </div>
+                <!-- Row 4: Start Date | End Date -->
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Start Date</label>
-                        <input type="date" value="${deal.start_date ? deal.start_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'start_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                        ${isAgentView ? roField(formatDate(deal.start_date)) : `<input type="date" value="${deal.start_date ? deal.start_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'start_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                     </div>
                     <div class="modal-field">
                         <label>End Date</label>
-                        <input type="date" value="${deal.end_date ? deal.end_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'end_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                        ${isAgentView ? roField(formatDate(deal.end_date)) : `<input type="date" value="${deal.end_date ? deal.end_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'end_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                     </div>
                 </div>
 
-                <!-- Syndication Section (admin only) -->
-                <div id="syndicationSection" style="display: ${deal.is_syndicated ? 'block' : 'none'}; margin-top: 20px;">
-                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px; display: block;">Syndication Partners</label>
+                <!-- Section 4: Product-Specific Details -->
+                <div id="leaseDetailsSection" style="display: ${deal.product_type === 'Equipment Leasing' ? 'block' : 'none'}; margin-top: 25px;">
+                    <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Equipment Leasing Details</h3>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Equipment Type</label>
+                            ${isAgentView ? roField(deal.equipment_type || '') : `<input type="text" value="${deal.equipment_type || ''}" onblur="updateDealField('${dealId}', 'equipment_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Equipment Value</label>
+                            ${isAgentView ? roField(deal.equipment_value ? formatCurrency(deal.equipment_value) : '') : `<input type="number" value="${deal.equipment_value || ''}" onblur="updateDealField('${dealId}', 'equipment_value', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Lease Term (months)</label>
+                            ${isAgentView ? roField(deal.lease_term || '') : `<input type="number" value="${deal.lease_term || ''}" onblur="updateDealField('${dealId}', 'lease_term', this.value ? parseInt(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Monthly Payment</label>
+                            ${isAgentView ? roField(deal.monthly_payment ? formatCurrency(deal.monthly_payment) : '') : `<input type="number" value="${deal.monthly_payment || ''}" onblur="updateDealField('${dealId}', 'monthly_payment', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                </div>
+
+                <div id="mcaDetailsSection" style="display: ${['MCA', 'Merchant Advance'].includes(deal.product_type) ? 'block' : 'none'}; margin-top: 25px;">
+                    <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Merchant Advance Details</h3>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Factor Rate</label>
+                            ${isAgentView ? roField(deal.factor_rate ? (deal.factor_rate * 100).toFixed(2) + '%' : '') : `<input type="number" step="0.01" value="${deal.factor_rate || ''}" placeholder="e.g. 1.25" onblur="updateDealField('${dealId}', 'factor_rate', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Payback Amount</label>
+                            ${isAgentView ? roField(deal.payback_amount ? formatCurrency(deal.payback_amount) : '') : `<input type="number" value="${deal.payback_amount || ''}" onblur="updateDealField('${dealId}', 'payback_amount', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Holdback %</label>
+                            ${isAgentView ? roField(deal.holdback_pct ? deal.holdback_pct + '%' : '') : `<input type="number" step="0.01" value="${deal.holdback_pct || ''}" onblur="updateDealField('${dealId}', 'holdback_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Daily Payment</label>
+                            ${isAgentView ? roField(deal.daily_payment ? formatCurrency(deal.daily_payment) : '') : `<input type="number" value="${deal.daily_payment || ''}" onblur="updateDealField('${dealId}', 'daily_payment', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Estimated Term (days)</label>
+                            ${isAgentView ? roField(deal.estimated_term_days || '') : `<input type="number" value="${deal.estimated_term_days || ''}" onblur="updateDealField('${dealId}', 'estimated_term_days', this.value ? parseInt(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field"></div>
+                    </div>
+                </div>
+
+                <!-- Section 5: Fee Details & Commission Split -->
+                <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Fee Details & Commission Split</h3>
+
+                <div class="modal-row">
+                    <div class="modal-field full">
+                        <label>Amount Funded</label>
+                        ${isAgentView ? roField(deal.amount_funded ? formatCurrency(deal.amount_funded) : '') : `<input type="number" id="feeAmountFunded" value="${deal.amount_funded || ''}" onblur="updateDealField('${dealId}', 'amount_funded', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                    </div>
+                </div>
+
+                <div style="background: #F8FAFC; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Alliance Fee %</label>
+                            ${isAgentView ? roField(deal.alliance_fee_pct ? deal.alliance_fee_pct + '%' : '') : `<input type="number" step="0.01" id="feeAlliancePct" value="${deal.alliance_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'alliance_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Alliance Gross Fee</label>
+                            <div id="feeAllianceGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">$0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: #FEF3E2; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Agent Split %</label>
+                            ${isAgentView ? roField(deal.agent_fee_pct ? deal.agent_fee_pct + '%' : '') : `<input type="number" step="0.01" id="feeAgentPct" value="${deal.agent_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Agent Gross Fee</label>
+                            <div id="feeAgentGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">$0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                ${deal.sub_agent_id || !isAgentView ? `<div style="background: #E8F5E9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Sub-Agent %</label>
+                            ${isAgentView ? roField(deal.sub_agent_fee_pct ? deal.sub_agent_fee_pct + '%' : '') : `<input type="number" step="0.01" id="feeSubAgentPct" value="${deal.sub_agent_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'sub_agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Sub-Agent Gross Fee</label>
+                            <div id="feeSubAgentGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">$0.00</div>
+                        </div>
+                    </div>
+                </div>` : ''}
+
+                ${!isAgentView ? `<div style="background: #F5E6FF; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Alliance Net Fee</label>
+                            <div id="feeAllianceNet" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">$0.00</div>
+                        </div>
+                        <div class="modal-field"></div>
+                    </div>
+                </div>` : ''}
+
+                <!-- Referring Agent Banner (if from agent referral) -->
+                ${deal.source_agent_id ? `<div id="dealAgentBanner" style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px; margin-top: 15px;">
+                    <span style="font-size:20px;">👤</span>
+                    <div id="dealAgentBannerInfo" style="font-size:13px;color:#92400E;line-height:1.5;"><strong>Referring Agent:</strong> Loading...</div>
+                </div>` : ''}
+
+                <!-- Section 6: Syndication (admin only) -->
+                ${!isAgentView ? `
+                <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Syndication Partners</h3>
+                <div id="syndicationSection" style="display: ${deal.is_syndicated ? 'block' : 'none'}; margin-bottom: 15px;">
                     ${syndicationRows || '<div style="color: #999; padding: 10px;">No syndication entries yet.</div>'}
                     <div style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px; border: 1px solid var(--border-gray);">
                         <div style="font-weight: 600; margin-bottom: 12px; color: var(--navy);">Add Syndication Entry</div>
@@ -4733,12 +5011,12 @@
                             </div>
                         </div>
                     </div>
-                </div>` : ''}
+                </div>
+                ` : ''}
 
-                <!-- Client Contacts Section -->
-                <div style="margin-top: 20px;">
-                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px; display: block;">Client Contacts</label>
-
+                <!-- Section 7: Client Contacts -->
+                <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Client Contacts</h3>
+                <div style="margin-bottom: 15px;">
                     ${contactRows || '<div style="color: #999; padding: 10px;">No client contacts yet.</div>'}
 
                     <div style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px; border: 1px solid var(--border-gray);">
@@ -4781,10 +5059,9 @@
                     </div>
                 </div>
 
-                <!-- Notes Section -->
-                <div style="margin-top: 20px;">
-                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px; display: block;">Notes</label>
-
+                <!-- Section 8: Notes -->
+                <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Notes</h3>
+                <div style="margin-bottom: 15px;">
                     ${notesRows || '<div style="color: #999; padding: 10px;">No notes yet.</div>'}
 
                     <div style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px; border: 1px solid var(--border-gray);">
@@ -4794,6 +5071,7 @@
                     </div>
                 </div>
 
+                <!-- Section 9: Documents -->
                 ${buildDocumentsHtml(dealDocuments || [], dealId, null)}
             `;
 
@@ -4909,6 +5187,84 @@
         } catch (err) {
             console.error('Load vendor salespeople error:', err);
             select.innerHTML = '<option value="">Error loading salespeople</option>';
+        }
+    }
+
+    async function loadSourceContacts(dealId, vendorId) {
+        const container = document.getElementById('dealSourceContactContainer');
+        const select = document.getElementById('dealSourceContactSelect');
+        if (!container || !select) return;
+
+        if (!vendorId) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+        select.innerHTML = '<option value="">Loading...</option>';
+
+        try {
+            const { data: contacts } = await db.from('vendor_contacts')
+                .select('id, contact_name, role_title, status')
+                .eq('vendor_id', vendorId)
+                .order('contact_name');
+
+            const activeContacts = (contacts || []).filter(c => c.status !== 'Left Company');
+
+            // Get current deal's source contact
+            const { data: deal } = await db.from('deals').select('source_contact_id').eq('id', dealId).single();
+            const currentContactId = deal?.source_contact_id || '';
+
+            select.innerHTML = '<option value="">None</option>' +
+                activeContacts.map(c =>
+                    `<option value="${c.id}" ${currentContactId === c.id ? 'selected' : ''}>${c.contact_name}${c.role_title ? ' (' + c.role_title + ')' : ''}</option>`
+                ).join('');
+
+            if (activeContacts.length === 0) {
+                select.innerHTML = '<option value="">No contacts for this vendor</option>';
+            }
+        } catch (err) {
+            console.error('Load source contacts error:', err);
+            select.innerHTML = '<option value="">Error loading contacts</option>';
+        }
+    }
+
+    function toggleProductDetails(dealId, productType) {
+        const leaseSection = document.getElementById('leaseDetailsSection');
+        const mcaSection = document.getElementById('mcaDetailsSection');
+
+        if (leaseSection) leaseSection.style.display = productType === 'Equipment Leasing' ? 'block' : 'none';
+        if (mcaSection) mcaSection.style.display = ['MCA', 'Merchant Advance'].includes(productType) ? 'block' : 'none';
+    }
+
+    async function recalcAndSaveFees(dealId) {
+        const amountFunded = parseFloat(document.getElementById('feeAmountFunded')?.value) || 0;
+        const alliancePct = parseFloat(document.getElementById('feeAlliancePct')?.value) || 0;
+        const agentPct = parseFloat(document.getElementById('feeAgentPct')?.value) || 0;
+        const subAgentPct = parseFloat(document.getElementById('feeSubAgentPct')?.value) || 0;
+
+        const allianceGross = amountFunded * alliancePct / 100;
+        const agentGross = allianceGross * agentPct / 100;
+        const subAgentGross = agentGross * subAgentPct / 100;
+        const allianceNet = allianceGross - agentGross;
+
+        // Update display
+        const el = (id) => document.getElementById(id);
+        if (el('feeAllianceGross')) el('feeAllianceGross').textContent = formatCurrency(allianceGross);
+        if (el('feeAgentGross')) el('feeAgentGross').textContent = formatCurrency(agentGross);
+        if (el('feeSubAgentGross')) el('feeSubAgentGross').textContent = formatCurrency(subAgentGross);
+        if (el('feeAllianceNet')) el('feeAllianceNet').textContent = formatCurrency(allianceNet);
+
+        // Save the calculated amounts
+        try {
+            await db.from('deals').update({
+                alliance_gross_fee: allianceGross,
+                agent_fee_amount: agentGross,
+                sub_agent_fee_amount: subAgentGross,
+                alliance_net_fee: allianceNet
+            }).eq('id', dealId);
+        } catch (err) {
+            console.error('Error saving fees:', err);
         }
     }
 
