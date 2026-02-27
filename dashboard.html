@@ -1022,17 +1022,18 @@
                             <button class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ New Deal</button>
                         </div>
                     </div>
-                    <table id="dealsTable">
+                    <div style="overflow-x:auto;">
+                    <table id="dealsTable" style="min-width:1100px;">
                         <thead>
                             <tr>
                                 <th>AF #</th>
                                 <th>AFG #</th>
                                 <th>Company</th>
                                 <th>Amount</th>
-                                <th>Product</th>
-                                <th>Source</th>
-                                <th>Lender</th>
-                                <th>Status</th>
+                                <th style="min-width:150px;">Product</th>
+                                <th style="min-width:130px;">Source</th>
+                                <th style="min-width:140px;">Lender</th>
+                                <th style="min-width:140px;">Status</th>
                                 <th>Date</th>
                                 <th>Actions</th>
                             </tr>
@@ -1043,6 +1044,7 @@
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
 
@@ -3441,29 +3443,29 @@
 
             // Product column - read-only for agents
             const productHtml = isAdmin
-                ? `<select class="status-dropdown" onchange="updateDealField('${deal.id}', 'product_type', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                ? `<select class="pipeline-select" onchange="updateDealField('${deal.id}', 'product_type', this.value)" style="padding:5px 10px;border-radius:4px;border:1px solid #d1d5db;font-size:13px;cursor:pointer;min-width:140px;background:#fff;color:#1f2937;font-weight:500;appearance:auto;">
                     ${['Equipment Leasing','MCA','CSBFL','SRED','Private Debt','Factoring','Merchant Advance','Commercial Mortgage','SBA','Loans','Trade Finance','Working Capital Loan','Business Line of Credit','Startup Financing','Franchise Financing','Other'].map(pt => `<option value="${pt}" ${deal.product_type === pt ? 'selected' : ''}>${pt}</option>`).join('')}
                 </select>`
-                : `${deal.product_type || 'N/A'}`;
+                : `<span style="font-size:13px;font-weight:500;color:#1f2937;">${deal.product_type || 'N/A'}</span>`;
 
             // Source column - read-only for agents
             const sourceHtml = isAdmin
-                ? `<select class="status-dropdown" onchange="updateDealField('${deal.id}', 'source', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                ? `<select class="pipeline-select" onchange="updateDealField('${deal.id}', 'source', this.value)" style="padding:5px 10px;border-radius:4px;border:1px solid #d1d5db;font-size:13px;cursor:pointer;min-width:120px;background:#fff;color:#1f2937;font-weight:500;appearance:auto;">
                     <option value="Online" ${deal.source === 'Online' ? 'selected' : ''}>Online</option>
                     <option value="Agent Referral" ${deal.source === 'Agent Referral' ? 'selected' : ''}>Agent Referral</option>
                     <option value="Direct" ${deal.source === 'Direct' ? 'selected' : ''}>Direct</option>
                     <option value="Vendor" ${deal.source === 'Vendor' ? 'selected' : ''}>Vendor</option>
                     <option value="Repeat Client" ${deal.source === 'Repeat Client' ? 'selected' : ''}>Repeat Client</option>
                 </select>`
-                : `${deal.source || 'N/A'}`;
+                : `<span style="font-size:13px;font-weight:500;color:#1f2937;">${deal.source || 'N/A'}</span>`;
 
             // Lender column - read-only for agents
             const lenderHtml = isAdmin
-                ? `<select class="status-dropdown" onchange="updateDealField('${deal.id}', 'assigned_lender_id', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                ? `<select class="pipeline-select" onchange="updateDealField('${deal.id}', 'assigned_lender_id', this.value)" style="padding:5px 10px;border-radius:4px;border:1px solid #d1d5db;font-size:13px;cursor:pointer;min-width:130px;background:#fff;color:#1f2937;font-weight:500;appearance:auto;">
                     <option value="">Select Lender</option>
                     ${cachedLenders.map(lender => `<option value="${lender.id}" ${deal.assigned_lender_id === lender.id ? 'selected' : ''}>${lender.name}</option>`).join('')}
                 </select>`
-                : `${lenderName || 'N/A'}`;
+                : `<span style="font-size:13px;font-weight:500;color:#1f2937;">${lenderName || 'N/A'}</span>`;
 
             // Archive button for admins
             const archiveBtn = isAdmin
@@ -3481,7 +3483,7 @@
                     <td>${productHtml}</td>
                     <td>${sourceHtml}</td>
                     <td>${lenderHtml}</td>
-                    <td>${isAdmin ? `<select class="status-dropdown" onchange="updateDealField('${deal.id}', 'status', this.value)" style="padding:5px 8px;border-radius:4px;border:1px solid #ccc;font-size:13px;cursor:pointer;">${getDealStatusOptions(deal.status)}</select>` : getStatusBadge(deal.status)}</td>
+                    <td>${isAdmin ? `<select class="pipeline-select" onchange="updateDealField('${deal.id}', 'status', this.value)" style="padding:5px 10px;border-radius:4px;border:1px solid #d1d5db;font-size:13px;cursor:pointer;min-width:130px;background:#fff;color:#1f2937;font-weight:500;appearance:auto;">${getDealStatusOptions(deal.status)}</select>` : getStatusBadge(deal.status)}</td>
                     <td>${formatDate(deal.date_submitted)}</td>
                     <td style="white-space:nowrap;">
                         <button class="btn btn-secondary btn-sm" onclick="viewDeal('${deal.id}')">View</button>
