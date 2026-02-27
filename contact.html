@@ -161,9 +161,7 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
             <div class="nav-cta">
                 <a href="agent-login.html" class="btn-outline">Partner Login</a>
                 <a href="contact.html" class="btn-outline active">Contact Us</a>
-                <a href="application.html" class="btn-primary">Apply Now</a>
             </div>
-            <button class="mobile-menu-btn" onclick="window.location.href='application.html'">Apply Now</button>
         </div>
     </nav>
 
@@ -198,8 +196,7 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                 <div class="business-hours">
                     <h3>Business Hours</h3>
                     <p><strong>Monday - Friday:</strong> 9:00 AM - 6:00 PM EST</p>
-                    <p><strong>Saturday:</strong> 10:00 AM - 2:00 PM EST</p>
-                    <p><strong>Sunday:</strong> Closed</p>
+                    <p><strong>Saturday - Sunday:</strong> Closed</p>
                     <p style="font-size:.875rem;color:var(--slate-600);margin-top:1rem">Apply online 24/7 and we'll respond within 1 business day</p>
                 </div>
             </div>
@@ -374,21 +371,33 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                 const subject = document.getElementById('subject').value;
                 const message = document.getElementById('message').value.trim();
 
+                // Get referral source from URL parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const referralSource = urlParams.get('ref') || '';
+
                 // Validate required fields
                 if (!name || !email || !phone || !subject || !message) {
                     throw new Error('Please fill in all required fields.');
                 }
 
+                // Build insert data
+                const insertData = {
+                    name: name,
+                    email: email,
+                    phone: phone,
+                    subject: subject,
+                    message: message
+                };
+
+                // Add referral source if present
+                if (referralSource) {
+                    insertData.referral_source = referralSource;
+                }
+
                 // Insert into contact_submissions table
                 const { data, error } = await db
                     .from('contact_submissions')
-                    .insert([{
-                        name: name,
-                        email: email,
-                        phone: phone,
-                        subject: subject,
-                        message: message
-                    }])
+                    .insert([insertData])
                     .select();
 
                 if (error) throw error;
@@ -400,7 +409,8 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                 // Send GA4 event
                 if (window.gtag) {
                     gtag('event', 'contact_message_sent', {
-                        subject: subject
+                        subject: subject,
+                        referral_source: referralSource || 'direct'
                     });
                 }
 
