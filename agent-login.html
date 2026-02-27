@@ -294,7 +294,7 @@
 </head>
 <body>
 
-    <div class="login-container">
+    <div class="login-container" id="loginContainer" style="opacity:0;transition:opacity 0.3s ease;">
         <div class="logo-section">
             <img src="alliance-logo-transparent.png" alt="Alliance Financing Group">
             <p>Partner Portal</p>
@@ -453,12 +453,19 @@
             document.getElementById('loginView').style.display = 'block';
         }
 
-        // Check if already logged in
+        // Check if already logged in — hide page until check completes
         (async function() {
-            const { data: { session } } = await db.auth.getSession();
-            if (session) {
-                window.location.href = 'dashboard.html';
+            try {
+                const { data: { session } } = await db.auth.getSession();
+                if (session) {
+                    window.location.href = 'dashboard.html';
+                    return;
+                }
+            } catch (e) {
+                console.log('Session check error:', e);
             }
+            // No session — show the login form
+            document.getElementById('loginContainer').style.opacity = '1';
         })();
     </script>
 
