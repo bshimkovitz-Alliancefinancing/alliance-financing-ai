@@ -1250,6 +1250,32 @@
                     </div>
                 </div>
 
+                <!-- MCA Marketing One-Pager -->
+                <div class="table-container" style="margin-bottom: 24px;">
+                    <div class="table-header">
+                        <div class="table-title">MCA Marketing One-Pager</div>
+                    </div>
+                    <div style="padding: 20px;">
+                        <p style="color: #64748b; font-size: 13px; margin: 0 0 16px 0;">Professional Merchant Cash Advance marketing piece with your contact information. Open in a new window to print or save as PDF.</p>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button onclick="openMCAOnePager()" class="btn btn-gold" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px;">
+                                <span style="font-size: 20px;">💰</span>
+                                <div style="text-align: left;">
+                                    <div style="font-weight: 600; font-size: 13px;">View MCA One-Pager</div>
+                                    <div style="font-size: 11px; opacity: 0.85;">Opens with your contact info</div>
+                                </div>
+                            </button>
+                            <button onclick="openMCAOnePager(null, true)" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: var(--navy); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                <span style="font-size: 20px;">🖨️</span>
+                                <div style="text-align: left;">
+                                    <div style="font-weight: 600; font-size: 13px;">Print / Save as PDF</div>
+                                    <div style="font-size: 11px; opacity: 0.85;">Opens print dialog automatically</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Company Materials -->
                 <div class="table-container" style="margin-bottom: 24px;">
                     <div class="table-header">
@@ -1374,6 +1400,32 @@
                     <div style="padding: 20px;">
                         <p style="color: var(--text-light); font-size: 14px; margin-bottom: 15px;">Pre-built tracked links for Alliance Financing Group house deals. Copy and share with clients.</p>
                         <div id="allianceAppLinks" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MCA Marketing One-Pager (Alliance) -->
+                <div class="table-container" style="margin-bottom: 24px;">
+                    <div class="table-header">
+                        <div class="table-title">MCA Marketing One-Pager</div>
+                    </div>
+                    <div style="padding: 20px;">
+                        <p style="color: #64748b; font-size: 13px; margin: 0 0 16px 0;">Professional MCA marketing piece. Opens with Alliance Financing Group house contact information.</p>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button onclick="openMCAOnePager('alliance')" class="btn btn-gold" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px;">
+                                <span style="font-size: 20px;">💰</span>
+                                <div style="text-align: left;">
+                                    <div style="font-weight: 600; font-size: 13px;">View MCA One-Pager</div>
+                                    <div style="font-size: 11px; opacity: 0.85;">Alliance house contacts</div>
+                                </div>
+                            </button>
+                            <button onclick="openMCAOnePager('alliance', true)" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: var(--navy); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                <span style="font-size: 20px;">🖨️</span>
+                                <div style="text-align: left;">
+                                    <div style="font-weight: 600; font-size: 13px;">Print / Save as PDF</div>
+                                    <div style="font-size: 11px; opacity: 0.85;">Opens print dialog automatically</div>
+                                </div>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2885,6 +2937,280 @@
         }
         // Show default template on marketing page
         showEmailTemplate('mortgage');
+    }
+
+    // ============================================
+    // MCA Marketing One-Pager (Dynamic Contact Info)
+    // ============================================
+
+    function openMCAOnePager(mode, autoPrint) {
+        // Determine contact info based on mode
+        let contacts = [];
+        if (mode === 'alliance') {
+            // Alliance house contacts (admin view)
+            contacts = [
+                { name: 'Bernie Shimkovitz', phone: 'O: 905-660-3660 ext 225 &nbsp;|&nbsp; M: 416-569-2899', email: 'Bernie@alliancefinancing.com' },
+                { name: 'Lee Harrison', phone: 'M: 289-388-8399', email: 'lee@allianceglobaladvisors.com' }
+            ];
+        } else if (agentProfile) {
+            // Agent's own contact info
+            contacts = [
+                { name: agentProfile.full_name || 'Alliance Advisor', phone: agentProfile.phone ? 'M: ' + agentProfile.phone : '', email: agentProfile.email || '' }
+            ];
+        } else {
+            contacts = [
+                { name: 'Alliance Financing Group', phone: 'O: 905-660-3660', email: 'info@alliancefinancing.com' }
+            ];
+        }
+
+        // Build footer contacts HTML
+        const contactsHtml = contacts.map((c, i) => {
+            let html = '';
+            if (i > 0) html += '<div class="footer-divider"></div>';
+            html += '<div class="contact-card">';
+            html += '<span class="contact-name">' + c.name + '</span>';
+            if (c.phone) html += '<span class="contact-detail">' + c.phone + '</span>';
+            if (c.email) html += '<span class="contact-email">' + c.email + '</span>';
+            html += '</div>';
+            return html;
+        }).join('');
+
+        const mcaHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Merchant Cash Advance — Alliance Financing Group</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--navy:#0D1E3D;--navy-mid:#1A3160;--gold:#C9A84C;--gold-lt:#e8c96a;--white:#FFFFFF;--off-wh:#F5F7FA;--gray:#8A9BB0;--dark:#2C3E55;--accent:#1E6FB0;}
+  body{font-family:'Source Sans 3',sans-serif;background:#e8ecf0;color:var(--dark);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:2rem;}
+  .page{width:816px;background:var(--white);box-shadow:0 8px 40px rgba(0,0,0,0.18);}
+  .hero{background:var(--navy);overflow:hidden;}
+  .hero-inner{display:grid;grid-template-columns:1fr 320px;min-height:310px;}
+  .hero-left{padding:46px 48px 38px;display:flex;flex-direction:column;justify-content:center;}
+  .brand-badge{display:inline-flex;align-items:center;gap:10px;margin-bottom:18px;}
+  .brand-badge .bar{width:3px;height:28px;background:var(--gold);}
+  .brand-name{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);}
+  .hero h1{font-family:'Playfair Display',serif;font-size:44px;font-weight:900;color:var(--white);line-height:1.08;margin-bottom:14px;}
+  .hero h1 em{font-style:normal;color:var(--gold);}
+  .hero-tagline{font-size:14px;font-weight:300;color:#b0c4de;line-height:1.6;max-width:360px;margin-bottom:10px;}
+  .ai-pill{display:inline-flex;align-items:center;gap:7px;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.35);padding:6px 14px;margin-bottom:22px;width:fit-content;}
+  .ai-pill-dot{width:6px;height:6px;background:var(--gold);border-radius:50%;}
+  .ai-pill span{font-size:11px;font-weight:600;color:var(--gold-lt);letter-spacing:0.5px;}
+  .hero-cta{display:inline-block;background:var(--gold);color:var(--navy);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:12px 24px;text-decoration:none;}
+  .hero-right{background:var(--navy-mid);display:flex;flex-direction:column;justify-content:center;padding:36px 32px;position:relative;}
+  .hero-right::before{content:'';position:absolute;top:0;left:-18px;width:36px;height:100%;background:var(--navy-mid);clip-path:polygon(18px 0,100% 0,100% 100%,18px 100%,0 50%);}
+  .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;position:relative;z-index:1;}
+  .stat-item{text-align:center;border:1px solid rgba(201,168,76,0.25);padding:14px 8px;background:rgba(255,255,255,0.04);}
+  .stat-num{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--gold);line-height:1;display:block;margin-bottom:4px;}
+  .stat-lbl{font-size:9.5px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#8a9bb0;line-height:1.3;}
+  .gold-band{background:var(--gold);padding:13px 48px;}
+  .gold-band p{font-size:13.5px;font-weight:700;color:var(--navy);text-align:center;line-height:1.4;}
+  .body-content{display:grid;grid-template-columns:1fr 1fr;}
+  .col-left{padding:34px 38px 30px;border-right:1px solid #e4e9f0;}
+  .col-right{padding:34px 38px 30px;}
+  .section-label{font-size:9.5px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:7px;}
+  .section-title{font-family:'Playfair Display',serif;font-size:21px;font-weight:700;color:var(--navy);line-height:1.2;margin-bottom:12px;}
+  .section-body{font-size:12.5px;color:#4a5568;line-height:1.65;margin-bottom:14px;}
+  .use-cases{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:4px;}
+  .use-case{padding:9px 11px;background:var(--off-wh);border-left:3px solid var(--gold);}
+  .use-case span{font-size:11.5px;font-weight:600;color:var(--navy);}
+  .steps{display:flex;flex-direction:column;gap:13px;margin-top:4px;}
+  .step{display:flex;gap:12px;align-items:flex-start;}
+  .step-num{width:28px;height:28px;background:var(--navy);color:var(--gold);font-family:'Playfair Display',serif;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+  .step-content h4{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:3px;}
+  .step-content p{font-size:11.5px;color:#5a6a7e;line-height:1.5;}
+  .dark-band{background:var(--navy);padding:24px 48px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:28px;}
+  .dark-band-text{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:var(--white);line-height:1.35;}
+  .dark-band-text em{font-style:normal;color:var(--gold);}
+  .apply-btn{display:inline-block;background:var(--gold);color:var(--navy);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:12px 24px;text-decoration:none;white-space:nowrap;}
+  .advantages{display:flex;flex-direction:column;gap:8px;}
+  .advantage{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--off-wh);}
+  .adv-icon{width:20px;height:20px;background:var(--navy);border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  .adv-icon svg{width:10px;height:10px;fill:none;stroke:var(--gold);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
+  .advantage p{font-size:12px;color:#3d4e61;line-height:1.45;}
+  .advantage p strong{color:var(--navy);font-weight:700;}
+  .bottom-content{display:grid;grid-template-columns:1fr 1fr;}
+  .bottom-left{padding:28px 38px;border-right:1px solid #e4e9f0;}
+  .bottom-right{padding:28px 38px;background:var(--off-wh);}
+  .eligibility-list{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+  .elig-item{display:flex;gap:10px;align-items:center;font-size:12.5px;color:#3d4e61;}
+  .elig-dot{width:7px;height:7px;background:var(--gold);border-radius:50%;flex-shrink:0;}
+  .apply-box{background:var(--navy);padding:18px 20px;margin-top:14px;}
+  .apply-box .box-label{font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:5px;}
+  .apply-box h4{font-size:13.5px;font-weight:700;color:var(--white);margin-bottom:10px;}
+  .apply-options{display:flex;flex-direction:column;gap:7px;}
+  .apply-option{padding:11px 13px;border-left:3px solid var(--gold);background:rgba(255,255,255,0.06);}
+  .apply-option-title{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:3px;}
+  .apply-option p{font-size:11px;color:#b0c4de;line-height:1.5;}
+  .apply-option a{font-size:11.5px;font-weight:700;color:var(--gold-lt);text-decoration:none;display:inline-block;margin-top:5px;}
+  .network-badge{display:flex;gap:10px;align-items:center;margin-top:12px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(201,168,76,0.2);}
+  .network-badge-icon{width:28px;height:28px;background:rgba(201,168,76,0.15);border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .network-badge-icon svg{width:13px;height:13px;fill:none;stroke:var(--gold);stroke-width:2;stroke-linecap:round;}
+  .network-badge p{font-size:10.5px;color:#8a9bb0;line-height:1.5;}
+  .network-badge p em{color:var(--gold-lt);font-style:normal;font-weight:600;}
+  .footer{background:var(--navy);}
+  .footer-main{display:grid;grid-template-columns:1fr auto;align-items:center;padding:18px 48px;gap:24px;border-bottom:1px solid rgba(201,168,76,0.18);}
+  .footer-brand{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:3px;}
+  .footer-contacts{display:flex;gap:26px;}
+  .contact-card{display:flex;flex-direction:column;gap:2px;}
+  .contact-name{font-size:13px;font-weight:700;color:var(--white);}
+  .contact-detail{font-size:11px;color:var(--gray);}
+  .contact-email{font-size:11px;color:var(--gold);}
+  .footer-divider{width:1px;height:32px;background:rgba(201,168,76,0.25);align-self:center;}
+  .footer-bottom{padding:8px 48px;display:flex;justify-content:space-between;align-items:center;}
+  .footer-bottom p{font-size:9px;color:rgba(138,155,176,0.65);letter-spacing:0.3px;}
+  @media print{body{background:white;padding:0;}.page{box-shadow:none;width:100%;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="hero-left">
+        <div class="brand-badge"><div class="bar"></div><span class="brand-name">Alliance Financing Group</span></div>
+        <h1>Fund Your<br>Business<br><em>For Growth</em></h1>
+        <p class="hero-tagline">Access working capital based on your future revenue — without the complexity of traditional bank financing. Fast decisions, flexible repayment, no collateral required.</p>
+        <div class="ai-pill"><div class="ai-pill-dot"></div><span>AI-Powered — Matched to 70+ Lenders in Minutes</span></div>
+        <a href="https://alliancefinancing.ai" class="hero-cta">Apply Now at alliancefinancing.ai &rarr;</a>
+      </div>
+      <div class="hero-right">
+        <div class="stats-grid">
+          <div class="stat-item"><span class="stat-num">85%+</span><span class="stat-lbl">Approval<br>Rate</span></div>
+          <div class="stat-item"><span class="stat-num">48<span style="font-size:14px">hr</span></span><span class="stat-lbl">Funding<br>Decision</span></div>
+          <div class="stat-item"><span class="stat-num">$2M</span><span class="stat-lbl">Up To<br>Available</span></div>
+          <div class="stat-item"><span class="stat-num">70+</span><span class="stat-lbl">Lender<br>Partners</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="gold-band">
+    <p>We secure the best financing for your business &mdash; matched across our network of 70+ lenders through AI-powered intelligence. Apply online at <strong>alliancefinancing.ai</strong></p>
+  </div>
+  <div class="body-content">
+    <div class="col-left">
+      <div class="section-label">What is a Merchant Cash Advance?</div>
+      <h2 class="section-title">Capital Today,<br>Paid Back Tomorrow</h2>
+      <p class="section-body">A Merchant Cash Advance (MCA) gives your business a lump sum of capital based on your average monthly revenue. Instead of fixed monthly payments, a small percentage of your daily or weekly sales automatically goes toward repayment &mdash; you pay more in busy periods and less when things are slow.</p>
+      <p class="section-body">No hard assets required. Our AI matches your business with the right lender from our network based on your cash flow &mdash; not just your credit score &mdash; making it accessible even when traditional banks have said no.</p>
+      <div class="section-label" style="margin-top:4px">What Can You Use It For?</div>
+      <div class="use-cases">
+        <div class="use-case"><span>Renovate or Expand</span></div>
+        <div class="use-case"><span>Replenish Inventory</span></div>
+        <div class="use-case"><span>Upgrade Equipment</span></div>
+        <div class="use-case"><span>Cover Payroll</span></div>
+        <div class="use-case"><span>Marketing &amp; Promotions</span></div>
+        <div class="use-case"><span>Bridge Cash Flow Gaps</span></div>
+        <div class="use-case"><span>Pay Off Other Debt</span></div>
+        <div class="use-case"><span>Seize Growth Opportunities</span></div>
+      </div>
+    </div>
+    <div class="col-right">
+      <div class="section-label">How It Works</div>
+      <h2 class="section-title">Three Steps to<br>Your Funding</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Apply Online &mdash; Minutes, Not Days</h4>
+            <p>Complete a simple 5-minute application. No complex paperwork, no application fees, no impact to your credit score to check eligibility. Our AI gets to work for you immediately.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Get Matched &amp; Approved Fast</h4>
+            <p>Our AI analyzes your profile and instantly matches you with the best-fit lenders across our 70+ partner network. Funding decisions in as little as 48 hours, with funds delivered by EFT.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Repay as Your Business Grows</h4>
+            <p>A fixed percentage of your daily or weekly revenue is automatically remitted. Slow month? Pay less. Busy season? Clear it faster. Renew when eligible for additional capital up to $2M.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="dark-band">
+    <div class="dark-band-text">Alliance's AI secures the <em>best possible terms</em><br>from our network &mdash; so you don't have to shop around.</div>
+    <a href="https://alliancefinancing.ai" class="apply-btn">Apply at alliancefinancing.ai</a>
+  </div>
+  <div class="bottom-content">
+    <div class="bottom-left">
+      <div class="section-label">Key Advantages</div>
+      <h3 class="section-title" style="font-size:18px;margin-bottom:10px">Why Choose Alliance?</h3>
+      <div class="advantages">
+        <div class="advantage"><div class="adv-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Best Terms, Every Time</strong> &mdash; Our AI scans 70+ lenders and presents the most competitive offer matched to your business</p></div>
+        <div class="advantage"><div class="adv-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>No Fixed Payments</strong> &mdash; Revenue-based repayment adapts to your business; no penalties during slow periods</p></div>
+        <div class="advantage"><div class="adv-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>No Collateral Required</strong> &mdash; Approved on cash flow performance, not personal or business assets</p></div>
+        <div class="advantage"><div class="adv-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>All Credit Profiles Welcome</strong> &mdash; A, B, C and D credit considered. Bank declined? We can help.</p></div>
+        <div class="advantage"><div class="adv-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>35 Years of Expertise</strong> &mdash; Technology-powered, but backed by decades of real financing experience</p></div>
+      </div>
+    </div>
+    <div class="bottom-right">
+      <div class="section-label">Basic Eligibility</div>
+      <h3 class="section-title" style="font-size:18px;margin-bottom:8px">Do You Qualify?</h3>
+      <div class="eligibility-list">
+        <div class="elig-item"><div class="elig-dot"></div>Canadian business operating for 6+ months</div>
+        <div class="elig-item"><div class="elig-dot"></div>Monthly revenue of $10,000 or more</div>
+        <div class="elig-item"><div class="elig-dot"></div>Active Canadian business bank account</div>
+        <div class="elig-item"><div class="elig-dot"></div>Valid Canadian business registration</div>
+        <div class="elig-item"><div class="elig-dot"></div>No minimum credit score required</div>
+      </div>
+      <div class="apply-box">
+        <div class="box-label">How to Apply</div>
+        <h4>Two Ways to Get Started</h4>
+        <div class="apply-options">
+          <div class="apply-option">
+            <div class="apply-option-title">Alliance Platform</div>
+            <p>Apply directly through our secure AI-powered portal. Simple 5-minute application, available 24/7. Our system instantly matches you with the best lender from our 70+ partner network.</p>
+            <a href="https://alliancefinancing.ai">alliancefinancing.ai &rarr;</a>
+          </div>
+          <div class="apply-option">
+            <div class="apply-option-title">Contact Your Alliance Advisor</div>
+            <p>Prefer a personal touch? Your dedicated Alliance advisor will manage the full process &mdash; from application through to funded &mdash; ensuring you get the most competitive terms available.</p>
+          </div>
+        </div>
+        <div class="network-badge">
+          <div class="network-badge-icon">
+            <svg viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/></svg>
+          </div>
+          <p>One application. <em>70+ vetted lending partners</em> across Canada and the U.S. Alliance's AI finds you the best rate &mdash; you don't have to.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <div class="footer-main">
+      <div>
+        <div class="footer-brand">Alliance Financing Group</div>
+        <div style="font-size:11px;color:#8a9bb0;">Headquartered in Toronto, Canada &nbsp;&bull;&nbsp; Canada &amp; U.S. &nbsp;&bull;&nbsp; Est. 1989 &nbsp;&bull;&nbsp; 35 Years of Expertise</div>
+      </div>
+      <div class="footer-contacts">
+        ${contactsHtml}
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2025 Alliance Financing Group Ltd. All rights reserved. Financing subject to credit approval. Terms and amounts vary by applicant and lender.</p>
+      <p>alliancefinancing.ai &nbsp;|&nbsp; alliancefinancing.com</p>
+    </div>
+  </div>
+</div>
+${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''}
+</body>
+</html>`;
+
+        const newWindow = window.open('', '_blank');
+        if (newWindow) {
+            newWindow.document.write(mcaHtml);
+            newWindow.document.close();
+        } else {
+            alert('Please allow popups for this site to view the MCA one-pager.');
+        }
     }
 
     // ============================================
