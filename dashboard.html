@@ -677,6 +677,7 @@
             <div class="nav-item" onclick="showPage('deals')">
                 <span class="nav-icon">📈</span>
                 <span>Deal Pipeline</span>
+                <span id="unreadNotesBadge" style="display:none;background:#dc3545;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:8px;"></span>
             </div>
             <div class="nav-item" onclick="showPage('agents')">
                 <span class="nav-icon">👥</span>
@@ -4121,6 +4122,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             allDeals = data || [];
             updateDealTabCounts();
             filterDeals();
+            updateUnreadBadge();
         } catch (error) {
             console.error('Load deals error:', error);
         }
@@ -4216,6 +4218,17 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             const company = deal.company_name || 'N/A';
             const amount = formatCurrency(deal.deal_amount || 0) + ' ' + (deal.currency || 'USD');
             const lenderName = deal.lenders?.name || '';
+
+            // Unread note indicator for agents
+            let unreadDot = '';
+            if (!isAdmin && currentUserId) {
+                try {
+                    let rowNotes = deal.notes ? JSON.parse(deal.notes) : [];
+                    rowNotes = normalizeNotes(rowNotes);
+                    const hasUnread = rowNotes.some(n => n.visible_to_agent && (!n.read_by || !n.read_by[currentUserId]));
+                    if (hasUnread) unreadDot = '<span style="display:inline-block;width:8px;height:8px;background:#dc3545;border-radius:50%;margin-left:6px;" title="Unread note from admin"></span>';
+                } catch(e) {}
+            }
             const isArchived = deal.is_archived;
 
             // Product column - read-only for agents
@@ -4255,7 +4268,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 <tr style="${isArchived ? 'opacity:0.6;' : ''}">
                     <td><strong>${afNumber}</strong></td>
                     <td style="font-size:12px;color:#6D28D9;font-weight:600;">${afgNumber ? afgNumber : '<span style="color:#ccc;font-weight:400;">—</span>'}</td>
-                    <td>${company}</td>
+                    <td>${company}${unreadDot}</td>
                     <td>${amount}</td>
                     <td>${productHtml}</td>
                     <td>${sourceHtml}</td>
@@ -4986,6 +4999,25 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 notes = deal.notes ? [{ text: deal.notes, author: 'System', date: 'Previously' }] : [];
             }
             notes = normalizeNotes(notes);
+
+            // Mark shared notes as read when agent opens the deal
+            if (isAgentView && currentUserId) {
+                let notesUpdated = false;
+                notes.forEach(n => {
+                    if (n.visible_to_agent && (!n.read_by || !n.read_by[currentUserId])) {
+                        if (!n.read_by) n.read_by = {};
+                        n.read_by[currentUserId] = new Date().toISOString();
+                        notesUpdated = true;
+                    }
+                });
+                if (notesUpdated) {
+                    await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+                    const cachedDeal = allDeals.find(d => d.id === dealId);
+                    if (cachedDeal) cachedDeal.notes = JSON.stringify(notes);
+                    updateUnreadBadge();
+                }
+            }
+
             const displayNotes = isAgentView ? notes.filter(n => n.visible_to_agent) : notes;
 
             // Build syndication entries HTML
@@ -5710,6 +5742,28 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             ...n,
             visible_to_agent: n.visible_to_agent !== undefined ? n.visible_to_agent : false
         }));
+    }
+
+    function countUnreadNotes(deals, userId) {
+        let unreadDealCount = 0;
+        (deals || []).forEach(deal => {
+            let notes = [];
+            try { notes = deal.notes ? JSON.parse(deal.notes) : []; } catch(e) { notes = []; }
+            notes = normalizeNotes(notes);
+            const hasUnread = notes.some(n => n.visible_to_agent && (!n.read_by || !n.read_by[userId]));
+            if (hasUnread) unreadDealCount++;
+        });
+        return unreadDealCount;
+    }
+
+    function updateUnreadBadge() {
+        if (['super_admin', 'admin'].includes(currentUserRole)) return;
+        const count = countUnreadNotes(allDeals, currentUserId);
+        const badge = document.getElementById('unreadNotesBadge');
+        if (badge) {
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'inline-block' : 'none';
+        }
     }
 
     async function addDealNote(dealId) {
