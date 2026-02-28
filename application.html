@@ -773,6 +773,85 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
             return params.get('ref') || null;
         }
 
+        // If visitor came from an agent page (?ref=), simplify nav & footer
+        (function() {
+            var ref = getReferralSlug();
+            if (!ref) return;
+
+            // Agent contact lookup
+            var agents = {
+                'paul-morrison': { name: 'Paul Morrison', email: 'pjmorrison@alliancefinancing.com', ext: '234' },
+                'lee-harrison': { name: 'Lee Harrison', email: 'lee@allianceglobaladvisors.com', ext: '222' },
+                'ted-ellis': { name: 'Ted Ellis', email: 'ted@alliancefinancing.com', ext: '230' }
+            };
+            var agent = agents[ref] || { name: 'Your Agent', email: 'info@alliancefinancing.ai', ext: '222' };
+            var firstName = agent.name.split(' ')[0];
+
+            // Simplify nav - remove external site links, keep only Track Application
+            var navLinks = document.querySelector('.nav-links');
+            if (navLinks) {
+                navLinks.innerHTML = '<a href="track-application.html?ref=' + ref + '">Track Application</a>';
+            }
+
+            // Simplify nav CTA - remove Partner Login and Contact Us, keep Apply Now with ref
+            var navCta = document.querySelector('.nav-cta');
+            if (navCta) {
+                navCta.innerHTML = '<a href="tel:+18776603660" class="btn-outline">Call ' + firstName + ': 1-877-660-3660 ext. ' + agent.ext + '</a>' +
+                    '<a href="application.html?ref=' + ref + '" class="btn-primary">Apply Now</a>';
+            }
+
+            // Update mobile button
+            var mobileBtn = document.querySelector('.mobile-menu-btn');
+            if (mobileBtn) {
+                mobileBtn.onclick = function() { window.location.href = 'application.html?ref=' + ref; };
+            }
+
+            // Simplify footer - replace Products/Company columns with agent-specific content
+            var footerLinks = document.querySelectorAll('.footer-links');
+            if (footerLinks.length >= 3) {
+                // Column 1: Apply Now with tracked links
+                footerLinks[0].innerHTML = '<h4>Apply Now</h4>' +
+                    '<a href="apply-leasing.html?ref=' + ref + '">Equipment Leasing</a>' +
+                    '<a href="apply-merchant-advance.html?ref=' + ref + '">Merchant Cash Advance</a>' +
+                    '<a href="apply-working-capital.html?ref=' + ref + '">Working Capital</a>' +
+                    '<a href="application.html?ref=' + ref + '">General Application</a>';
+
+                // Column 2: Agent contact
+                footerLinks[1].innerHTML = '<h4>Contact ' + firstName + '</h4>' +
+                    '<a href="mailto:' + agent.email + '">' + agent.email + '</a>' +
+                    '<a href="tel:+18776603660">1-877-660-3660 ext. ' + agent.ext + '</a>' +
+                    '<a href="track-application.html?ref=' + ref + '">Track Application</a>';
+
+                // Column 3: Legal (keep but clean up)
+                footerLinks[2].innerHTML = '<h4>Legal</h4>' +
+                    '<a href="privacy-policy.html">Privacy Policy</a>' +
+                    '<a href="terms-of-service.html">Terms of Service</a>' +
+                    '<a href="faq.html">FAQ</a>';
+            }
+
+            // Update floating contact widget with agent info
+            var contactPanel = document.getElementById('contactPanel');
+            if (contactPanel) {
+                var phoneLink = contactPanel.querySelector('a[href*="tel:"]');
+                if (phoneLink) {
+                    var phoneText = phoneLink.querySelector('div:last-child div:last-child');
+                    if (phoneText) phoneText.textContent = '1-877-660-3660 ext. ' + agent.ext;
+                    var phoneLabel = phoneLink.querySelector('div:last-child div:first-child');
+                    if (phoneLabel) phoneLabel.textContent = 'Call ' + firstName;
+                }
+                var emailLink = contactPanel.querySelector('a[href*="mailto:"]');
+                if (emailLink) {
+                    emailLink.href = 'mailto:' + agent.email;
+                    var emailText = emailLink.querySelector('div:last-child div:last-child');
+                    if (emailText) emailText.textContent = agent.email;
+                    var emailLabel = emailLink.querySelector('div:last-child div:first-child');
+                    if (emailLabel) emailLabel.textContent = 'Email ' + firstName;
+                }
+                var applyLink = contactPanel.querySelector('a[href="application.html"]');
+                if (applyLink) applyLink.href = 'application.html?ref=' + ref;
+            }
+        })();
+
         // Form submission
         document.getElementById('applicationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
