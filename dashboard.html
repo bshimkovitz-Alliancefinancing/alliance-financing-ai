@@ -7325,6 +7325,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
         // Pre-fill from deal or approval fields
         var approvalAmount = deal.approval_amount || deal.deal_amount || '';
         var approvalProduct = deal.product_type || '';
+        var isLeasing = approvalProduct === 'Equipment Leasing';
         var clientEmail = '';
         var clientName = deal.company_name || '';
         if (clientContacts && clientContacts.length > 0) {
@@ -7344,20 +7345,65 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 '<!-- Approval Details -->' +
                 '<div style="padding:12px;background:#fff;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:14px;">' +
                     '<div style="font-weight:600;font-size:13px;color:#065F46;margin-bottom:10px;">Approval Details</div>' +
+                    '<input type="hidden" id="approvalProd" value="' + approvalProduct + '">' +
                     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Product</label>' +
+                            '<div style="padding:6px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:13px;font-weight:600;color:var(--navy);">' + approvalProduct + '</div></div>' +
                         '<div><label style="font-size:11px;color:#64748B;display:block;">Amount</label>' +
                             '<input type="number" id="approvalAmt" value="' + approvalAmount + '" placeholder="0" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
-                        '<div><label style="font-size:11px;color:#64748B;display:block;">Product</label>' +
-                            '<input type="text" id="approvalProd" value="' + approvalProduct + '" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                    '</div>' +
+                    (isLeasing ? (
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Down Payment</label>' +
+                            '<input type="number" step="0.01" id="approvalDownpayment" placeholder="0.00" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Term</label>' +
+                            '<select id="approvalTerm" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;cursor:pointer;">' +
+                                '<option value="">Select Term</option>' +
+                                '<option value="12">12 months</option>' +
+                                '<option value="24">24 months</option>' +
+                                '<option value="36">36 months</option>' +
+                                '<option value="48">48 months</option>' +
+                                '<option value="60">60 months</option>' +
+                                '<option value="other">Other</option>' +
+                            '</select></div>' +
+                    '</div>' +
+                    '<div id="approvalTermOtherWrap" style="display:none;margin-top:8px;">' +
+                        '<label style="font-size:11px;color:#64748B;display:block;">Custom Term (months)</label>' +
+                        '<input type="number" id="approvalTermOther" placeholder="e.g. 72" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
+                    '</div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Advance Payments</label>' +
+                            '<select id="approvalAdvancePayments" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;cursor:pointer;">' +
+                                '<option value="">Select</option>' +
+                                '<option value="1st only">1st Only</option>' +
+                                '<option value="first and last">First and Last</option>' +
+                            '</select></div>' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Purchase Option</label>' +
+                            '<select id="approvalPurchaseOption" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;cursor:pointer;">' +
+                                '<option value="">Select</option>' +
+                                '<option value="$1.00">$1.00</option>' +
+                                '<option value="FMV">FMV</option>' +
+                                '<option value="other">Other</option>' +
+                            '</select></div>' +
+                    '</div>' +
+                    '<div id="approvalPurchaseOtherWrap" style="display:none;margin-top:8px;">' +
+                        '<label style="font-size:11px;color:#64748B;display:block;">Custom Purchase Option</label>' +
+                        '<input type="text" id="approvalPurchaseOther" placeholder="e.g. 10% FMV" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
+                    '</div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Monthly Payment</label>' +
+                            '<input type="number" step="0.01" id="approvalPayment" placeholder="0.00" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                    '</div>'
+                    ) : (
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
                         '<div><label style="font-size:11px;color:#64748B;display:block;">Rate (%)</label>' +
                             '<input type="number" step="0.01" id="approvalRate" placeholder="0.00" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
                         '<div><label style="font-size:11px;color:#64748B;display:block;">Term (months)</label>' +
                             '<input type="number" id="approvalTerm" placeholder="0" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
                         '<div><label style="font-size:11px;color:#64748B;display:block;">Monthly Payment</label>' +
                             '<input type="number" step="0.01" id="approvalPayment" placeholder="0.00" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
-                        '<div><label style="font-size:11px;color:#64748B;display:block;">Lender (optional)</label>' +
-                            '<input type="text" id="approvalLender" placeholder="Lender name" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
-                    '</div>' +
+                    '</div>'
+                    )) +
                     '<div style="margin-top:8px;"><label style="font-size:11px;color:#64748B;display:block;">Conditions (optional)</label>' +
                         '<textarea id="approvalConditions" placeholder="Any conditions or special notes..." style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:50px;resize:vertical;font-family:inherit;"></textarea></div>' +
                 '</div>' +
@@ -7389,6 +7435,10 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 '</div>' +
 
                 '<button id="sendApprovalBtn" onclick="sendApprovalNotice(\'' + dealId + '\')" style="padding:8px 20px;background:#10B981;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s;">✅ Generate Approval Notice & Email</button>' +
+                (isLeasing ? '<script>' +
+                    'document.getElementById("approvalTerm").addEventListener("change",function(){document.getElementById("approvalTermOtherWrap").style.display=this.value==="other"?"block":"none";});' +
+                    'document.getElementById("approvalPurchaseOption").addEventListener("change",function(){document.getElementById("approvalPurchaseOtherWrap").style.display=this.value==="other"?"block":"none";});' +
+                '</script>' : '') +
             '</div>' +
         '</div>';
     }
@@ -7396,11 +7446,35 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
     async function sendApprovalNotice(dealId) {
         var amt = parseFloat(document.getElementById('approvalAmt').value) || 0;
         var product = document.getElementById('approvalProd').value.trim();
-        var rate = parseFloat(document.getElementById('approvalRate').value) || null;
-        var term = parseInt(document.getElementById('approvalTerm').value) || null;
-        var payment = parseFloat(document.getElementById('approvalPayment').value) || null;
-        var lender = document.getElementById('approvalLender').value.trim();
-        var conditions = document.getElementById('approvalConditions').value.trim();
+        var isLeasing = product === 'Equipment Leasing';
+
+        // Collect fields based on product type
+        var rate = null, term = null, payment = null, lender = '', conditions = '';
+        var downpayment = null, advancePayments = '', purchaseOption = '';
+
+        if (isLeasing) {
+            downpayment = parseFloat((document.getElementById('approvalDownpayment') || {}).value) || null;
+            var termEl = document.getElementById('approvalTerm');
+            term = termEl ? termEl.value : null;
+            if (term === 'other') {
+                term = (document.getElementById('approvalTermOther') || {}).value || null;
+            }
+            term = term ? parseInt(term) : null;
+            advancePayments = (document.getElementById('approvalAdvancePayments') || {}).value || '';
+            purchaseOption = (document.getElementById('approvalPurchaseOption') || {}).value || '';
+            if (purchaseOption === 'other') {
+                purchaseOption = (document.getElementById('approvalPurchaseOther') || {}).value || 'Other';
+            }
+        } else {
+            rate = parseFloat((document.getElementById('approvalRate') || {}).value) || null;
+            term = parseInt((document.getElementById('approvalTerm') || {}).value) || null;
+        }
+
+        payment = parseFloat((document.getElementById('approvalPayment') || {}).value) || null;
+        lender = '';
+        conditions = (document.getElementById('approvalConditions') || {}).value || '';
+        conditions = conditions.trim();
+
         var clientName = document.getElementById('approvalClientName').value.trim();
         var clientEmail = document.getElementById('approvalClientEmail').value.trim();
         var message = document.getElementById('approvalMsg').value.trim();
@@ -7428,9 +7502,15 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 rate: rate,
                 term: term,
                 monthly_payment: payment,
-                lender: lender,
                 conditions: conditions
             };
+
+            // Leasing-specific fields
+            if (isLeasing) {
+                approvalDetails.downpayment = downpayment;
+                approvalDetails.advance_payments = advancePayments;
+                approvalDetails.purchase_option = purchaseOption;
+            }
 
             // Insert into approval_notices
             var { error: insertErr } = await db.from('approval_notices').insert([{
@@ -7483,10 +7563,12 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 'APPROVAL SUMMARY\n' +
                 'Amount: ' + formatCurrency(amt) + '\n' +
                 'Product: ' + product + '\n' +
-                (rate ? 'Rate: ' + rate + '%\n' : '') +
+                (isLeasing && downpayment ? 'Down Payment: ' + formatCurrency(downpayment) + '\n' : '') +
+                (isLeasing && advancePayments ? 'Advance Payments: ' + advancePayments + '\n' : '') +
+                (isLeasing && purchaseOption ? 'Purchase Option: ' + purchaseOption + '\n' : '') +
+                (!isLeasing && rate ? 'Rate: ' + rate + '%\n' : '') +
                 (term ? 'Term: ' + term + ' months\n' : '') +
                 (payment ? 'Monthly Payment: ' + formatCurrency(payment) + '\n' : '') +
-                (lender ? 'Lender: ' + lender + '\n' : '') +
                 '\nTo view your approval details and accept, please visit:\n' + approvalUrl + '\n\n' +
                 (message ? message + '\n\n' : '') +
                 'Best regards,\nAlliance Financing Group\n1-877-660-3660\ninfo@alliancefinancing.ai';
