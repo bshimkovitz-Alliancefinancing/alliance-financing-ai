@@ -3301,13 +3301,248 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 if (prodError) console.warn('Product insert warning:', prodError);
             }
 
-            alert('Application created successfully! ID: ' + (appRecord.application_id || appRecord.id));
-            closeAddApplicationModal();
-            loadDashboard();
+            // Transition to Step 2: Document Upload
+            showApplicationUploadStep(appRecord);
         } catch (err) {
             console.error('Error creating application:', err);
             alert('Error creating application: ' + (err.message || 'Unknown error'));
         }
+    }
+
+    var pendingAppUploads = [];
+
+    function showApplicationUploadStep(appRecord) {
+        var appId = appRecord.id;
+        var appDisplayId = appRecord.application_id || appRecord.id;
+        pendingAppUploads = [];
+
+        var modalContent = document.querySelector('#addApplicationModal .modal-content');
+        if (!modalContent) return;
+
+        modalContent.innerHTML =
+            '<div class="modal-header">' +
+                '<h2>Application ' + appDisplayId + ' Created</h2>' +
+                '<button class="modal-close" onclick="finishApplicationUpload()">&times;</button>' +
+            '</div>' +
+            '<div class="modal-body" style="padding:20px;">' +
+                '<div style="padding:12px 16px;background:#D1FAE5;border:1px solid #6EE7B7;border-radius:8px;margin-bottom:20px;display:flex;align-items:center;gap:10px;">' +
+                    '<span style="font-size:20px;">✓</span>' +
+                    '<div style="color:#065F46;font-weight:600;">Application submitted successfully!</div>' +
+                '</div>' +
+                '<div style="margin-bottom:16px;">' +
+                    '<h3 style="color:var(--navy);font-size:16px;margin:0 0 8px 0;">Upload Supporting Documents</h3>' +
+                    '<p style="color:#64748b;font-size:13px;margin:0;line-height:1.5;">If you have backup documents ready — credit applications, financial statements, bank statements — upload them now. You can also add documents later from the deal view.</p>' +
+                '</div>' +
+                '<div style="margin-bottom:16px;padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;">' +
+                    '<div style="font-weight:600;font-size:12px;color:var(--navy);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Recommended Documents</div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;color:#475569;">' +
+                        '<div>○ Completed Credit Application</div>' +
+                        '<div>○ Bank Statements (3-6 months)</div>' +
+                        '<div>○ Financial Statements</div>' +
+                        '<div>○ Equipment Quote / Invoice</div>' +
+                        '<div>○ Tax Returns</div>' +
+                        '<div>○ Photo ID</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="margin-bottom:12px;">' +
+                    '<div style="display:flex;gap:10px;margin-bottom:10px;">' +
+                        '<select id="appDocTypeSelect" style="flex:1;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
+                            '<option value="credit_application">Completed Credit Application</option>' +
+                            '<option value="bank_statement">Bank Statement</option>' +
+                            '<option value="financial_statements">Financial Statements</option>' +
+                            '<option value="equipment_quote">Equipment Quote / Invoice</option>' +
+                            '<option value="tax_return">Tax Return</option>' +
+                            '<option value="photo_id">Photo ID</option>' +
+                            '<option value="void_cheque">Void Cheque</option>' +
+                            '<option value="processing_statement">Processing Statement</option>' +
+                            '<option value="supporting_document">Supporting Document</option>' +
+                            '<option value="other">Other</option>' +
+                        '</select>' +
+                        '<label style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--gold);color:#fff;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;">' +
+                            '<input type="file" id="appDocFileInput" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv" multiple style="display:none;" onchange="handleAppDocFiles(this.files, \'' + appId + '\')">' +
+                            '+ Choose Files' +
+                        '</label>' +
+                    '</div>' +
+                '</div>' +
+                '<div id="appDocUploadList" style="margin-bottom:12px;"></div>' +
+                '<div id="appDocUploadStatus" style="display:none;padding:10px;background:#FEF3C7;border-radius:6px;margin-bottom:12px;font-size:13px;color:#92400E;"></div>' +
+            '</div>' +
+            '<div class="modal-footer" style="padding:15px 20px;border-top:1px solid var(--border-gray);display:flex;justify-content:space-between;align-items:center;">' +
+                '<span style="font-size:12px;color:#9CA3AF;">You can always add more documents later</span>' +
+                '<div style="display:flex;gap:10px;">' +
+                    '<button class="btn btn-secondary" onclick="finishApplicationUpload()">Skip for Now</button>' +
+                    '<button class="btn btn-primary" id="appDocUploadAllBtn" onclick="uploadAllAppDocs(\'' + appId + '\')" style="display:none;">Upload All & Continue</button>' +
+                '</div>' +
+            '</div>';
+    }
+
+    function handleAppDocFiles(files, appId) {
+        var docType = document.getElementById('appDocTypeSelect').value;
+        var docTypeLabels = {
+            credit_application: 'Credit Application', bank_statement: 'Bank Statement',
+            financial_statements: 'Financial Statements', equipment_quote: 'Equipment Quote',
+            tax_return: 'Tax Return', photo_id: 'Photo ID', void_cheque: 'Void Cheque',
+            processing_statement: 'Processing Statement', supporting_document: 'Supporting Document', other: 'Other'
+        };
+
+        for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            if (file.size > 10 * 1024 * 1024) {
+                alert(file.name + ' exceeds 10MB limit and was skipped.');
+                continue;
+            }
+            pendingAppUploads.push({ file: file, docType: docType, typeLabel: docTypeLabels[docType] || docType });
+        }
+
+        // Reset file input
+        document.getElementById('appDocFileInput').value = '';
+
+        // Render list
+        renderAppDocList();
+    }
+
+    function renderAppDocList() {
+        var listEl = document.getElementById('appDocUploadList');
+        var uploadBtn = document.getElementById('appDocUploadAllBtn');
+
+        if (pendingAppUploads.length === 0) {
+            listEl.innerHTML = '';
+            if (uploadBtn) uploadBtn.style.display = 'none';
+            return;
+        }
+
+        if (uploadBtn) uploadBtn.style.display = 'inline-block';
+
+        listEl.innerHTML = pendingAppUploads.map(function(item, idx) {
+            var sizeMB = (item.file.size / 1024 / 1024).toFixed(2);
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:6px;">' +
+                '<div style="flex:1;">' +
+                    '<div style="font-weight:600;font-size:13px;color:var(--navy);">' + item.file.name + '</div>' +
+                    '<div style="font-size:11px;color:#64748b;">' +
+                        '<span style="background:#EFF6FF;color:#3B82F6;padding:1px 6px;border-radius:8px;font-weight:600;margin-right:6px;">' + item.typeLabel + '</span>' +
+                        sizeMB + ' MB' +
+                    '</div>' +
+                '</div>' +
+                '<button onclick="removeAppDoc(' + idx + ')" style="padding:4px 10px;background:#FEE2E2;color:#DC2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Remove</button>' +
+            '</div>';
+        }).join('');
+    }
+
+    function removeAppDoc(idx) {
+        pendingAppUploads.splice(idx, 1);
+        renderAppDocList();
+    }
+
+    async function uploadAllAppDocs(appId) {
+        if (pendingAppUploads.length === 0) { finishApplicationUpload(); return; }
+
+        var btn = document.getElementById('appDocUploadAllBtn');
+        var statusEl = document.getElementById('appDocUploadStatus');
+        if (btn) { btn.disabled = true; btn.textContent = 'Uploading...'; }
+        statusEl.style.display = 'block';
+
+        var uploaded = 0;
+        var total = pendingAppUploads.length;
+
+        for (var i = 0; i < pendingAppUploads.length; i++) {
+            var item = pendingAppUploads[i];
+            statusEl.textContent = 'Uploading ' + (i + 1) + ' of ' + total + ': ' + item.file.name + '...';
+
+            try {
+                var filePath = 'applications/' + appId + '/' + Date.now() + '-' + item.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                await uploadToStorage('deal-documents', filePath, item.file);
+
+                var docRecord = {
+                    file_name: item.file.name,
+                    file_path: filePath,
+                    file_type: item.file.type,
+                    file_size_bytes: item.file.size,
+                    document_type: item.docType,
+                    application_id: appId,
+                    uploaded_by: currentUserId,
+                    uploaded_by_name: currentUserName || document.getElementById('userEmailDisplay').textContent || 'Unknown',
+                    visible_to_agent: true
+                };
+
+                var { error: docError } = await db.from('documents').insert([docRecord]);
+                if (docError) console.warn('Doc insert warning:', docError);
+
+                uploaded++;
+            } catch (err) {
+                console.error('Upload error for ' + item.file.name + ':', err);
+                statusEl.textContent = 'Error uploading ' + item.file.name + ': ' + (err.message || 'Unknown error');
+            }
+        }
+
+        statusEl.style.display = 'block';
+        statusEl.style.background = '#D1FAE5';
+        statusEl.style.color = '#065F46';
+        statusEl.textContent = '✓ ' + uploaded + ' of ' + total + ' document' + (total !== 1 ? 's' : '') + ' uploaded successfully!';
+
+        pendingAppUploads = [];
+
+        setTimeout(function() {
+            finishApplicationUpload();
+        }, 1500);
+    }
+
+    function finishApplicationUpload() {
+        // Restore original modal content
+        var modal = document.getElementById('addApplicationModal');
+        modal.style.display = 'none';
+        pendingAppUploads = [];
+
+        // Rebuild the original form HTML
+        var modalContent = modal.querySelector('.modal-content');
+        modalContent.innerHTML =
+            '<div class="modal-header">' +
+                '<h2>New Application</h2>' +
+                '<button class="modal-close" onclick="closeAddApplicationModal()">&times;</button>' +
+            '</div>' +
+            '<form id="addApplicationForm" onsubmit="handleAddApplication(event)">' +
+                '<div class="modal-row">' +
+                    '<div class="modal-field"><label>Full Name <span style="color: var(--danger);">*</span></label><input type="text" id="appFullName" required></div>' +
+                    '<div class="modal-field"><label>Email <span style="color: var(--danger);">*</span></label><input type="email" id="appEmail" required></div>' +
+                '</div>' +
+                '<div class="modal-row">' +
+                    '<div class="modal-field"><label>Phone <span style="color: var(--danger);">*</span></label><input type="text" id="appPhone" required></div>' +
+                    '<div class="modal-field"><label>Business Name <span style="color: var(--danger);">*</span></label><input type="text" id="appBusinessName" required></div>' +
+                '</div>' +
+                '<div class="modal-row">' +
+                    '<div class="modal-field"><label>Time in Business <span style="color: var(--danger);">*</span></label>' +
+                        '<select id="appTimeInBusiness" required><option value="">Select</option><option value="Less than 1 Year">Less than 1 Year</option><option value="1 - 2 years">1 - 2 years</option><option value="2 - 5 years">2 - 5 years</option><option value="5 - 10 years">5 - 10 years</option><option value="Over 10 years">Over 10 years</option></select></div>' +
+                    '<div class="modal-field"><label>Annual Revenue <span style="color: var(--danger);">*</span></label>' +
+                        '<select id="appAnnualRevenue" required><option value="">Select</option><option value="Under $500k">Under $500k</option><option value="$500k - $1m">$500k - $1m</option><option value="$1m - $5M">$1m - $5M</option><option value="$5M - $10M">$5M - $10M</option><option value="$10M - $25M">$10M - $25M</option><option value="Over $25m">Over $25m</option></select></div>' +
+                '</div>' +
+                '<div class="modal-row">' +
+                    '<div class="modal-field"><label>Funding Amount <span style="color: var(--danger);">*</span></label><input type="text" id="appFundingAmount" required placeholder="e.g., $50,000"></div>' +
+                '</div>' +
+                '<div style="margin-bottom: 15px;">' +
+                    '<label style="display: block; margin-bottom: 8px;">Financing Type(s) <span style="color: var(--danger);">*</span></label>' +
+                    '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="Equipment Leasing"> Equipment Leasing</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="MCA"> MCA</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="CSBFL"> CSBFL</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="SRED"> SRED</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="Private Debt"> Private Debt</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="Factoring"> Factoring</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="Merchant Advance"> Merchant Advance</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="Commercial Mortgage"> Commercial Mortgage</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="SBA"> SBA</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="Loans"> Loans</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="Trade Finance"> Trade Finance</label>' +
+                        '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal;"><input type="checkbox" name="app_financing_type" value="Working Capital Loan"> Working Capital</label>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="margin-bottom: 15px;"><label style="display: block; margin-bottom: 8px;">Description</label>' +
+                    '<textarea id="appDescription" style="width: 100%; min-height: 80px; resize: vertical; padding: 8px; border: 1px solid #D1D5DB; border-radius: 4px;"></textarea></div>' +
+                '<div class="modal-footer">' +
+                    '<button type="button" class="btn btn-secondary" onclick="closeAddApplicationModal()">Cancel</button>' +
+                    '<button type="submit" class="btn btn-primary">Submit Application</button>' +
+                '</div>' +
+            '</form>';
+
+        loadDashboard();
     }
 
     // ============================================
