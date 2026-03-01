@@ -2318,17 +2318,26 @@
                     <option value="credit_report">Credit Report</option>
                     <option value="equipment_quote">Equipment Quote / Invoice</option>
                     <option value="ap_ar_aging">AP / AR Aging Report</option>
+                    <option value="credit_application">Completed Credit Application</option>
+                    <option value="supporting_document">Supporting Document</option>
                     <option value="other">Other</option>
                 </select>
             </div>
             <div class="modal-field" style="margin-bottom: 15px;">
                 <label>File <span style="color: var(--danger);">*</span></label>
-                <input type="file" id="docFileInput" accept=".pdf,.png,.jpg,.jpeg" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
-                <small style="color: var(--text-light); font-size: 12px; margin-top: 5px; display: block;">PDF, PNG, JPG — max 10MB</small>
+                <input type="file" id="docFileInput" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
+                <small style="color: var(--text-light); font-size: 12px; margin-top: 5px; display: block;">PDF, PNG, JPG, Word, Excel — max 10MB</small>
             </div>
             <div class="modal-field" style="margin-bottom: 15px;">
                 <label>Notes (optional)</label>
                 <textarea id="docNotesInput" rows="3" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px; resize: vertical;"></textarea>
+            </div>
+            <div id="docVisibilityField" class="modal-field" style="margin-bottom: 15px; display: none;">
+                <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;">
+                    <input type="checkbox" id="docVisibleToAgent" style="cursor:pointer;width:16px;height:16px;">
+                    <label for="docVisibleToAgent" style="margin:0;font-weight:500;cursor:pointer;font-size:13px;color:var(--navy);">Visible to Agent</label>
+                    <span style="font-size:11px;color:#92400E;margin-left:auto;">Uncheck to keep internal only</span>
+                </div>
             </div>
             <div id="docUploadProgress" style="display: none; margin-bottom: 15px;">
                 <div style="width: 100%; height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden;">
@@ -5495,6 +5504,9 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
 
                 <!-- Section 9: Documents -->
                 ${buildDocumentsHtml(dealDocuments || [], dealId, null)}
+
+                <!-- Section 10: Send to Credit (Agent view) -->
+                ${buildSendToCreditHtml(deal, dealDocuments || [], dealId, isAgentView)}
             `;
 
             // Archive/Restore button in modal footer
@@ -6580,7 +6592,6 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
     var currentDocUploadApplicationId = null;
 
     function showDocumentUploadModal(dealId, applicationId) {
-        if (!['super_admin', 'admin'].includes(currentUserRole)) { alert('Document management is restricted to administrators.'); return; }
         currentDocUploadDealId = dealId;
         currentDocUploadApplicationId = applicationId;
         document.getElementById('docTypeSelect').value = '';
@@ -6588,6 +6599,16 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
         document.getElementById('docNotesInput').value = '';
         document.getElementById('docUploadProgress').style.display = 'none';
         document.getElementById('docUploadBtn').disabled = false;
+        // Visibility toggle — admin sees it (defaults checked), agents don't see it (always visible_to_agent)
+        var visField = document.getElementById('docVisibilityField');
+        var visCheck = document.getElementById('docVisibleToAgent');
+        if (['super_admin', 'admin'].includes(currentUserRole)) {
+            visField.style.display = 'block';
+            visCheck.checked = false; // Default: internal/admin-only
+        } else {
+            visField.style.display = 'none';
+            visCheck.checked = true; // Agent uploads are always visible to agent
+        }
         document.getElementById('docUploadBtn').textContent = 'Upload Document';
         document.getElementById('documentUploadModal').classList.add('active');
     }
@@ -6641,6 +6662,10 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
 
             document.getElementById('docUploadProgressBar').style.width = '70%';
 
+            var isAgent = !['super_admin', 'admin'].includes(currentUserRole);
+            var visCheck = document.getElementById('docVisibleToAgent');
+            var visibleToAgent = isAgent ? true : (visCheck ? visCheck.checked : false);
+
             var docRecord = {
                 file_name: file.name,
                 file_path: filePath,
@@ -6649,7 +6674,8 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 document_type: docType,
                 notes: notes || null,
                 uploaded_by: currentUserId,
-                uploaded_by_name: currentUserName || 'Admin'
+                uploaded_by_name: currentUserName || document.getElementById('userEmailDisplay').textContent || 'Unknown',
+                visible_to_agent: visibleToAgent
             };
             if (currentDocUploadDealId) docRecord.deal_id = currentDocUploadDealId;
             if (currentDocUploadApplicationId) docRecord.application_id = currentDocUploadApplicationId;
@@ -6708,41 +6734,83 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
         }
     }
 
+    async function toggleDocVisibility(docId, makeVisible, parentDealId, parentAppId) {
+        try {
+            var { error } = await db.from('documents').update({ visible_to_agent: makeVisible }).eq('id', docId);
+            if (error) throw error;
+            if (parentDealId) viewDeal(parentDealId);
+            else if (parentAppId) viewApplication(parentAppId);
+        } catch (error) {
+            console.error('Toggle visibility error:', error);
+            alert('Error updating document visibility: ' + (error.message || 'Unknown error'));
+        }
+    }
+
     function buildDocumentsHtml(documents, parentDealId, parentAppId) {
-        // Compliance: Only super_admin and admin can see sensitive documents
-        if (!['super_admin', 'admin'].includes(currentUserRole)) return '';
+        var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
         var docTypeLabels = {
             bank_statement: 'Bank Statement', processing_statement: 'Processing Statement',
             photo_id: 'Photo ID', void_cheque: 'Void Cheque', business_license: 'Business License',
             tax_return: 'Tax Return', financial_statements: 'Financial Statements',
             credit_report: 'Credit Report', equipment_quote: 'Equipment Quote / Invoice',
-            ap_ar_aging: 'AP / AR Aging Report', supporting_document: 'Supporting Document', other: 'Other'
+            ap_ar_aging: 'AP / AR Aging Report', supporting_document: 'Supporting Document',
+            credit_application: 'Completed Credit Application', other: 'Other'
         };
 
-        var addBtnHtml = ['super_admin', 'admin'].includes(currentUserRole)
-            ? '<button class="btn btn-secondary btn-sm" onclick="showDocumentUploadModal(' +
+        // Filter documents: agents only see docs marked visible_to_agent OR docs they uploaded
+        var visibleDocs = documents || [];
+        if (!isAdmin) {
+            visibleDocs = visibleDocs.filter(function(doc) {
+                return doc.visible_to_agent === true || doc.uploaded_by === currentUserId;
+            });
+        }
+
+        var addBtnHtml = '<button class="btn btn-secondary btn-sm" onclick="showDocumentUploadModal(' +
               (parentDealId ? "'" + parentDealId + "'" : 'null') + ', ' +
               (parentAppId ? "'" + parentAppId + "'" : 'null') +
-              ')" style="padding: 4px 12px; font-size: 12px;">+ Add Document</button>'
-            : '';
+              ')" style="padding: 4px 12px; font-size: 12px;">+ Add Document</button>';
 
         var docsRows = '';
-        if (documents && documents.length > 0) {
-            docsRows = documents.map(function(doc) {
+        if (visibleDocs.length > 0) {
+            docsRows = visibleDocs.map(function(doc) {
                 var typeLabel = docTypeLabels[doc.document_type] || doc.document_type || 'Other';
                 var sizeMB = doc.file_size_bytes ? (doc.file_size_bytes / 1024 / 1024).toFixed(2) + ' MB' : '';
                 var uploaded = doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : '';
                 var uploader = doc.uploaded_by_name || 'Unknown';
-                var deleteBtn = ['super_admin', 'admin'].includes(currentUserRole)
+
+                // Admin: visibility badge + toggle button
+                var visBadge = '';
+                var visToggle = '';
+                if (isAdmin) {
+                    if (doc.visible_to_agent) {
+                        visBadge = '<span style="background:var(--gold);color:#fff;padding:1px 6px;border-radius:8px;font-weight:600;font-size:10px;margin-left:6px;">Agent Visible</span>';
+                        visToggle = '<button onclick="toggleDocVisibility(\'' + doc.id + '\', false, ' +
+                            (parentDealId ? "'" + parentDealId + "'" : 'null') + ', ' +
+                            (parentAppId ? "'" + parentAppId + "'" : 'null') +
+                            ')" style="padding:4px 8px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;border-radius:4px;cursor:pointer;font-size:10px;" title="Hide from agent">Hide</button>';
+                    } else {
+                        visBadge = '<span style="background:#E5E7EB;color:#374151;padding:1px 6px;border-radius:8px;font-weight:600;font-size:10px;margin-left:6px;">Internal</span>';
+                        visToggle = '<button onclick="toggleDocVisibility(\'' + doc.id + '\', true, ' +
+                            (parentDealId ? "'" + parentDealId + "'" : 'null') + ', ' +
+                            (parentAppId ? "'" + parentAppId + "'" : 'null') +
+                            ')" style="padding:4px 8px;background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;border-radius:4px;cursor:pointer;font-size:10px;" title="Share with agent">Share</button>';
+                    }
+                }
+
+                var deleteBtn = isAdmin
                     ? '<button onclick="deleteDocument(\'' + doc.id + '\', \'' + doc.file_path + '\', ' +
                       (parentDealId ? "'" + parentDealId + "'" : 'null') + ', ' +
                       (parentAppId ? "'" + parentAppId + "'" : 'null') +
                       ')" style="padding:4px 10px;background:#FEE2E2;color:#DC2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Delete</button>'
                     : '';
-                return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:8px;">' +
+
+                var bgColor = isAdmin && !doc.visible_to_agent ? '#F9FAFB' : '#F8FAFC';
+                var borderColor = isAdmin && !doc.visible_to_agent ? '#E5E7EB' : '#E2E8F0';
+
+                return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:6px;margin-bottom:8px;">' +
                     '<div style="flex:1">' +
-                    '<div style="font-weight:600;font-size:13px;color:var(--navy);">' + doc.file_name + '</div>' +
+                    '<div style="font-weight:600;font-size:13px;color:var(--navy);">' + doc.file_name + visBadge + '</div>' +
                     '<div style="font-size:11px;color:#64748b;margin-top:3px;">' +
                     '<span style="background:#EFF6FF;color:#3B82F6;padding:1px 6px;border-radius:8px;font-weight:600;margin-right:6px;">' + typeLabel + '</span>' +
                     sizeMB + (uploaded ? ' • ' + uploaded : '') + ' • by ' + uploader +
@@ -6750,18 +6818,186 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                     '</div></div>' +
                     '<div style="display:flex;gap:6px;margin-left:10px;flex-shrink:0;">' +
                     '<button onclick="downloadDocument(\'' + doc.file_path + '\', \'' + doc.file_name + '\')" style="padding:4px 10px;background:#3B82F6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Download</button>' +
-                    deleteBtn +
+                    visToggle + deleteBtn +
                     '</div></div>';
             }).join('');
         } else {
             docsRows = '<p style="color:#999;font-size:13px;">No documents attached yet.</p>';
         }
 
+        var countLabel = isAdmin ? (documents ? documents.length : 0) : visibleDocs.length;
         return '<div style="margin-top:20px;border-top:2px solid var(--border-gray);padding-top:15px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-            '<label style="font-size:15px;font-weight:600;color:var(--navy);">Documents (' + (documents ? documents.length : 0) + ')</label>' +
+            '<label style="font-size:15px;font-weight:600;color:var(--navy);">Documents (' + countLabel + ')</label>' +
             addBtnHtml +
             '</div>' + docsRows + '</div>';
+    }
+
+    // ============================================
+    // Send to Credit
+    // ============================================
+
+    function buildSendToCreditHtml(deal, documents, dealId, isAgentView) {
+        var creditSubmission = null;
+        try { creditSubmission = deal.credit_submission ? JSON.parse(deal.credit_submission) : null; } catch(e) { creditSubmission = null; }
+
+        // If already submitted — show status banner for both agent and admin
+        if (creditSubmission && creditSubmission.submitted_at) {
+            var subDate = new Date(creditSubmission.submitted_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var docCount = creditSubmission.document_count || 0;
+            var submitter = creditSubmission.submitted_by_name || 'Agent';
+
+            var statusBadge = '';
+            if (deal.status === 'In Credit') {
+                statusBadge = '<span style="background:#FEF3C7;color:#B45309;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">Under Review</span>';
+            } else if (deal.status === 'Approved' || deal.status === 'Approval sent') {
+                statusBadge = '<span style="background:#D1FAE5;color:#065F46;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">Approved</span>';
+            } else if (deal.status === 'Declined') {
+                statusBadge = '<span style="background:#FEE2E2;color:#991B1B;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">Declined</span>';
+            } else {
+                statusBadge = '<span style="background:#E0E7FF;color:#3730A3;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">' + (deal.status || 'Processing') + '</span>';
+            }
+
+            var adminActions = '';
+            if (!isAgentView && deal.status === 'In Credit') {
+                adminActions = '<div style="margin-top:12px;display:flex;gap:8px;">' +
+                    '<button onclick="updateDealField(\'' + dealId + '\', \'status\', \'Approved\');setTimeout(function(){viewDeal(\'' + dealId + '\')},500);" style="padding:6px 16px;background:#10B981;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">✓ Approve</button>' +
+                    '<button onclick="updateDealField(\'' + dealId + '\', \'status\', \'Declined\');setTimeout(function(){viewDeal(\'' + dealId + '\')},500);" style="padding:6px 16px;background:#EF4444;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">✕ Decline</button>' +
+                    '</div>';
+            }
+
+            return '<div style="margin-top:20px;border-top:2px solid var(--border-gray);padding-top:15px;">' +
+                '<div style="padding:16px;background:linear-gradient(135deg,#F0F9FF,#E0F2FE);border:1px solid #BAE6FD;border-radius:8px;border-left:4px solid #0EA5E9;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+                '<div style="font-weight:700;font-size:15px;color:#0C4A6E;">📋 Submitted to Credit</div>' +
+                statusBadge +
+                '</div>' +
+                '<div style="font-size:13px;color:#475569;line-height:1.6;">' +
+                '<div>Submitted by <strong>' + submitter + '</strong> on ' + subDate + '</div>' +
+                '<div>' + docCount + ' document' + (docCount !== 1 ? 's' : '') + ' included with submission</div>' +
+                (creditSubmission.agent_notes ? '<div style="margin-top:6px;padding:8px 10px;background:rgba(255,255,255,0.7);border-radius:4px;font-style:italic;">"' + creditSubmission.agent_notes + '"</div>' : '') +
+                '</div>' +
+                adminActions +
+                '</div></div>';
+        }
+
+        // If agent view and not yet submitted — show the Send to Credit section
+        if (isAgentView) {
+            // Only count docs the agent can see (their uploads + shared docs)
+            var agentDocs = (documents || []).filter(function(doc) {
+                return doc.visible_to_agent === true || doc.uploaded_by === currentUserId;
+            });
+            var docCount = agentDocs.length;
+
+            var requiredDocs = ['Bank Statement', 'Financial Statements', 'Completed Credit Application'];
+            var uploadedTypes = agentDocs.map(function(d) {
+                var labels = {
+                    bank_statement: 'Bank Statement', financial_statements: 'Financial Statements',
+                    credit_application: 'Completed Credit Application', tax_return: 'Tax Return',
+                    equipment_quote: 'Equipment Quote / Invoice', processing_statement: 'Processing Statement',
+                    photo_id: 'Photo ID', void_cheque: 'Void Cheque', credit_report: 'Credit Report',
+                    ap_ar_aging: 'AP / AR Aging Report', supporting_document: 'Supporting Document', other: 'Other'
+                };
+                return labels[d.document_type] || d.document_type || '';
+            });
+
+            var checklist = requiredDocs.map(function(req) {
+                var found = uploadedTypes.some(function(t) { return t === req; });
+                return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">' +
+                    (found
+                        ? '<span style="color:#10B981;font-size:16px;">✓</span><span style="color:#065F46;font-weight:500;">' + req + '</span>'
+                        : '<span style="color:#D1D5DB;font-size:16px;">○</span><span style="color:#9CA3AF;">' + req + '</span>') +
+                    '</div>';
+            }).join('');
+
+            var canSend = docCount >= 1;
+            var btnStyle = canSend
+                ? 'padding:10px 24px;background:linear-gradient(135deg,#0D1E3D,#1a3a6b);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;transition:all 0.2s;box-shadow:0 2px 8px rgba(13,30,61,0.3);'
+                : 'padding:10px 24px;background:#E5E7EB;color:#9CA3AF;border:none;border-radius:6px;cursor:not-allowed;font-weight:700;font-size:14px;';
+
+            return '<div style="margin-top:20px;border-top:2px solid var(--border-gray);padding-top:15px;">' +
+                '<div style="padding:20px;background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border:1px solid #FCD34D;border-radius:8px;border-left:4px solid var(--gold);">' +
+                '<div style="font-weight:700;font-size:15px;color:var(--navy);margin-bottom:12px;">📤 Send to Credit</div>' +
+                '<div style="font-size:13px;color:#475569;margin-bottom:14px;">When your documents are ready, send this deal package to our credit team for review. Upload your backup documents above first.</div>' +
+                '<div style="margin-bottom:14px;padding:12px;background:rgba(255,255,255,0.7);border-radius:6px;">' +
+                '<div style="font-weight:600;font-size:12px;color:var(--navy);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Document Checklist</div>' +
+                checklist +
+                '<div style="margin-top:6px;font-size:11px;color:#9CA3AF;">* Checklist is a guide — you can submit with any documents you have ready</div>' +
+                '</div>' +
+                '<div style="margin-bottom:12px;">' +
+                '<label style="font-size:13px;font-weight:600;color:var(--navy);display:block;margin-bottom:6px;">Notes for Credit Team (optional)</label>' +
+                '<textarea id="creditSubmissionNotes" placeholder="Any context about this deal, the client, urgency, etc..." style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:60px;resize:vertical;font-family:Arial,sans-serif;"></textarea>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:12px;">' +
+                '<button id="sendToCreditBtn" onclick="sendToCredit(\'' + dealId + '\')" ' + (canSend ? '' : 'disabled') + ' style="' + btnStyle + '">📤 Send to Credit</button>' +
+                '<span style="font-size:12px;color:#64748b;">' + docCount + ' document' + (docCount !== 1 ? 's' : '') + ' will be included</span>' +
+                '</div>' +
+                '</div></div>';
+        }
+
+        // Admin view and no submission yet — show nothing extra (admin manages via status dropdown)
+        return '';
+    }
+
+    async function sendToCredit(dealId) {
+        var agentNotes = '';
+        var notesEl = document.getElementById('creditSubmissionNotes');
+        if (notesEl) agentNotes = notesEl.value.trim();
+
+        // Count documents
+        var { data: docs } = await db.from('documents').select('id').eq('deal_id', dealId);
+        var docCount = docs ? docs.length : 0;
+
+        if (docCount === 0) {
+            if (!confirm('You have not uploaded any documents yet. Are you sure you want to send this deal to credit without supporting documents?')) return;
+        } else {
+            if (!confirm('Send this deal to credit with ' + docCount + ' document' + (docCount !== 1 ? 's' : '') + '? The credit team will be notified.')) return;
+        }
+
+        var btn = document.getElementById('sendToCreditBtn');
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Submitting...'; }
+
+        try {
+            var userEmail = document.getElementById('userEmailDisplay').textContent;
+            var creditSubmission = {
+                submitted_at: new Date().toISOString(),
+                submitted_by: currentUserId,
+                submitted_by_name: currentUserName || userEmail,
+                document_count: docCount,
+                agent_notes: agentNotes || null
+            };
+
+            // Update deal: set status to "In Credit" and save credit_submission
+            var { error } = await db.from('deals').update({
+                status: 'In Credit',
+                credit_submission: JSON.stringify(creditSubmission)
+            }).eq('id', dealId);
+
+            if (error) throw error;
+
+            // Also add an auto-note visible to admin
+            var { data: deal } = await db.from('deals').select('notes').eq('id', dealId).single();
+            var notes = [];
+            try { notes = deal.notes ? JSON.parse(deal.notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            notes.push({
+                text: '📤 Deal submitted to credit by ' + (currentUserName || userEmail) + ' with ' + docCount + ' document' + (docCount !== 1 ? 's' : '') + '.' + (agentNotes ? ' Agent notes: "' + agentNotes + '"' : ''),
+                author: 'System',
+                date: dateStr,
+                visible_to_agent: true
+            });
+            await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+
+            // Refresh
+            await loadDeals();
+            await viewDeal(dealId);
+
+        } catch (error) {
+            console.error('Send to credit error:', error);
+            alert('Error submitting to credit: ' + (error.message || 'Unknown error'));
+            if (btn) { btn.disabled = false; btn.textContent = '📤 Send to Credit'; }
+        }
     }
 
     // ============================================
