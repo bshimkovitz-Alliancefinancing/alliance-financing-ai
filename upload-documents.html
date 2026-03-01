@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JEP3FEBY4V"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-JEP3FEBY4V');</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Documents - Alliance Financing Group</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'DM Sans', sans-serif; background: #F1F5F9; min-height: 100vh; color: #1E293B; }
+        :root { --navy: #0D1E3D; --gold: #C9A84C; --blue: #2563EB; }
+
+        .header { background: var(--navy); padding: 1.25rem 0; text-align: center; }
+        .header h1 { color: #fff; font-size: 1.25rem; font-weight: 700; }
+        .header h1 span { color: var(--gold); }
+
+        .container { max-width: 680px; margin: 2rem auto; padding: 0 1.5rem; }
+
+        .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+        .card-header { background: linear-gradient(135deg, #0D1E3D, #1a3a6b); padding: 24px 28px; color: #fff; }
+        .card-header h2 { font-size: 1.25rem; margin-bottom: 4px; }
+        .card-header p { font-size: 0.875rem; opacity: 0.8; }
+        .card-body { padding: 28px; }
+
+        .deal-info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; padding: 16px; background: #F8FAFC; border-radius: 8px; border: 1px solid #E2E8F0; }
+        .deal-info-item { }
+        .deal-info-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; font-weight: 600; }
+        .deal-info-value { font-size: 14px; font-weight: 600; color: var(--navy); margin-top: 2px; }
+
+        .requested-docs { margin-bottom: 24px; padding: 16px; background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 8px; border-left: 4px solid var(--gold); }
+        .requested-docs h3 { font-size: 14px; color: #92400E; margin-bottom: 10px; font-weight: 700; }
+        .requested-docs ul { margin: 0; padding-left: 20px; }
+        .requested-docs li { font-size: 13px; color: #78350F; line-height: 1.8; }
+
+        .upload-area { border: 2px dashed #CBD5E1; border-radius: 8px; padding: 32px 20px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 16px; }
+        .upload-area:hover, .upload-area.dragover { border-color: var(--blue); background: #EFF6FF; }
+        .upload-area-icon { font-size: 36px; margin-bottom: 8px; }
+        .upload-area-text { font-size: 14px; color: #64748B; }
+        .upload-area-text strong { color: var(--blue); }
+        .upload-area-hint { font-size: 12px; color: #94A3B8; margin-top: 6px; }
+
+        .doc-type-row { display: flex; gap: 10px; margin-bottom: 16px; }
+        .doc-type-row select { flex: 1; padding: 10px 12px; border: 1px solid #D1D5DB; border-radius: 6px; font-size: 13px; font-family: inherit; }
+        .doc-type-row label { display: flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--gold); color: #fff; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; white-space: nowrap; }
+        .doc-type-row label input { display: none; }
+
+        .file-list { margin-bottom: 20px; }
+        .file-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; margin-bottom: 6px; }
+        .file-item-info { flex: 1; }
+        .file-item-name { font-weight: 600; font-size: 13px; color: var(--navy); }
+        .file-item-meta { font-size: 11px; color: #64748B; margin-top: 2px; }
+        .file-item-meta .badge { background: #EFF6FF; color: #3B82F6; padding: 1px 6px; border-radius: 8px; font-weight: 600; margin-right: 6px; }
+        .file-item-remove { padding: 4px 10px; background: #FEE2E2; color: #DC2626; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; }
+
+        .btn-submit { width: 100%; padding: 14px; background: linear-gradient(135deg, #0D1E3D, #1a3a6b); color: #fff; border: none; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(13,30,61,0.3); }
+        .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(13,30,61,0.4); }
+        .btn-submit:disabled { background: #E5E7EB; color: #9CA3AF; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .upload-progress { display: none; margin-bottom: 16px; }
+        .progress-bar-bg { width: 100%; height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden; }
+        .progress-bar { width: 0%; height: 100%; background: #10B981; transition: width 0.3s; }
+        .progress-text { font-size: 12px; color: #64748B; margin-top: 6px; }
+
+        .success-card { display: none; text-align: center; padding: 40px 28px; }
+        .success-icon { font-size: 48px; margin-bottom: 16px; }
+        .success-title { font-size: 20px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+        .success-text { font-size: 14px; color: #64748B; line-height: 1.6; }
+
+        .error-card { display: none; text-align: center; padding: 40px 28px; }
+        .error-icon { font-size: 48px; margin-bottom: 16px; }
+        .error-title { font-size: 20px; font-weight: 700; color: #DC2626; margin-bottom: 8px; }
+        .error-text { font-size: 14px; color: #64748B; line-height: 1.6; }
+
+        .loading-card { text-align: center; padding: 60px 28px; }
+        .loading-spinner { width: 40px; height: 40px; border: 3px solid #E5E7EB; border-top-color: var(--navy); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 14px; color: #64748B; }
+
+        .footer { text-align: center; padding: 2rem 1rem; font-size: 12px; color: #94A3B8; }
+        .footer a { color: #64748B; text-decoration: none; }
+
+        .secure-badge { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #64748B; margin-top: 12px; }
+        .secure-badge svg { width: 14px; height: 14px; fill: #10B981; }
+
+        @media (max-width: 480px) {
+            .deal-info { grid-template-columns: 1fr; }
+            .doc-type-row { flex-direction: column; }
+            .container { padding: 0 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1><span>Alliance</span> Financing Group</h1>
+</div>
+
+<div class="container">
+    <!-- Loading state -->
+    <div class="card" id="loadingCard">
+        <div class="loading-card">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading your upload request...</div>
+        </div>
+    </div>
+
+    <!-- Error state -->
+    <div class="card" id="errorCard" style="display:none;">
+        <div class="error-card" style="display:block;">
+            <div class="error-icon">⚠️</div>
+            <div class="error-title">Invalid or Expired Link</div>
+            <div class="error-text" id="errorMessage">This upload link is no longer valid. Please contact your representative for a new link.</div>
+        </div>
+    </div>
+
+    <!-- Upload form -->
+    <div class="card" id="uploadCard" style="display:none;">
+        <div class="card-header">
+            <h2>📤 Document Upload Request</h2>
+            <p>Please upload the requested documents below</p>
+        </div>
+        <div class="card-body">
+            <!-- Deal info -->
+            <div class="deal-info">
+                <div class="deal-info-item">
+                    <div class="deal-info-label">Reference</div>
+                    <div class="deal-info-value" id="infoRef">—</div>
+                </div>
+                <div class="deal-info-item">
+                    <div class="deal-info-label">Business</div>
+                    <div class="deal-info-value" id="infoBusiness">—</div>
+                </div>
+                <div class="deal-info-item">
+                    <div class="deal-info-label">Requested By</div>
+                    <div class="deal-info-value" id="infoRequestedBy">—</div>
+                </div>
+                <div class="deal-info-item">
+                    <div class="deal-info-label">Request Date</div>
+                    <div class="deal-info-value" id="infoDate">—</div>
+                </div>
+            </div>
+
+            <!-- Requested docs -->
+            <div class="requested-docs" id="requestedDocsSection" style="display:none;">
+                <h3>📋 Documents Requested</h3>
+                <ul id="requestedDocsList"></ul>
+            </div>
+
+            <!-- Message from credit -->
+            <div id="creditMessageSection" style="display:none;margin-bottom:24px;padding:16px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;">
+                <div style="font-weight:600;font-size:13px;color:#0C4A6E;margin-bottom:6px;">Message from Credit Team</div>
+                <div id="creditMessage" style="font-size:13px;color:#475569;line-height:1.5;font-style:italic;"></div>
+            </div>
+
+            <!-- Doc type + file picker -->
+            <div class="doc-type-row">
+                <select id="uploadDocType">
+                    <option value="credit_application">Completed Credit Application</option>
+                    <option value="bank_statement">Bank Statement</option>
+                    <option value="financial_statements">Financial Statements</option>
+                    <option value="equipment_quote">Equipment Quote / Invoice</option>
+                    <option value="tax_return">Tax Return</option>
+                    <option value="processing_statement">Processing Statement</option>
+                    <option value="ap_ar_aging">AP / AR Aging Report</option>
+                    <option value="photo_id">Photo ID</option>
+                    <option value="void_cheque">Void Cheque</option>
+                    <option value="business_license">Business License</option>
+                    <option value="supporting_document">Supporting Document</option>
+                    <option value="other">Other</option>
+                </select>
+                <label>
+                    <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv" multiple onchange="handleFiles(this.files)">
+                    + Choose Files
+                </label>
+            </div>
+
+            <!-- Drag and drop area -->
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-area-icon">📁</div>
+                <div class="upload-area-text">Drag & drop files here or <strong>click to browse</strong></div>
+                <div class="upload-area-hint">PDF, PNG, JPG, Word, Excel — max 10MB per file</div>
+            </div>
+
+            <!-- File list -->
+            <div class="file-list" id="fileList"></div>
+
+            <!-- Progress -->
+            <div class="upload-progress" id="uploadProgress">
+                <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+                <div class="progress-text" id="progressText">Uploading...</div>
+            </div>
+
+            <!-- Submit -->
+            <button class="btn-submit" id="submitBtn" onclick="uploadAll()" disabled>Upload Documents</button>
+
+            <div class="secure-badge">
+                <svg viewBox="0 0 20 20"><path d="M10 1a4.5 4.5 0 00-4.5 4.5V9H4a1 1 0 00-1 1v8a1 1 0 001 1h12a1 1 0 001-1v-8a1 1 0 00-1-1h-1.5V5.5A4.5 4.5 0 0010 1zm-2.5 4.5a2.5 2.5 0 015 0V9h-5V5.5z"/></svg>
+                Secure, encrypted upload — your documents are protected
+            </div>
+        </div>
+    </div>
+
+    <!-- Success state -->
+    <div class="card" id="successCard" style="display:none;">
+        <div class="success-card" style="display:block;">
+            <div class="success-icon">✅</div>
+            <div class="success-title">Documents Uploaded Successfully!</div>
+            <div class="success-text" id="successText">Your documents have been received. Our credit team will review them and follow up if anything else is needed.</div>
+            <div style="margin-top:24px;padding:16px;background:#F0FDF4;border-radius:8px;font-size:13px;color:#166534;">
+                You can safely close this page. If you need to upload additional documents, use the same link from your email.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="footer">
+    <p>Alliance Financing Group &nbsp;|&nbsp; <a href="mailto:info@alliancefinancing.ai">info@alliancefinancing.ai</a> &nbsp;|&nbsp; <a href="tel:+18776603660">1-877-660-3660</a></p>
+    <p style="margin-top:6px;">&copy; 2025 Alliance Financing Group. All rights reserved.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+var pendingFiles = [];
+var requestData = null;
+
+var docTypeLabels = {
+    credit_application: 'Credit Application', bank_statement: 'Bank Statement',
+    financial_statements: 'Financial Statements', equipment_quote: 'Equipment Quote',
+    tax_return: 'Tax Return', processing_statement: 'Processing Statement',
+    ap_ar_aging: 'AP / AR Aging Report', photo_id: 'Photo ID', void_cheque: 'Void Cheque',
+    business_license: 'Business License', supporting_document: 'Supporting Document', other: 'Other'
+};
+
+// Initialize
+(async function() {
+    var params = new URLSearchParams(window.location.search);
+    var token = params.get('token');
+    var dealId = params.get('deal');
+
+    if (!token || !dealId) {
+        showError('This link appears to be incomplete. Please use the full link from your email.');
+        return;
+    }
+
+    try {
+        // Look up the upload request
+        var { data: request, error } = await db
+            .from('document_requests')
+            .select('*, deals(company_name, deal_number, applications(application_id))')
+            .eq('deal_id', dealId)
+            .eq('token', token)
+            .eq('is_active', true)
+            .single();
+
+        if (error || !request) {
+            showError('This upload link is no longer valid or has expired. Please contact your representative for a new link.');
+            return;
+        }
+
+        // Check expiry
+        if (request.expires_at && new Date(request.expires_at) < new Date()) {
+            showError('This upload link has expired. Please contact your representative for a new link.');
+            return;
+        }
+
+        requestData = request;
+
+        // Populate deal info
+        var dealRef = request.deals?.applications?.application_id || request.deals?.deal_number || dealId.substring(0, 8);
+        document.getElementById('infoRef').textContent = dealRef;
+        document.getElementById('infoBusiness').textContent = request.deals?.company_name || '—';
+        document.getElementById('infoRequestedBy').textContent = request.requested_by_name || 'Credit Team';
+        document.getElementById('infoDate').textContent = request.created_at ? new Date(request.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+
+        // Show requested documents list
+        if (request.requested_documents && request.requested_documents.length > 0) {
+            var listEl = document.getElementById('requestedDocsList');
+            listEl.innerHTML = request.requested_documents.map(function(doc) {
+                return '<li>' + (docTypeLabels[doc] || doc) + '</li>';
+            }).join('');
+            document.getElementById('requestedDocsSection').style.display = 'block';
+        }
+
+        // Show credit message
+        if (request.message) {
+            document.getElementById('creditMessage').textContent = request.message;
+            document.getElementById('creditMessageSection').style.display = 'block';
+        }
+
+        // Show the upload form
+        document.getElementById('loadingCard').style.display = 'none';
+        document.getElementById('uploadCard').style.display = 'block';
+
+    } catch (err) {
+        console.error('Init error:', err);
+        showError('Something went wrong loading this page. Please try again or contact support.');
+    }
+})();
+
+function showError(msg) {
+    document.getElementById('loadingCard').style.display = 'none';
+    document.getElementById('errorMessage').textContent = msg;
+    document.getElementById('errorCard').style.display = 'block';
+}
+
+// Drag and drop
+var dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+});
+
+function handleFiles(files) {
+    var docType = document.getElementById('uploadDocType').value;
+    for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        if (file.size > 10 * 1024 * 1024) {
+            alert(file.name + ' exceeds the 10MB limit and was not added.');
+            continue;
+        }
+        pendingFiles.push({ file: file, docType: docType, typeLabel: docTypeLabels[docType] || docType });
+    }
+    document.getElementById('fileInput').value = '';
+    renderFileList();
+}
+
+function renderFileList() {
+    var listEl = document.getElementById('fileList');
+    var btn = document.getElementById('submitBtn');
+
+    if (pendingFiles.length === 0) {
+        listEl.innerHTML = '';
+        btn.disabled = true;
+        btn.textContent = 'Upload Documents';
+        return;
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Upload ' + pendingFiles.length + ' Document' + (pendingFiles.length !== 1 ? 's' : '');
+
+    listEl.innerHTML = pendingFiles.map(function(item, idx) {
+        var sizeMB = (item.file.size / 1024 / 1024).toFixed(2);
+        return '<div class="file-item">' +
+            '<div class="file-item-info">' +
+                '<div class="file-item-name">' + item.file.name + '</div>' +
+                '<div class="file-item-meta"><span class="badge">' + item.typeLabel + '</span>' + sizeMB + ' MB</div>' +
+            '</div>' +
+            '<button class="file-item-remove" onclick="removeFile(' + idx + ')">Remove</button>' +
+        '</div>';
+    }).join('');
+}
+
+function removeFile(idx) {
+    pendingFiles.splice(idx, 1);
+    renderFileList();
+}
+
+async function uploadAll() {
+    if (pendingFiles.length === 0) return;
+
+    var btn = document.getElementById('submitBtn');
+    var progressEl = document.getElementById('uploadProgress');
+    var progressBar = document.getElementById('progressBar');
+    var progressText = document.getElementById('progressText');
+
+    btn.disabled = true;
+    btn.textContent = 'Uploading...';
+    progressEl.style.display = 'block';
+
+    var total = pendingFiles.length;
+    var uploaded = 0;
+
+    for (var i = 0; i < pendingFiles.length; i++) {
+        var item = pendingFiles[i];
+        progressText.textContent = 'Uploading ' + (i + 1) + ' of ' + total + ': ' + item.file.name;
+        progressBar.style.width = ((i / total) * 100) + '%';
+
+        try {
+            var filePath = 'deals/' + requestData.deal_id + '/' + Date.now() + '-' + item.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+            // Upload to storage
+            var uploadUrl = SUPABASE_URL + '/storage/v1/object/deal-documents/' + filePath;
+            var uploadResp = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY, 'x-upsert': 'true' },
+                body: item.file
+            });
+
+            if (!uploadResp.ok) {
+                console.warn('Upload failed for ' + item.file.name);
+                continue;
+            }
+
+            // Insert document record
+            await db.from('documents').insert([{
+                deal_id: requestData.deal_id,
+                file_name: item.file.name,
+                file_path: filePath,
+                file_type: item.file.type,
+                file_size_bytes: item.file.size,
+                document_type: item.docType,
+                uploaded_by_name: requestData.deals?.company_name || 'Applicant',
+                visible_to_agent: true,
+                notes: 'Uploaded via document request link'
+            }]);
+
+            uploaded++;
+        } catch (err) {
+            console.error('Upload error for ' + item.file.name + ':', err);
+        }
+    }
+
+    progressBar.style.width = '100%';
+
+    // Log the upload completion on the request
+    try {
+        var uploadLog = requestData.upload_log || [];
+        uploadLog.push({
+            uploaded_at: new Date().toISOString(),
+            file_count: uploaded
+        });
+        await db.from('document_requests').update({
+            upload_log: uploadLog,
+            last_upload_at: new Date().toISOString()
+        }).eq('id', requestData.id);
+
+        // Add a note to the deal
+        var { data: deal } = await db.from('deals').select('notes').eq('id', requestData.deal_id).single();
+        var notes = [];
+        try { notes = deal.notes ? JSON.parse(deal.notes) : []; } catch(e) { notes = []; }
+        var now = new Date();
+        var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        notes.push({
+            text: '📎 ' + uploaded + ' document' + (uploaded !== 1 ? 's' : '') + ' uploaded by applicant via document request link.',
+            author: 'System',
+            date: dateStr,
+            visible_to_agent: true
+        });
+        await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', requestData.deal_id);
+    } catch (e) {
+        console.warn('Could not update request log:', e);
+    }
+
+    // Show success
+    document.getElementById('uploadCard').style.display = 'none';
+    document.getElementById('successText').textContent = uploaded + ' document' + (uploaded !== 1 ? 's' : '') + ' uploaded successfully. Our credit team will review them and follow up if anything else is needed.';
+    document.getElementById('successCard').style.display = 'block';
+}
+</script>
+</body>
+</html>

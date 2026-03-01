@@ -5249,6 +5249,25 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 notes = deal.notes ? [{ text: deal.notes, author: 'System', date: 'Previously' }] : [];
             }
             notes = normalizeNotes(notes);
+
+            // Mark shared notes as read when agent opens a deal
+            if (isAgentView && currentUserId) {
+                let notesUpdated = false;
+                notes.forEach(n => {
+                    if (n.visible_to_agent && (!n.read_by || !n.read_by[currentUserId])) {
+                        if (!n.read_by) n.read_by = {};
+                        n.read_by[currentUserId] = new Date().toISOString();
+                        notesUpdated = true;
+                    }
+                });
+                if (notesUpdated) {
+                    await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+                    const cachedDeal = allDeals.find(d => d.id === dealId);
+                    if (cachedDeal) cachedDeal.notes = JSON.stringify(notes);
+                    updateUnreadBadge();
+                }
+            }
+
             const displayNotes = isAgentView ? notes.filter(n => n.visible_to_agent) : notes;
 
             // Build syndication entries HTML
@@ -5742,6 +5761,9 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
 
                 <!-- Section 9: Documents -->
                 ${buildDocumentsHtml(dealDocuments || [], dealId, null)}
+
+                <!-- Section 9b: Request Documents (admin only) -->
+                ${!isAgentView ? buildRequestDocsHtml(deal, dealId, clientContacts) : ''}
 
                 <!-- Section 10: Send to Credit (Agent view) -->
                 ${buildSendToCreditHtml(deal, dealDocuments || [], dealId, isAgentView)}
@@ -7069,6 +7091,174 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             '<label style="font-size:15px;font-weight:600;color:var(--navy);">Documents (' + countLabel + ')</label>' +
             addBtnHtml +
             '</div>' + docsRows + '</div>';
+    }
+
+    // ============================================
+    // Request Documents (Admin → Applicant)
+    // ============================================
+
+    function buildRequestDocsHtml(deal, dealId, clientContacts) {
+        var applicantEmail = '';
+        if (clientContacts && clientContacts.length > 0) {
+            applicantEmail = clientContacts[0].email || '';
+        }
+        var docOptions = [
+            { value: 'credit_application', label: 'Completed Credit Application' },
+            { value: 'bank_statement', label: 'Bank Statements' },
+            { value: 'financial_statements', label: 'Financial Statements' },
+            { value: 'equipment_quote', label: 'Equipment Quote / Invoice' },
+            { value: 'tax_return', label: 'Tax Returns' },
+            { value: 'processing_statement', label: 'Processing Statements' },
+            { value: 'ap_ar_aging', label: 'AP / AR Aging Report' },
+            { value: 'photo_id', label: 'Photo ID' },
+            { value: 'void_cheque', label: 'Void Cheque' },
+            { value: 'business_license', label: 'Business License' }
+        ];
+
+        var checkboxes = docOptions.map(function(opt) {
+            return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;font-size:13px;">' +
+                '<input type="checkbox" name="reqDoc" value="' + opt.value + '"> ' + opt.label + '</label>';
+        }).join('');
+
+        return '<div style="margin-top:16px;padding:16px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="var el=document.getElementById(\'reqDocsBody\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';">' +
+                '<div style="font-weight:700;font-size:14px;color:#0C4A6E;">📧 Request Documents from Applicant</div>' +
+                '<span style="color:#0C4A6E;font-size:18px;">▾</span>' +
+            '</div>' +
+            '<div id="reqDocsBody" style="display:none;margin-top:14px;">' +
+                '<p style="font-size:13px;color:#475569;margin-bottom:12px;">Select the documents you need and we\'ll generate an email with a secure upload link for the applicant.</p>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;padding:12px;background:#fff;border-radius:6px;border:1px solid #E2E8F0;">' +
+                    checkboxes +
+                '</div>' +
+                '<div style="margin-bottom:12px;">' +
+                    '<label style="font-size:13px;font-weight:600;color:#0C4A6E;display:block;margin-bottom:6px;">Message to Applicant (optional)</label>' +
+                    '<textarea id="reqDocsMessage" placeholder="e.g., Please provide your most recent 6 months of bank statements..." style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:50px;resize:vertical;font-family:Arial,sans-serif;"></textarea>' +
+                '</div>' +
+                '<div style="margin-bottom:12px;">' +
+                    '<label style="font-size:13px;font-weight:600;color:#0C4A6E;display:block;margin-bottom:6px;">Applicant Email</label>' +
+                    '<input type="email" id="reqDocsEmail" placeholder="applicant@email.com" value="' + applicantEmail + '" style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
+                '</div>' +
+                '<button id="reqDocsBtn" onclick="sendDocumentRequest(\'' + dealId + '\')" style="padding:8px 20px;background:#0EA5E9;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s;">📧 Generate Upload Link & Email</button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    async function sendDocumentRequest(dealId) {
+        var selectedDocs = Array.from(document.querySelectorAll('input[name="reqDoc"]:checked')).map(function(cb) { return cb.value; });
+        var message = (document.getElementById('reqDocsMessage').value || '').trim();
+        var email = (document.getElementById('reqDocsEmail').value || '').trim();
+
+        if (selectedDocs.length === 0) {
+            alert('Please select at least one document type to request.');
+            return;
+        }
+
+        var btn = document.getElementById('reqDocsBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Generating...';
+
+        try {
+            // Generate a unique token
+            var token = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substr(2, 12));
+
+            // Set expiry to 30 days
+            var expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 30);
+
+            var userEmail = document.getElementById('userEmailDisplay').textContent;
+
+            // Save to document_requests table
+            var { error } = await db.from('document_requests').insert([{
+                deal_id: dealId,
+                token: token,
+                requested_documents: selectedDocs,
+                message: message || null,
+                applicant_email: email || null,
+                requested_by: currentUserId,
+                requested_by_name: currentUserName || userEmail,
+                expires_at: expiresAt.toISOString(),
+                is_active: true,
+                upload_log: []
+            }]);
+
+            if (error) throw error;
+
+            // Build the upload URL
+            var baseUrl = window.location.origin;
+            var uploadUrl = baseUrl + '/upload-documents.html?deal=' + dealId + '&token=' + token;
+
+            // Build email body
+            var docTypeLabels = {
+                credit_application: 'Completed Credit Application', bank_statement: 'Bank Statements',
+                financial_statements: 'Financial Statements', equipment_quote: 'Equipment Quote / Invoice',
+                tax_return: 'Tax Returns', processing_statement: 'Processing Statements',
+                ap_ar_aging: 'AP / AR Aging Report', photo_id: 'Photo ID',
+                void_cheque: 'Void Cheque', business_license: 'Business License'
+            };
+
+            var docList = selectedDocs.map(function(d) { return '  • ' + (docTypeLabels[d] || d); }).join('\n');
+
+            // Get deal info for the email
+            var { data: dealInfo } = await db.from('deals').select('company_name, deal_number, applications(application_id)').eq('id', dealId).single();
+            var dealRef = dealInfo?.applications?.application_id || dealInfo?.deal_number || '';
+
+            var subject = encodeURIComponent('Document Request — ' + (dealRef || 'Alliance Financing'));
+            var body = encodeURIComponent(
+                'Hello,\n\n' +
+                'Thank you for your application with Alliance Financing Group' + (dealRef ? ' (Ref: ' + dealRef + ')' : '') + '.\n\n' +
+                'To continue processing your application, we need the following documents:\n\n' +
+                docList + '\n\n' +
+                (message ? 'Note from our team: ' + message + '\n\n' : '') +
+                'Please click the secure link below to upload your documents:\n\n' +
+                uploadUrl + '\n\n' +
+                'This link is valid for 30 days. You can use it multiple times if you need to upload documents separately.\n\n' +
+                'If you have any questions, please don\'t hesitate to reach out.\n\n' +
+                'Best regards,\n' +
+                'Alliance Financing Group\n' +
+                'info@alliancefinancing.ai | 1-877-660-3660'
+            );
+
+            // Add a note to the deal
+            var { data: deal } = await db.from('deals').select('notes').eq('id', dealId).single();
+            var notes = [];
+            try { notes = deal.notes ? JSON.parse(deal.notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            notes.push({
+                text: '📧 Document request sent' + (email ? ' to ' + email : '') + '. Requested: ' + selectedDocs.map(function(d) { return docTypeLabels[d] || d; }).join(', ') + '.',
+                author: currentUserName || userEmail,
+                date: dateStr,
+                visible_to_agent: true
+            });
+            await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+
+            // Open email client
+            var mailto = 'mailto:' + (email || '') + '?subject=' + subject + '&body=' + body;
+            window.open(mailto);
+
+            // Also copy link to clipboard
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(uploadUrl).then(function() {
+                    alert('Upload link copied to clipboard and email opened!\n\nLink: ' + uploadUrl);
+                }).catch(function() {
+                    alert('Email opened! Upload link:\n\n' + uploadUrl);
+                });
+            } else {
+                alert('Email opened! Upload link:\n\n' + uploadUrl);
+            }
+
+            btn.textContent = '✓ Link Generated';
+            btn.style.background = '#10B981';
+
+            // Refresh deal view
+            setTimeout(function() { viewDeal(dealId); }, 1500);
+
+        } catch (error) {
+            console.error('Document request error:', error);
+            alert('Error creating document request: ' + (error.message || 'Unknown error'));
+            btn.disabled = false;
+            btn.textContent = '📧 Generate Upload Link & Email';
+        }
     }
 
     // ============================================
