@@ -1013,6 +1013,7 @@
                             <select id="dealStatusFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
                                 <option value="">All Status</option>
                                 <option value="Prospect">Prospect</option>
+                                <option value="Quote Requested">Quote Requested</option>
                                 <option value="Quote sent">Quote sent</option>
                                 <option value="Info received">Info received</option>
                                 <option value="In Credit">In Credit</option>
@@ -1088,17 +1089,45 @@
             <!-- Agents Page -->
             <div id="agents" class="page-section">
                 <div class="table-container">
-                    <div class="table-header">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Agents & Partners</div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary btn-sm" onclick="exportAgents()" style="margin-left: 8px;">Export CSV</button>
-                            <button class="btn btn-gold btn-sm" onclick="openAddAgentModal()">+ New Agent</button>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <!-- Type Filter Tabs -->
+                            <div id="agentTypeTabs" style="display:flex;gap:4px;">
+                                <button class="btn btn-sm" style="background:var(--navy);color:white;" onclick="filterAgentsByType('')" id="agentTabAll">All</button>
+                                <button class="btn btn-secondary btn-sm" onclick="filterAgentsByType('super_agent')" id="agentTab_super_agent">Super Agents</button>
+                                <button class="btn btn-secondary btn-sm" onclick="filterAgentsByType('referring_agent')" id="agentTab_referring_agent">Referring</button>
+                                <button class="btn btn-secondary btn-sm" onclick="filterAgentsByType('syndication_desk')" id="agentTab_syndication_desk">Syndication</button>
+                                <button class="btn btn-secondary btn-sm" onclick="filterAgentsByType('vendor_program')" id="agentTab_vendor_program">Vendor Programs</button>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" onclick="exportAgents()">Export CSV</button>
+                            <button class="btn btn-gold btn-sm" onclick="openAddAgentModal()">+ Onboard Agent</button>
+                        </div>
+                    </div>
+                    <!-- Agent Type Summary Cards -->
+                    <div id="agentTypeSummary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 20px 16px;">
+                        <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:12px;text-align:center;">
+                            <div style="font-size:20px;font-weight:700;color:var(--navy);" id="countSuperAgents">0</div>
+                            <div style="font-size:12px;color:var(--text-light);">Super Agents</div>
+                        </div>
+                        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:12px;text-align:center;">
+                            <div style="font-size:20px;font-weight:700;color:var(--navy);" id="countReferringAgents">0</div>
+                            <div style="font-size:12px;color:var(--text-light);">Referring Agents</div>
+                        </div>
+                        <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:12px;text-align:center;">
+                            <div style="font-size:20px;font-weight:700;color:var(--navy);" id="countSyndicationDesks">0</div>
+                            <div style="font-size:12px;color:var(--text-light);">Syndication Desks</div>
+                        </div>
+                        <div style="background:#FDF4FF;border:1px solid #E9D5FF;border-radius:8px;padding:12px;text-align:center;">
+                            <div style="font-size:20px;font-weight:700;color:var(--navy);" id="countVendorPrograms">0</div>
+                            <div style="font-size:12px;color:var(--text-light);">Vendor Programs</div>
                         </div>
                     </div>
                     <table id="agentsTable">
                         <thead>
                             <tr>
                                 <th>Name</th>
+                                <th>Type</th>
                                 <th>Email</th>
                                 <th>Phone</th>
                                 <th>Parent Agent</th>
@@ -1109,7 +1138,7 @@
                         </thead>
                         <tbody id="agentsBody">
                             <tr>
-                                <td colspan="6" class="empty-state">Loading...</td>
+                                <td colspan="8" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1853,6 +1882,7 @@
                         <label>Status</label>
                         <select id="dealStatus" required>
                             <option value="Prospect" selected>Prospect</option>
+                            <option value="Quote Requested">Quote Requested</option>
                             <option value="Quote sent">Quote sent</option>
                             <option value="Info received">Info received</option>
                             <option value="In Credit">In Credit</option>
@@ -1918,72 +1948,205 @@
     </div>
 </div>
 
-<!-- Add Agent Modal -->
+<!-- Onboard Agent Modal (Multi-Step) -->
 <div id="addAgentModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 650px;">
         <div class="modal-header">
-            <h2>New Agent</h2>
+            <h2 id="onboardModalTitle">Onboard New Agent</h2>
             <button class="modal-close" onclick="closeAddAgentModal()">✕</button>
         </div>
         <div class="modal-body">
             <form id="addAgentForm" onsubmit="handleAddAgent(event)">
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Full Name <span style="color: var(--danger);">*</span></label>
-                        <input type="text" id="agentName" required>
+                <!-- Step Indicator -->
+                <div id="onboardSteps" style="display: flex; gap: 8px; margin-bottom: 20px;">
+                    <div class="onboard-step active" data-step="1" style="flex:1;text-align:center;padding:8px;border-radius:4px;font-size:13px;font-weight:600;background:var(--navy);color:white;">1. Agent Type</div>
+                    <div class="onboard-step" data-step="2" style="flex:1;text-align:center;padding:8px;border-radius:4px;font-size:13px;font-weight:600;background:var(--light-gray);color:var(--text-light);">2. Details</div>
+                    <div class="onboard-step" data-step="3" style="flex:1;text-align:center;padding:8px;border-radius:4px;font-size:13px;font-weight:600;background:var(--light-gray);color:var(--text-light);">3. Review & Invite</div>
+                </div>
+
+                <!-- Step 1: Agent Type Selection -->
+                <div id="onboardStep1">
+                    <p style="color: var(--text-light); font-size: 14px; margin-bottom: 16px;">Select the type of agent or partner you want to onboard:</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <label onclick="selectAgentType('super_agent')" id="typeCard_super_agent" style="display:block;border:2px solid var(--border-gray);border-radius:8px;padding:16px;cursor:pointer;transition:all 0.2s;">
+                            <input type="radio" name="agentType" value="super_agent" style="display:none;">
+                            <div style="font-size:20px;margin-bottom:6px;">🏆</div>
+                            <div style="font-weight:600;color:var(--navy);font-size:15px;">Super Agent</div>
+                            <div style="font-size:12px;color:var(--text-light);margin-top:4px;">Manages teams of sub-agents. Earns override commissions.</div>
+                        </label>
+                        <label onclick="selectAgentType('referring_agent')" id="typeCard_referring_agent" style="display:block;border:2px solid var(--border-gray);border-radius:8px;padding:16px;cursor:pointer;transition:all 0.2s;">
+                            <input type="radio" name="agentType" value="referring_agent" style="display:none;">
+                            <div style="font-size:20px;margin-bottom:6px;">🤝</div>
+                            <div style="font-weight:600;color:var(--navy);font-size:15px;">Referring Agent</div>
+                            <div style="font-size:12px;color:var(--text-light);margin-top:4px;">Accountants, insurance agents, brokers. Earns referral fees.</div>
+                        </label>
+                        <label onclick="selectAgentType('syndication_desk')" id="typeCard_syndication_desk" style="display:block;border:2px solid var(--border-gray);border-radius:8px;padding:16px;cursor:pointer;transition:all 0.2s;">
+                            <input type="radio" name="agentType" value="syndication_desk" style="display:none;">
+                            <div style="font-size:20px;margin-bottom:6px;">🏦</div>
+                            <div style="font-weight:600;color:var(--navy);font-size:15px;">Syndication Desk</div>
+                            <div style="font-size:12px;color:var(--text-light);margin-top:4px;">Banks & institutions. Facilitates transactions.</div>
+                        </label>
+                        <label onclick="selectAgentType('vendor_program')" id="typeCard_vendor_program" style="display:block;border:2px solid var(--border-gray);border-radius:8px;padding:16px;cursor:pointer;transition:all 0.2s;">
+                            <input type="radio" name="agentType" value="vendor_program" style="display:none;">
+                            <div style="font-size:20px;margin-bottom:6px;">🏭</div>
+                            <div style="font-weight:600;color:var(--navy);font-size:15px;">Vendor Program</div>
+                            <div style="font-size:12px;color:var(--text-light);margin-top:4px;">Equipment vendors. Manager/director oversees all sales.</div>
+                        </label>
+                        <label onclick="selectAgentType('vendor_salesperson')" id="typeCard_vendor_salesperson" style="display:block;border:2px solid var(--border-gray);border-radius:8px;padding:16px;cursor:pointer;transition:all 0.2s;">
+                            <input type="radio" name="agentType" value="vendor_salesperson" style="display:none;">
+                            <div style="font-size:20px;margin-bottom:6px;">👤</div>
+                            <div style="font-weight:600;color:var(--navy);font-size:15px;">Vendor Salesperson</div>
+                            <div style="font-size:12px;color:var(--text-light);margin-top:4px;">Sales rep under a vendor program. Submits & tracks own deals.</div>
+                        </label>
                     </div>
-                    <div class="modal-field">
-                        <label>Email <span style="color: var(--danger);">*</span></label>
-                        <input type="email" id="agentEmail" required>
+                    <div style="margin-top: 20px; text-align: right;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddAgentModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="onboardNextStep(2)" id="onboardNext1" disabled style="margin-left: 8px;">Next →</button>
                     </div>
                 </div>
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Phone</label>
-                        <input type="text" id="agentPhone">
+
+                <!-- Step 2: Contact & Business Details -->
+                <div id="onboardStep2" style="display:none;">
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Full Name <span style="color: var(--danger);">*</span></label>
+                            <input type="text" id="agentName" required>
+                        </div>
+                        <div class="modal-field">
+                            <label>Email <span style="color: var(--danger);">*</span></label>
+                            <input type="email" id="agentEmail" required>
+                        </div>
                     </div>
-                    <div class="modal-field">
-                        <label>Role</label>
-                        <select id="agentRole">
-                            <option value="agent">Agent</option>
-                        </select>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Phone</label>
+                            <input type="text" id="agentPhone">
+                        </div>
+                        <div class="modal-field">
+                            <label id="companyLabel">Company Name</label>
+                            <input type="text" id="agentCompanyName" placeholder="Company / Institution name">
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Business Type</label>
+                            <select id="agentBusinessType">
+                                <option value="">Select Business Type</option>
+                                <option value="Mortgage Agent">Mortgage Agent</option>
+                                <option value="Mortgage Broker">Mortgage Broker</option>
+                                <option value="Insurance">Insurance</option>
+                                <option value="Consulting">Consulting</option>
+                                <option value="Accounting">Accounting</option>
+                                <option value="Banking">Banking</option>
+                                <option value="Equipment Vendor">Equipment Vendor</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="modal-field">
+                            <label>Commission Type</label>
+                            <select id="agentCommissionType">
+                                <option value="referral_fee">Referral Fee</option>
+                                <option value="override">Override (Super Agent)</option>
+                                <option value="facilitation">Facilitation</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Super Agent: Parent/Team section -->
+                    <div id="superAgentFields" style="display:none;">
+                        <div style="border-top: 1px solid var(--border-gray); margin: 16px 0 12px; padding-top: 12px;">
+                            <label style="font-size: 14px; font-weight: 600; color: var(--navy);">Team Management</label>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-light); margin-bottom: 10px;">Super agents can manage teams of sub-agents and earn override commissions on their deals.</p>
+                    </div>
+                    <!-- Vendor Program: Extra fields -->
+                    <div id="vendorProgramFields" style="display:none;">
+                        <div style="border-top: 1px solid var(--border-gray); margin: 16px 0 12px; padding-top: 12px;">
+                            <label style="font-size: 14px; font-weight: 600; color: var(--navy);">Vendor Program Details</label>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Program Description</label>
+                                <textarea id="vendorProgramDesc" placeholder="Describe the vendor program..." rows="3" style="width:100%;padding:8px;border:1px solid var(--border-gray);border-radius:4px;font-family:inherit;font-size:14px;resize:vertical;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Vendor Salesperson: Parent vendor selection -->
+                    <div id="vendorSalespersonFields" style="display:none;">
+                        <div style="border-top: 1px solid var(--border-gray); margin: 16px 0 12px; padding-top: 12px;">
+                            <label style="font-size: 14px; font-weight: 600; color: var(--navy);">Vendor Assignment</label>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Parent Vendor Program <span style="color: var(--danger);">*</span></label>
+                                <select id="parentVendorSelect" onchange="onParentVendorChange()">
+                                    <option value="">Select Vendor Program...</option>
+                                </select>
+                                <small style="color: var(--text-light); font-size: 12px; margin-top: 4px;">This salesperson will appear under the selected vendor's portal.</small>
+                            </div>
+                            <div class="modal-field">
+                                <label>Sales Role / Title</label>
+                                <input type="text" id="vendorSalesRole" placeholder="e.g., Account Executive, Sales Rep">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Syndication Desk: Extra fields -->
+                    <div id="syndicationDeskFields" style="display:none;">
+                        <div style="border-top: 1px solid var(--border-gray); margin: 16px 0 12px; padding-top: 12px;">
+                            <label style="font-size: 14px; font-weight: 600; color: var(--navy);">Syndication Desk Details</label>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Desk Contact Name</label>
+                                <input type="text" id="syndicationContactName" placeholder="Primary desk contact">
+                            </div>
+                            <div class="modal-field">
+                                <label>Desk Contact Email</label>
+                                <input type="email" id="syndicationContactEmail" placeholder="desk@institution.com">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-row full" style="margin-top: 8px;">
+                        <div class="modal-field">
+                            <label>Referral Slug</label>
+                            <input type="text" id="agentSlug" readonly style="background-color: var(--light-gray); cursor: not-allowed;">
+                            <small style="color: var(--text-light); font-size: 12px; margin-top: 5px;">Auto-generated from name</small>
+                        </div>
+                    </div>
+                    <div style="margin-top: 20px; display: flex; justify-content: space-between;">
+                        <button type="button" class="btn btn-secondary" onclick="onboardNextStep(1)">← Back</button>
+                        <button type="button" class="btn btn-primary" onclick="onboardNextStep(3)">Next →</button>
                     </div>
                 </div>
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Business Type</label>
-                        <select id="agentBusinessType">
-                            <option value="">Select Business Type</option>
-                            <option value="Mortgage Agent">Mortgage Agent</option>
-                            <option value="Mortgage Broker">Mortgage Broker</option>
-                            <option value="Insurance">Insurance</option>
-                            <option value="Consulting">Consulting</option>
-                            <option value="Accounting">Accounting</option>
-                            <option value="Other">Other</option>
-                        </select>
+
+                <!-- Step 3: Review & Send Invite -->
+                <div id="onboardStep3" style="display:none;">
+                    <div style="background: #F8FAFC; border: 1px solid var(--border-gray); border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+                        <div style="font-size: 15px; font-weight: 600; color: var(--navy); margin-bottom: 12px;">Review Agent Details</div>
+                        <div id="onboardReviewContent" style="font-size: 14px; line-height: 1.8;"></div>
                     </div>
-                    <div class="modal-field">
-                        <label>Status</label>
-                        <select id="agentStatus">
-                            <option value="">Select Status</option>
-                            <option value="AIA">AIA</option>
-                            <option value="MOU">MOU</option>
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                            <option value="Pending">Pending</option>
-                        </select>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Status</label>
+                            <select id="agentStatus">
+                                <option value="Invited">Invited</option>
+                                <option value="AIA">AIA</option>
+                                <option value="MOU">MOU</option>
+                                <option value="Active">Active</option>
+                                <option value="Pending">Pending</option>
+                            </select>
+                        </div>
+                        <div class="modal-field">
+                            <label>Send Invite Email?</label>
+                            <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin-top:6px;">
+                                <input type="checkbox" id="sendInviteEmail" checked> Yes, send activation email to agent
+                            </label>
+                        </div>
                     </div>
-                </div>
-                <div class="modal-row full">
-                    <div class="modal-field">
-                        <label>Referral Slug</label>
-                        <input type="text" id="agentSlug" readonly style="background-color: var(--light-gray); cursor: not-allowed;">
-                        <small style="color: var(--text-light); font-size: 12px; margin-top: 5px;">Auto-generated from name</small>
+                    <div style="margin-top: 20px; display: flex; justify-content: space-between;">
+                        <button type="button" class="btn btn-secondary" onclick="onboardNextStep(2)">← Back</button>
+                        <button type="submit" class="btn btn-gold" style="padding: 10px 24px;">Create Agent & Send Invite</button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeAddAgentModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Agent</button>
                 </div>
             </form>
         </div>
@@ -2536,7 +2699,7 @@
             try {
                 const { data: userData } = await db
                     .from('users')
-                    .select('id, role, full_name')
+                    .select('id, role, full_name, agent_type')
                     .ilike('email', email)
                     .maybeSingle();
                 if (userData) {
@@ -2545,6 +2708,7 @@
                     currentUserRole = userData.role || 'admin';
                     currentUserId = userData.id;
                     currentUserName = userData.full_name || email;
+                    if (userData.agent_type) currentAgentType = userData.agent_type;
                 }
             } catch (e) {
                 console.log('User lookup optional, continuing...', e);
@@ -2589,26 +2753,28 @@
     // Role-Based Access Control
     // ============================================
 
+    let currentAgentType = 'referring_agent'; // default agent type
+
     function applyRoleAccess() {
         const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
-        // Hide/show nav items based on role
+        // Hide/show nav items based on role AND agent type
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
             const label = item.querySelector('span:last-child').textContent.trim();
-            // Agents can only see Dashboard and Deal Pipeline
-            if (!isAdmin) {
-                if (['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing', 'Team'].includes(label)) {
+
+            if (isAdmin) {
+                // Admins see everything except Marketing (agents-only)
+                item.style.display = label === 'Marketing' ? 'none' : 'flex';
+            } else {
+                // Agent views depend on agent_type
+                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing', 'Team'];
+
+                if (adminOnly.includes(label)) {
                     item.style.display = 'none';
                 } else if (label === 'Marketing') {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'flex';
-                }
-            } else {
-                // Hide Marketing tab from admins (they have it in Alliance Financing page)
-                if (label === 'Marketing') {
-                    item.style.display = 'none';
+                    // Syndication desks don't get marketing
+                    item.style.display = currentAgentType === 'syndication_desk' ? 'none' : 'flex';
                 } else {
                     item.style.display = 'flex';
                 }
@@ -3597,7 +3763,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             return;
         }
         const statusColors = {
-            'Prospect': '#6B7280', 'Quote sent': '#3B82F6', 'Info received': '#8B5CF6',
+            'Prospect': '#6B7280', 'Quote Requested': '#7C3AED', 'Quote sent': '#3B82F6', 'Info received': '#8B5CF6',
             'In Credit': '#F59E0B', 'Approved': '#10B981', 'Approval sent': '#10B981',
             'Docs requested': '#F59E0B', 'Docs out for signing': '#F59E0B',
             'In funding': '#3B82F6', 'Funded': '#10B981', 'Declined': '#EF4444', 'Dead approval': '#EF4444', 'Withdrawn': '#9F1239'
@@ -4197,7 +4363,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             const { data: deals, error: dealsError } = await dealsQuery;
 
             if (!dealsError && deals) {
-                const activeDealStatuses = ['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
+                const activeDealStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
                 const activeDealValue = deals
                     .filter(d => activeDealStatuses.includes(d.status))
                     .reduce((sum, d) => sum + (d.deal_amount || 0), 0);
@@ -4381,6 +4547,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
     // Status color map for badges
     var dealStatusColors = {
         'Prospect': { bg: '#EFF6FF', text: '#1D4ED8', border: '#93C5FD' },
+        'Quote Requested': { bg: '#F3E8FF', text: '#6B21A8', border: '#D8B4FE' },
         'Quote sent': { bg: '#F0F9FF', text: '#0369A1', border: '#7DD3FC' },
         'Info received': { bg: '#ECFDF5', text: '#047857', border: '#6EE7B7' },
         'In Credit': { bg: '#FFFBEB', text: '#B45309', border: '#FCD34D' },
@@ -4401,7 +4568,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
     }
 
     // Deal tab categories
-    var activeDealStatuses = ['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
+    var activeDealStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
     var bookedDealStatuses = ['Funded'];
     var deadDealStatuses = ['Declined', 'Dead approval', 'Withdrawn'];
     var currentDealTab = 'active';
@@ -4694,6 +4861,84 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
         }
     }
 
+    let allAgentsData = [];
+    let currentAgentTypeFilter = '';
+
+    function getAgentTypeBadge(agentType) {
+        const badges = {
+            'super_agent': '<span style="display:inline-block;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">🏆 Super Agent</span>',
+            'referring_agent': '<span style="display:inline-block;background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">🤝 Referring</span>',
+            'syndication_desk': '<span style="display:inline-block;background:#FFF7ED;color:#9A3412;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">🏦 Syndication</span>',
+            'vendor_program': '<span style="display:inline-block;background:#F3E8FF;color:#7C3AED;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">🏭 Vendor</span>',
+            'vendor_salesperson': '<span style="display:inline-block;background:#FCE7F3;color:#BE185D;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">👤 Vendor Sales</span>'
+        };
+        return badges[agentType] || '<span style="display:inline-block;background:#F1F5F9;color:#64748B;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">Agent</span>';
+    }
+
+    function getAgentTypeLabel(agentType) {
+        const labels = { 'super_agent': 'Super Agent', 'referring_agent': 'Referring Agent', 'syndication_desk': 'Syndication Desk', 'vendor_program': 'Vendor Program', 'vendor_salesperson': 'Vendor Salesperson' };
+        return labels[agentType] || 'Referring Agent';
+    }
+
+    function onParentVendorChange() {
+        const pvSelect = document.getElementById('parentVendorSelect');
+        const selectedVendor = allAgentsData.find(a => a.id === pvSelect.value);
+        if (selectedVendor) {
+            document.getElementById('agentCompanyName').value = selectedVendor.company_name || selectedVendor.full_name || '';
+        }
+    }
+
+    function filterAgentsByType(type) {
+        currentAgentTypeFilter = type;
+        // Update tab styles
+        document.querySelectorAll('#agentTypeTabs button').forEach(btn => {
+            btn.style.background = 'var(--light-gray)';
+            btn.style.color = 'var(--text-dark)';
+        });
+        const activeTab = type ? document.getElementById('agentTab_' + type) : document.getElementById('agentTabAll');
+        if (activeTab) {
+            activeTab.style.background = 'var(--navy)';
+            activeTab.style.color = 'white';
+        }
+        renderAgentsTable();
+    }
+
+    function renderAgentsTable() {
+        const data = currentAgentTypeFilter
+            ? allAgentsData.filter(a => (a.agent_type || 'referring_agent') === currentAgentTypeFilter)
+            : allAgentsData;
+
+        const tbody = document.getElementById('agentsBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No agents found.</td></tr>';
+            return;
+        }
+
+        const agentLookup = {};
+        allAgentsData.forEach(a => { agentLookup[a.id] = a.full_name || a.email || 'Unknown'; });
+
+        tbody.innerHTML = data.map(agent => {
+            const parentName = agent.parent_agent_id ? (agentLookup[agent.parent_agent_id] || 'Unknown') : '-';
+            return `
+            <tr>
+                <td><strong>${agent.full_name || 'N/A'}</strong></td>
+                <td>${getAgentTypeBadge(agent.agent_type || 'referring_agent')}</td>
+                <td>${agent.email || 'N/A'}</td>
+                <td>${agent.phone || 'N/A'}</td>
+                <td>${parentName}</td>
+                <td>
+                    <select onchange="updateAgentStatus('${agent.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                        ${'Invited,AIA,MOU,Active,Inactive,Pending'.split(',').map(s => `<option value="${s}" ${(agent.agent_status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
+                </td>
+                <td>${agent.referral_slug || 'N/A'}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="viewAgent('${agent.id}')">View</button>
+                </td>
+            </tr>
+        `}).join('');
+    }
+
     async function loadAgents() {
         try {
             const { data, error } = await db
@@ -4703,36 +4948,21 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 .order('full_name', { ascending: true });
 
             if (error) throw error;
+            allAgentsData = data || [];
 
-            const tbody = document.getElementById('agentsBody');
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No agents found.</td></tr>';
-                return;
-            }
+            // Update summary counts
+            const counts = { super_agent: 0, referring_agent: 0, syndication_desk: 0, vendor_program: 0 };
+            allAgentsData.forEach(a => {
+                const t = a.agent_type || 'referring_agent';
+                if (counts[t] !== undefined) counts[t]++;
+            });
+            const el = (id) => document.getElementById(id);
+            if (el('countSuperAgents')) el('countSuperAgents').textContent = counts.super_agent;
+            if (el('countReferringAgents')) el('countReferringAgents').textContent = counts.referring_agent;
+            if (el('countSyndicationDesks')) el('countSyndicationDesks').textContent = counts.syndication_desk;
+            if (el('countVendorPrograms')) el('countVendorPrograms').textContent = counts.vendor_program;
 
-            // Build lookup for parent agent names
-            const agentLookup = {};
-            data.forEach(a => { agentLookup[a.id] = a.full_name || a.email || 'Unknown'; });
-
-            tbody.innerHTML = data.map(agent => {
-                const parentName = agent.parent_agent_id ? (agentLookup[agent.parent_agent_id] || 'Unknown') : '-';
-                return `
-                <tr>
-                    <td><strong>${agent.full_name || 'N/A'}</strong></td>
-                    <td>${agent.email || 'N/A'}</td>
-                    <td>${agent.phone || 'N/A'}</td>
-                    <td>${parentName}</td>
-                    <td>
-                        <select onchange="updateAgentStatus('${agent.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
-                            ${'AIA,MOU,Active,Inactive,Pending'.split(',').map(s => `<option value="${s}" ${(agent.agent_status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
-                        </select>
-                    </td>
-                    <td>${agent.referral_slug || 'N/A'}</td>
-                    <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewAgent('${agent.id}')">View</button>
-                    </td>
-                </tr>
-            `}).join('');
+            renderAgentsTable();
         } catch (error) {
             console.error('Load agents error:', error);
         }
@@ -5377,6 +5607,25 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                     </div>
                 </div>
 
+                ${deal.program_details?.quote_request ? `
+                <!-- Quote Request Banner -->
+                <div style="background:linear-gradient(135deg,#F3E8FF,#EDE9FE);border:2px solid #D8B4FE;border-radius:10px;padding:18px 20px;margin-bottom:20px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <span style="font-size:18px;">📨</span>
+                        <strong style="color:#6B21A8;font-size:15px;">Vendor Quote Request</strong>
+                        <span style="font-size:12px;color:#7C3AED;background:white;padding:2px 8px;border-radius:10px;font-weight:600;">from ${deal.program_details.vendor_company || 'Vendor'}</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:13px;">
+                        <div><span style="color:#7C3AED;font-weight:600;">Contact:</span> ${deal.program_details.contact_person || 'N/A'}</div>
+                        <div><span style="color:#7C3AED;font-weight:600;">Amount (pre-tax):</span> ${formatCurrency(deal.deal_amount)}</div>
+                        <div><span style="color:#7C3AED;font-weight:600;">Purchase Option:</span> ${deal.program_details.purchase_option || 'N/A'}</div>
+                        <div><span style="color:#7C3AED;font-weight:600;">Address:</span> ${deal.program_details.company_address || 'N/A'}</div>
+                        <div><span style="color:#7C3AED;font-weight:600;">Terms Requested:</span> ${(deal.program_details.terms_requested || []).map(t => t + ' months').join(', ') || 'N/A'}</div>
+                        ${deal.program_details.equipment_description ? `<div><span style="color:#7C3AED;font-weight:600;">Equipment:</span> ${deal.program_details.equipment_description}</div>` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
                 <!-- Section 2: Deal Overview -->
                 <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Deal Overview</h3>
 
@@ -5820,7 +6069,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
     }
 
     function getDealStatusOptions(currentStatus) {
-        const statuses = ['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding', 'Funded', 'Declined', 'Dead approval', 'Withdrawn'];
+        const statuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding', 'Funded', 'Declined', 'Dead approval', 'Withdrawn'];
         return statuses.map(s => `<option value="${s}" ${s === currentStatus ? 'selected' : ''}>${s}</option>`).join('');
     }
 
@@ -7963,14 +8212,120 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
     // Agent Management
     // ============================================
 
+    let selectedAgentType = '';
+
     function openAddAgentModal() {
         document.getElementById('addAgentForm').reset();
         document.getElementById('agentSlug').value = '';
+        selectedAgentType = '';
+        // Reset step to 1
+        onboardNextStep(1);
+        // Reset type card selections
+        ['super_agent', 'referring_agent', 'syndication_desk', 'vendor_program'].forEach(t => {
+            const card = document.getElementById('typeCard_' + t);
+            if (card) card.style.borderColor = 'var(--border-gray)';
+        });
+        document.getElementById('onboardNext1').disabled = true;
         document.getElementById('addAgentModal').classList.add('active');
     }
 
     function closeAddAgentModal() {
         document.getElementById('addAgentModal').classList.remove('active');
+    }
+
+    function selectAgentType(type) {
+        selectedAgentType = type;
+        // Highlight selected card
+        ['super_agent', 'referring_agent', 'syndication_desk', 'vendor_program', 'vendor_salesperson'].forEach(t => {
+            const card = document.getElementById('typeCard_' + t);
+            if (card) {
+                card.style.borderColor = t === type ? 'var(--gold)' : 'var(--border-gray)';
+                card.style.background = t === type ? '#FFFBEB' : 'white';
+            }
+        });
+        document.getElementById('onboardNext1').disabled = false;
+
+        // Set default commission type based on agent type
+        const commSelect = document.getElementById('agentCommissionType');
+        if (type === 'super_agent') commSelect.value = 'override';
+        else if (type === 'syndication_desk') commSelect.value = 'facilitation';
+        else if (type === 'vendor_program' || type === 'vendor_salesperson') commSelect.value = 'none';
+        else commSelect.value = 'referral_fee';
+
+        // Update company label
+        const companyLabel = document.getElementById('companyLabel');
+        if (type === 'syndication_desk') companyLabel.textContent = 'Institution / Bank Name';
+        else if (type === 'vendor_program') companyLabel.textContent = 'Vendor Company Name';
+        else if (type === 'vendor_salesperson') companyLabel.textContent = 'Vendor Company (auto-filled)';
+        else companyLabel.textContent = 'Company Name';
+    }
+
+    function onboardNextStep(step) {
+        // Hide all steps
+        [1, 2, 3].forEach(s => {
+            const el = document.getElementById('onboardStep' + s);
+            if (el) el.style.display = s === step ? 'block' : 'none';
+        });
+        // Update step indicators
+        document.querySelectorAll('.onboard-step').forEach(el => {
+            const s = parseInt(el.getAttribute('data-step'));
+            if (s <= step) {
+                el.style.background = 'var(--navy)';
+                el.style.color = 'white';
+            } else {
+                el.style.background = 'var(--light-gray)';
+                el.style.color = 'var(--text-light)';
+            }
+        });
+        // Show/hide type-specific fields on step 2
+        if (step === 2) {
+            document.getElementById('superAgentFields').style.display = selectedAgentType === 'super_agent' ? 'block' : 'none';
+            document.getElementById('vendorProgramFields').style.display = selectedAgentType === 'vendor_program' ? 'block' : 'none';
+            document.getElementById('vendorSalespersonFields').style.display = selectedAgentType === 'vendor_salesperson' ? 'block' : 'none';
+            document.getElementById('syndicationDeskFields').style.display = selectedAgentType === 'syndication_desk' ? 'block' : 'none';
+
+            // Populate parent vendor dropdown for salesperson
+            if (selectedAgentType === 'vendor_salesperson') {
+                const select = document.getElementById('parentVendorSelect');
+                const vendorPrograms = allAgentsData.filter(a => a.agent_type === 'vendor_program');
+                select.innerHTML = '<option value="">Select Vendor Program...</option>' +
+                    vendorPrograms.map(v => `<option value="${v.id}">${v.company_name || v.full_name} (${v.email})</option>`).join('');
+            }
+        }
+        // Build review on step 3
+        if (step === 3) {
+            const name = document.getElementById('agentName').value || 'N/A';
+            const email = document.getElementById('agentEmail').value || 'N/A';
+            const phone = document.getElementById('agentPhone').value || 'N/A';
+            const company = document.getElementById('agentCompanyName').value || '-';
+            const btype = document.getElementById('agentBusinessType').value || '-';
+            const comm = document.getElementById('agentCommissionType').value || '-';
+            const slug = document.getElementById('agentSlug').value || '-';
+
+            // Get parent vendor name for salesperson
+            let parentVendorInfo = '';
+            if (selectedAgentType === 'vendor_salesperson') {
+                const pvSelect = document.getElementById('parentVendorSelect');
+                const pvOption = pvSelect.options[pvSelect.selectedIndex];
+                parentVendorInfo = pvOption ? pvOption.textContent : '-';
+                const salesRole = document.getElementById('vendorSalesRole').value || '-';
+                parentVendorInfo = `<strong>Parent Vendor:</strong> <span>${parentVendorInfo}</span><strong>Sales Role:</strong> <span>${salesRole}</span>`;
+            }
+
+            document.getElementById('onboardReviewContent').innerHTML = `
+                <div style="display:grid;grid-template-columns:140px 1fr;gap:6px 12px;">
+                    <strong>Agent Type:</strong> <span>${getAgentTypeBadge(selectedAgentType)}</span>
+                    <strong>Name:</strong> <span>${name}</span>
+                    <strong>Email:</strong> <span>${email}</span>
+                    <strong>Phone:</strong> <span>${phone}</span>
+                    <strong>Company:</strong> <span>${company}</span>
+                    ${parentVendorInfo}
+                    <strong>Business Type:</strong> <span>${btype}</span>
+                    <strong>Commission:</strong> <span>${comm.replace('_', ' ')}</span>
+                    <strong>Referral Slug:</strong> <span style="font-family:monospace;">${slug}</span>
+                </div>
+            `;
+        }
     }
 
     // Auto-generate referral slug from name
@@ -7991,26 +8346,97 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 alert('Please enter an agent name to generate the referral slug');
                 return;
             }
+            if (!selectedAgentType) {
+                alert('Please select an agent type');
+                onboardNextStep(1);
+                return;
+            }
+
+            // Build program_details for vendor/syndication/salesperson
+            let programDetails = {};
+            let parentAgentId = null;
+            if (selectedAgentType === 'vendor_program') {
+                programDetails.description = document.getElementById('vendorProgramDesc').value || '';
+            } else if (selectedAgentType === 'syndication_desk') {
+                programDetails.desk_contact_name = document.getElementById('syndicationContactName').value || '';
+                programDetails.desk_contact_email = document.getElementById('syndicationContactEmail').value || '';
+            } else if (selectedAgentType === 'vendor_salesperson') {
+                const pvId = document.getElementById('parentVendorSelect').value;
+                if (!pvId) {
+                    alert('Please select a parent vendor program for this salesperson.');
+                    onboardNextStep(2);
+                    return;
+                }
+                parentAgentId = pvId;
+                programDetails.sales_role = document.getElementById('vendorSalesRole').value || '';
+            }
+
+            // Generate invite token
+            const inviteToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+
+            const agentRecord = {
+                full_name: document.getElementById('agentName').value,
+                email: document.getElementById('agentEmail').value,
+                phone: document.getElementById('agentPhone').value || null,
+                role: 'agent',
+                agent_type: selectedAgentType,
+                business_type: document.getElementById('agentBusinessType').value || null,
+                commission_type: document.getElementById('agentCommissionType').value || 'referral_fee',
+                company_name: document.getElementById('agentCompanyName').value || null,
+                referral_slug: referralSlug,
+                agent_status: document.getElementById('agentStatus').value || 'Invited',
+                onboarding_status: 'invited',
+                invite_token: inviteToken,
+                invite_sent_at: new Date().toISOString(),
+                program_details: programDetails,
+                parent_agent_id: parentAgentId,
+                created_at: new Date().toISOString()
+            };
 
             const { data, error } = await db
                 .from('users')
-                .insert([{
-                    full_name: document.getElementById('agentName').value,
-                    email: document.getElementById('agentEmail').value,
-                    phone: document.getElementById('agentPhone').value || null,
-                    role: 'agent',
-                    business_type: document.getElementById('agentBusinessType').value || null,
-                    referral_slug: referralSlug,
-                    agent_status: document.getElementById('agentStatus').value || null,
-                    created_at: new Date().toISOString()
-                }])
+                .insert([agentRecord])
                 .select();
 
             if (error) throw error;
 
+            const newAgent = data[0];
+
+            // Send invite email if checked
+            if (document.getElementById('sendInviteEmail').checked) {
+                const activateUrl = window.location.origin + '/agent-activate.html?token=' + inviteToken;
+                const agentName = document.getElementById('agentName').value;
+                const agentEmail = document.getElementById('agentEmail').value;
+                const typeLabel = getAgentTypeLabel(selectedAgentType);
+
+                const subject = encodeURIComponent('Welcome to Alliance Financing Group — Activate Your Account');
+                const body = encodeURIComponent(
+`Hi ${agentName},
+
+Welcome to Alliance Financing Group! You've been set up as a ${typeLabel} in our system.
+
+To activate your account and get started, please click the link below:
+
+${activateUrl}
+
+This link will allow you to set up your password and access your dashboard.
+
+If you have any questions, don't hesitate to reach out.
+
+Best regards,
+Alliance Financing Group
+alliancefinancing.ai`);
+                window.open('mailto:' + agentEmail + '?subject=' + subject + '&body=' + body, '_blank');
+
+                // Copy activation link to clipboard
+                try {
+                    await navigator.clipboard.writeText(activateUrl);
+                } catch(e) {}
+            }
+
             closeAddAgentModal();
             await loadAgents();
-            alert('Agent created successfully!');
+            alert('Agent "' + agentRecord.full_name + '" created successfully!' + (document.getElementById('sendInviteEmail').checked ? ' Invite email opened.' : ''));
         } catch (error) {
             console.error('Add agent error:', error);
             alert('Error creating agent: ' + error.message);
@@ -8083,12 +8509,20 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 `).join('')
                 : '<p style="color: var(--text-light); font-size: 14px;">No referral applications yet.</p>';
 
-            const statusOptions = 'AIA,MOU,Active,Inactive,Pending'.split(',').map(s =>
+            const statusOptions = 'Invited,AIA,MOU,Active,Inactive,Pending'.split(',').map(s =>
                 `<option value="${s}" ${(agent.agent_status || '') === s ? 'selected' : ''}>${s}</option>`
             ).join('');
 
-            const businessTypeOptions = 'Mortgage Agent,Mortgage Broker,Insurance,Consulting,Accounting,Other'.split(',').map(s =>
+            const businessTypeOptions = 'Mortgage Agent,Mortgage Broker,Insurance,Consulting,Accounting,Banking,Equipment Vendor,Other'.split(',').map(s =>
                 `<option value="${s}" ${(agent.business_type || '') === s ? 'selected' : ''}>${s}</option>`
+            ).join('');
+
+            const agentTypeOptions = 'super_agent,referring_agent,syndication_desk,vendor_program,vendor_salesperson'.split(',').map(s =>
+                `<option value="${s}" ${(agent.agent_type || 'referring_agent') === s ? 'selected' : ''}>${getAgentTypeLabel(s)}</option>`
+            ).join('');
+
+            const commissionTypeOptions = 'referral_fee,override,facilitation,none'.split(',').map(s =>
+                `<option value="${s}" ${(agent.commission_type || 'referral_fee') === s ? 'selected' : ''}>${s.replace('_', ' ')}</option>`
             ).join('');
 
             // Build parent agent options (exclude self)
@@ -8107,6 +8541,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             document.getElementById('agentDetailTitle').textContent = agent.full_name || 'Agent Details';
             const modalBody = document.getElementById('agentModalBody');
             modalBody.innerHTML = `
+                <div style="margin-bottom: 16px;">${getAgentTypeBadge(agent.agent_type || 'referring_agent')} ${agent.onboarding_status === 'invited' ? '<span style="display:inline-block;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:6px;">⏳ Invite Pending</span>' : ''} ${agent.company_name ? '<span style="color:var(--text-light);font-size:13px;margin-left:8px;">' + agent.company_name + '</span>' : ''}</div>
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Full Name</label>
@@ -8123,8 +8558,22 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                         <input type="tel" value="${agent.phone || ''}" onblur="updateAgentField('${agentId}', 'phone', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                     <div class="modal-field">
+                        <label>Company Name</label>
+                        <input type="text" value="${agent.company_name || ''}" onblur="updateAgentField('${agentId}', 'company_name', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
                         <label>Referral Slug</label>
                         <div class="modal-field-value" style="font-family: monospace;">${agent.referral_slug || 'N/A'}</div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Agent Type</label>
+                        <div class="modal-field-value">
+                            <select onchange="updateAgentField('${agentId}', 'agent_type', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                                ${agentTypeOptions}
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-row">
@@ -8138,6 +8587,16 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                         </div>
                     </div>
                     <div class="modal-field">
+                        <label>Commission Type</label>
+                        <div class="modal-field-value">
+                            <select onchange="updateAgentField('${agentId}', 'commission_type', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                                ${commissionTypeOptions}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
                         <label>Business Type</label>
                         <div class="modal-field-value">
                             <select onchange="updateAgentField('${agentId}', 'business_type', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
@@ -8146,8 +8605,6 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                             </select>
                         </div>
                     </div>
-                </div>
-                <div class="modal-row">
                     <div class="modal-field">
                         <label>Parent Agent</label>
                         <div class="modal-field-value">
@@ -8157,6 +8614,8 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                             </select>
                         </div>
                     </div>
+                </div>
+                <div class="modal-row">
                     <div class="modal-field">
                         <label>Sub-Agents</label>
                         <div class="modal-field-value">
@@ -8165,6 +8624,10 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                                 : '<span style="display: inline-block; background: #F1F5F9; color: #64748B; padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 600;">No</span>'}
                         </div>
                     </div>
+                    <div class="modal-field">
+                        <label>Joined</label>
+                        <div class="modal-field-value">${formatDate(agent.created_at)}</div>
+                    </div>
                 </div>
                 <div class="modal-row">
                     <div class="modal-field">
@@ -8172,8 +8635,8 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                         <input type="url" value="${agent.linkedin_profile || ''}" placeholder="https://linkedin.com/in/..." onblur="updateAgentField('${agentId}', 'linkedin_profile', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                     <div class="modal-field">
-                        <label>Joined</label>
-                        <div class="modal-field-value">${formatDate(agent.created_at)}</div>
+                        <label>Onboarding Status</label>
+                        <div class="modal-field-value">${agent.onboarding_status === 'invited' ? '<span style="color:#92400E;font-weight:600;">Invited</span> — ' + formatDate(agent.invite_sent_at) : agent.onboarding_status === 'active' ? '<span style="color:#166534;font-weight:600;">Active</span>' + (agent.invite_accepted_at ? ' — Activated ' + formatDate(agent.invite_accepted_at) : '') : (agent.onboarding_status || 'active')}</div>
                     </div>
                 </div>
 
@@ -9729,7 +10192,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
         let badgeClass = 'badge-info';
         if (['Funded', 'Active', 'Approved'].includes(status)) {
             badgeClass = 'badge-success';
-        } else if (['Prospect', 'Quote sent', 'Info received', 'In Credit', 'Approval sent'].includes(status)) {
+        } else if (['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approval sent'].includes(status)) {
             badgeClass = 'badge-warning';
         } else if (['Declined', 'Dead approval'].includes(status)) {
             badgeClass = 'badge-danger';
