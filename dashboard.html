@@ -550,6 +550,11 @@
             100% { transform: rotate(360deg); }
         }
 
+        @keyframes slideInRight {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -4123,6 +4128,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             updateDealTabCounts();
             filterDeals();
             updateUnreadBadge();
+            showUnreadToast();
         } catch (error) {
             console.error('Load deals error:', error);
         }
@@ -4999,25 +5005,6 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 notes = deal.notes ? [{ text: deal.notes, author: 'System', date: 'Previously' }] : [];
             }
             notes = normalizeNotes(notes);
-
-            // Mark shared notes as read when agent opens the deal
-            if (isAgentView && currentUserId) {
-                let notesUpdated = false;
-                notes.forEach(n => {
-                    if (n.visible_to_agent && (!n.read_by || !n.read_by[currentUserId])) {
-                        if (!n.read_by) n.read_by = {};
-                        n.read_by[currentUserId] = new Date().toISOString();
-                        notesUpdated = true;
-                    }
-                });
-                if (notesUpdated) {
-                    await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
-                    const cachedDeal = allDeals.find(d => d.id === dealId);
-                    if (cachedDeal) cachedDeal.notes = JSON.stringify(notes);
-                    updateUnreadBadge();
-                }
-            }
-
             const displayNotes = isAgentView ? notes.filter(n => n.visible_to_agent) : notes;
 
             // Build syndication entries HTML
@@ -5050,14 +5037,43 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
 
             // Build notes HTML
             const notesRows = displayNotes.map((n, idx) => {
-                const badge = !isAgentView ? (n.visible_to_agent
-                    ? '<span style="display:inline-block;padding:2px 8px;background:var(--gold);color:#fff;border-radius:3px;font-size:11px;font-weight:600;margin-left:8px;">Shared with Agent</span>'
-                    : '<span style="display:inline-block;padding:2px 8px;background:#E5E7EB;color:#374151;border-radius:3px;font-size:11px;font-weight:600;margin-left:8px;">Internal</span>'
-                ) : '';
+                const isAcknowledged = n.acknowledged_by && Object.keys(n.acknowledged_by).length > 0;
+                const isReadByAgent = n.read_by && currentUserId && n.read_by[currentUserId];
+
+                // Admin badges
+                let badge = '';
+                if (!isAgentView) {
+                    badge = n.visible_to_agent
+                        ? '<span style="display:inline-block;padding:2px 8px;background:var(--gold);color:#fff;border-radius:3px;font-size:11px;font-weight:600;margin-left:8px;">Shared with Agent</span>'
+                        : '<span style="display:inline-block;padding:2px 8px;background:#E5E7EB;color:#374151;border-radius:3px;font-size:11px;font-weight:600;margin-left:8px;">Internal</span>';
+                }
+
+                // Acknowledgment status line (for admin view on shared notes)
+                let ackLine = '';
+                if (!isAgentView && n.visible_to_agent && isAcknowledged) {
+                    const acks = Object.values(n.acknowledged_by);
+                    const ackInfo = acks[0];
+                    const ackTime = ackInfo.time ? new Date(ackInfo.time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                    ackLine = '<div style="margin-top:6px;font-size:11px;color:#059669;font-weight:600;">✓ Acknowledged by ' + (ackInfo.email || 'Agent') + (ackTime ? ' — ' + ackTime : '') + '</div>';
+                } else if (!isAgentView && n.visible_to_agent && !isAcknowledged) {
+                    ackLine = '<div style="margin-top:6px;font-size:11px;color:#9CA3AF;font-style:italic;">⏳ Awaiting acknowledgment</div>';
+                }
+
+                // Acknowledge button (for agent view on unacknowledged notes)
+                let ackBtn = '';
+                if (isAgentView && n.visible_to_agent) {
+                    if (n.acknowledged_by && n.acknowledged_by[currentUserId]) {
+                        ackBtn = '<div style="margin-top:8px;"><span style="display:inline-block;padding:4px 12px;background:#ECFDF5;color:#059669;border-radius:4px;font-size:12px;font-weight:600;">✓ Acknowledged</span></div>';
+                    } else {
+                        ackBtn = '<div style="margin-top:8px;"><button onclick="acknowledgeNote(\'' + dealId + '\', ' + idx + ')" style="padding:5px 14px;background:var(--gold);color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;transition:all 0.2s;">✓ Got it</button></div>';
+                    }
+                }
+
                 return `
                 <div style="padding: 10px; background: ${n.visible_to_agent ? '#FFFBEB' : '#f5f5f5'}; border-radius: 4px; margin-bottom: 8px; border-left: 3px solid ${n.visible_to_agent ? 'var(--gold)' : '#ddd'};">
                     <div style="font-weight: 600; color: var(--navy); margin-bottom: 4px;">${n.author || 'Unknown'} - ${n.date || 'Unknown'}${badge}</div>
                     <div style="font-size: 13px; color: #333; line-height: 1.4;">${n.text}</div>
+                    ${ackLine}${ackBtn}
                 </div>`;
             }).join('');
 
@@ -5763,6 +5779,59 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
         if (badge) {
             badge.textContent = count;
             badge.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+    }
+
+    let toastShownThisSession = false;
+    function showUnreadToast() {
+        if (['super_admin', 'admin'].includes(currentUserRole)) return;
+        if (toastShownThisSession) return;
+        const count = countUnreadNotes(allDeals, currentUserId);
+        if (count === 0) return;
+        toastShownThisSession = true;
+        const toast = document.createElement('div');
+        toast.id = 'noteToast';
+        toast.innerHTML = `<div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;">📩</div>
+            <div><div style="font-weight:700;font-size:14px;">New Messages</div><div style="font-size:13px;opacity:0.9;">You have notes on ${count} deal${count > 1 ? 's' : ''} that need your attention.</div></div>
+            <button onclick="this.parentElement.parentElement.remove();showPage('deals');" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:6px 14px;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;white-space:nowrap;">View Deals</button>
+            <button onclick="this.parentElement.parentElement.remove();" style="background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:18px;padding:0 4px;">✕</button>
+        </div>`;
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;background:linear-gradient(135deg,#0D1E3D,#1a3a6b);color:#fff;padding:16px 20px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.25);z-index:10000;max-width:420px;animation:slideInRight 0.4s ease-out;border-left:4px solid #C9A84C;';
+        document.body.appendChild(toast);
+        // Auto-dismiss after 10 seconds
+        setTimeout(() => { if (document.getElementById('noteToast')) toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 10000);
+    }
+
+    async function acknowledgeNote(dealId, noteIdx) {
+        try {
+            const { data: deal } = await db.from('deals').select('notes').eq('id', dealId).single();
+            let notes = [];
+            try { notes = deal.notes ? JSON.parse(deal.notes) : []; } catch(e) { notes = []; }
+            notes = normalizeNotes(notes);
+            // Find the shared notes visible to agent and match by index
+            let sharedIdx = -1;
+            for (let i = 0; i < notes.length; i++) {
+                if (notes[i].visible_to_agent) {
+                    sharedIdx++;
+                    if (sharedIdx === noteIdx) {
+                        if (!notes[i].read_by) notes[i].read_by = {};
+                        notes[i].read_by[currentUserId] = new Date().toISOString();
+                        if (!notes[i].acknowledged_by) notes[i].acknowledged_by = {};
+                        const userEmail = document.getElementById('userEmailDisplay').textContent;
+                        notes[i].acknowledged_by[currentUserId] = { email: userEmail, time: new Date().toISOString() };
+                        break;
+                    }
+                }
+            }
+            const { error } = await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+            if (error) throw error;
+            const cachedDeal = allDeals.find(d => d.id === dealId);
+            if (cachedDeal) cachedDeal.notes = JSON.stringify(notes);
+            updateUnreadBadge();
+            await viewDeal(dealId);
+        } catch (error) {
+            alert('Error acknowledging note: ' + error.message);
         }
     }
 
