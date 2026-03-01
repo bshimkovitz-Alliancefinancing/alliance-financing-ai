@@ -1147,6 +1147,31 @@
 
             <!-- Lenders Page -->
             <div id="lenders" class="page-section">
+                <!-- AI Lender Matching Weight Configuration -->
+                <div id="matchWeightsPanel" style="background:linear-gradient(135deg,#F3E8FF,#EDE9FE);border-radius:10px;padding:16px 20px;margin-bottom:16px;border:1px solid #D8B4FE;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="document.getElementById('matchWeightsBody').style.display = document.getElementById('matchWeightsBody').style.display === 'none' ? 'block' : 'none'; this.querySelector('.toggle-icon').textContent = document.getElementById('matchWeightsBody').style.display === 'none' ? '▶' : '▼';">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:18px;">🤖</span>
+                            <strong style="color:#6B21A8;font-size:15px;">AI Lender Matching — Score Weights</strong>
+                            <span style="font-size:12px;color:#7C3AED;background:white;padding:2px 8px;border-radius:10px;">Adjustable</span>
+                        </div>
+                        <span class="toggle-icon" style="color:#7C3AED;font-size:14px;">▶</span>
+                    </div>
+                    <div id="matchWeightsBody" style="display:none;margin-top:16px;">
+                        <p style="font-size:13px;color:#64748B;margin-bottom:14px;">Adjust how much each criterion matters when ranking lenders. Higher = more important. Total doesn't need to equal 100 — scores are calculated as a percentage of the total.</p>
+                        <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:12px;" id="weightSlidersGrid">
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+                            <div style="font-size:13px;color:#6B21A8;">
+                                <strong>Total Points:</strong> <span id="weightTotalDisplay">100</span>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button onclick="resetMatchWeights()" style="padding:6px 14px;background:white;color:#7C3AED;border:1px solid #D8B4FE;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Reset Defaults</button>
+                                <button onclick="applyMatchWeights()" style="padding:6px 14px;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Save Weights</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="table-container">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Lenders</div>
@@ -2217,6 +2242,129 @@
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
                         </select>
+                    </div>
+                </div>
+                <div style="border-top: 1px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Lending Criteria</label>
+                    <p style="font-size: 12px; color: #64748B; margin-top: 4px;">Define what this lender funds. Used for AI lender matching.</p>
+                </div>
+
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Preferred Products</label>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;" id="lenderPreferredProducts">
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="Equipment Leasing"> Equipment Leasing</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="MCA"> MCA</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="Working Capital Loan"> Working Capital</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="Business Line of Credit"> Business LOC</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="Commercial Mortgage"> Commercial Mortgage</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="CSBFL"> CSBFL</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="SRED"> SRED</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="Factoring"> Factoring</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="Private Debt"> Private Debt</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="Startup Financing"> Startup Financing</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPrefProducts" value="Franchise Financing"> Franchise Financing</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Will Also Consider</label>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;" id="lenderConsiderProducts">
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="Equipment Leasing"> Equipment Leasing</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="MCA"> MCA</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="Working Capital Loan"> Working Capital</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="Business Line of Credit"> Business LOC</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="Commercial Mortgage"> Commercial Mortgage</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="CSBFL"> CSBFL</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="SRED"> SRED</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="Factoring"> Factoring</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="Private Debt"> Private Debt</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="Startup Financing"> Startup Financing</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderConsiderProducts" value="Franchise Financing"> Franchise Financing</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Min Deal Size ($)</label>
+                        <input type="number" id="lenderMinDeal" placeholder="e.g., 10000" step="1000">
+                    </div>
+                    <div class="modal-field">
+                        <label>Max Deal Size ($)</label>
+                        <input type="number" id="lenderMaxDeal" placeholder="e.g., 5000000" step="1000">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Min Credit Score</label>
+                        <input type="number" id="lenderMinCredit" placeholder="e.g., 600" min="300" max="900">
+                    </div>
+                    <div class="modal-field">
+                        <label>Min Time in Business (years)</label>
+                        <input type="number" id="lenderMinYears" placeholder="e.g., 2" min="0" step="0.5">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Min Annual Revenue ($)</label>
+                        <input type="number" id="lenderMinRevenue" placeholder="e.g., 100000" step="10000">
+                    </div>
+                    <div class="modal-field">
+                        <label>Typical Approval Speed</label>
+                        <select id="lenderApprovalSpeed">
+                            <option value="">Select...</option>
+                            <option value="Same Day">Same Day</option>
+                            <option value="1-2 Days">1-2 Days</option>
+                            <option value="3-5 Days">3-5 Days</option>
+                            <option value="1-2 Weeks">1-2 Weeks</option>
+                            <option value="2-4 Weeks">2-4 Weeks</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Industries Restricted (avoid)</label>
+                        <input type="text" id="lenderRestrictedIndustries" placeholder="e.g., Cannabis, Firearms, Adult (comma-separated)">
+                    </div>
+                    <div class="modal-field">
+                        <label>Provinces/States Covered</label>
+                        <input type="text" id="lenderCoveredRegions" placeholder="e.g., ON, QC, BC, AB or All Canada (comma-separated)">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Terms Offered</label>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;">
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderTerms" value="12"> 12 mo</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderTerms" value="24"> 24 mo</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderTerms" value="36"> 36 mo</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderTerms" value="48"> 48 mo</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderTerms" value="60"> 60 mo</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderTerms" value="72"> 72 mo</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderTerms" value="84"> 84 mo</label>
+                        </div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Purchase Options</label>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;">
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPurchaseOptions" value="FMV"> FMV</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPurchaseOptions" value="$1 Buyout"> $1 Buyout</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPurchaseOptions" value="True Lease"> True Lease</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPurchaseOptions" value="EFA"> EFA</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderPurchaseOptions" value="Loan"> Loan</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Rate Range</label>
+                        <input type="text" id="lenderRateRange" placeholder="e.g., 6%-12% or Prime+2%">
+                    </div>
+                    <div class="modal-field">
+                        <label>Lender Notes / Special Conditions</label>
+                        <input type="text" id="lenderSpecialNotes" placeholder="e.g., Requires personal guarantee over $100K">
                     </div>
                 </div>
                 <div style="border-top: 1px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
@@ -5389,6 +5537,7 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 break;
             case 'lenders':
                 await loadLenders();
+                renderWeightSliders();
                 break;
             case 'vendors':
                 await loadVendors();
@@ -5701,6 +5850,62 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                         <label>Origination Date</label>
                         ${isAgentView ? roField(formatDate(deal.origination_date)) : `<input type="date" value="${deal.origination_date ? deal.origination_date.split('T')[0] : ''}" onblur="updateDealField('${dealId}', 'origination_date', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                     </div>
+                </div>
+
+                <!-- Client Profile for Lender Matching -->
+                <div style="${isAgentView ? 'display:none;' : ''}">
+                <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #7C3AED;">
+                    <span style="color:#7C3AED;">AI Lender Match Profile</span>
+                    <button type="button" onclick="findMatchingLenders('${dealId}')" style="float:right;padding:6px 16px;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">🔍 Find Matching Lenders</button>
+                </h3>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Client Credit Score</label>
+                        <input type="number" value="${deal.client_credit_score || ''}" placeholder="e.g., 680" min="300" max="900" onblur="updateDealField('${dealId}', 'client_credit_score', this.value ? parseInt(this.value) : null)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Time in Business (years)</label>
+                        <input type="number" value="${deal.client_time_in_business || ''}" placeholder="e.g., 5" min="0" step="0.5" onblur="updateDealField('${dealId}', 'client_time_in_business', this.value ? parseFloat(this.value) : null)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Annual Revenue ($)</label>
+                        <input type="number" value="${deal.client_annual_revenue || ''}" placeholder="e.g., 500000" step="10000" onblur="updateDealField('${dealId}', 'client_annual_revenue', this.value ? parseFloat(this.value) : null)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Industry</label>
+                        <input type="text" value="${deal.client_industry || ''}" placeholder="e.g., Construction, Healthcare, Retail" onblur="updateDealField('${dealId}', 'client_industry', this.value || null)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Province/State</label>
+                        <input type="text" value="${deal.client_province || ''}" placeholder="e.g., ON, BC, AB" onblur="updateDealField('${dealId}', 'client_province', this.value || null)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Requested Term (Months)</label>
+                        <select onchange="updateDealField('${dealId}', 'requested_term', this.value ? parseInt(this.value) : null)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;cursor:pointer;">
+                            <option value="">Any / Not specified</option>
+                            ${[12,24,36,48,60,72,84].map(t => `<option value="${t}" ${deal.requested_term == t ? 'selected' : ''}>${t} months</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Requested Purchase Option</label>
+                        <select onchange="updateDealField('${dealId}', 'requested_purchase_option', this.value || null)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;cursor:pointer;">
+                            <option value="">Any / Not specified</option>
+                            ${['FMV','$1 Buyout','True Lease','EFA','Loan'].map(o => `<option value="${o}" ${deal.requested_purchase_option === o ? 'selected' : ''}>${o}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <!-- Lender Match Results will appear here -->
+                        <div id="matchResultsQuick_${dealId}" style="font-size:13px;color:#64748B;"></div>
+                    </div>
+                </div>
+                <!-- Lender Match Results Panel -->
+                <div id="lenderMatchResults_${dealId}" style="display:none;margin-top:12px;"></div>
                 </div>
 
                 <!-- Sections 3-5: Approval, Product Details, Fees (hidden from agents) -->
@@ -8854,6 +9059,12 @@ alliancefinancing.ai`);
             const countryCheckboxes = document.querySelectorAll('input[name="lenderCountries"]:checked');
             const countries = Array.from(countryCheckboxes).map(cb => cb.value).join(', ');
 
+            // Collect criteria
+            const prefProducts = Array.from(document.querySelectorAll('input[name="lenderPrefProducts"]:checked')).map(cb => cb.value);
+            const considerProducts = Array.from(document.querySelectorAll('input[name="lenderConsiderProducts"]:checked')).map(cb => cb.value);
+            const termsOffered = Array.from(document.querySelectorAll('input[name="lenderTerms"]:checked')).map(cb => parseInt(cb.value));
+            const purchaseOptions = Array.from(document.querySelectorAll('input[name="lenderPurchaseOptions"]:checked')).map(cb => cb.value);
+
             const { data, error } = await db
                 .from('lenders')
                 .insert([{
@@ -8863,6 +9074,20 @@ alliancefinancing.ai`);
                     country: countries || null,
                     currency: document.getElementById('lenderCurrency').value || null,
                     status: document.getElementById('lenderStatus').value || null,
+                    preferred_products: prefProducts.length > 0 ? prefProducts : null,
+                    consider_products: considerProducts.length > 0 ? considerProducts : null,
+                    terms_offered: termsOffered.length > 0 ? termsOffered : null,
+                    purchase_options: purchaseOptions.length > 0 ? purchaseOptions : null,
+                    min_deal_size: parseFloat(document.getElementById('lenderMinDeal').value) || null,
+                    max_deal_size: parseFloat(document.getElementById('lenderMaxDeal').value) || null,
+                    min_credit_score: parseInt(document.getElementById('lenderMinCredit').value) || null,
+                    min_time_in_business: parseFloat(document.getElementById('lenderMinYears').value) || null,
+                    min_annual_revenue: parseFloat(document.getElementById('lenderMinRevenue').value) || null,
+                    approval_speed: document.getElementById('lenderApprovalSpeed').value || null,
+                    restricted_industries: document.getElementById('lenderRestrictedIndustries').value || null,
+                    covered_regions: document.getElementById('lenderCoveredRegions').value || null,
+                    rate_range: document.getElementById('lenderRateRange').value || null,
+                    special_notes: document.getElementById('lenderSpecialNotes').value || null,
                     created_at: new Date().toISOString()
                 }])
                 .select();
@@ -8918,6 +9143,370 @@ alliancefinancing.ai`);
         } catch (error) {
             console.error('Add lender error:', error);
             alert('Error creating lender: ' + error.message);
+        }
+    }
+
+    // ============================================
+    // AI Lender Matching Engine
+    // ============================================
+
+    // Default matching weights (adjustable in Settings tab)
+    function getMatchWeights() {
+        try {
+            const saved = localStorage.getItem('allianceMatchWeights');
+            if (saved) return JSON.parse(saved);
+        } catch(e) {}
+        return { product: 30, dealSize: 15, credit: 15, years: 10, revenue: 10, term: 10, purchaseOption: 5, industry: 5 };
+    }
+    function saveMatchWeights(weights) {
+        localStorage.setItem('allianceMatchWeights', JSON.stringify(weights));
+    }
+
+    const defaultMatchWeights = { product: 30, dealSize: 15, credit: 15, years: 10, revenue: 10, term: 10, purchaseOption: 5, industry: 5 };
+    const weightMeta = {
+        product: { label: 'Product Match', color: '#7C3AED', icon: '📦' },
+        dealSize: { label: 'Deal Size', color: '#2563EB', icon: '💰' },
+        credit: { label: 'Credit Score', color: '#059669', icon: '📊' },
+        years: { label: 'Time in Business', color: '#D97706', icon: '📅' },
+        revenue: { label: 'Annual Revenue', color: '#DC2626', icon: '💵' },
+        term: { label: 'Term Match', color: '#0891B2', icon: '⏱️' },
+        purchaseOption: { label: 'Purchase Option', color: '#7C2D12', icon: '🏷️' },
+        industry: { label: 'Industry', color: '#4338CA', icon: '🏭' }
+    };
+
+    function renderWeightSliders() {
+        const grid = document.getElementById('weightSlidersGrid');
+        if (!grid) return;
+        const W = getMatchWeights();
+        grid.innerHTML = '';
+        Object.keys(weightMeta).forEach(key => {
+            const meta = weightMeta[key];
+            const val = W[key] || 0;
+            grid.innerHTML += `
+                <div style="background:white;border-radius:8px;padding:10px 12px;border:1px solid #E2E8F0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <span style="font-size:12px;font-weight:600;color:${meta.color};">${meta.icon} ${meta.label}</span>
+                        <input type="number" id="weight_${key}" value="${val}" min="0" max="100" step="1"
+                            onchange="updateWeightTotal()"
+                            style="width:50px;text-align:center;padding:2px 4px;border:1px solid #ccc;border-radius:4px;font-size:13px;font-weight:700;color:${meta.color};">
+                    </div>
+                    <input type="range" min="0" max="50" value="${val}" step="1"
+                        oninput="document.getElementById('weight_${key}').value=this.value;updateWeightTotal()"
+                        style="width:100%;accent-color:${meta.color};cursor:pointer;">
+                </div>
+            `;
+        });
+        updateWeightTotal();
+    }
+
+    function updateWeightTotal() {
+        let total = 0;
+        Object.keys(weightMeta).forEach(key => {
+            const el = document.getElementById('weight_' + key);
+            if (el) total += parseInt(el.value) || 0;
+        });
+        const display = document.getElementById('weightTotalDisplay');
+        if (display) display.textContent = total;
+    }
+
+    function applyMatchWeights() {
+        const weights = {};
+        Object.keys(weightMeta).forEach(key => {
+            const el = document.getElementById('weight_' + key);
+            weights[key] = parseInt(el.value) || 0;
+        });
+        saveMatchWeights(weights);
+        showToast('Match weights saved successfully!', 'success');
+    }
+
+    function resetMatchWeights() {
+        saveMatchWeights(defaultMatchWeights);
+        renderWeightSliders();
+        showToast('Weights reset to defaults', 'success');
+    }
+
+    // Weight sliders are initialized in loadPageData('lenders')
+
+    async function findMatchingLenders(dealId) {
+        const resultsPanel = document.getElementById('lenderMatchResults_' + dealId);
+        if (!resultsPanel) return;
+        resultsPanel.style.display = 'block';
+        resultsPanel.innerHTML = '<div style="text-align:center;padding:20px;color:#7C3AED;font-weight:600;">🔍 Analyzing lender criteria...</div>';
+
+        try {
+            // Fetch deal data
+            const { data: deal, error: dealErr } = await db.from('deals').select('*').eq('id', dealId).single();
+            if (dealErr) throw dealErr;
+
+            // Fetch all active lenders with criteria
+            const { data: lenders, error: lenderErr } = await db.from('lenders').select('*').eq('status', 'Active');
+            if (lenderErr) throw lenderErr;
+
+            if (!lenders || lenders.length === 0) {
+                resultsPanel.innerHTML = '<div style="padding:16px;background:#FEF2F2;border-radius:8px;color:#991B1B;font-size:14px;">No active lenders found. Add lenders with criteria first.</div>';
+                return;
+            }
+
+            // Get configurable weights
+            const W = getMatchWeights();
+            const totalWeight = W.product + W.dealSize + W.credit + W.years + W.revenue + W.term + W.purchaseOption + W.industry;
+
+            // Score each lender
+            const dealAmount = deal.deal_amount || deal.amount_requested || 0;
+            const dealProduct = deal.product_type || '';
+            const dealCredit = deal.client_credit_score || 0;
+            const dealYears = deal.client_time_in_business || 0;
+            const dealRevenue = deal.client_annual_revenue || 0;
+            const dealIndustry = (deal.client_industry || '').toLowerCase();
+            const dealProvince = (deal.client_province || '').toUpperCase().trim();
+            const dealCurrency = deal.currency || 'CAD';
+            const dealTerm = deal.requested_term || 0;
+            const dealPurchaseOption = deal.requested_purchase_option || '';
+
+            const scoredLenders = lenders.map(lender => {
+                let score = 0;
+                let maxScore = totalWeight;
+                let reasons = [];
+                let flags = [];
+
+                // --- Product Match ---
+                const prefProducts = lender.preferred_products || [];
+                const considerProducts = lender.consider_products || [];
+                if (dealProduct) {
+                    if (prefProducts.includes(dealProduct)) {
+                        score += W.product;
+                        reasons.push('Preferred product: ' + dealProduct);
+                    } else if (considerProducts.includes(dealProduct)) {
+                        score += Math.round(W.product * 0.6);
+                        reasons.push('Will consider: ' + dealProduct);
+                    } else if (prefProducts.length === 0 && considerProducts.length === 0) {
+                        score += Math.round(W.product * 0.4);
+                        reasons.push('No product criteria set');
+                    } else {
+                        flags.push('Does not fund ' + dealProduct);
+                    }
+                } else {
+                    score += Math.round(W.product * 0.4);
+                }
+
+                // --- Deal Size Match ---
+                const minDeal = lender.min_deal_size || 0;
+                const maxDealSize = lender.max_deal_size || Infinity;
+                if (dealAmount > 0) {
+                    if (dealAmount >= minDeal && dealAmount <= maxDealSize) {
+                        score += W.dealSize;
+                        reasons.push('Deal size fits range');
+                    } else if (dealAmount < minDeal) {
+                        flags.push('Below min deal size ($' + minDeal.toLocaleString() + ')');
+                    } else if (dealAmount > maxDealSize) {
+                        flags.push('Exceeds max deal size ($' + maxDealSize.toLocaleString() + ')');
+                    }
+                } else {
+                    score += Math.round(W.dealSize * 0.5);
+                }
+
+                // --- Credit Score Match ---
+                const minCredit = lender.min_credit_score || 0;
+                if (dealCredit > 0 && minCredit > 0) {
+                    if (dealCredit >= minCredit) {
+                        score += W.credit;
+                        reasons.push('Credit score meets minimum (' + minCredit + ')');
+                    } else if (dealCredit >= minCredit - 30) {
+                        score += Math.round(W.credit * 0.5);
+                        flags.push('Credit score slightly below min (' + dealCredit + ' vs ' + minCredit + ')');
+                    } else {
+                        flags.push('Credit score below minimum (' + dealCredit + ' vs ' + minCredit + ')');
+                    }
+                } else if (minCredit === 0) {
+                    score += W.credit;
+                } else {
+                    score += Math.round(W.credit * 0.5);
+                }
+
+                // --- Time in Business Match ---
+                const minYears = lender.min_time_in_business || 0;
+                if (dealYears > 0 && minYears > 0) {
+                    if (dealYears >= minYears) {
+                        score += W.years;
+                        reasons.push('Time in business meets minimum');
+                    } else {
+                        flags.push('Below min time in business (' + dealYears + 'yr vs ' + minYears + 'yr)');
+                    }
+                } else {
+                    score += Math.round(W.years * 0.5);
+                }
+
+                // --- Revenue Match ---
+                const minRev = lender.min_annual_revenue || 0;
+                if (dealRevenue > 0 && minRev > 0) {
+                    if (dealRevenue >= minRev) {
+                        score += W.revenue;
+                        reasons.push('Revenue meets minimum');
+                    } else {
+                        flags.push('Below min revenue ($' + dealRevenue.toLocaleString() + ' vs $' + minRev.toLocaleString() + ')');
+                    }
+                } else {
+                    score += Math.round(W.revenue * 0.5);
+                }
+
+                // --- Term Match ---
+                const lenderTerms = lender.terms_offered || [];
+                if (dealTerm > 0 && lenderTerms.length > 0) {
+                    if (lenderTerms.includes(dealTerm)) {
+                        score += W.term;
+                        reasons.push('Offers ' + dealTerm + ' month term');
+                    } else {
+                        // Check if close (within one step)
+                        const closest = lenderTerms.reduce((prev, curr) => Math.abs(curr - dealTerm) < Math.abs(prev - dealTerm) ? curr : prev);
+                        if (Math.abs(closest - dealTerm) <= 12) {
+                            score += Math.round(W.term * 0.5);
+                            flags.push('Closest term: ' + closest + ' mo (requested ' + dealTerm + ' mo)');
+                        } else {
+                            flags.push('Does not offer ' + dealTerm + ' month term');
+                        }
+                    }
+                } else if (lenderTerms.length === 0) {
+                    score += W.term; // No terms set = assume flexible
+                } else {
+                    score += Math.round(W.term * 0.5); // No term requested
+                }
+
+                // --- Purchase Option Match ---
+                const lenderOptions = lender.purchase_options || [];
+                if (dealPurchaseOption && lenderOptions.length > 0) {
+                    if (lenderOptions.includes(dealPurchaseOption)) {
+                        score += W.purchaseOption;
+                        reasons.push('Offers ' + dealPurchaseOption + ' purchase option');
+                    } else {
+                        flags.push('Does not offer ' + dealPurchaseOption + ' purchase option');
+                    }
+                } else if (lenderOptions.length === 0) {
+                    score += W.purchaseOption; // No options set = assume flexible
+                } else {
+                    score += Math.round(W.purchaseOption * 0.5); // No option requested
+                }
+
+                // --- Industry Check ---
+                const restricted = (lender.restricted_industries || '').toLowerCase();
+                if (dealIndustry && restricted) {
+                    const restrictedList = restricted.split(',').map(s => s.trim());
+                    const isRestricted = restrictedList.some(r => dealIndustry.includes(r));
+                    if (isRestricted) {
+                        flags.push('Industry may be restricted: ' + dealIndustry);
+                        score -= Math.round(W.industry * 2); // Penalty
+                    } else {
+                        score += W.industry;
+                        reasons.push('Industry not restricted');
+                    }
+                } else {
+                    score += W.industry;
+                }
+
+                // --- Geography Check (bonus) ---
+                const regions = (lender.covered_regions || '').toUpperCase();
+                if (dealProvince && regions && !regions.includes('ALL')) {
+                    const regionList = regions.split(',').map(s => s.trim());
+                    if (regionList.includes(dealProvince)) {
+                        score += 3;
+                        reasons.push('Covers ' + dealProvince);
+                    } else {
+                        flags.push('May not cover ' + dealProvince);
+                    }
+                }
+
+                // --- Currency Match (bonus) ---
+                if (lender.currency && dealCurrency && lender.currency === dealCurrency) {
+                    score += 2;
+                }
+
+                const pct = Math.max(0, Math.min(100, Math.round((score / maxScore) * 100)));
+                return { lender, score, maxScore, pct, reasons, flags };
+            });
+
+            // Sort by score descending
+            scoredLenders.sort((a, b) => b.pct - a.pct);
+
+            // Filter out zero/negative scores
+            const matches = scoredLenders.filter(s => s.pct > 0);
+
+            if (matches.length === 0) {
+                resultsPanel.innerHTML = '<div style="padding:16px;background:#FEF2F2;border-radius:8px;color:#991B1B;font-size:14px;">No matching lenders found. Check that lender criteria have been set up.</div>';
+                return;
+            }
+
+            // Build results HTML
+            let html = '<div style="background:linear-gradient(135deg,#F3E8FF,#EDE9FE);border-radius:10px;padding:16px;border:1px solid #D8B4FE;">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><strong style="color:#6B21A8;font-size:15px;">🤖 AI Lender Match Results</strong><span style="font-size:12px;color:#7C3AED;">' + matches.length + ' lenders analyzed</span></div>';
+            // Show active weights
+            html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;font-size:11px;">';
+            html += '<span style="background:#7C3AED;color:white;padding:2px 6px;border-radius:4px;">Weights:</span>';
+            const weightLabels = {product:'Product',dealSize:'Size',credit:'Credit',years:'Years',revenue:'Revenue',term:'Term',purchaseOption:'Purchase Opt',industry:'Industry'};
+            Object.keys(weightLabels).forEach(k => {
+                html += '<span style="background:white;color:#6B21A8;padding:2px 6px;border-radius:4px;border:1px solid #D8B4FE;">' + weightLabels[k] + ': ' + W[k] + '</span>';
+            });
+            html += '<span style="color:#64748B;padding:2px 4px;">= ' + totalWeight + ' pts</span>';
+            html += '</div>';
+
+            matches.forEach((m, i) => {
+                const barColor = m.pct >= 80 ? '#10B981' : m.pct >= 60 ? '#F59E0B' : m.pct >= 40 ? '#F97316' : '#EF4444';
+                const bgColor = i < 3 ? '#FFFFFF' : '#FAFAFA';
+                const badge = i === 0 ? '<span style="background:#10B981;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin-left:8px;">TOP MATCH</span>' : '';
+
+                html += '<div style="background:' + bgColor + ';border:1px solid #E2E8F0;border-radius:8px;padding:12px 16px;margin-bottom:8px;' + (i === 0 ? 'border-color:#10B981;border-width:2px;' : '') + '">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+                html += '<div><strong style="color:#0D1E3D;font-size:14px;">' + m.lender.name + '</strong>' + badge;
+                if (m.lender.rate_range) html += ' <span style="font-size:11px;color:#64748B;">(' + m.lender.rate_range + ')</span>';
+                if (m.lender.approval_speed) html += ' <span style="font-size:11px;color:#7C3AED;background:#F3E8FF;padding:1px 6px;border-radius:4px;margin-left:4px;">⚡ ' + m.lender.approval_speed + '</span>';
+                html += '</div>';
+                html += '<div style="display:flex;align-items:center;gap:8px;">';
+                html += '<div style="width:80px;height:8px;background:#E2E8F0;border-radius:4px;overflow:hidden;"><div style="width:' + m.pct + '%;height:100%;background:' + barColor + ';border-radius:4px;"></div></div>';
+                html += '<strong style="color:' + barColor + ';font-size:14px;">' + m.pct + '%</strong>';
+                html += '</div></div>';
+
+                // Reasons & flags
+                if (m.reasons.length > 0 || m.flags.length > 0) {
+                    html += '<div style="margin-top:6px;font-size:12px;">';
+                    m.reasons.slice(0, 3).forEach(r => { html += '<span style="color:#166534;margin-right:8px;">✓ ' + r + '</span>'; });
+                    m.flags.forEach(f => { html += '<span style="color:#991B1B;margin-right:8px;">⚠ ' + f + '</span>'; });
+                    html += '</div>';
+                }
+
+                // Special notes
+                if (m.lender.special_notes) {
+                    html += '<div style="margin-top:4px;font-size:11px;color:#64748B;font-style:italic;">📋 ' + m.lender.special_notes + '</div>';
+                }
+
+                // Assign button
+                html += '<div style="margin-top:8px;text-align:right;">';
+                html += '<button onclick="assignLenderFromMatch(\'' + dealId + '\', \'' + m.lender.id + '\', \'' + m.lender.name.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:#0D1E3D;color:white;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Assign This Lender</button>';
+                html += '</div>';
+
+                html += '</div>';
+            });
+
+            html += '</div>';
+            resultsPanel.innerHTML = html;
+
+        } catch (err) {
+            console.error('Lender matching error:', err);
+            resultsPanel.innerHTML = '<div style="padding:16px;background:#FEF2F2;border-radius:8px;color:#991B1B;">Error running lender match: ' + err.message + '</div>';
+        }
+    }
+
+    async function assignLenderFromMatch(dealId, lenderId, lenderName) {
+        try {
+            const { error } = await db.from('deals').update({ assigned_lender_id: lenderId }).eq('id', dealId);
+            if (error) throw error;
+            alert('✅ ' + lenderName + ' assigned to this deal!');
+            // Update the Assigned Lender dropdown if visible
+            const selects = document.querySelectorAll('select');
+            selects.forEach(sel => {
+                if (sel.onchange && sel.onchange.toString().includes('assigned_lender_id')) {
+                    sel.value = lenderId;
+                }
+            });
+        } catch (err) {
+            alert('Error assigning lender: ' + err.message);
         }
     }
 
@@ -9699,6 +10288,123 @@ alliancefinancing.ai`);
                             <select id="lenderDetailStatus" onchange="updateLenderStatus(${lenderId}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
                                 ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(lender.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
                             </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row full" style="margin-top: 20px;">
+                    <div class="modal-field">
+                        <label style="font-size: 15px; color: var(--navy); border-bottom: 2px solid #7C3AED; padding-bottom: 8px; margin-bottom: 10px;">Lending Criteria</label>
+                        <div style="margin-bottom: 15px;">
+                            <!-- Preferred Products -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Preferred Products</label>
+                                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                                    ${(() => {
+                                        const prods = lender.preferred_products || [];
+                                        return prods.length > 0 ? prods.map(p => `<span style="background:#EDE9FE;color:#7C3AED;padding:3px 10px;border-radius:14px;font-size:12px;font-weight:500;">${p}</span>`).join('') : '<span style="color:#64748B;font-size:13px;">None set</span>';
+                                    })()}
+                                </div>
+                            </div>
+                            <!-- Will Also Consider -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Will Also Consider</label>
+                                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                                    ${(() => {
+                                        const prods = lender.consider_products || [];
+                                        return prods.length > 0 ? prods.map(p => `<span style="background:#F3E8FF;color:#6D28D9;padding:3px 10px;border-radius:14px;font-size:12px;font-weight:500;">${p}</span>`).join('') : '<span style="color:#64748B;font-size:13px;">None set</span>';
+                                    })()}
+                                </div>
+                            </div>
+                            <!-- Terms Offered -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Terms Offered (Months)</label>
+                                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                                    ${(() => {
+                                        const terms = lender.terms_offered || [];
+                                        return terms.length > 0 ? terms.sort((a,b) => a-b).map(t => `<span style="background:#DBEAFE;color:#1D4ED8;padding:3px 10px;border-radius:14px;font-size:12px;font-weight:500;">${t} mo</span>`).join('') : '<span style="color:#64748B;font-size:13px;">None set</span>';
+                                    })()}
+                                </div>
+                                <div style="margin-top:6px;">
+                                    <label style="font-size:11px;color:#64748B;">Edit terms (comma-separated months):</label>
+                                    <input type="text" placeholder="e.g., 12, 24, 36, 48, 60" value="${(lender.terms_offered || []).join(', ')}" onblur="updateLenderField(${lenderId}, 'terms_offered', this.value ? this.value.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v)) : [])" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:100%;margin-top:4px;">
+                                </div>
+                            </div>
+                            <!-- Purchase Options -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Purchase Options</label>
+                                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                                    ${(() => {
+                                        const opts = lender.purchase_options || [];
+                                        return opts.length > 0 ? opts.map(o => `<span style="background:#FEF3C7;color:#92400E;padding:3px 10px;border-radius:14px;font-size:12px;font-weight:500;">${o}</span>`).join('') : '<span style="color:#64748B;font-size:13px;">None set</span>';
+                                    })()}
+                                </div>
+                                <div style="margin-top:6px;">
+                                    <label style="font-size:11px;color:#64748B;">Edit options (comma-separated):</label>
+                                    <input type="text" placeholder="e.g., FMV, $1 Buyout, True Lease, EFA, Loan" value="${(lender.purchase_options || []).join(', ')}" onblur="updateLenderField(${lenderId}, 'purchase_options', this.value ? this.value.split(',').map(v => v.trim()).filter(v => v) : [])" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:100%;margin-top:4px;">
+                                </div>
+                            </div>
+                            <!-- Deal Size Range -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Deal Size Range</label>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+                                    <div style="background:#F5F5F5;padding:6px 8px;border-radius:4px;font-size:12px;">
+                                        <strong>Min:</strong> \$${((lender.min_deal_size || 0).toLocaleString()) || 'No limit'}
+                                    </div>
+                                    <div style="background:#F5F5F5;padding:6px 8px;border-radius:4px;font-size:12px;">
+                                        <strong>Max:</strong> \$${((lender.max_deal_size || Infinity) === Infinity ? 'No limit' : (lender.max_deal_size || 0).toLocaleString())}
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Credit Score & Years -->
+                            <div style="margin-bottom: 12px;">
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                    <div>
+                                        <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Min Credit Score</label>
+                                        <input type="number" placeholder="e.g., 600" min="300" max="900" value="${lender.min_credit_score || ''}" onblur="updateLenderField(${lenderId}, 'min_credit_score', this.value ? parseInt(this.value) : null)" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:100%;margin-top:4px;">
+                                    </div>
+                                    <div>
+                                        <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Min Time in Business (years)</label>
+                                        <input type="number" placeholder="e.g., 2" min="0" step="0.5" value="${lender.min_time_in_business || ''}" onblur="updateLenderField(${lenderId}, 'min_time_in_business', this.value ? parseFloat(this.value) : null)" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:100%;margin-top:4px;">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Revenue -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Min Annual Revenue (\$)</label>
+                                <input type="number" placeholder="e.g., 100000" step="10000" value="${lender.min_annual_revenue || ''}" onblur="updateLenderField(${lenderId}, 'min_annual_revenue', this.value ? parseFloat(this.value) : null)" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:100%;margin-top:4px;">
+                            </div>
+                            <!-- Approval Speed -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Typical Approval Speed</label>
+                                <select onchange="updateLenderField(${lenderId}, 'approval_speed', this.value || null)" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:100%;margin-top:4px;cursor:pointer;">
+                                    <option value="">Select...</option>
+                                    <option value="Same Day" ${(lender.approval_speed || '') === 'Same Day' ? 'selected' : ''}>Same Day</option>
+                                    <option value="1-2 Days" ${(lender.approval_speed || '') === '1-2 Days' ? 'selected' : ''}>1-2 Days</option>
+                                    <option value="3-5 Days" ${(lender.approval_speed || '') === '3-5 Days' ? 'selected' : ''}>3-5 Days</option>
+                                    <option value="1-2 Weeks" ${(lender.approval_speed || '') === '1-2 Weeks' ? 'selected' : ''}>1-2 Weeks</option>
+                                    <option value="2-4 Weeks" ${(lender.approval_speed || '') === '2-4 Weeks' ? 'selected' : ''}>2-4 Weeks</option>
+                                </select>
+                            </div>
+                            <!-- Restricted Industries -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Industries Restricted (avoid)</label>
+                                <input type="text" placeholder="e.g., Cannabis, Firearms, Adult (comma-separated)" value="${lender.restricted_industries || ''}" onblur="updateLenderField(${lenderId}, 'restricted_industries', this.value || null)" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:100%;margin-top:4px;">
+                            </div>
+                            <!-- Covered Regions -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Provinces/States Covered</label>
+                                <input type="text" placeholder="e.g., ON, QC, BC, AB or All Canada (comma-separated)" value="${lender.covered_regions || ''}" onblur="updateLenderField(${lenderId}, 'covered_regions', this.value || null)" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:100%;margin-top:4px;">
+                            </div>
+                            <!-- Rate Range -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Rate Range</label>
+                                <input type="text" placeholder="e.g., 6%-12% or Prime+2%" value="${lender.rate_range || ''}" onblur="updateLenderField(${lenderId}, 'rate_range', this.value || null)" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:100%;margin-top:4px;">
+                            </div>
+                            <!-- Special Notes -->
+                            <div>
+                                <label style="font-weight: 600; color: var(--navy); font-size: 13px;">Lender Notes / Special Conditions</label>
+                                <input type="text" placeholder="e.g., Requires personal guarantee over \$100K" value="${lender.special_notes || ''}" onblur="updateLenderField(${lenderId}, 'special_notes', this.value || null)" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:100%;margin-top:4px;">
+                            </div>
                         </div>
                     </div>
                 </div>
