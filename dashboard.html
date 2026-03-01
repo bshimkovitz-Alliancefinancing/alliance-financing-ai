@@ -5213,6 +5213,13 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 .eq('deal_id', dealId)
                 .order('uploaded_at', { ascending: false });
 
+            // Fetch approval notices for this deal
+            const { data: approvalNotices } = await db
+                .from('approval_notices')
+                .select('*')
+                .eq('deal_id', dealId)
+                .order('created_at', { ascending: false });
+
             // Load cached lookups
             if (cachedLenders.length === 0) {
                 const { data: lenderList } = await db.from('lenders').select('id, name').order('name');
@@ -5765,7 +5772,10 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 <!-- Section 9b: Request Documents (admin only) -->
                 ${!isAgentView ? buildRequestDocsHtml(deal, dealId, clientContacts) : ''}
 
-                <!-- Section 10: Send to Credit (Agent view) -->
+                <!-- Section 10: Approval Notice (Admin only) -->
+                ${!isAgentView ? buildApprovalNoticeHtml(deal, dealId, clientContacts, approvalNotices) : ''}
+
+                <!-- Section 11: Send to Credit (Agent view) -->
                 ${buildSendToCreditHtml(deal, dealDocuments || [], dealId, isAgentView)}
             `;
 
@@ -7258,6 +7268,241 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             alert('Error creating document request: ' + (error.message || 'Unknown error'));
             btn.disabled = false;
             btn.textContent = '📧 Generate Upload Link & Email';
+        }
+    }
+
+    // ============================================
+    // Approval Notice
+    // ============================================
+
+    function buildApprovalNoticeHtml(deal, dealId, clientContacts, approvalNotices) {
+        var showForStatuses = ['Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding', 'Funded'];
+        if (!showForStatuses.includes(deal.status)) return '';
+
+        // Check existing notices
+        var existingNotices = (approvalNotices || []);
+        var latestNotice = existingNotices.length > 0 ? existingNotices[0] : null;
+
+        // Build status badge if already sent
+        var statusBadge = '';
+        if (latestNotice) {
+            if (latestNotice.accepted_at) {
+                var acceptDate = new Date(latestNotice.accepted_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                var uploadCount = (latestNotice.upload_log || []).reduce(function(sum, l) { return sum + (l.file_count || 0); }, 0);
+                statusBadge = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:6px;">' +
+                    '<span style="display:inline-block;width:8px;height:8px;background:#10B981;border-radius:50;"></span>' +
+                    '<span style="font-size:13px;font-weight:600;color:#166534;">Accepted on ' + acceptDate + '</span>' +
+                    (uploadCount > 0 ? '<span style="font-size:12px;color:#15803D;margin-left:auto;">' + uploadCount + ' doc' + (uploadCount !== 1 ? 's' : '') + ' uploaded</span>' : '') +
+                '</div>';
+            } else {
+                var sentDate = new Date(latestNotice.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                statusBadge = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;">' +
+                    '<span style="display:inline-block;width:8px;height:8px;background:#F59E0B;border-radius:50%;"></span>' +
+                    '<span style="font-size:13px;font-weight:600;color:#92400E;">Sent on ' + sentDate + ' — Awaiting Acceptance</span>' +
+                '</div>';
+            }
+        }
+
+        // Document type options for required docs
+        var docOptions = [
+            { value: 'driver_license', label: "Driver's License" },
+            { value: 'void_cheque', label: 'Void Cheque' },
+            { value: 'articles_of_incorporation', label: 'Articles of Incorporation' },
+            { value: 'business_license', label: 'Business License' },
+            { value: 'financial_statements', label: 'Financial Statements' },
+            { value: 'tax_returns', label: 'Tax Returns' },
+            { value: 'bank_statement', label: 'Bank Statement' },
+            { value: 'photo_id', label: 'Photo ID' },
+            { value: 'credit_application', label: 'Credit Application' },
+            { value: 'other', label: 'Other Document' }
+        ];
+
+        var checkboxes = docOptions.map(function(opt) {
+            return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;font-size:13px;">' +
+                '<input type="checkbox" name="approvalReqDoc" value="' + opt.value + '"> ' + opt.label + '</label>';
+        }).join('');
+
+        // Pre-fill from deal or approval fields
+        var approvalAmount = deal.approval_amount || deal.deal_amount || '';
+        var approvalProduct = deal.product_type || '';
+        var clientEmail = '';
+        var clientName = deal.company_name || '';
+        if (clientContacts && clientContacts.length > 0) {
+            clientEmail = clientContacts[0].email || '';
+            clientName = clientContacts[0].contact_name || clientName;
+        }
+
+        return '<div style="margin-top:16px;padding:16px;background:#F0FDF4;border:2px solid #86EFAC;border-radius:8px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="var el=document.getElementById(\'approvalNoticeBody\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';">' +
+                '<div style="font-weight:700;font-size:14px;color:#065F46;">✅ Send Approval Notice to Client</div>' +
+                '<span style="color:#065F46;font-size:18px;">▾</span>' +
+            '</div>' +
+            statusBadge +
+            '<div id="approvalNoticeBody" style="display:none;margin-top:14px;">' +
+                '<p style="font-size:13px;color:#475569;margin-bottom:14px;">Send approval details to the client with a secure link to accept and upload required documents.</p>' +
+
+                '<!-- Approval Details -->' +
+                '<div style="padding:12px;background:#fff;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:14px;">' +
+                    '<div style="font-weight:600;font-size:13px;color:#065F46;margin-bottom:10px;">Approval Details</div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Amount</label>' +
+                            '<input type="number" id="approvalAmt" value="' + approvalAmount + '" placeholder="0" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Product</label>' +
+                            '<input type="text" id="approvalProd" value="' + approvalProduct + '" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Rate (%)</label>' +
+                            '<input type="number" step="0.01" id="approvalRate" placeholder="0.00" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Term (months)</label>' +
+                            '<input type="number" id="approvalTerm" placeholder="0" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Monthly Payment</label>' +
+                            '<input type="number" step="0.01" id="approvalPayment" placeholder="0.00" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Lender (optional)</label>' +
+                            '<input type="text" id="approvalLender" placeholder="Lender name" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                    '</div>' +
+                    '<div style="margin-top:8px;"><label style="font-size:11px;color:#64748B;display:block;">Conditions (optional)</label>' +
+                        '<textarea id="approvalConditions" placeholder="Any conditions or special notes..." style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:50px;resize:vertical;font-family:inherit;"></textarea></div>' +
+                '</div>' +
+
+                '<!-- Recipient -->' +
+                '<div style="padding:12px;background:#fff;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:14px;">' +
+                    '<div style="font-weight:600;font-size:13px;color:#065F46;margin-bottom:10px;">Recipient</div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Client Name</label>' +
+                            '<input type="text" id="approvalClientName" value="' + clientName + '" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                        '<div><label style="font-size:11px;color:#64748B;display:block;">Client Email</label>' +
+                            '<input type="email" id="approvalClientEmail" value="' + clientEmail + '" placeholder="client@email.com" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;"></div>' +
+                    '</div>' +
+                    '<div style="margin-top:8px;"><label style="font-size:11px;color:#64748B;display:block;">Message to Client (optional)</label>' +
+                        '<textarea id="approvalMsg" placeholder="Optional personal message..." style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:50px;resize:vertical;font-family:inherit;"></textarea></div>' +
+                '</div>' +
+
+                '<!-- Required Documents -->' +
+                '<div style="padding:12px;background:#fff;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:14px;">' +
+                    '<div style="font-weight:600;font-size:13px;color:#065F46;margin-bottom:6px;">Required Documents for Next Steps</div>' +
+                    '<p style="font-size:11px;color:#64748B;margin-bottom:10px;">Client will be asked to upload these after accepting</p>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' + checkboxes + '</div>' +
+                '</div>' +
+
+                '<!-- Visibility -->' +
+                '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;margin-bottom:14px;">' +
+                    '<input type="checkbox" id="approvalVisAgent" checked style="cursor:pointer;width:16px;height:16px;">' +
+                    '<label for="approvalVisAgent" style="margin:0;font-weight:500;cursor:pointer;font-size:13px;color:#0D1E3D;">Visible to Referring Agent</label>' +
+                '</div>' +
+
+                '<button id="sendApprovalBtn" onclick="sendApprovalNotice(\'' + dealId + '\')" style="padding:8px 20px;background:#10B981;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s;">✅ Generate Approval Notice & Email</button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    async function sendApprovalNotice(dealId) {
+        var amt = parseFloat(document.getElementById('approvalAmt').value) || 0;
+        var product = document.getElementById('approvalProd').value.trim();
+        var rate = parseFloat(document.getElementById('approvalRate').value) || null;
+        var term = parseInt(document.getElementById('approvalTerm').value) || null;
+        var payment = parseFloat(document.getElementById('approvalPayment').value) || null;
+        var lender = document.getElementById('approvalLender').value.trim();
+        var conditions = document.getElementById('approvalConditions').value.trim();
+        var clientName = document.getElementById('approvalClientName').value.trim();
+        var clientEmail = document.getElementById('approvalClientEmail').value.trim();
+        var message = document.getElementById('approvalMsg').value.trim();
+        var visibleToAgent = document.getElementById('approvalVisAgent').checked;
+
+        // Get required docs
+        var selectedDocs = Array.from(document.querySelectorAll('input[name="approvalReqDoc"]:checked')).map(function(cb) {
+            var label = cb.parentElement.textContent.trim();
+            return { type: cb.value, name: label, required: true };
+        });
+
+        if (!clientEmail) { alert('Client email is required.'); return; }
+        if (!amt || amt <= 0) { alert('Approval amount is required.'); return; }
+
+        var btn = document.getElementById('sendApprovalBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Generating...';
+
+        try {
+            var token = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substr(2, 12));
+
+            var approvalDetails = {
+                amount: amt,
+                product: product,
+                rate: rate,
+                term: term,
+                monthly_payment: payment,
+                lender: lender,
+                conditions: conditions
+            };
+
+            // Insert into approval_notices
+            var { error: insertErr } = await db.from('approval_notices').insert([{
+                deal_id: dealId,
+                token: token,
+                approval_details: approvalDetails,
+                required_documents: selectedDocs,
+                client_email: clientEmail,
+                client_name: clientName,
+                message: message,
+                sent_by: currentUserId,
+                sent_by_name: currentUserName || document.getElementById('userEmailDisplay').textContent,
+                visible_to_agent: visibleToAgent
+            }]);
+
+            if (insertErr) throw insertErr;
+
+            // Update deal status to "Approval sent"
+            await db.from('deals').update({ status: 'Approval sent' }).eq('id', dealId);
+
+            // Update cached deal
+            var cachedDeal = allDeals.find(function(d) { return d.id === dealId; });
+            if (cachedDeal) cachedDeal.status = 'Approval sent';
+
+            // Add system note
+            var { data: dealData } = await db.from('deals').select('notes').eq('id', dealId).single();
+            var notes = [];
+            try { notes = dealData.notes ? JSON.parse(dealData.notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var userEmail = document.getElementById('userEmailDisplay').textContent;
+            notes.push({
+                text: '✅ Approval notice sent to ' + clientName + ' (' + clientEmail + '). Amount: ' + formatCurrency(amt) + ', Product: ' + product + '.' + (selectedDocs.length > 0 ? ' Requested ' + selectedDocs.length + ' document(s).' : ''),
+                author: currentUserName || userEmail,
+                date: dateStr,
+                visible_to_agent: visibleToAgent
+            });
+            await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+
+            // Build approval URL
+            var baseUrl = window.location.origin;
+            var approvalUrl = baseUrl + '/approval-notice.html?token=' + token;
+
+            // Copy to clipboard
+            try { await navigator.clipboard.writeText(approvalUrl); } catch(e) {}
+
+            // Open mailto
+            var emailBody = 'Dear ' + clientName + ',\n\n' +
+                'We are pleased to inform you that your financing application has been approved!\n\n' +
+                'APPROVAL SUMMARY\n' +
+                'Amount: ' + formatCurrency(amt) + '\n' +
+                'Product: ' + product + '\n' +
+                (rate ? 'Rate: ' + rate + '%\n' : '') +
+                (term ? 'Term: ' + term + ' months\n' : '') +
+                (payment ? 'Monthly Payment: ' + formatCurrency(payment) + '\n' : '') +
+                (lender ? 'Lender: ' + lender + '\n' : '') +
+                '\nTo view your approval details and accept, please visit:\n' + approvalUrl + '\n\n' +
+                (message ? message + '\n\n' : '') +
+                'Best regards,\nAlliance Financing Group\n1-877-660-3660\ninfo@alliancefinancing.ai';
+
+            window.open('mailto:' + encodeURIComponent(clientEmail) + '?subject=' + encodeURIComponent('Your Financing Has Been Approved - Alliance Financing Group') + '&body=' + encodeURIComponent(emailBody));
+
+            alert('Approval notice saved! The approval link has been copied to your clipboard. Your email app will open to send the notice.');
+
+            // Refresh deal view
+            await viewDeal(dealId);
+
+        } catch (err) {
+            console.error('Send approval notice error:', err);
+            alert('Error: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = '✅ Generate Approval Notice & Email';
         }
     }
 
