@@ -2854,6 +2854,10 @@
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
 
+    // Resend API key for direct email sending
+    const RESEND_API_KEY = 're_eDYpbNcY_4uAdqWzyb7yEbQTP1A8H3zcr';
+    const RESEND_FROM = 'Alliance Financing Group <noreply@alliancefinancing.com>';
+
     // Initialize Supabase client
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -6335,6 +6339,9 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
                 <!-- Section 9b: Request Documents (admin only) -->
                 ${!isAgentView ? buildRequestDocsHtml(deal, dealId, clientContacts) : ''}
 
+                <!-- Section 9c: Send Credit Application (admin only) -->
+                ${!isAgentView ? buildSendCreditAppHtml(deal, dealId, clientContacts) : ''}
+
                 <!-- Section 10: Approval Notice (Admin only) -->
                 ${!isAgentView ? buildApprovalNoticeHtml(deal, dealId, clientContacts, approvalNotices) : ''}
 
@@ -8297,6 +8304,230 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             alert('Error creating document request: ' + (error.message || 'Unknown error'));
             btn.disabled = false;
             btn.textContent = '📧 Generate Upload Link & Email';
+        }
+    }
+
+    // ============================================
+    // Send Email via Resend API
+    // ============================================
+
+    async function sendEmailViaResend(to, subject, htmlBody, textBody) {
+        try {
+            var response = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + RESEND_API_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    from: RESEND_FROM,
+                    to: [to],
+                    subject: subject,
+                    html: htmlBody,
+                    text: textBody || ''
+                })
+            });
+            if (!response.ok) {
+                var errData = await response.json().catch(function() { return { message: response.statusText }; });
+                throw new Error(errData.message || 'Email send failed (' + response.status + ')');
+            }
+            return await response.json();
+        } catch (err) {
+            console.error('Resend email error:', err);
+            throw err;
+        }
+    }
+
+    // ============================================
+    // Send Credit Application from Deal
+    // ============================================
+
+    function buildSendCreditAppHtml(deal, dealId, clientContacts) {
+        var applicantEmail = '';
+        var applicantName = '';
+        if (clientContacts && clientContacts.length > 0) {
+            applicantEmail = clientContacts[0].email || '';
+            applicantName = clientContacts[0].full_name || clientContacts[0].first_name || '';
+        }
+
+        var appTypes = [
+            { value: 'leasing', label: 'Equipment Leasing', icon: '🏗️', page: 'apply-leasing.html', desc: 'Full equipment lease application' },
+            { value: 'mca', label: 'Merchant Cash Advance', icon: '💰', page: 'apply-merchant-advance.html', desc: 'MCA with revenue & bank info' },
+            { value: 'wc', label: 'Working Capital & Factoring', icon: '📊', page: 'apply-working-capital.html', desc: 'Working capital, factoring, credit lines' },
+            { value: 'pnw', label: 'Personal Net Worth Statement', icon: '📝', page: 'personal-net-worth.html', desc: 'Assets, liabilities & income declaration' }
+        ];
+
+        var appCards = appTypes.map(function(app) {
+            return '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px solid #E2E8F0;border-radius:8px;cursor:pointer;transition:all 0.2s;" ' +
+                'onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.borderColor=\'#E2E8F0\'">' +
+                '<input type="radio" name="creditAppType_' + dealId + '" value="' + app.value + '" data-page="' + app.page + '" ' +
+                'onchange="selectCreditAppType(this, \'' + dealId + '\')" style="margin:0;">' +
+                '<span style="font-size:20px;">' + app.icon + '</span>' +
+                '<div style="flex:1;"><div style="font-weight:600;font-size:13px;color:var(--navy);">' + app.label + '</div>' +
+                '<div style="font-size:11px;color:#64748B;">' + app.desc + '</div></div></label>';
+        }).join('');
+
+        return '<div style="margin-top:16px;padding:16px;background:#F5F3FF;border:1px solid #C4B5FD;border-radius:8px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="var el=document.getElementById(\'sendCreditAppBody_' + dealId + '\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';">' +
+                '<div style="font-weight:700;font-size:14px;color:#5B21B6;">📧 Send Credit Application to Applicant</div>' +
+                '<span style="color:#5B21B6;font-size:18px;">▾</span>' +
+            '</div>' +
+            '<div id="sendCreditAppBody_' + dealId + '" style="display:none;margin-top:14px;">' +
+                '<p style="font-size:13px;color:#475569;margin-bottom:12px;">Select an application type to send directly to the applicant via email. The link will be tracked to this deal.</p>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">' +
+                    appCards +
+                '</div>' +
+                '<div id="sendCreditAppDetails_' + dealId + '" style="display:none;">' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">' +
+                        '<div>' +
+                            '<label style="font-size:12px;font-weight:600;color:#5B21B6;display:block;margin-bottom:4px;">Applicant Name</label>' +
+                            '<input type="text" id="creditAppName_' + dealId + '" placeholder="Applicant name" value="' + applicantName + '" style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
+                        '</div>' +
+                        '<div>' +
+                            '<label style="font-size:12px;font-weight:600;color:#5B21B6;display:block;margin-bottom:4px;">Applicant Email</label>' +
+                            '<input type="email" id="creditAppEmail_' + dealId + '" placeholder="applicant@email.com" value="' + applicantEmail + '" style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="margin-bottom:12px;">' +
+                        '<label style="font-size:12px;font-weight:600;color:#5B21B6;display:block;margin-bottom:4px;">Personal Message (optional)</label>' +
+                        '<textarea id="creditAppMsg_' + dealId + '" placeholder="e.g., Please complete this application at your earliest convenience..." style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:50px;resize:vertical;font-family:Arial,sans-serif;"></textarea>' +
+                    '</div>' +
+                    '<div id="creditAppLinkPreview_' + dealId + '" style="margin-bottom:12px;padding:8px 12px;background:#EDE9FE;border-radius:6px;font-size:12px;color:#5B21B6;word-break:break-all;"></div>' +
+                    '<div style="display:flex;gap:8px;">' +
+                        '<button id="creditAppSendBtn_' + dealId + '" onclick="sendCreditApplicationEmail(\'' + dealId + '\')" style="padding:8px 20px;background:#7C3AED;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s;">📧 Send via Email</button>' +
+                        '<button onclick="copyCreditAppLink(\'' + dealId + '\')" style="padding:8px 16px;background:#E5E7EB;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;">📋 Copy Link</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    var selectedCreditAppPage = {};
+
+    function selectCreditAppType(radio, dealId) {
+        selectedCreditAppPage[dealId] = radio.dataset.page;
+
+        // Highlight selected card
+        var labels = radio.closest('div').querySelectorAll('label');
+        labels.forEach(function(l) {
+            var inp = l.querySelector('input');
+            l.style.borderColor = inp.checked ? '#7C3AED' : '#E2E8F0';
+            l.style.background = inp.checked ? '#F5F3FF' : '#fff';
+        });
+
+        // Build link preview
+        var baseUrl = window.location.origin;
+        var link = baseUrl + '/' + radio.dataset.page + '?ref=deal-' + dealId;
+        document.getElementById('creditAppLinkPreview_' + dealId).innerHTML = '<strong>Link:</strong> ' + link;
+
+        // Show details section
+        document.getElementById('sendCreditAppDetails_' + dealId).style.display = 'block';
+    }
+
+    function copyCreditAppLink(dealId) {
+        var page = selectedCreditAppPage[dealId];
+        if (!page) { alert('Please select an application type first.'); return; }
+        var baseUrl = window.location.origin;
+        var link = baseUrl + '/' + page + '?ref=deal-' + dealId;
+        navigator.clipboard.writeText(link).then(function() {
+            alert('Application link copied to clipboard!');
+        }).catch(function() {
+            prompt('Copy this link:', link);
+        });
+    }
+
+    async function sendCreditApplicationEmail(dealId) {
+        var page = selectedCreditAppPage[dealId];
+        if (!page) { alert('Please select an application type first.'); return; }
+
+        var name = (document.getElementById('creditAppName_' + dealId).value || '').trim() || 'there';
+        var email = (document.getElementById('creditAppEmail_' + dealId).value || '').trim();
+        var message = (document.getElementById('creditAppMsg_' + dealId).value || '').trim();
+
+        if (!email) { alert('Please enter the applicant\\'s email address.'); return; }
+
+        var btn = document.getElementById('creditAppSendBtn_' + dealId);
+        btn.disabled = true;
+        btn.textContent = '⏳ Sending...';
+
+        try {
+            var baseUrl = window.location.origin;
+            var link = baseUrl + '/' + page + '?ref=deal-' + dealId;
+
+            var appTypeNames = {
+                'apply-leasing.html': 'Equipment Leasing',
+                'apply-merchant-advance.html': 'Merchant Cash Advance',
+                'apply-working-capital.html': 'Working Capital & Factoring',
+                'personal-net-worth.html': 'Personal Net Worth Statement'
+            };
+            var appTypeName = appTypeNames[page] || 'Financing';
+
+            // Build HTML email
+            var htmlEmail = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:25px;text-align:center;">' +
+                    '<h1 style="color:#C5A572;margin:0;font-size:22px;">Alliance Financing Group</h1>' +
+                '</div>' +
+                '<div style="padding:30px;background:#fff;">' +
+                    '<p style="font-size:16px;color:#1E293B;">Hi ' + name + ',</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your interest in financing with Alliance Financing Group.</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete our <strong>' + appTypeName + '</strong> application using the button below:</p>' +
+                    (message ? '<div style="background:#F8FAFC;border-left:4px solid #C5A572;padding:12px 16px;margin:20px 0;font-size:14px;color:#475569;font-style:italic;">' + message + '</div>' : '') +
+                    '<div style="text-align:center;margin:30px 0;">' +
+                        '<a href="' + link + '" style="display:inline-block;padding:14px 32px;background:#C5A572;color:#fff;text-decoration:none;border-radius:6px;font-weight:700;font-size:16px;">Complete Application</a>' +
+                    '</div>' +
+                    '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + link + '" style="color:#3B82F6;">' + link + '</a></p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, please don\\'t hesitate to reach out.</p>' +
+                    '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group Ltd.</strong><br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.ai" style="color:#3B82F6;">info@alliancefinancing.ai</a></p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px;text-align:center;font-size:12px;color:#94A3B8;">' +
+                    'Alliance Financing Group Ltd. | alliancefinancing.ai' +
+                '</div>' +
+            '</div>';
+
+            var textEmail = 'Hi ' + name + ',\\n\\nThank you for your interest in financing with Alliance Financing Group.\\n\\nPlease complete our ' + appTypeName + ' application at:\\n' + link + '\\n\\n' + (message ? 'Note: ' + message + '\\n\\n' : '') + 'Best regards,\\nAlliance Financing Group Ltd.\\n1-877-660-3660 ext. 222\\ninfo@alliancefinancing.ai';
+
+            // Send via Resend
+            await sendEmailViaResend(
+                email,
+                'Alliance Financing - ' + appTypeName + ' Application',
+                htmlEmail,
+                textEmail
+            );
+
+            // Log as deal note
+            var { data: dealData } = await db.from('deals').select('notes').eq('id', dealId).single();
+            var notes = [];
+            try { notes = dealData.notes ? JSON.parse(dealData.notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var userEmail = document.getElementById('userEmailDisplay').textContent;
+            notes.push({
+                text: '📧 ' + appTypeName + ' application sent to ' + email + ' via email.',
+                author: currentUserName || userEmail,
+                date: dateStr,
+                visible_to_agent: true
+            });
+            await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+
+            btn.textContent = '✓ Email Sent!';
+            btn.style.background = '#10B981';
+            alert('Application email sent successfully to ' + email + '!');
+
+            // Refresh deal view
+            setTimeout(function() { viewDeal(dealId); }, 1500);
+
+        } catch (error) {
+            console.error('Send credit app error:', error);
+            alert('Error sending email: ' + (error.message || 'Unknown error') + '\\n\\nFalling back to email client...');
+            // Fallback to mailto
+            var baseUrl = window.location.origin;
+            var link = baseUrl + '/' + page + '?ref=deal-' + dealId;
+            var subject = encodeURIComponent('Alliance Financing - Application');
+            var body = encodeURIComponent('Hi ' + name + ',\\n\\nPlease complete your application at:\\n' + link + '\\n\\nBest regards,\\nAlliance Financing Group');
+            window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
+            btn.disabled = false;
+            btn.textContent = '📧 Send via Email';
+            btn.style.background = '#7C3AED';
         }
     }
 
