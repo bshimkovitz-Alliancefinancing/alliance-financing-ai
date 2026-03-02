@@ -758,6 +758,7 @@
         <div class="header">
             <div class="header-title" id="pageTitle">Dashboard</div>
             <div class="header-actions">
+                <button class="btn btn-secondary btn-sm" onclick="refreshCurrentPage()" title="Refresh current page data" style="margin-right: 10px; font-size: 16px; padding: 4px 10px;">🔄</button>
                 <button class="btn btn-secondary btn-sm" onclick="openCSVImportModal()" style="margin-right: 10px;">Import CSV</button>
                 <span id="currentUser" style="color: var(--text-light); font-size: 14px;"></span>
             </div>
@@ -6336,6 +6337,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 setTimeout(function() { btn.textContent = 'Copy'; btn.style.background = '#E2E8F0'; btn.style.color = ''; }, 2000);
             }
         });
+    }
+
+    function refreshCurrentPage() {
+        loadPageData(currentPage || 'dashboard');
     }
 
     async function loadPageData(pageName) {
@@ -12824,37 +12829,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var isRecovery = await checkForPasswordRecovery();
         if (isRecovery) return; // Stop here — show the new password form
 
-        // Check for existing session (auto-login)
-        try {
-            var { data: sessionData } = await db.auth.getSession();
-            var session = sessionData ? sessionData.session : null;
-            if (session && session.user) {
-                currentUser = session.user;
-                var email = session.user.email;
-                try {
-                    var { data: userData } = await db
-                        .from('users')
-                        .select('id, role, full_name, agent_type')
-                        .ilike('email', email)
-                        .single();
-                    if (userData) {
-                        currentUserRole = userData.role || 'agent';
-                        currentUserId = userData.id;
-                        currentUserName = userData.full_name || email;
-                        currentAgentType = userData.agent_type || 'referring_agent';
-                    }
-                } catch(e) {}
-                document.getElementById('userEmailDisplay').textContent = currentUserName || email;
-                var displayRole = currentUserRole === 'super_admin' ? 'Super Admin' : currentUserRole === 'admin' ? 'Admin' : 'Agent';
-                document.getElementById('currentUser').textContent = (currentUserName || email) + ' (' + displayRole + ')';
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('appContainer').style.display = 'flex';
-                applyRoleAccess();
-                loadDashboard();
-            }
-        } catch(e) {
-            console.error('Session check error:', e);
-        }
+        // Sign out any existing session so user always sees login screen
+        try { await db.auth.signOut(); } catch(e) {}
     })();
 
     // ============================================
