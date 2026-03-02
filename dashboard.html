@@ -1591,6 +1591,11 @@
                         <div class="stat-detail">Across all deals</div>
                     </div>
                     <div class="stat-card">
+                        <div class="stat-label">Deals with Documents</div>
+                        <div class="stat-value" id="docStatDeals">0</div>
+                        <div class="stat-detail">Active deal folders</div>
+                    </div>
+                    <div class="stat-card">
                         <div class="stat-label">Uploaded This Month</div>
                         <div class="stat-value" id="docStatMonth">0</div>
                         <div class="stat-detail" id="docStatMonthLabel">Current month</div>
@@ -1600,18 +1605,13 @@
                         <div class="stat-value" id="docStatSize">0 MB</div>
                         <div class="stat-detail">Storage used</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Document Types</div>
-                        <div class="stat-value" id="docStatTypes">0</div>
-                        <div class="stat-detail">Unique categories</div>
-                    </div>
                 </div>
 
                 <div class="table-container">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Document Center</div>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <input type="text" id="docSearchInput" placeholder="Search documents..." oninput="filterDocumentsPage()" style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; width: 200px;">
+                            <input type="text" id="docSearchInput" placeholder="Search by company, file name..." oninput="filterDocumentsPage()" style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; width: 220px;">
                             <select id="docTypeFilter" onchange="filterDocumentsPage()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; cursor: pointer;">
                                 <option value="">All Types</option>
                                 <option value="bank_statement">Bank Statement</option>
@@ -1629,9 +1629,14 @@
                                 <option value="approval_letter">Approval Letter</option>
                                 <option value="other">Other</option>
                             </select>
-                            <select id="docDealFilter" onchange="filterDocumentsPage()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; cursor: pointer;">
-                                <option value="">All Deals</option>
+                            <select id="docStatusFilter" onchange="filterDocumentsPage()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; cursor: pointer;">
+                                <option value="">All Statuses</option>
+                                <option value="complete">Complete (5+ docs)</option>
+                                <option value="partial">Partial (1-4 docs)</option>
+                                <option value="missing">Missing (0 docs)</option>
                             </select>
+                            <button class="btn btn-secondary btn-sm" onclick="toggleAllDealFolders(true)" style="padding: 5px 10px; font-size: 11px;">Expand All</button>
+                            <button class="btn btn-secondary btn-sm" onclick="toggleAllDealFolders(false)" style="padding: 5px 10px; font-size: 11px;">Collapse All</button>
                         </div>
                     </div>
 
@@ -1647,7 +1652,7 @@
                     <div id="docPendingUploads" style="display: none; margin: 0 20px 15px 20px; border: 1px solid #E2E8F0; border-radius: 8px; padding: 15px; background: #FFFBEB;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <div style="font-weight: 600; font-size: 14px; color: #92400E;">Files ready to upload</div>
-                            <div style="display: flex; gap: 8px;">
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <select id="docBulkDealSelect" style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
                                     <option value="">Select Deal (required)</option>
                                 </select>
@@ -1671,26 +1676,9 @@
                         <div id="docPendingList"></div>
                     </div>
 
-                    <div style="overflow-x: auto;">
-                        <table id="documentsTable" style="min-width: 900px;">
-                            <thead>
-                                <tr>
-                                    <th style="width: 30%;">File Name</th>
-                                    <th>Type</th>
-                                    <th>Deal</th>
-                                    <th>Size</th>
-                                    <th>Uploaded By</th>
-                                    <th>Date</th>
-                                    <th>Visibility</th>
-                                    <th style="width: 140px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="documentsBody">
-                                <tr>
-                                    <td colspan="8" class="empty-state">Loading...</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <!-- Grouped by Deal/Applicant -->
+                    <div id="docGroupedContainer" style="padding: 0 20px 20px 20px;">
+                        <div style="color: #64748B; font-size: 13px; text-align: center; padding: 40px;">Loading documents...</div>
                     </div>
                 </div>
             </div>
@@ -7679,11 +7667,22 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
     }
 
     // ============================================
-    // Document Center Page
+    // Document Center Page — Grouped by Deal
     // ============================================
 
     var allDocumentsPage = [];
+    var allDocDeals = [];
     var pendingDocFiles = [];
+    var expandedDealFolders = {};
+
+    var docTypeLabelsGlobal = {
+        bank_statement: 'Bank Statement', processing_statement: 'Processing Statement',
+        photo_id: 'Photo ID', void_cheque: 'Void Cheque', business_license: 'Business License',
+        tax_return: 'Tax Return', financial_statements: 'Financial Statements',
+        credit_report: 'Credit Report', equipment_quote: 'Equipment Quote / Invoice',
+        ap_ar_aging: 'AP / AR Aging Report', supporting_document: 'Supporting Document',
+        credit_application: 'Completed Credit Application', approval_letter: 'Approval Letter', other: 'Other'
+    };
 
     async function loadDocumentsPage() {
         try {
@@ -7695,39 +7694,48 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             if (error) throw error;
             allDocumentsPage = docs || [];
 
-            // Fetch deals for the filter dropdown
-            var dealQuery = db.from('deals').select('id, company_name, deal_amount').order('company_name');
+            // Fetch all deals for grouping
+            var dealQuery = db.from('deals').select('id, company_name, deal_amount, product_type, status, date_submitted').order('company_name');
             if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
                 dealQuery = dealQuery.eq('source_agent_id', currentUserId);
             }
             var { data: deals } = await dealQuery;
-            var dealSelect = document.getElementById('docDealFilter');
+            allDocDeals = deals || [];
+
+            // Populate bulk upload deal dropdown
             var bulkDealSelect = document.getElementById('docBulkDealSelect');
-            if (dealSelect) {
-                dealSelect.innerHTML = '<option value="">All Deals</option>' +
-                    (deals || []).map(function(d) {
-                        return '<option value="' + d.id + '">' + (d.company_name || 'Unnamed') + (d.deal_amount ? ' ($' + Number(d.deal_amount).toLocaleString() + ')' : '') + '</option>';
-                    }).join('');
-            }
             if (bulkDealSelect) {
                 bulkDealSelect.innerHTML = '<option value="">Select Deal (required)</option>' +
-                    (deals || []).map(function(d) {
+                    allDocDeals.map(function(d) {
                         return '<option value="' + d.id + '">' + (d.company_name || 'Unnamed') + '</option>';
                     }).join('');
             }
 
-            // Update stats
-            updateDocStats(allDocumentsPage);
+            // Enrich docs with deal names
+            var dealMap = {};
+            allDocDeals.forEach(function(d) { dealMap[d.id] = d; });
+            allDocumentsPage.forEach(function(doc) {
+                if (doc.deal_id && dealMap[doc.deal_id]) {
+                    doc._deal = dealMap[doc.deal_id];
+                }
+            });
 
-            // Filter and render
+            // Update stats
+            updateDocStats(allDocumentsPage, allDocDeals);
+
+            // Filter and render grouped view
             filterDocumentsPage();
         } catch (err) {
             console.error('Error loading documents page:', err);
         }
     }
 
-    function updateDocStats(docs) {
+    function updateDocStats(docs, deals) {
         document.getElementById('docStatTotal').textContent = docs.length;
+
+        // Count deals that have at least 1 document
+        var dealsWithDocs = new Set(docs.filter(function(d) { return d.deal_id; }).map(function(d) { return d.deal_id; }));
+        document.getElementById('docStatDeals').textContent = dealsWithDocs.size;
 
         var now = new Date();
         var thisMonth = docs.filter(function(d) {
@@ -7741,127 +7749,234 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
         var totalBytes = docs.reduce(function(sum, d) { return sum + (d.file_size_bytes || 0); }, 0);
         var totalMB = (totalBytes / 1024 / 1024).toFixed(1);
         document.getElementById('docStatSize').textContent = totalMB > 1024 ? (totalMB / 1024).toFixed(1) + ' GB' : totalMB + ' MB';
-
-        var uniqueTypes = new Set(docs.map(function(d) { return d.document_type; }).filter(Boolean));
-        document.getElementById('docStatTypes').textContent = uniqueTypes.size;
     }
 
     function filterDocumentsPage() {
         var search = (document.getElementById('docSearchInput').value || '').toLowerCase();
         var typeFilter = document.getElementById('docTypeFilter').value;
-        var dealFilter = document.getElementById('docDealFilter').value;
+        var statusFilter = document.getElementById('docStatusFilter').value;
         var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
-        var filtered = allDocumentsPage.filter(function(doc) {
+        // Group documents by deal_id
+        var docsByDeal = {};
+        var unlinkedDocs = [];
+
+        allDocumentsPage.forEach(function(doc) {
             // Agent visibility filter
-            if (!isAdmin && doc.visible_to_agent !== true && doc.uploaded_by !== currentUserId) return false;
-            // Search filter
-            if (search && !(doc.file_name || '').toLowerCase().includes(search) &&
-                !(doc.document_type || '').toLowerCase().includes(search) &&
-                !(doc.uploaded_by_name || '').toLowerCase().includes(search) &&
-                !(doc.notes || '').toLowerCase().includes(search)) return false;
+            if (!isAdmin && doc.visible_to_agent !== true && doc.uploaded_by !== currentUserId) return;
             // Type filter
-            if (typeFilter && doc.document_type !== typeFilter) return false;
-            // Deal filter
-            if (dealFilter && doc.deal_id !== dealFilter) return false;
-            return true;
+            if (typeFilter && doc.document_type !== typeFilter) return;
+
+            if (doc.deal_id) {
+                if (!docsByDeal[doc.deal_id]) docsByDeal[doc.deal_id] = [];
+                docsByDeal[doc.deal_id].push(doc);
+            } else {
+                unlinkedDocs.push(doc);
+            }
         });
 
-        renderDocumentsTable(filtered);
+        // Build deal groups: include deals with docs AND deals without docs (for "missing" filter)
+        var dealGroups = [];
+        var dealsWithDocsSet = new Set(Object.keys(docsByDeal));
+
+        allDocDeals.forEach(function(deal) {
+            var docs = docsByDeal[deal.id] || [];
+            var docCount = docs.length;
+
+            // Status filter
+            if (statusFilter === 'complete' && docCount < 5) return;
+            if (statusFilter === 'partial' && (docCount < 1 || docCount >= 5)) return;
+            if (statusFilter === 'missing' && docCount > 0) return;
+
+            // Search filter (match on company name or file names within)
+            if (search) {
+                var companyMatch = (deal.company_name || '').toLowerCase().includes(search);
+                var fileMatch = docs.some(function(d) {
+                    return (d.file_name || '').toLowerCase().includes(search) ||
+                           (d.uploaded_by_name || '').toLowerCase().includes(search) ||
+                           (d.notes || '').toLowerCase().includes(search);
+                });
+                if (!companyMatch && !fileMatch) return;
+            }
+
+            dealGroups.push({ deal: deal, docs: docs });
+        });
+
+        // Sort: deals with most recent uploads first, then alphabetically
+        dealGroups.sort(function(a, b) {
+            if (a.docs.length > 0 && b.docs.length > 0) {
+                var aDate = new Date(a.docs[0].uploaded_at || 0);
+                var bDate = new Date(b.docs[0].uploaded_at || 0);
+                return bDate - aDate;
+            }
+            if (a.docs.length > 0) return -1;
+            if (b.docs.length > 0) return 1;
+            return (a.deal.company_name || '').localeCompare(b.deal.company_name || '');
+        });
+
+        renderGroupedDocuments(dealGroups, unlinkedDocs);
     }
 
-    function renderDocumentsTable(docs) {
+    function renderGroupedDocuments(dealGroups, unlinkedDocs) {
+        var container = document.getElementById('docGroupedContainer');
         var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
-        var docTypeLabels = {
-            bank_statement: 'Bank Statement', processing_statement: 'Processing Statement',
-            photo_id: 'Photo ID', void_cheque: 'Void Cheque', business_license: 'Business License',
-            tax_return: 'Tax Return', financial_statements: 'Financial Statements',
-            credit_report: 'Credit Report', equipment_quote: 'Equipment Quote / Invoice',
-            ap_ar_aging: 'AP / AR Aging Report', supporting_document: 'Supporting Document',
-            credit_application: 'Completed Credit Application', approval_letter: 'Approval Letter', other: 'Other'
-        };
 
-        var tbody = document.getElementById('documentsBody');
-        if (!docs || docs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No documents found.</td></tr>';
+        if (dealGroups.length === 0 && unlinkedDocs.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#64748B;font-size:14px;">No documents found matching your filters.</div>';
             return;
         }
 
-        tbody.innerHTML = docs.map(function(doc) {
-            var typeLabel = docTypeLabels[doc.document_type] || doc.document_type || 'Other';
-            var sizeMB = doc.file_size_bytes ? (doc.file_size_bytes / 1024 / 1024).toFixed(2) + ' MB' : '-';
-            var uploaded = doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : '-';
-            var uploader = doc.uploaded_by_name || 'Unknown';
-            var dealName = doc.deal_id ? '<a href="#" onclick="viewDeal(\'' + doc.deal_id + '\'); return false;" style="color:#3B82F6;text-decoration:none;">' + (doc.deal_company_name || 'View Deal') + '</a>' : (doc.application_id ? 'Application' : '-');
+        var html = '';
 
-            // File icon based on type
-            var ext = (doc.file_name || '').split('.').pop().toLowerCase();
-            var icon = '📄';
-            if (['pdf'].includes(ext)) icon = '📕';
-            else if (['png','jpg','jpeg','gif'].includes(ext)) icon = '🖼️';
-            else if (['doc','docx'].includes(ext)) icon = '📘';
-            else if (['xls','xlsx','csv'].includes(ext)) icon = '📊';
+        dealGroups.forEach(function(group) {
+            var deal = group.deal;
+            var docs = group.docs;
+            var dealId = deal.id;
+            var isExpanded = expandedDealFolders[dealId] === true;
+            var docCount = docs.length;
 
-            // Visibility badge
-            var visBadge = '';
-            if (isAdmin) {
-                visBadge = doc.visible_to_agent
-                    ? '<span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">Shared</span>'
-                    : '<span style="background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">Internal</span>';
+            // Completeness indicator
+            var completeness = '';
+            var completenessColor = '';
+            if (docCount >= 5) { completeness = 'Complete'; completenessColor = '#059669'; }
+            else if (docCount > 0) { completeness = 'Partial'; completenessColor = '#D97706'; }
+            else { completeness = 'No Documents'; completenessColor = '#DC2626'; }
+
+            // Status badge
+            var statusBadge = '';
+            if (deal.status) {
+                var statusColors = { 'new': '#3B82F6', 'in_progress': '#F59E0B', 'approved': '#10B981', 'funded': '#059669', 'declined': '#EF4444', 'withdrawn': '#6B7280' };
+                var sColor = statusColors[deal.status] || '#6B7280';
+                statusBadge = '<span style="background:' + sColor + '20;color:' + sColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin-left:8px;">' + (deal.status || '').replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); }) + '</span>';
             }
 
-            // Preview button for images and PDFs
-            var previewBtn = '';
-            if (['pdf','png','jpg','jpeg','gif'].includes(ext)) {
-                previewBtn = '<button onclick="previewDocument(\'' + doc.file_path + '\', \'' + (doc.file_name || '').replace(/'/g, "\\'") + '\')" style="padding:3px 8px;background:#8B5CF6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;" title="Preview">👁️</button> ';
-            }
+            // Total size for this deal
+            var dealBytes = docs.reduce(function(sum, d) { return sum + (d.file_size_bytes || 0); }, 0);
+            var dealSize = dealBytes > 0 ? (dealBytes / 1024 / 1024).toFixed(1) + ' MB' : '';
 
-            var deleteBtn = isAdmin ? ' <button onclick="deleteDocFromPage(\'' + doc.id + '\', \'' + doc.file_path + '\')" style="padding:3px 8px;background:#FEE2E2;color:#DC2626;border:none;border-radius:4px;cursor:pointer;font-size:11px;" title="Delete">🗑️</button>' : '';
+            // Deal folder header
+            html += '<div style="border:1px solid #E2E8F0;border-radius:10px;margin-bottom:12px;overflow:hidden;background:#fff;">';
+            html += '<div onclick="toggleDealFolder(\'' + dealId + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;background:' + (isExpanded ? '#F8FAFC' : '#fff') + ';transition:background 0.2s;" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'' + (isExpanded ? '#F8FAFC' : '#fff') + '\'">';
+            html += '<div style="display:flex;align-items:center;gap:12px;">';
+            html += '<span style="font-size:18px;">' + (isExpanded ? '📂' : '📁') + '</span>';
+            html += '<div>';
+            html += '<div style="font-weight:700;font-size:15px;color:var(--navy);">' + (deal.company_name || 'Unnamed Deal') + statusBadge + '</div>';
+            html += '<div style="font-size:12px;color:#64748B;margin-top:2px;">';
+            html += (deal.product_type || '') + (deal.deal_amount ? ' • $' + Number(deal.deal_amount).toLocaleString() : '');
+            html += (deal.date_submitted ? ' • ' + new Date(deal.date_submitted).toLocaleDateString() : '');
+            html += '</div></div></div>';
+            html += '<div style="display:flex;align-items:center;gap:12px;">';
+            html += '<span style="background:' + completenessColor + '20;color:' + completenessColor + ';padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">' + docCount + ' file' + (docCount !== 1 ? 's' : '') + '</span>';
+            if (dealSize) html += '<span style="font-size:12px;color:#64748B;">' + dealSize + '</span>';
+            html += '<span style="color:#94A3B8;font-size:16px;transition:transform 0.2s;transform:rotate(' + (isExpanded ? '90' : '0') + 'deg);">▶</span>';
+            html += '</div></div>';
 
-            var visToggle = '';
-            if (isAdmin) {
-                if (doc.visible_to_agent) {
-                    visToggle = ' <button onclick="toggleDocVisFromPage(\'' + doc.id + '\', false)" style="padding:3px 8px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;border-radius:4px;cursor:pointer;font-size:10px;" title="Hide from agent">Hide</button>';
+            // Expanded content
+            if (isExpanded) {
+                html += '<div style="border-top:1px solid #E2E8F0;padding:12px 18px;">';
+
+                // Upload button for this deal
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+                html += '<span style="font-size:12px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Documents</span>';
+                html += '<button class="btn btn-secondary btn-sm" onclick="showDocumentUploadModal(\'' + dealId + '\', null)" style="padding:4px 12px;font-size:11px;">+ Upload Document</button>';
+                html += '</div>';
+
+                if (docs.length === 0) {
+                    html += '<div style="text-align:center;padding:20px;color:#94A3B8;font-size:13px;">No documents uploaded yet. Click "Upload Document" to add files.</div>';
                 } else {
-                    visToggle = ' <button onclick="toggleDocVisFromPage(\'' + doc.id + '\', true)" style="padding:3px 8px;background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;border-radius:4px;cursor:pointer;font-size:10px;" title="Share with agent">Share</button>';
+                    // Group docs by type within the deal
+                    var docsByType = {};
+                    docs.forEach(function(doc) {
+                        var type = doc.document_type || 'other';
+                        if (!docsByType[type]) docsByType[type] = [];
+                        docsByType[type].push(doc);
+                    });
+
+                    Object.keys(docsByType).sort().forEach(function(type) {
+                        var typeDocs = docsByType[type];
+                        var typeLabel = docTypeLabelsGlobal[type] || type;
+                        html += '<div style="margin-bottom:8px;">';
+                        html += '<div style="font-size:11px;font-weight:600;color:#64748B;margin-bottom:4px;text-transform:uppercase;">' + typeLabel + ' (' + typeDocs.length + ')</div>';
+
+                        typeDocs.forEach(function(doc) {
+                            var ext = (doc.file_name || '').split('.').pop().toLowerCase();
+                            var icon = '📄';
+                            if (['pdf'].includes(ext)) icon = '📕';
+                            else if (['png','jpg','jpeg','gif'].includes(ext)) icon = '🖼️';
+                            else if (['doc','docx'].includes(ext)) icon = '📘';
+                            else if (['xls','xlsx','csv'].includes(ext)) icon = '📊';
+
+                            var sizeMB = doc.file_size_bytes ? (doc.file_size_bytes / 1024 / 1024).toFixed(2) + ' MB' : '';
+                            var uploaded = doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : '';
+                            var uploader = doc.uploaded_by_name || 'Unknown';
+
+                            var visBadge = '';
+                            if (isAdmin) {
+                                visBadge = doc.visible_to_agent
+                                    ? '<span style="background:var(--gold);color:#fff;padding:1px 5px;border-radius:8px;font-weight:600;font-size:9px;margin-left:4px;">Shared</span>'
+                                    : '<span style="background:#E5E7EB;color:#6B7280;padding:1px 5px;border-radius:8px;font-weight:600;font-size:9px;margin-left:4px;">Internal</span>';
+                            }
+
+                            // Action buttons
+                            var actions = '';
+                            if (['pdf','png','jpg','jpeg','gif'].includes(ext)) {
+                                actions += '<button onclick="previewDocument(\'' + doc.file_path + '\', \'' + (doc.file_name || '').replace(/'/g, "\\'") + '\')" style="padding:2px 6px;background:#8B5CF6;color:white;border:none;border-radius:3px;cursor:pointer;font-size:10px;" title="Preview">👁️</button> ';
+                            }
+                            actions += '<button onclick="downloadDocument(\'' + doc.file_path + '\', \'' + (doc.file_name || '').replace(/'/g, "\\'") + '\')" style="padding:2px 6px;background:#3B82F6;color:white;border:none;border-radius:3px;cursor:pointer;font-size:10px;" title="Download">⬇️</button>';
+                            if (isAdmin) {
+                                if (doc.visible_to_agent) {
+                                    actions += ' <button onclick="toggleDocVisFromPage(\'' + doc.id + '\', false)" style="padding:2px 6px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;border-radius:3px;cursor:pointer;font-size:9px;" title="Hide from agent">Hide</button>';
+                                } else {
+                                    actions += ' <button onclick="toggleDocVisFromPage(\'' + doc.id + '\', true)" style="padding:2px 6px;background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;border-radius:3px;cursor:pointer;font-size:9px;" title="Share with agent">Share</button>';
+                                }
+                                actions += ' <button onclick="deleteDocFromPage(\'' + doc.id + '\', \'' + doc.file_path + '\')" style="padding:2px 6px;background:#FEE2E2;color:#DC2626;border:none;border-radius:3px;cursor:pointer;font-size:10px;" title="Delete">🗑️</button>';
+                            }
+
+                            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:4px;">';
+                            html += '<div style="flex:1;min-width:0;">';
+                            html += '<div style="font-weight:500;font-size:13px;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + icon + ' ' + (doc.file_name || 'Unknown') + visBadge + '</div>';
+                            html += '<div style="font-size:11px;color:#64748B;margin-top:1px;">' + sizeMB + (uploaded ? ' • ' + uploaded : '') + ' • ' + uploader + (doc.notes ? ' • <em>' + doc.notes + '</em>' : '') + '</div>';
+                            html += '</div>';
+                            html += '<div style="display:flex;gap:4px;margin-left:10px;flex-shrink:0;">' + actions + '</div>';
+                            html += '</div>';
+                        });
+
+                        html += '</div>';
+                    });
                 }
+
+                // Quick link to full deal
+                html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #F1F5F9;text-align:right;">';
+                html += '<a href="#" onclick="viewDeal(\'' + dealId + '\'); return false;" style="font-size:12px;color:#3B82F6;text-decoration:none;">Open Full Deal →</a>';
+                html += '</div>';
+                html += '</div>';
             }
 
-            return '<tr>' +
-                '<td style="font-weight:500;">' + icon + ' ' + (doc.file_name || 'Unknown') + (doc.notes ? '<br><span style="font-size:11px;color:#64748B;font-style:italic;">' + doc.notes + '</span>' : '') + '</td>' +
-                '<td><span style="background:#EFF6FF;color:#3B82F6;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + typeLabel + '</span></td>' +
-                '<td>' + dealName + '</td>' +
-                '<td style="font-size:12px;">' + sizeMB + '</td>' +
-                '<td style="font-size:12px;">' + uploader + '</td>' +
-                '<td style="font-size:12px;">' + uploaded + '</td>' +
-                '<td>' + visBadge + '</td>' +
-                '<td>' + previewBtn + '<button onclick="downloadDocument(\'' + doc.file_path + '\', \'' + (doc.file_name || '').replace(/'/g, "\\'") + '\')" style="padding:3px 8px;background:#3B82F6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;" title="Download">⬇️</button>' + visToggle + deleteBtn + '</td>' +
-                '</tr>';
-        }).join('');
-    }
-
-    // Resolve deal company names for the documents table
-    async function enrichDocsWithDealNames(docs) {
-        var dealIds = [...new Set(docs.filter(function(d) { return d.deal_id; }).map(function(d) { return d.deal_id; }))];
-        if (dealIds.length === 0) return;
-        var { data: deals } = await db.from('deals').select('id, company_name').in('id', dealIds);
-        if (!deals) return;
-        var dealMap = {};
-        deals.forEach(function(d) { dealMap[d.id] = d.company_name; });
-        docs.forEach(function(doc) {
-            if (doc.deal_id && dealMap[doc.deal_id]) {
-                doc.deal_company_name = dealMap[doc.deal_id];
-            }
+            html += '</div>';
         });
+
+        // Unlinked documents (not attached to any deal)
+        if (unlinkedDocs.length > 0) {
+            html += '<div style="border:1px solid #FCD34D;border-radius:10px;margin-bottom:12px;overflow:hidden;background:#FFFBEB;">';
+            html += '<div style="padding:14px 18px;"><div style="font-weight:700;font-size:15px;color:#92400E;">⚠️ Unlinked Documents (' + unlinkedDocs.length + ')</div>';
+            html += '<div style="font-size:12px;color:#B45309;margin-top:2px;">These documents are not attached to any deal.</div></div>';
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
     }
 
-    // Enhanced loadDocumentsPage with deal name enrichment
-    var _origLoadDocsPage = loadDocumentsPage;
-    loadDocumentsPage = async function() {
-        await _origLoadDocsPage();
-        await enrichDocsWithDealNames(allDocumentsPage);
+    function toggleDealFolder(dealId) {
+        expandedDealFolders[dealId] = !expandedDealFolders[dealId];
         filterDocumentsPage();
-    };
+    }
+
+    function toggleAllDealFolders(expand) {
+        allDocDeals.forEach(function(deal) {
+            expandedDealFolders[deal.id] = expand;
+        });
+        filterDocumentsPage();
+    }
 
     // Delete from Documents page
     async function deleteDocFromPage(docId, filePath) {
@@ -7900,7 +8015,6 @@ ${autoPrint ? '<script>window.onload=function(){window.print();}<\/script>' : ''
             } else if (ext === 'pdf') {
                 previewHtml = '<iframe src="' + result.data.signedUrl + '" style="width:100%;height:80vh;border:none;border-radius:8px;"></iframe>';
             }
-            // Create preview modal
             var existing = document.getElementById('docPreviewModal');
             if (existing) existing.remove();
             var modal = document.createElement('div');
