@@ -2850,7 +2850,7 @@
                 <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;">
                     <input type="checkbox" id="docVisibleToAgent" style="cursor:pointer;width:16px;height:16px;">
                     <label for="docVisibleToAgent" style="margin:0;font-weight:500;cursor:pointer;font-size:13px;color:var(--navy);">Visible to Agent</label>
-                    <span style="font-size:11px;color:#92400E;margin-left:auto;">Uncheck to keep internal only</span>
+                    <span style="font-size:11px;color:#92400E;margin-left:auto;">Check to make visible to agent</span>
                 </div>
             </div>
             <div id="docUploadProgress" style="display: none; margin-bottom: 15px;">
@@ -6431,6 +6431,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 .eq('deal_id', dealId)
                 .order('created_at', { ascending: false });
 
+            // Fetch lender submissions for this deal
+            var lenderSubmissions = [];
+            try {
+                var { data: lsData } = await db
+                    .from('lender_submissions')
+                    .select('*, lenders(id, name)')
+                    .eq('deal_id', dealId)
+                    .order('created_at', { ascending: true });
+                lenderSubmissions = lsData || [];
+            } catch(e) { console.log('Lender submissions not available:', e); }
+
             // Load cached lookups
             if (cachedLenders.length === 0) {
                 const { data: lenderList } = await db.from('lenders').select('id, name').order('name');
@@ -6991,6 +7002,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 </div>
                 ` : ''}
 
+                <!-- Section 6b: Credit Submissions (admin only) -->
+                ${!isAgentView ? buildLenderSubmissionsHtml(dealId, lenderSubmissions) : ''}
+
                 <!-- Section 7: Client Contacts -->
                 <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Client Contacts</h3>
                 <div style="margin-bottom: 15px;">
@@ -7290,6 +7304,222 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         } catch (error) {
             alert('Error removing syndication: ' + error.message);
         }
+    }
+
+    // ============================================
+    // Multi-Lender Credit Submissions
+    // ============================================
+
+    function buildLenderSubmissionsHtml(dealId, submissions) {
+        var subs = submissions || [];
+        var rows = '';
+        for (var i = 0; i < subs.length; i++) {
+            var sub = subs[i];
+            var isSelected = sub.is_selected;
+            var bgColor = isSelected ? '#FFFBEB' : '#F8FAFC';
+            var borderLeft = isSelected ? 'border-left: 4px solid var(--gold);' : 'border-left: 4px solid transparent;';
+            var lenderName = (sub.lenders && sub.lenders.name) ? sub.lenders.name : 'Unknown Lender';
+            var subDate = new Date(sub.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+            var statusBadge = '';
+            if (sub.status === 'Pending') statusBadge = '<span style="padding:3px 10px;background:#FEF3C7;color:#B45309;border-radius:12px;font-size:11px;font-weight:700;">⏳ Pending</span>';
+            else if (sub.status === 'Approved') statusBadge = '<span style="padding:3px 10px;background:#D1FAE5;color:#065F46;border-radius:12px;font-size:11px;font-weight:700;">✓ Approved</span>';
+            else if (sub.status === 'Declined') statusBadge = '<span style="padding:3px 10px;background:#FEE2E2;color:#991B1B;border-radius:12px;font-size:11px;font-weight:700;">✕ Declined</span>';
+            else if (sub.status === 'Withdrawn') statusBadge = '<span style="padding:3px 10px;background:#E5E7EB;color:#6B7280;border-radius:12px;font-size:11px;font-weight:700;">← Withdrawn</span>';
+
+            var approvalDetails = '';
+            if (sub.status === 'Approved' && sub.approval_amount) {
+                approvalDetails = '<div style="margin-top:8px;padding:10px;background:#F0F9FF;border-radius:6px;font-size:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:4px;">';
+                approvalDetails += '<div><strong>Amount:</strong> $' + Number(sub.approval_amount).toLocaleString() + '</div>';
+                if (sub.approval_rate) approvalDetails += '<div><strong>Rate:</strong> ' + sub.approval_rate + '%</div>';
+                if (sub.approval_term) approvalDetails += '<div><strong>Term:</strong> ' + sub.approval_term + ' months</div>';
+                if (sub.approval_buyout_type) approvalDetails += '<div><strong>Buyout:</strong> ' + sub.approval_buyout_type + '</div>';
+                if (sub.approval_notes) approvalDetails += '<div style="grid-column:span 2;margin-top:4px;"><strong>Notes:</strong> ' + sub.approval_notes + '</div>';
+                approvalDetails += '</div>';
+            }
+
+            var selectedBadge = isSelected ? '<span style="padding:3px 10px;background:var(--gold);color:white;border-radius:12px;font-size:11px;font-weight:700;">★ Selected Lender</span>' : '';
+
+            var actions = '<div style="display:flex;gap:6px;margin-top:10px;">';
+            actions += '<button onclick="toggleLenderSubEdit(\'' + sub.id + '\')" style="padding:5px 12px;background:var(--info);color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">Edit</button>';
+            if (!isSelected && sub.status === 'Approved') {
+                actions += '<button onclick="selectLenderSubmission(\'' + sub.id + '\',\'' + dealId + '\',\'' + sub.lender_id + '\')" style="padding:5px 12px;background:var(--success);color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">✓ Select This Lender</button>';
+            }
+            actions += '<button onclick="removeLenderSubmission(\'' + sub.id + '\',\'' + dealId + '\')" style="padding:5px 12px;background:var(--danger);color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">Remove</button>';
+            actions += '</div>';
+
+            var editPanel = '<div id="lsEdit_' + sub.id + '" style="display:none;margin-top:12px;padding:14px;background:white;border-radius:6px;border:1px solid #E5E7EB;">';
+            editPanel += '<div class="modal-row"><div class="modal-field"><label>Status</label>';
+            editPanel += '<select id="lsStatus_' + sub.id + '" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;">';
+            editPanel += '<option value="Pending"' + (sub.status === 'Pending' ? ' selected' : '') + '>Pending</option>';
+            editPanel += '<option value="Approved"' + (sub.status === 'Approved' ? ' selected' : '') + '>Approved</option>';
+            editPanel += '<option value="Declined"' + (sub.status === 'Declined' ? ' selected' : '') + '>Declined</option>';
+            editPanel += '<option value="Withdrawn"' + (sub.status === 'Withdrawn' ? ' selected' : '') + '>Withdrawn</option>';
+            editPanel += '</select></div></div>';
+            editPanel += '<div class="modal-row"><div class="modal-field"><label>Approval Amount</label>';
+            editPanel += '<input type="number" id="lsAmount_' + sub.id + '" value="' + (sub.approval_amount || '') + '" placeholder="0" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;"></div>';
+            editPanel += '<div class="modal-field"><label>Rate (%)</label>';
+            editPanel += '<input type="number" id="lsRate_' + sub.id + '" step="0.01" value="' + (sub.approval_rate || '') + '" placeholder="0" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;"></div></div>';
+            editPanel += '<div class="modal-row"><div class="modal-field"><label>Term (months)</label>';
+            editPanel += '<input type="number" id="lsTerm_' + sub.id + '" value="' + (sub.approval_term || '') + '" placeholder="0" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;"></div>';
+            editPanel += '<div class="modal-field"><label>Buyout Type</label>';
+            editPanel += '<select id="lsBuyout_' + sub.id + '" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;">';
+            editPanel += '<option value="">-- Select --</option>';
+            editPanel += '<option value="FMV"' + (sub.approval_buyout_type === 'FMV' ? ' selected' : '') + '>FMV</option>';
+            editPanel += '<option value="$1.00"' + (sub.approval_buyout_type === '$1.00' ? ' selected' : '') + '>$1.00 Buyout</option>';
+            editPanel += '<option value="10%"' + (sub.approval_buyout_type === '10%' ? ' selected' : '') + '>10% Purchase Option</option>';
+            editPanel += '</select></div></div>';
+            editPanel += '<div class="modal-row"><div class="modal-field full"><label>Notes</label>';
+            editPanel += '<textarea id="lsNotes_' + sub.id + '" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;min-height:50px;">' + (sub.approval_notes || '') + '</textarea></div></div>';
+            editPanel += '<div style="display:flex;gap:8px;margin-top:10px;">';
+            editPanel += '<button onclick="saveLenderSubmission(\'' + sub.id + '\',\'' + dealId + '\')" style="padding:6px 14px;background:var(--success);color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">Save</button>';
+            editPanel += '<button onclick="toggleLenderSubEdit(\'' + sub.id + '\')" style="padding:6px 14px;background:#E5E7EB;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">Cancel</button>';
+            editPanel += '</div></div>';
+
+            rows += '<div style="padding:14px;background:' + bgColor + ';border-radius:8px;margin-bottom:10px;' + borderLeft + '">';
+            rows += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+            rows += '<div><div style="font-weight:700;color:var(--navy);font-size:14px;">' + lenderName + '</div>';
+            rows += '<div style="font-size:12px;color:#64748B;">Submitted ' + subDate + (sub.submitted_by_name ? ' by ' + sub.submitted_by_name : '') + '</div></div>';
+            rows += '<div style="display:flex;gap:6px;align-items:center;">' + statusBadge + ' ' + selectedBadge + '</div>';
+            rows += '</div>';
+            rows += approvalDetails;
+            rows += actions;
+            rows += editPanel;
+            rows += '</div>';
+        }
+
+        var addForm = '<div style="margin-top:15px;padding:15px;background:#f9f9f9;border-radius:6px;border:1px solid var(--border-gray);">';
+        addForm += '<div style="font-weight:600;margin-bottom:12px;color:var(--navy);">Submit to Lender</div>';
+        addForm += '<div class="modal-row"><div class="modal-field">';
+        addForm += '<label>Select Lender</label>';
+        addForm += '<select id="newLenderSubId" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;cursor:pointer;">';
+        addForm += '<option value="">Choose a lender...</option>';
+        for (var j = 0; j < cachedLenders.length; j++) {
+            addForm += '<option value="' + cachedLenders[j].id + '">' + cachedLenders[j].name + '</option>';
+        }
+        addForm += '</select></div>';
+        addForm += '<div class="modal-field"><label>&nbsp;</label>';
+        addForm += '<button onclick="addLenderSubmission(\'' + dealId + '\')" style="padding:8px 16px;background:var(--gold);color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;width:100%;">+ Add Submission</button>';
+        addForm += '</div></div></div>';
+
+        var html = '<h3 style="color:var(--navy);font-size:16px;margin:25px 0 15px 0;padding-bottom:8px;border-bottom:2px solid var(--gold);">Credit Submissions</h3>';
+        html += '<div style="margin-bottom:20px;">';
+        if (subs.length > 0) {
+            html += rows;
+        } else {
+            html += '<div style="color:#94A3B8;font-size:13px;padding:10px;">No lender submissions yet. Add a lender below to submit this deal to credit.</div>';
+        }
+        html += addForm;
+        html += '</div>';
+        return html;
+    }
+
+    function toggleLenderSubEdit(subId) {
+        var el = document.getElementById('lsEdit_' + subId);
+        if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
+    async function addLenderSubmission(dealId) {
+        var lenderId = document.getElementById('newLenderSubId').value;
+        if (!lenderId) { alert('Please select a lender'); return; }
+        try {
+            var { error } = await db.from('lender_submissions').insert({
+                deal_id: dealId,
+                lender_id: lenderId,
+                status: 'Pending',
+                submitted_at: new Date().toISOString(),
+                submitted_by: currentUserId,
+                submitted_by_name: currentUserName || 'Admin'
+            });
+            if (error) throw error;
+
+            var lenderName = cachedLenders.find(function(l) { return l.id === lenderId; });
+            lenderName = lenderName ? lenderName.name : 'Lender';
+            await addDealSystemNote(dealId, '📤 Submitted to ' + lenderName + ' for credit review', false);
+            await viewDeal(dealId);
+        } catch (err) {
+            alert('Error adding submission: ' + err.message);
+        }
+    }
+
+    async function saveLenderSubmission(subId, dealId) {
+        try {
+            var newStatus = document.getElementById('lsStatus_' + subId).value;
+            var updateData = {
+                status: newStatus,
+                approval_amount: parseFloat(document.getElementById('lsAmount_' + subId).value) || null,
+                approval_rate: parseFloat(document.getElementById('lsRate_' + subId).value) || null,
+                approval_term: parseInt(document.getElementById('lsTerm_' + subId).value) || null,
+                approval_buyout_type: document.getElementById('lsBuyout_' + subId).value || null,
+                approval_notes: document.getElementById('lsNotes_' + subId).value || null,
+                updated_at: new Date().toISOString()
+            };
+            var { error } = await db.from('lender_submissions').update(updateData).eq('id', subId);
+            if (error) throw error;
+
+            var { data: subData } = await db.from('lender_submissions').select('*, lenders(name)').eq('id', subId).single();
+            var ln = (subData && subData.lenders) ? subData.lenders.name : 'Lender';
+            var noteText = '📋 ' + ln + ': ' + newStatus;
+            if (newStatus === 'Approved' && updateData.approval_amount) {
+                noteText += ' — $' + Number(updateData.approval_amount).toLocaleString();
+                if (updateData.approval_buyout_type) noteText += ' (' + updateData.approval_buyout_type + ')';
+                if (updateData.approval_term) noteText += ', ' + updateData.approval_term + ' mo';
+            }
+            await addDealSystemNote(dealId, noteText, false);
+            await viewDeal(dealId);
+        } catch (err) {
+            alert('Error updating submission: ' + err.message);
+        }
+    }
+
+    async function selectLenderSubmission(subId, dealId, lenderId) {
+        if (!confirm('Select this lender as the final choice for this deal?')) return;
+        try {
+            // Unselect all others first
+            await db.from('lender_submissions').update({ is_selected: false, selected_at: null }).eq('deal_id', dealId);
+            // Select this one
+            var { error } = await db.from('lender_submissions').update({ is_selected: true, selected_at: new Date().toISOString() }).eq('id', subId);
+            if (error) throw error;
+            // Update deal assigned lender
+            await db.from('deals').update({ assigned_lender_id: lenderId }).eq('id', dealId);
+
+            var lenderName = cachedLenders.find(function(l) { return l.id === lenderId; });
+            lenderName = lenderName ? lenderName.name : 'Lender';
+            await addDealSystemNote(dealId, '✅ Selected ' + lenderName + ' as final lender', false);
+            await viewDeal(dealId);
+        } catch (err) {
+            alert('Error selecting lender: ' + err.message);
+        }
+    }
+
+    async function removeLenderSubmission(subId, dealId) {
+        if (!confirm('Remove this lender submission?')) return;
+        try {
+            var { data: subData } = await db.from('lender_submissions').select('*, lenders(name)').eq('id', subId).single();
+            var wasSelected = subData && subData.is_selected;
+            var { error } = await db.from('lender_submissions').delete().eq('id', subId);
+            if (error) throw error;
+            if (wasSelected) {
+                await db.from('deals').update({ assigned_lender_id: null }).eq('id', dealId);
+            }
+            var ln = (subData && subData.lenders) ? subData.lenders.name : 'Lender';
+            await addDealSystemNote(dealId, '🗑️ Removed ' + ln + ' submission', false);
+            await viewDeal(dealId);
+        } catch (err) {
+            alert('Error removing submission: ' + err.message);
+        }
+    }
+
+    async function addDealSystemNote(dealId, text, visibleToAgent) {
+        try {
+            var { data: deal } = await db.from('deals').select('notes').eq('id', dealId).single();
+            var notes = [];
+            try { notes = deal && deal.notes ? JSON.parse(deal.notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            notes.push({ text: text, author: 'System', date: dateStr, visible_to_agent: visibleToAgent || false });
+            await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+        } catch(e) { console.error('Error adding system note:', e); }
     }
 
     async function addDealClientContact(dealId) {

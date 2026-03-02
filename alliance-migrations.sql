@@ -120,3 +120,32 @@ CREATE TABLE IF NOT EXISTS admin_resources (
 );
 CREATE INDEX IF NOT EXISTS idx_admin_resources_category ON admin_resources(category);
 CREATE INDEX IF NOT EXISTS idx_admin_resources_created ON admin_resources(created_at DESC);
+
+-- =============================================
+-- Multi-Lender Credit Submissions
+-- =============================================
+CREATE TABLE IF NOT EXISTS lender_submissions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    deal_id UUID NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
+    lender_id UUID NOT NULL REFERENCES lenders(id) ON DELETE RESTRICT,
+    submitted_at TIMESTAMPTZ DEFAULT now(),
+    submitted_by UUID,
+    submitted_by_name TEXT,
+    status TEXT DEFAULT 'Pending',
+    approval_amount NUMERIC,
+    approval_rate NUMERIC,
+    approval_term INTEGER,
+    approval_buyout_type TEXT,
+    approval_notes TEXT,
+    is_selected BOOLEAN DEFAULT false,
+    selected_at TIMESTAMPTZ,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_lender_submissions_deal ON lender_submissions(deal_id);
+CREATE INDEX IF NOT EXISTS idx_lender_submissions_lender ON lender_submissions(lender_id);
+CREATE INDEX IF NOT EXISTS idx_lender_submissions_status ON lender_submissions(status);
+ALTER TABLE lender_submissions DISABLE ROW LEVEL SECURITY;
+GRANT ALL ON lender_submissions TO anon;
+GRANT ALL ON lender_submissions TO authenticated;
