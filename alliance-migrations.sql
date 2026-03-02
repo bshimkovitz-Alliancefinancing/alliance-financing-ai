@@ -45,3 +45,50 @@ ALTER TABLE deals ADD COLUMN IF NOT EXISTS client_industry TEXT;
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS client_province TEXT;
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS requested_term INTEGER;
 ALTER TABLE deals ADD COLUMN IF NOT EXISTS requested_purchase_option TEXT;
+
+-- =============================================
+-- Document Management — Documents Table
+-- =============================================
+CREATE TABLE IF NOT EXISTS documents (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    deal_id UUID REFERENCES deals(id) ON DELETE CASCADE,
+    application_id UUID REFERENCES applications(id) ON DELETE CASCADE,
+    file_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_type TEXT,
+    file_size_bytes BIGINT,
+    document_type TEXT DEFAULT 'other',
+    notes TEXT,
+    uploaded_by UUID,
+    uploaded_by_name TEXT,
+    visible_to_agent BOOLEAN DEFAULT false,
+    uploaded_at TIMESTAMPTZ DEFAULT now(),
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Index for faster lookups by deal
+CREATE INDEX IF NOT EXISTS idx_documents_deal_id ON documents(deal_id);
+CREATE INDEX IF NOT EXISTS idx_documents_application_id ON documents(application_id);
+CREATE INDEX IF NOT EXISTS idx_documents_uploaded_at ON documents(uploaded_at DESC);
+
+-- =============================================
+-- Document Management — Storage Bucket
+-- =============================================
+-- NOTE: You must also create a storage bucket in Supabase:
+-- 1. Go to Storage in Supabase sidebar
+-- 2. Click "New Bucket"
+-- 3. Name: deal-documents
+-- 4. Toggle "Public bucket" ON (or configure RLS policies)
+-- 5. Set file size limit: 10MB
+-- 6. Allowed MIME types: application/pdf, image/png, image/jpeg, image/gif,
+--    application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+--    application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+--    text/csv
+
+-- Storage policy to allow uploads with anon key (if bucket is not public)
+-- INSERT INTO storage.policies (name, bucket_id, operation, definition)
+-- VALUES ('Allow uploads', 'deal-documents', 'INSERT', 'true');
+-- INSERT INTO storage.policies (name, bucket_id, operation, definition)
+-- VALUES ('Allow reads', 'deal-documents', 'SELECT', 'true');
+-- INSERT INTO storage.policies (name, bucket_id, operation, definition)
+-- VALUES ('Allow deletes', 'deal-documents', 'DELETE', 'true');
