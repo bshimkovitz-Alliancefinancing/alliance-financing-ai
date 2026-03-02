@@ -1635,6 +1635,9 @@
                                 <option value="partial">Partial (1-4 docs)</option>
                                 <option value="missing">Missing (0 docs)</option>
                             </select>
+                            <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#64748B;cursor:pointer;user-select:none;">
+                                <input type="checkbox" id="docShowArchived" onchange="filterDocumentsPage()" style="cursor:pointer;"> Show Archived
+                            </label>
                             <button class="btn btn-secondary btn-sm" onclick="toggleAllDealFolders(true)" style="padding: 5px 10px; font-size: 11px;">Expand All</button>
                             <button class="btn btn-secondary btn-sm" onclick="toggleAllDealFolders(false)" style="padding: 5px 10px; font-size: 11px;">Collapse All</button>
                         </div>
@@ -7688,7 +7691,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         tax_return: 'Tax Return', financial_statements: 'Financial Statements',
         credit_report: 'Credit Report', equipment_quote: 'Equipment Quote / Invoice',
         ap_ar_aging: 'AP / AR Aging Report', supporting_document: 'Supporting Document',
-        credit_application: 'Completed Credit Application', approval_letter: 'Approval Letter', other: 'Other'
+        credit_application: 'Completed Credit Application', approval_letter: 'Approval Letter',
+        personal_net_worth: 'Personal Net Worth', other: 'Other'
+    };
+
+    var docTypeColors = {
+        bank_statement: '#3B82F6', processing_statement: '#8B5CF6',
+        photo_id: '#EC4899', void_cheque: '#06B6D4', business_license: '#F97316',
+        tax_return: '#EF4444', financial_statements: '#10B981',
+        credit_report: '#6366F1', equipment_quote: '#0EA5E9',
+        ap_ar_aging: '#D946EF', supporting_document: '#64748B',
+        credit_application: '#059669', approval_letter: '#16A34A',
+        personal_net_worth: '#7C3AED', other: '#94A3B8'
     };
 
     async function loadDocumentsPage() {
@@ -7738,14 +7752,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     function updateDocStats(docs, deals) {
-        document.getElementById('docStatTotal').textContent = docs.length;
+        // Exclude archived from stats
+        var activeDocs = docs.filter(function(d) { return !d.archived; });
+        var archivedCount = docs.length - activeDocs.length;
 
-        // Count deals that have at least 1 document
-        var dealsWithDocs = new Set(docs.filter(function(d) { return d.deal_id; }).map(function(d) { return d.deal_id; }));
+        document.getElementById('docStatTotal').textContent = activeDocs.length + (archivedCount > 0 ? ' (' + archivedCount + ' archived)' : '');
+
+        // Count deals that have at least 1 active document
+        var dealsWithDocs = new Set(activeDocs.filter(function(d) { return d.deal_id; }).map(function(d) { return d.deal_id; }));
         document.getElementById('docStatDeals').textContent = dealsWithDocs.size;
 
         var now = new Date();
-        var thisMonth = docs.filter(function(d) {
+        var thisMonth = activeDocs.filter(function(d) {
             if (!d.uploaded_at) return false;
             var dt = new Date(d.uploaded_at);
             return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
@@ -7753,7 +7771,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         document.getElementById('docStatMonth').textContent = thisMonth.length;
         document.getElementById('docStatMonthLabel').textContent = now.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-        var totalBytes = docs.reduce(function(sum, d) { return sum + (d.file_size_bytes || 0); }, 0);
+        var totalBytes = activeDocs.reduce(function(sum, d) { return sum + (d.file_size_bytes || 0); }, 0);
         var totalMB = (totalBytes / 1024 / 1024).toFixed(1);
         document.getElementById('docStatSize').textContent = totalMB > 1024 ? (totalMB / 1024).toFixed(1) + ' GB' : totalMB + ' MB';
     }
@@ -7762,6 +7780,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var search = (document.getElementById('docSearchInput').value || '').toLowerCase();
         var typeFilter = document.getElementById('docTypeFilter').value;
         var statusFilter = document.getElementById('docStatusFilter').value;
+        var showArchived = document.getElementById('docShowArchived') ? document.getElementById('docShowArchived').checked : false;
         var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
         // Group documents by deal_id
@@ -7769,6 +7788,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var unlinkedDocs = [];
 
         allDocumentsPage.forEach(function(doc) {
+            // Archive filter — hide archived unless toggle is on
+            if (doc.archived && !showArchived) return;
             // Agent visibility filter
             if (!isAdmin && doc.visible_to_agent !== true && doc.uploaded_by !== currentUserId) return;
             // Type filter
@@ -7902,8 +7923,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     Object.keys(docsByType).sort().forEach(function(type) {
                         var typeDocs = docsByType[type];
                         var typeLabel = docTypeLabelsGlobal[type] || type;
-                        html += '<div style="margin-bottom:8px;">';
-                        html += '<div style="font-size:11px;font-weight:600;color:#64748B;margin-bottom:4px;text-transform:uppercase;">' + typeLabel + ' (' + typeDocs.length + ')</div>';
+                        var typeColor = docTypeColors[type] || '#94A3B8';
+
+                        html += '<div style="margin-bottom:10px;">';
+                        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">';
+                        html += '<span style="background:' + typeColor + '18;color:' + typeColor + ';padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;border:1px solid ' + typeColor + '30;">' + typeLabel + '</span>';
+                        html += '<span style="font-size:11px;color:#94A3B8;">' + typeDocs.length + ' file' + (typeDocs.length !== 1 ? 's' : '') + '</span>';
+                        html += '</div>';
+
+                        // Sort docs within type by uploaded_at newest first
+                        typeDocs.sort(function(a, b) {
+                            return new Date(b.uploaded_at || 0) - new Date(a.uploaded_at || 0);
+                        });
 
                         typeDocs.forEach(function(doc) {
                             var ext = (doc.file_name || '').split('.').pop().toLowerCase();
@@ -7914,8 +7945,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                             else if (['xls','xlsx','csv'].includes(ext)) icon = '📊';
 
                             var sizeMB = doc.file_size_bytes ? (doc.file_size_bytes / 1024 / 1024).toFixed(2) + ' MB' : '';
-                            var uploaded = doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : '';
+
+                            // Better date formatting with time
+                            var uploaded = '';
+                            if (doc.uploaded_at) {
+                                var dt = new Date(doc.uploaded_at);
+                                var now = new Date();
+                                var diffMs = now - dt;
+                                var diffDays = Math.floor(diffMs / 86400000);
+                                if (diffDays === 0) {
+                                    uploaded = 'Today at ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                } else if (diffDays === 1) {
+                                    uploaded = 'Yesterday at ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                } else if (diffDays < 7) {
+                                    uploaded = diffDays + ' days ago';
+                                } else {
+                                    uploaded = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                }
+                            }
                             var uploader = doc.uploaded_by_name || 'Unknown';
+
+                            var isArchived = doc.archived === true;
 
                             var visBadge = '';
                             if (isAdmin) {
@@ -7923,8 +7973,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                                     ? '<span style="background:var(--gold);color:#fff;padding:1px 5px;border-radius:8px;font-weight:600;font-size:9px;margin-left:4px;">Shared</span>'
                                     : '<span style="background:#E5E7EB;color:#6B7280;padding:1px 5px;border-radius:8px;font-weight:600;font-size:9px;margin-left:4px;">Internal</span>';
                             }
+                            if (isArchived) {
+                                visBadge += '<span style="background:#FEF3C7;color:#92400E;padding:1px 5px;border-radius:8px;font-weight:600;font-size:9px;margin-left:4px;">Archived</span>';
+                            }
 
-                            // Action buttons
+                            // Action buttons — NO DELETE, archive instead
                             var actions = '';
                             if (['pdf','png','jpg','jpeg','gif'].includes(ext)) {
                                 actions += '<button onclick="previewDocument(\'' + doc.file_path + '\', \'' + (doc.file_name || '').replace(/'/g, "\\'") + '\')" style="padding:2px 6px;background:#8B5CF6;color:white;border:none;border-radius:3px;cursor:pointer;font-size:10px;" title="Preview">👁️</button> ';
@@ -7936,10 +7989,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                                 } else {
                                     actions += ' <button onclick="toggleDocVisFromPage(\'' + doc.id + '\', true)" style="padding:2px 6px;background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7;border-radius:3px;cursor:pointer;font-size:9px;" title="Share with agent">Share</button>';
                                 }
-                                actions += ' <button onclick="deleteDocFromPage(\'' + doc.id + '\', \'' + doc.file_path + '\')" style="padding:2px 6px;background:#FEE2E2;color:#DC2626;border:none;border-radius:3px;cursor:pointer;font-size:10px;" title="Delete">🗑️</button>';
+                                // Archive / Restore button instead of delete
+                                if (isArchived) {
+                                    actions += ' <button onclick="archiveDocFromPage(\'' + doc.id + '\', false)" style="padding:2px 6px;background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;border-radius:3px;cursor:pointer;font-size:9px;" title="Restore from archive">Restore</button>';
+                                } else {
+                                    actions += ' <button onclick="archiveDocFromPage(\'' + doc.id + '\', true)" style="padding:2px 6px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;border-radius:3px;cursor:pointer;font-size:9px;" title="Archive this document">Archive</button>';
+                                }
                             }
 
-                            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:4px;">';
+                            var rowBg = isArchived ? '#FFFBEB' : '#F8FAFC';
+                            var rowBorder = isArchived ? '#FCD34D' : '#E2E8F0';
+                            var rowOpacity = isArchived ? 'opacity:0.7;' : '';
+
+                            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:' + rowBg + ';border:1px solid ' + rowBorder + ';border-radius:6px;margin-bottom:4px;' + rowOpacity + '">';
                             html += '<div style="flex:1;min-width:0;">';
                             html += '<div style="font-weight:500;font-size:13px;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + icon + ' ' + (doc.file_name || 'Unknown') + visBadge + '</div>';
                             html += '<div style="font-size:11px;color:#64748B;margin-top:1px;">' + sizeMB + (uploaded ? ' • ' + uploaded : '') + ' • ' + uploader + (doc.notes ? ' • <em>' + doc.notes + '</em>' : '') + '</div>';
@@ -7985,17 +8047,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         filterDocumentsPage();
     }
 
-    // Delete from Documents page
-    async function deleteDocFromPage(docId, filePath) {
-        if (!confirm('Are you sure you want to delete this document? This cannot be undone.')) return;
+    // Archive / Restore from Documents page (no delete — files are never removed)
+    async function archiveDocFromPage(docId, shouldArchive) {
+        var action = shouldArchive ? 'archive' : 'restore';
+        if (shouldArchive && !confirm('Archive this document? It will be hidden from the main view but can be restored anytime.')) return;
         try {
-            await db.storage.from('deal-documents').remove([filePath]);
-            var { error } = await db.from('documents').delete().eq('id', docId);
+            var { error } = await db.from('documents').update({ archived: shouldArchive }).eq('id', docId);
             if (error) throw error;
             await loadDocumentsPage();
         } catch (err) {
-            console.error('Delete doc error:', err);
-            alert('Error deleting document: ' + (err.message || 'Unknown error'));
+            console.error('Archive doc error:', err);
+            alert('Error ' + action + ' document: ' + (err.message || 'Unknown error'));
         }
     }
 

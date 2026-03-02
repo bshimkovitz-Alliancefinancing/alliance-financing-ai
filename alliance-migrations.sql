@@ -92,3 +92,9 @@ CREATE INDEX IF NOT EXISTS idx_documents_uploaded_at ON documents(uploaded_at DE
 -- VALUES ('Allow reads', 'deal-documents', 'SELECT', 'true');
 -- INSERT INTO storage.policies (name, bucket_id, operation, definition)
 -- VALUES ('Allow deletes', 'deal-documents', 'DELETE', 'true');
+
+-- =============================================
+-- Document archiving (soft-delete — no files ever removed)
+-- =============================================
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_documents_archived ON documents(archived);
