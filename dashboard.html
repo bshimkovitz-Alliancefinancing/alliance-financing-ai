@@ -12365,7 +12365,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                                     <option value="correspondence">Correspondence</option>
                                     <option value="other">Other</option>
                                 </select>
-                                <input type="file" id="lenderDocFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif" style="padding:4px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+                                <span id="lenderDocFileWrap"></span>
                             </div>
                             <input type="text" id="lenderDocNotes" placeholder="Optional notes (e.g., March 2025 rate bulletin)" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;margin-bottom:10px;">
                             <button class="btn btn-gold btn-sm" id="lenderDocUploadBtn" onclick="uploadLenderDocument('${lenderId}')" style="margin-top: 2px;">Upload</button>
@@ -12385,6 +12385,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             `;
 
             document.getElementById('lenderDetailModal').classList.add('active');
+            // Create file input programmatically (innerHTML file inputs don't work in some browsers)
+            var fileWrap = document.getElementById('lenderDocFileWrap');
+            if (fileWrap) {
+                var fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.id = 'lenderDocFile';
+                fileInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif';
+                fileInput.style.cssText = 'padding:4px;border:1px solid #ccc;border-radius:4px;font-size:12px;';
+                fileWrap.appendChild(fileInput);
+            }
             // Load lender documents async
             loadLenderDocuments(lenderId);
         } catch (error) {
