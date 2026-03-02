@@ -98,3 +98,25 @@ CREATE INDEX IF NOT EXISTS idx_documents_uploaded_at ON documents(uploaded_at DE
 -- =============================================
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT false;
 CREATE INDEX IF NOT EXISTS idx_documents_archived ON documents(archived);
+
+-- =============================================
+-- Admin Resources table
+-- =============================================
+CREATE TABLE IF NOT EXISTS admin_resources (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    category TEXT DEFAULT 'other',
+    access_level TEXT DEFAULT 'admin_only',
+    description TEXT,
+    resource_type TEXT DEFAULT 'file',
+    url TEXT,
+    file_path TEXT,
+    file_name TEXT,
+    file_size_bytes BIGINT,
+    uploaded_by UUID,
+    uploaded_by_name TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_admin_resources_category ON admin_resources(category);
+CREATE INDEX IF NOT EXISTS idx_admin_resources_created ON admin_resources(created_at DESC);

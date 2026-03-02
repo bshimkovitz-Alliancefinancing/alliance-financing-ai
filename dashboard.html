@@ -716,6 +716,10 @@
                 <span class="nav-icon">👤</span>
                 <span>Team</span>
             </div>
+            <div class="nav-item" id="resourcesNav" onclick="showPage('resources')" style="display: none;">
+                <span class="nav-icon">📚</span>
+                <span>Admin Resources</span>
+            </div>
         </div>
 
         <div class="sidebar-footer">
@@ -1710,6 +1714,49 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Resources Page -->
+            <div id="resources" class="page-section">
+                <!-- Stats row -->
+                <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Resources</div>
+                        <div class="stat-value" id="resStatTotal">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Categories</div>
+                        <div class="stat-value" id="resStatCategories">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Last Updated</div>
+                        <div class="stat-value" id="resStatUpdated" style="font-size:16px;">—</div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header" style="flex-wrap:wrap;gap:12px;">
+                        <div class="table-title">Admin Resources</div>
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                            <input type="text" id="resSearchInput" placeholder="Search resources..." oninput="filterResources()" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;font-size:13px;width:200px;">
+                            <select id="resCategoryFilter" onchange="filterResources()" style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;cursor:pointer;">
+                                <option value="">All Categories</option>
+                                <option value="user_guide">User Guides</option>
+                                <option value="training">Training Materials</option>
+                                <option value="sop">SOPs & Procedures</option>
+                                <option value="template">Templates</option>
+                                <option value="policy">Policies</option>
+                                <option value="reference">Reference</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <button class="btn btn-gold btn-sm" onclick="openAddResourceModal()">+ Add Resource</button>
+                        </div>
+                    </div>
+
+                    <div id="resourcesContainer" style="padding:0 20px 20px 20px;">
+                        <div style="color:#64748B;font-size:13px;text-align:center;padding:40px;">Loading resources...</div>
                     </div>
                 </div>
             </div>
@@ -2809,6 +2856,80 @@
 </div>
 
 <!-- Add/Edit Team Member Modal -->
+<!-- Add Resource Modal -->
+<div id="addResourceModal" class="modal">
+    <div class="modal-content" style="max-width:550px;">
+        <div class="modal-header">
+            <h2 id="resourceModalTitle">Add Resource</h2>
+            <button class="modal-close" onclick="closeResourceModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-field" style="margin-bottom:12px;">
+                <label>Title *</label>
+                <input type="text" id="resourceTitle" placeholder="e.g. Platform User Guide" style="padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:100%;">
+            </div>
+            <div class="modal-row" style="margin-bottom:12px;">
+                <div class="modal-field">
+                    <label>Category *</label>
+                    <select id="resourceCategory" style="padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:100%;cursor:pointer;">
+                        <option value="user_guide">User Guide</option>
+                        <option value="training">Training Material</option>
+                        <option value="sop">SOP / Procedure</option>
+                        <option value="template">Template</option>
+                        <option value="policy">Policy</option>
+                        <option value="reference">Reference</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="modal-field">
+                    <label>Access</label>
+                    <select id="resourceAccess" style="padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:100%;cursor:pointer;">
+                        <option value="admin_only">Admin Only</option>
+                        <option value="all_users">All Users (incl. Agents)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-field" style="margin-bottom:12px;">
+                <label>Description</label>
+                <textarea id="resourceDescription" placeholder="Brief description of this resource..." rows="2" style="padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:100%;resize:vertical;"></textarea>
+            </div>
+            <div class="modal-field" style="margin-bottom:12px;">
+                <label>Resource Type *</label>
+                <div style="display:flex;gap:10px;margin-top:4px;">
+                    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:8px 14px;border:2px solid #E2E8F0;border-radius:8px;font-size:13px;" id="resTypeFile" onclick="selectResourceType('file')">
+                        <input type="radio" name="resourceType" value="file" checked> Upload File
+                    </label>
+                    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:8px 14px;border:2px solid #E2E8F0;border-radius:8px;font-size:13px;" id="resTypeLink" onclick="selectResourceType('link')">
+                        <input type="radio" name="resourceType" value="link"> External Link
+                    </label>
+                </div>
+            </div>
+            <div id="resourceFileSection" style="margin-bottom:12px;">
+                <div class="modal-field">
+                    <label>File</label>
+                    <div id="resFileDropZone" style="border:2px dashed #CBD5E1;border-radius:8px;padding:20px;text-align:center;background:#F8FAFC;cursor:pointer;" onclick="document.getElementById('resFileInput').click();" ondragover="event.preventDefault();this.style.borderColor='#3B82F6';this.style.background='#EFF6FF';" ondragleave="this.style.borderColor='#CBD5E1';this.style.background='#F8FAFC';" ondrop="handleResourceFileDrop(event)">
+                        <div style="font-size:24px;margin-bottom:4px;">📎</div>
+                        <div style="font-size:13px;color:#64748B;">Drag & drop or click to browse</div>
+                        <div style="font-size:11px;color:#94A3B8;margin-top:2px;">PDF, Word, Excel, PowerPoint, Images — max 25MB</div>
+                        <input type="file" id="resFileInput" style="display:none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.pptx,.png,.jpg,.jpeg,.csv,.txt" onchange="handleResourceFileSelect(event)">
+                    </div>
+                    <div id="resFileSelected" style="display:none;margin-top:8px;padding:8px 12px;background:#D1FAE5;border-radius:6px;font-size:13px;color:#065F46;display:none;"></div>
+                </div>
+            </div>
+            <div id="resourceLinkSection" style="display:none;margin-bottom:12px;">
+                <div class="modal-field">
+                    <label>URL</label>
+                    <input type="url" id="resourceUrl" placeholder="https://..." style="padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:100%;">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeResourceModal()">Cancel</button>
+            <button class="btn btn-gold" onclick="saveResource()" id="resourceSaveBtn">Save Resource</button>
+        </div>
+    </div>
+</div>
+
 <div id="addTeamMemberModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -3028,7 +3149,7 @@
                 item.style.display = label === 'Marketing' ? 'none' : 'flex';
             } else {
                 // Agent views depend on agent_type
-                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing', 'Team'];
+                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing', 'Team', 'Admin Resources'];
 
                 if (adminOnly.includes(label)) {
                     item.style.display = 'none';
@@ -4558,7 +4679,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             'documents': 'Document Center',
             'alliance': 'Alliance Financing Group',
             'marketing': 'Marketing',
-            'team': 'Team Members'
+            'team': 'Team Members',
+            'resources': 'Admin Resources'
         };
         document.getElementById('pageTitle').textContent = titles[pageName] || 'Dashboard';
         currentPage = pageName;
@@ -5422,6 +5544,338 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     // ============================================
+    // ============================================
+    // Admin Resources Management
+    // ============================================
+
+    var allResources = [];
+    var currentEditResourceId = null;
+    var pendingResourceFile = null;
+
+    var resCategoryLabels = {
+        user_guide: 'User Guide', training: 'Training Material', sop: 'SOP / Procedure',
+        template: 'Template', policy: 'Policy', reference: 'Reference', other: 'Other'
+    };
+
+    var resCategoryColors = {
+        user_guide: '#3B82F6', training: '#8B5CF6', sop: '#F97316',
+        template: '#06B6D4', policy: '#EF4444', reference: '#10B981', other: '#64748B'
+    };
+
+    var resCategoryIcons = {
+        user_guide: '📘', training: '🎓', sop: '📋',
+        template: '📄', policy: '🛡️', reference: '📖', other: '📎'
+    };
+
+    async function loadResourcesPage() {
+        try {
+            var { data, error } = await db
+                .from('admin_resources')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            allResources = data || [];
+            updateResourceStats();
+            filterResources();
+        } catch (err) {
+            console.error('Error loading resources:', err);
+            document.getElementById('resourcesContainer').innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">Error loading resources. The admin_resources table may need to be created.</div>';
+        }
+    }
+
+    function updateResourceStats() {
+        document.getElementById('resStatTotal').textContent = allResources.length;
+        var categories = new Set(allResources.map(function(r) { return r.category; }));
+        document.getElementById('resStatCategories').textContent = categories.size;
+        if (allResources.length > 0 && allResources[0].updated_at) {
+            var dt = new Date(allResources[0].updated_at);
+            document.getElementById('resStatUpdated').textContent = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } else {
+            document.getElementById('resStatUpdated').textContent = '\u2014';
+        }
+    }
+
+    function filterResources() {
+        var search = (document.getElementById('resSearchInput').value || '').toLowerCase();
+        var catFilter = document.getElementById('resCategoryFilter').value;
+
+        var filtered = allResources.filter(function(r) {
+            if (catFilter && r.category !== catFilter) return false;
+            if (search) {
+                return (r.title || '').toLowerCase().includes(search) ||
+                       (r.description || '').toLowerCase().includes(search) ||
+                       (r.uploaded_by_name || '').toLowerCase().includes(search);
+            }
+            return true;
+        });
+
+        renderResources(filtered);
+    }
+
+    function renderResources(resources) {
+        var container = document.getElementById('resourcesContainer');
+
+        if (resources.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#64748B;">' +
+                '<div style="font-size:48px;margin-bottom:12px;">📚</div>' +
+                '<div style="font-size:16px;font-weight:600;color:#1E293B;margin-bottom:4px;">No resources yet</div>' +
+                '<div style="font-size:13px;">Click "+ Add Resource" to upload user guides, training materials, and other documents.</div></div>';
+            return;
+        }
+
+        // Group by category
+        var grouped = {};
+        resources.forEach(function(r) {
+            var cat = r.category || 'other';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(r);
+        });
+
+        var html = '';
+        var catOrder = ['user_guide', 'training', 'sop', 'template', 'policy', 'reference', 'other'];
+        catOrder.forEach(function(cat) {
+            if (!grouped[cat]) return;
+            var items = grouped[cat];
+            var catLabel = resCategoryLabels[cat] || cat;
+            var catColor = resCategoryColors[cat] || '#64748B';
+            var catIcon = resCategoryIcons[cat] || '📎';
+
+            html += '<div style="margin-bottom:20px;">';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ' + catColor + '20;">';
+            html += '<span style="font-size:20px;">' + catIcon + '</span>';
+            html += '<span style="font-weight:700;font-size:15px;color:' + catColor + ';">' + catLabel + 's</span>';
+            html += '<span style="background:' + catColor + '15;color:' + catColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + items.length + '</span>';
+            html += '</div>';
+
+            items.forEach(function(r) {
+                var ext = r.file_name ? r.file_name.split('.').pop().toLowerCase() : '';
+                var icon = '📄';
+                if (['pdf'].includes(ext)) icon = '📕';
+                else if (['png','jpg','jpeg'].includes(ext)) icon = '🖼️';
+                else if (['doc','docx'].includes(ext)) icon = '📘';
+                else if (['xls','xlsx','csv'].includes(ext)) icon = '📊';
+                else if (['pptx','ppt'].includes(ext)) icon = '📙';
+                else if (r.resource_type === 'link') icon = '🔗';
+
+                var dateStr = '';
+                if (r.created_at) {
+                    var dt = new Date(r.created_at);
+                    dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                }
+
+                var accessBadge = r.access_level === 'all_users'
+                    ? '<span style="background:#D1FAE5;color:#065F46;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600;">All Users</span>'
+                    : '<span style="background:#E5E7EB;color:#6B7280;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600;">Admin Only</span>';
+
+                var actions = '';
+                if (r.resource_type === 'link' && r.url) {
+                    actions += '<a href="' + r.url + '" target="_blank" style="padding:4px 10px;background:#3B82F6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;text-decoration:none;font-weight:600;">Open Link</a>';
+                } else if (r.file_path) {
+                    actions += '<button onclick="downloadResource(\'' + r.id + '\')" style="padding:4px 10px;background:#3B82F6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">Download</button>';
+                }
+                actions += ' <button onclick="editResource(\'' + r.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:4px;cursor:pointer;font-size:11px;">Edit</button>';
+                actions += ' <button onclick="archiveResource(\'' + r.id + '\')" style="padding:4px 10px;background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;border-radius:4px;cursor:pointer;font-size:11px;">Archive</button>';
+
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;margin-bottom:6px;transition:all 0.15s;" onmouseover="this.style.borderColor=\'#C9A84C\'" onmouseout="this.style.borderColor=\'#E2E8F0\'">';
+                html += '<div style="flex:1;min-width:0;">';
+                html += '<div style="display:flex;align-items:center;gap:8px;">';
+                html += '<span style="font-size:18px;">' + icon + '</span>';
+                html += '<div>';
+                html += '<div style="font-weight:600;font-size:14px;color:#1E293B;">' + (r.title || 'Untitled') + ' ' + accessBadge + '</div>';
+                html += '<div style="font-size:12px;color:#64748B;margin-top:2px;">';
+                if (r.description) html += r.description + ' &bull; ';
+                if (r.file_name) html += r.file_name + ' &bull; ';
+                html += (r.uploaded_by_name || 'Unknown') + ' &bull; ' + dateStr;
+                html += '</div></div></div></div>';
+                html += '<div style="display:flex;gap:6px;margin-left:12px;flex-shrink:0;">' + actions + '</div>';
+                html += '</div>';
+            });
+
+            html += '</div>';
+        });
+
+        container.innerHTML = html;
+    }
+
+    function openAddResourceModal() {
+        currentEditResourceId = null;
+        pendingResourceFile = null;
+        document.getElementById('resourceModalTitle').textContent = 'Add Resource';
+        document.getElementById('resourceTitle').value = '';
+        document.getElementById('resourceCategory').value = 'user_guide';
+        document.getElementById('resourceAccess').value = 'admin_only';
+        document.getElementById('resourceDescription').value = '';
+        document.getElementById('resourceUrl').value = '';
+        document.getElementById('resFileSelected').style.display = 'none';
+        selectResourceType('file');
+        document.getElementById('resourceSaveBtn').textContent = 'Save Resource';
+        document.getElementById('addResourceModal').classList.add('active');
+    }
+
+    function closeResourceModal() {
+        document.getElementById('addResourceModal').classList.remove('active');
+        pendingResourceFile = null;
+    }
+
+    function selectResourceType(type) {
+        var fileEl = document.getElementById('resTypeFile');
+        var linkEl = document.getElementById('resTypeLink');
+        if (type === 'file') {
+            fileEl.style.borderColor = '#C9A84C';
+            fileEl.style.background = '#FFFBEB';
+            linkEl.style.borderColor = '#E2E8F0';
+            linkEl.style.background = '#fff';
+            document.getElementById('resourceFileSection').style.display = 'block';
+            document.getElementById('resourceLinkSection').style.display = 'none';
+        } else {
+            linkEl.style.borderColor = '#C9A84C';
+            linkEl.style.background = '#FFFBEB';
+            fileEl.style.borderColor = '#E2E8F0';
+            fileEl.style.background = '#fff';
+            document.getElementById('resourceFileSection').style.display = 'none';
+            document.getElementById('resourceLinkSection').style.display = 'block';
+        }
+    }
+
+    function handleResourceFileDrop(event) {
+        event.preventDefault();
+        event.currentTarget.style.borderColor = '#CBD5E1';
+        event.currentTarget.style.background = '#F8FAFC';
+        if (event.dataTransfer.files.length > 0) {
+            pendingResourceFile = event.dataTransfer.files[0];
+            showSelectedResourceFile();
+        }
+    }
+
+    function handleResourceFileSelect(event) {
+        if (event.target.files.length > 0) {
+            pendingResourceFile = event.target.files[0];
+            showSelectedResourceFile();
+        }
+    }
+
+    function showSelectedResourceFile() {
+        if (!pendingResourceFile) return;
+        var sizeMB = (pendingResourceFile.size / 1024 / 1024).toFixed(2);
+        var el = document.getElementById('resFileSelected');
+        el.style.display = 'block';
+        el.innerHTML = '✅ <strong>' + pendingResourceFile.name + '</strong> (' + sizeMB + ' MB)';
+        // Auto-fill title if empty
+        if (!document.getElementById('resourceTitle').value) {
+            var nameWithoutExt = pendingResourceFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+            document.getElementById('resourceTitle').value = nameWithoutExt;
+        }
+    }
+
+    async function saveResource() {
+        var title = document.getElementById('resourceTitle').value.trim();
+        var category = document.getElementById('resourceCategory').value;
+        var accessLevel = document.getElementById('resourceAccess').value;
+        var description = document.getElementById('resourceDescription').value.trim();
+        var resourceType = document.querySelector('input[name="resourceType"]:checked').value;
+        var url = document.getElementById('resourceUrl').value.trim();
+
+        if (!title) { alert('Please enter a title.'); return; }
+
+        var btn = document.getElementById('resourceSaveBtn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        try {
+            var filePath = null;
+            var fileName = null;
+            var fileSize = null;
+
+            // Upload file if present
+            if (resourceType === 'file' && pendingResourceFile) {
+                var timestamp = Date.now();
+                filePath = 'admin-resources/' + timestamp + '_' + pendingResourceFile.name;
+                var { error: uploadError } = await db.storage.from('deal-documents').upload(filePath, pendingResourceFile);
+                if (uploadError) throw uploadError;
+                fileName = pendingResourceFile.name;
+                fileSize = pendingResourceFile.size;
+            } else if (resourceType === 'link' && !url) {
+                alert('Please enter a URL.'); btn.disabled = false; btn.textContent = 'Save Resource'; return;
+            }
+
+            var record = {
+                title: title,
+                category: category,
+                access_level: accessLevel,
+                description: description || null,
+                resource_type: resourceType,
+                url: resourceType === 'link' ? url : null,
+                file_path: filePath,
+                file_name: fileName,
+                file_size_bytes: fileSize,
+                uploaded_by: currentUserId,
+                uploaded_by_name: currentUserName || document.getElementById('userEmailDisplay').textContent
+            };
+
+            if (currentEditResourceId) {
+                var { error } = await db.from('admin_resources').update(record).eq('id', currentEditResourceId);
+                if (error) throw error;
+            } else {
+                var { error } = await db.from('admin_resources').insert([record]);
+                if (error) throw error;
+            }
+
+            closeResourceModal();
+            await loadResourcesPage();
+        } catch (err) {
+            console.error('Save resource error:', err);
+            alert('Error saving resource: ' + (err.message || 'Unknown error'));
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Save Resource';
+        }
+    }
+
+    async function downloadResource(resourceId) {
+        var resource = allResources.find(function(r) { return r.id === resourceId; });
+        if (!resource || !resource.file_path) return;
+        try {
+            var { data, error } = await db.storage.from('deal-documents').createSignedUrl(resource.file_path, 3600);
+            if (error) throw error;
+            window.open(data.signedUrl, '_blank');
+        } catch (err) {
+            alert('Error downloading: ' + (err.message || 'Unknown error'));
+        }
+    }
+
+    function editResource(resourceId) {
+        var resource = allResources.find(function(r) { return r.id === resourceId; });
+        if (!resource) return;
+        currentEditResourceId = resourceId;
+        pendingResourceFile = null;
+        document.getElementById('resourceModalTitle').textContent = 'Edit Resource';
+        document.getElementById('resourceTitle').value = resource.title || '';
+        document.getElementById('resourceCategory').value = resource.category || 'other';
+        document.getElementById('resourceAccess').value = resource.access_level || 'admin_only';
+        document.getElementById('resourceDescription').value = resource.description || '';
+        document.getElementById('resourceUrl').value = resource.url || '';
+        document.getElementById('resFileSelected').style.display = 'none';
+        selectResourceType(resource.resource_type || 'file');
+        if (resource.file_name) {
+            var el = document.getElementById('resFileSelected');
+            el.style.display = 'block';
+            el.innerHTML = '📎 Current file: <strong>' + resource.file_name + '</strong> (upload a new file to replace)';
+        }
+        document.getElementById('resourceSaveBtn').textContent = 'Update Resource';
+        document.getElementById('addResourceModal').classList.add('active');
+    }
+
+    async function archiveResource(resourceId) {
+        if (!confirm('Archive this resource? It will be removed from the list.')) return;
+        try {
+            var { error } = await db.from('admin_resources').delete().eq('id', resourceId);
+            if (error) throw error;
+            await loadResourcesPage();
+        } catch (err) {
+            alert('Error archiving resource: ' + (err.message || 'Unknown error'));
+        }
+    }
+
     // Team Members Management
     // ============================================
 
@@ -5669,6 +6123,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 break;
             case 'team':
                 await loadTeamMembers();
+                break;
+            case 'resources':
+                await loadResourcesPage();
                 break;
         }
     }
