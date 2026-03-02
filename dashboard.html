@@ -7401,7 +7401,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         });
     }
 
-    function emailSendAppLink() {
+    async function emailSendAppLink() {
         var email = document.getElementById('sendAppClientEmail').value.trim();
         var clientName = document.getElementById('sendAppClientName').value.trim() || 'there';
         var link = document.getElementById('sendAppLinkUrl').value;
@@ -7411,21 +7411,34 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
         var typeNames = { leasing: 'Equipment Leasing', mca: 'Merchant Cash Advance', wc: 'Working Capital & Factoring', general: 'Financing' };
         var typeName = typeNames[selectedSendAppType];
+        var subject = 'Alliance Financing - ' + typeName + ' Application';
 
-        var subject = encodeURIComponent('Alliance Financing - ' + typeName + ' Application');
-        var body = encodeURIComponent(
-            'Hi ' + clientName + ',\n\n' +
-            'Thank you for your interest in financing with Alliance Financing Group.\n\n' +
-            'Please complete our ' + typeName + ' application at the link below:\n\n' +
-            link + '\n\n' +
-            'If you have any questions, please don\'t hesitate to reach out.\n\n' +
-            'Best regards,\n' +
-            'Alliance Financing Group Ltd.\n' +
-            '1-877-660-3660 ext. 222\n' +
-            'info@alliancefinancing.ai'
-        );
+        var htmlBody =
+            '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+            '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+            '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+            '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+            '<p style="font-size:16px;color:#1E293B;">Hi ' + clientName + ',</p>' +
+            '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your interest in financing with Alliance Financing Group.</p>' +
+            '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete our <strong>' + typeName + '</strong> application using the button below:</p>' +
+            '<div style="text-align:center;margin:25px 0;">' +
+            '<a href="' + link + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Complete Application</a></div>' +
+            '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + link + '" style="color:#3B82F6;">' + link + '</a></p>' +
+            '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, please don\'t hesitate to reach out.</p>' +
+            '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group Ltd.</strong><br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.ai" style="color:#3B82F6;">info@alliancefinancing.ai</a></p>' +
+            '</div>' +
+            '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+            '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
 
-        window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
+        try {
+            await sendEmailViaResend(email, subject, htmlBody);
+            alert('Application link sent to ' + email + ' successfully!');
+        } catch (err) {
+            console.error('Resend error, falling back to mailto:', err);
+            var subjectEnc = encodeURIComponent(subject);
+            var body = encodeURIComponent('Hi ' + clientName + ',\n\nPlease complete our ' + typeName + ' application:\n\n' + link + '\n\nBest regards,\nAlliance Financing Group Ltd.\n1-877-660-3660 ext. 222');
+            window.open('mailto:' + email + '?subject=' + subjectEnc + '&body=' + body);
+        }
     }
 
     // ============================================
@@ -8304,27 +8317,37 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 void_cheque: 'Void Cheque', business_license: 'Business License'
             };
 
-            var docList = selectedDocs.map(function(d) { return '  • ' + (docTypeLabels[d] || d); }).join('\n');
+            var docListText = selectedDocs.map(function(d) { return '  - ' + (docTypeLabels[d] || d); }).join('\n');
+            var docListHtml = selectedDocs.map(function(d) {
+                return '<li style="padding:4px 0;color:#1E293B;">' + (docTypeLabels[d] || d) + '</li>';
+            }).join('');
 
             // Get deal info for the email
             var { data: dealInfo } = await db.from('deals').select('company_name, deal_number, applications(application_id)').eq('id', dealId).single();
             var dealRef = dealInfo?.applications?.application_id || dealInfo?.deal_number || '';
 
-            var subject = encodeURIComponent('Document Request — ' + (dealRef || 'Alliance Financing'));
-            var body = encodeURIComponent(
-                'Hello,\n\n' +
-                'Thank you for your application with Alliance Financing Group' + (dealRef ? ' (Ref: ' + dealRef + ')' : '') + '.\n\n' +
-                'To continue processing your application, we need the following documents:\n\n' +
-                docList + '\n\n' +
-                (message ? 'Note from our team: ' + message + '\n\n' : '') +
-                'Please click the secure link below to upload your documents:\n\n' +
-                uploadUrl + '\n\n' +
-                'This link is valid for 30 days. You can use it multiple times if you need to upload documents separately.\n\n' +
-                'If you have any questions, please don\'t hesitate to reach out.\n\n' +
-                'Best regards,\n' +
-                'Alliance Financing Group\n' +
-                'info@alliancefinancing.ai | 1-877-660-3660'
-            );
+            var emailSubject = 'Document Request ' + (dealRef ? '(Ref: ' + dealRef + ') ' : '') + '- Alliance Financing';
+
+            var htmlBody =
+                '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                '<p style="font-size:16px;color:#1E293B;">Hello,</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your application with Alliance Financing Group' + (dealRef ? ' (Ref: <strong>' + dealRef + '</strong>)' : '') + '.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">To continue processing your application, we need the following documents:</p>' +
+                '<ul style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px 12px 12px 30px;margin:15px 0;">' + docListHtml + '</ul>' +
+                (message ? '<div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:12px 15px;margin:15px 0;"><strong style="color:#92400E;">Note from our team:</strong><p style="color:#78350F;margin:5px 0 0 0;font-size:14px;">' + message + '</p></div>' : '') +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">Please click the button below to securely upload your documents:</p>' +
+                '<div style="text-align:center;margin:25px 0;">' +
+                '<a href="' + uploadUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Upload Documents</a></div>' +
+                '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + uploadUrl + '" style="color:#3B82F6;">' + uploadUrl + '</a></p>' +
+                '<p style="font-size:12px;color:#94A3B8;">This link is valid for 30 days. You can use it multiple times if you need to upload documents separately.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, please don\'t hesitate to reach out.</p>' +
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="mailto:info@alliancefinancing.ai" style="color:#3B82F6;">info@alliancefinancing.ai</a> | 1-877-660-3660</p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
 
             // Add a note to the deal
             var { data: deal } = await db.from('deals').select('notes').eq('id', dealId).single();
@@ -8340,19 +8363,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             });
             await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
 
-            // Open email client
-            var mailto = 'mailto:' + (email || '') + '?subject=' + subject + '&body=' + body;
-            window.open(mailto);
+            // Send via Resend (fall back to mailto)
+            var emailSent = false;
+            if (email) {
+                try {
+                    await sendEmailViaResend(email, emailSubject, htmlBody);
+                    emailSent = true;
+                } catch (emailErr) {
+                    console.error('Resend error, falling back to mailto:', emailErr);
+                    var subject = encodeURIComponent(emailSubject);
+                    var body = encodeURIComponent('Hello,\n\nWe need the following documents:\n\n' + docListText + '\n\nUpload here: ' + uploadUrl + '\n\nBest regards,\nAlliance Financing Group');
+                    window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
+                }
+            }
 
             // Also copy link to clipboard
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(uploadUrl).then(function() {
-                    alert('Upload link copied to clipboard and email opened!\n\nLink: ' + uploadUrl);
+                    alert(emailSent ? 'Document request email sent to ' + email + '! Upload link also copied to clipboard.' : 'Upload link copied to clipboard!\n\nLink: ' + uploadUrl);
                 }).catch(function() {
-                    alert('Email opened! Upload link:\n\n' + uploadUrl);
+                    alert(emailSent ? 'Document request email sent to ' + email + '!' : 'Upload link:\n\n' + uploadUrl);
                 });
             } else {
-                alert('Email opened! Upload link:\n\n' + uploadUrl);
+                alert(emailSent ? 'Document request email sent to ' + email + '!' : 'Upload link:\n\n' + uploadUrl);
             }
 
             btn.textContent = '✓ Link Generated';
@@ -8879,25 +8912,49 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Copy to clipboard
             try { await navigator.clipboard.writeText(approvalUrl); } catch(e) {}
 
-            // Open mailto
-            var emailBody = 'Dear ' + clientName + ',\n\n' +
-                'We are pleased to inform you that your financing application has been approved!\n\n' +
-                'APPROVAL SUMMARY\n' +
-                'Amount: ' + formatCurrency(amt) + '\n' +
-                'Product: ' + product + '\n' +
-                (isLeasing && downpayment ? 'Down Payment: ' + formatCurrency(downpayment) + '\n' : '') +
-                (isLeasing && advancePayments ? 'Advance Payments: ' + advancePayments + '\n' : '') +
-                (isLeasing && purchaseOption ? 'Purchase Option: ' + purchaseOption + '\n' : '') +
-                (!isLeasing && rate ? 'Rate: ' + rate + '%\n' : '') +
-                (term ? 'Term: ' + term + ' months\n' : '') +
-                (payment ? 'Monthly Payment: ' + formatCurrency(payment) + '\n' : '') +
-                '\nTo view your approval details and accept, please visit:\n' + approvalUrl + '\n\n' +
-                (message ? message + '\n\n' : '') +
-                'Best regards,\nAlliance Financing Group\n1-877-660-3660\ninfo@alliancefinancing.ai';
+            // Build professional HTML email
+            var approvalSubject = 'Your Financing Has Been Approved - Alliance Financing Group';
 
-            window.open('mailto:' + encodeURIComponent(clientEmail) + '?subject=' + encodeURIComponent('Your Financing Has Been Approved - Alliance Financing Group') + '&body=' + encodeURIComponent(emailBody));
+            var summaryRows = '';
+            summaryRows += '<tr><td style="padding:8px 12px;color:#64748B;font-size:14px;border-bottom:1px solid #F1F5F9;">Amount</td><td style="padding:8px 12px;font-weight:700;color:#1E293B;font-size:14px;border-bottom:1px solid #F1F5F9;">' + formatCurrency(amt) + '</td></tr>';
+            summaryRows += '<tr><td style="padding:8px 12px;color:#64748B;font-size:14px;border-bottom:1px solid #F1F5F9;">Product</td><td style="padding:8px 12px;font-weight:700;color:#1E293B;font-size:14px;border-bottom:1px solid #F1F5F9;">' + product + '</td></tr>';
+            if (isLeasing && downpayment) summaryRows += '<tr><td style="padding:8px 12px;color:#64748B;font-size:14px;border-bottom:1px solid #F1F5F9;">Down Payment</td><td style="padding:8px 12px;font-weight:700;color:#1E293B;font-size:14px;border-bottom:1px solid #F1F5F9;">' + formatCurrency(downpayment) + '</td></tr>';
+            if (isLeasing && advancePayments) summaryRows += '<tr><td style="padding:8px 12px;color:#64748B;font-size:14px;border-bottom:1px solid #F1F5F9;">Advance Payments</td><td style="padding:8px 12px;font-weight:700;color:#1E293B;font-size:14px;border-bottom:1px solid #F1F5F9;">' + advancePayments + '</td></tr>';
+            if (isLeasing && purchaseOption) summaryRows += '<tr><td style="padding:8px 12px;color:#64748B;font-size:14px;border-bottom:1px solid #F1F5F9;">Purchase Option</td><td style="padding:8px 12px;font-weight:700;color:#1E293B;font-size:14px;border-bottom:1px solid #F1F5F9;">' + purchaseOption + '</td></tr>';
+            if (!isLeasing && rate) summaryRows += '<tr><td style="padding:8px 12px;color:#64748B;font-size:14px;border-bottom:1px solid #F1F5F9;">Rate</td><td style="padding:8px 12px;font-weight:700;color:#1E293B;font-size:14px;border-bottom:1px solid #F1F5F9;">' + rate + '%</td></tr>';
+            if (term) summaryRows += '<tr><td style="padding:8px 12px;color:#64748B;font-size:14px;border-bottom:1px solid #F1F5F9;">Term</td><td style="padding:8px 12px;font-weight:700;color:#1E293B;font-size:14px;border-bottom:1px solid #F1F5F9;">' + term + ' months</td></tr>';
+            if (payment) summaryRows += '<tr><td style="padding:8px 12px;color:#64748B;font-size:14px;">Monthly Payment</td><td style="padding:8px 12px;font-weight:700;color:#1E293B;font-size:14px;">' + formatCurrency(payment) + '</td></tr>';
 
-            alert('Approval notice saved! The approval link has been copied to your clipboard. Your email app will open to send the notice.');
+            var approvalHtml =
+                '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                '<div style="text-align:center;margin-bottom:20px;"><span style="display:inline-block;background:#D1FAE5;color:#059669;padding:8px 20px;border-radius:20px;font-weight:700;font-size:16px;">Approved!</span></div>' +
+                '<p style="font-size:16px;color:#1E293B;">Dear ' + clientName + ',</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">We are pleased to inform you that your financing application has been <strong>approved</strong>!</p>' +
+                '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;margin:20px 0;overflow:hidden;">' +
+                '<div style="background:#0D1E3D;padding:10px 15px;"><h3 style="color:#C9A84C;margin:0;font-size:14px;">APPROVAL SUMMARY</h3></div>' +
+                '<table style="width:100%;border-collapse:collapse;">' + summaryRows + '</table></div>' +
+                (message ? '<div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:12px 15px;margin:15px 0;"><p style="color:#78350F;margin:0;font-size:14px;">' + message + '</p></div>' : '') +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">To view your full approval details and accept, please click below:</p>' +
+                '<div style="text-align:center;margin:25px 0;">' +
+                '<a href="' + approvalUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">View Approval Details</a></div>' +
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br>1-877-660-3660<br><a href="mailto:info@alliancefinancing.ai" style="color:#3B82F6;">info@alliancefinancing.ai</a></p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+
+            // Send via Resend
+            try {
+                await sendEmailViaResend(clientEmail, approvalSubject, approvalHtml);
+                alert('Approval notice sent to ' + clientEmail + ' successfully! The approval link has also been copied to your clipboard.');
+            } catch (emailErr) {
+                console.error('Resend error, falling back to mailto:', emailErr);
+                var plainBody = 'Dear ' + clientName + ',\n\nYour financing application has been approved!\n\nAmount: ' + formatCurrency(amt) + '\nProduct: ' + product + (term ? '\nTerm: ' + term + ' months' : '') + (payment ? '\nPayment: ' + formatCurrency(payment) : '') + '\n\nView details: ' + approvalUrl + '\n\nBest regards,\nAlliance Financing Group\n1-877-660-3660';
+                window.open('mailto:' + encodeURIComponent(clientEmail) + '?subject=' + encodeURIComponent(approvalSubject) + '&body=' + encodeURIComponent(plainBody));
+                alert('Approval notice saved! Your email app will open to send the notice. The approval link has been copied to your clipboard.');
+            }
 
             // Refresh deal view
             await viewDeal(dealId);
@@ -9482,24 +9539,33 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 const agentEmail = document.getElementById('agentEmail').value;
                 const typeLabel = getAgentTypeLabel(selectedAgentType);
 
-                const subject = encodeURIComponent('Welcome to Alliance Financing Group — Activate Your Account');
-                const body = encodeURIComponent(
-`Hi ${agentName},
+                const inviteSubject = 'Welcome to Alliance Financing Group - Activate Your Account';
+                const inviteHtml =
+                    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                    '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                    '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                    '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                    '<p style="font-size:16px;color:#1E293B;">Hi ' + agentName + ',</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">Welcome to Alliance Financing Group! You have been set up as a <strong>' + typeLabel + '</strong> in our system.</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">To activate your account and get started, please click the button below:</p>' +
+                    '<div style="text-align:center;margin:25px 0;">' +
+                    '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Activate My Account</a></div>' +
+                    '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;">' + activateUrl + '</a></p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">This link will allow you to set up your password and access your dashboard.</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, don\'t hesitate to reach out.</p>' +
+                    '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="https://alliancefinancing.ai" style="color:#3B82F6;">alliancefinancing.ai</a></p>' +
+                    '</div>' +
+                    '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                    '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
 
-Welcome to Alliance Financing Group! You've been set up as a ${typeLabel} in our system.
-
-To activate your account and get started, please click the link below:
-
-${activateUrl}
-
-This link will allow you to set up your password and access your dashboard.
-
-If you have any questions, don't hesitate to reach out.
-
-Best regards,
-Alliance Financing Group
-alliancefinancing.ai`);
-                window.open('mailto:' + agentEmail + '?subject=' + subject + '&body=' + body, '_blank');
+                try {
+                    await sendEmailViaResend(agentEmail, inviteSubject, inviteHtml);
+                } catch (emailErr) {
+                    console.error('Resend error, falling back to mailto:', emailErr);
+                    var subject = encodeURIComponent(inviteSubject);
+                    var body = encodeURIComponent('Hi ' + agentName + ',\n\nWelcome to Alliance Financing Group! You have been set up as a ' + typeLabel + '.\n\nActivate your account: ' + activateUrl + '\n\nBest regards,\nAlliance Financing Group');
+                    window.open('mailto:' + agentEmail + '?subject=' + subject + '&body=' + body, '_blank');
+                }
 
                 // Copy activation link to clipboard
                 try {
