@@ -99,6 +99,10 @@ CREATE INDEX IF NOT EXISTS idx_documents_uploaded_at ON documents(uploaded_at DE
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT false;
 CREATE INDEX IF NOT EXISTS idx_documents_archived ON documents(archived);
 
+-- Lender documents — reuse documents table with lender_id reference
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS lender_id UUID;
+CREATE INDEX IF NOT EXISTS idx_documents_lender_id ON documents(lender_id);
+
 -- =============================================
 -- Admin Resources table
 -- =============================================
