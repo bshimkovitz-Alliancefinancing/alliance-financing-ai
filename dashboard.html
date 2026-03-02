@@ -663,6 +663,23 @@
             </div>
             <div id="resetMessage" style="display: none; margin-top: 10px; padding: 10px; border-radius: 4px; font-size: 14px;"></div>
         </div>
+
+        <!-- Set New Password Form (shown after clicking reset link) -->
+        <div id="newPasswordForm" style="display: none; margin-top: 15px;">
+            <div style="background: #D1FAE5; color: #065F46; padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 15px;">
+                Your identity has been verified. Please set a new password below.
+            </div>
+            <div class="form-group">
+                <label for="newPassword">New Password</label>
+                <input type="password" id="newPassword" placeholder="Enter new password (min 6 characters)" required style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 100%;">
+            </div>
+            <div class="form-group">
+                <label for="confirmNewPassword">Confirm Password</label>
+                <input type="password" id="confirmNewPassword" placeholder="Re-enter new password" required style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 100%;">
+            </div>
+            <button onclick="handleSetNewPassword()" class="btn btn-primary" id="setNewPasswordBtn">Set New Password</button>
+            <div id="newPasswordMessage" style="display: none; margin-top: 10px; padding: 10px; border-radius: 4px; font-size: 14px;"></div>
+        </div>
     </div>
 </div>
 
@@ -719,6 +736,10 @@
             <div class="nav-item" id="resourcesNav" onclick="showPage('resources')" style="display: none;">
                 <span class="nav-icon">📚</span>
                 <span>Admin Resources</span>
+            </div>
+            <div class="nav-item" id="helpNav" onclick="showPage('help')" style="display: none;">
+                <span class="nav-icon">📖</span>
+                <span>Help & Resources</span>
             </div>
         </div>
 
@@ -1719,6 +1740,32 @@
             </div>
 
             <!-- Admin Resources Page -->
+            <div id="help" class="page-section">
+                <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="stat-card">
+                        <div class="stat-label">Your Role</div>
+                        <div class="stat-value" id="helpRoleLabel" style="font-size:16px;">Agent</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Available Guides</div>
+                        <div class="stat-value" id="helpGuideCount">1</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Support</div>
+                        <div class="stat-value" style="font-size:14px;">1-877-660-3660</div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header">
+                        <div class="table-title">Help & Resources</div>
+                    </div>
+                    <div id="helpContainer" style="padding:20px;">
+                        <div style="color:#64748B;font-size:13px;text-align:center;padding:40px;">Loading resources...</div>
+                    </div>
+                </div>
+            </div>
+
             <div id="resources" class="page-section">
                 <!-- Stats row -->
                 <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
@@ -3111,6 +3158,79 @@
         }
     }
 
+    // Handle password recovery token from URL
+    async function checkForPasswordRecovery() {
+        // Supabase v2 puts tokens in the URL hash: #access_token=...&type=recovery
+        var hash = window.location.hash;
+        if (hash && hash.includes('type=recovery')) {
+            // Show the set new password form, hide login
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('forgotPasswordLink').style.display = 'none';
+            document.getElementById('forgotPasswordForm').style.display = 'none';
+            document.getElementById('newPasswordForm').style.display = 'block';
+            return true;
+        }
+        return false;
+    }
+
+    async function handleSetNewPassword() {
+        var newPass = document.getElementById('newPassword').value;
+        var confirmPass = document.getElementById('confirmNewPassword').value;
+        var msgEl = document.getElementById('newPasswordMessage');
+        var btn = document.getElementById('setNewPasswordBtn');
+
+        if (!newPass || newPass.length < 6) {
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#FEE2E2';
+            msgEl.style.color = '#DC2626';
+            msgEl.textContent = 'Password must be at least 6 characters.';
+            return;
+        }
+        if (newPass !== confirmPass) {
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#FEE2E2';
+            msgEl.style.color = '#DC2626';
+            msgEl.textContent = 'Passwords do not match.';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Updating...';
+
+        try {
+            var { data, error } = await db.auth.updateUser({ password: newPass });
+            if (error) throw error;
+
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#D1FAE5';
+            msgEl.style.color = '#065F46';
+            msgEl.textContent = 'Password updated successfully! Redirecting to login...';
+
+            // Clear the hash from URL
+            window.location.hash = '';
+
+            // After a short delay, show login form
+            setTimeout(function() {
+                document.getElementById('newPasswordForm').style.display = 'none';
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('forgotPasswordLink').style.display = 'block';
+                document.getElementById('loginError').textContent = '';
+                // Pre-fill a success message
+                var errorEl = document.getElementById('loginError');
+                errorEl.style.color = '#065F46';
+                errorEl.textContent = 'Password updated! Please sign in with your new password.';
+            }, 2000);
+        } catch (err) {
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#FEE2E2';
+            msgEl.style.color = '#DC2626';
+            msgEl.textContent = 'Error updating password: ' + (err.message || 'Unknown error. The reset link may have expired. Please request a new one.');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Set New Password';
+        }
+    }
+
     async function handleLogout() {
         try {
             await db.auth.signOut();
@@ -3145,14 +3265,18 @@
             const label = item.querySelector('span:last-child').textContent.trim();
 
             if (isAdmin) {
-                // Admins see everything except Marketing (agents-only)
-                item.style.display = label === 'Marketing' ? 'none' : 'flex';
+                // Admins see everything except Marketing and Help & Resources (agents-only)
+                var agentOnlyItems = ['Marketing', 'Help & Resources'];
+                item.style.display = agentOnlyItems.includes(label) ? 'none' : 'flex';
             } else {
                 // Agent views depend on agent_type
                 const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing', 'Team', 'Admin Resources'];
+                const agentOnly = ['Help & Resources'];
 
                 if (adminOnly.includes(label)) {
                     item.style.display = 'none';
+                } else if (label === 'Help & Resources') {
+                    item.style.display = 'flex';
                 } else if (label === 'Marketing') {
                     // Syndication desks don't get marketing
                     item.style.display = currentAgentType === 'syndication_desk' ? 'none' : 'flex';
@@ -4680,7 +4804,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             'alliance': 'Alliance Financing Group',
             'marketing': 'Marketing',
             'team': 'Team Members',
-            'resources': 'Admin Resources'
+            'resources': 'Admin Resources',
+            'help': 'Help & Resources'
         };
         document.getElementById('pageTitle').textContent = titles[pageName] || 'Dashboard';
         currentPage = pageName;
@@ -5567,6 +5692,132 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         template: '📄', policy: '🛡️', reference: '📖', other: '📎'
     };
 
+    // ============================================
+    // Help & Resources (Agent Portal)
+    // ============================================
+
+    var agentTypeGuideMap = {
+        'referring_agent': { label: 'Referring Agent', file: 'Guide-Referring-Agent.docx', icon: '🤝', desc: 'Complete guide for referring agents including submitting deals, tracking your pipeline, uploading documents, and using your referral link.' },
+        'iso': { label: 'ISO Partner', file: 'Guide-ISO-Partner.docx', icon: '🏢', desc: 'Comprehensive guide for ISO Partners covering deal submission, managing sub-agents, tracking pipeline, and white-label branding options.' },
+        'sub_agent': { label: 'Sub-Agent', file: 'Guide-Sub-Agent.docx', icon: '👤', desc: 'Quick-start guide for sub-agents covering portal login, submitting deals, tracking progress, and uploading documents.' },
+        'vendor': { label: 'Vendor Partner', file: 'Guide-Vendor.docx', icon: '🏭', desc: 'Guide for equipment vendors on how the financing process works, submitting deals, required documentation, and funding procedures.' },
+        'salesperson': { label: 'Equipment Salesperson', file: 'Guide-Equipment-Salesperson.docx', icon: '💼', desc: 'Guide for equipment salespeople on offering financing, the application process, products available, and tips for closing more deals.' }
+    };
+
+    async function loadHelpPage() {
+        var container = document.getElementById('helpContainer');
+        var roleLabel = document.getElementById('helpRoleLabel');
+        var guideCount = document.getElementById('helpGuideCount');
+
+        // Determine agent type
+        var agentType = currentAgentType || 'referring_agent';
+        var guideInfo = agentTypeGuideMap[agentType] || agentTypeGuideMap['referring_agent'];
+
+        roleLabel.textContent = guideInfo.label;
+
+        // Build the help page content
+        var html = '';
+
+        // Primary guide card
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Your Portal Guide</h3>';
+        html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:20px;display:flex;align-items:center;gap:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">';
+        html += '<div style="font-size:40px;">' + guideInfo.icon + '</div>';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-weight:700;color:#0D1E3D;font-size:15px;margin-bottom:4px;">' + guideInfo.label + ' Guide</div>';
+        html += '<div style="color:#64748B;font-size:13px;line-height:1.5;">' + guideInfo.desc + '</div>';
+        html += '</div>';
+        html += '<div style="display:flex;gap:8px;">';
+        html += '<button onclick="downloadPartnerGuide(\'' + guideInfo.file + '\')" style="background:#C9A84C;color:white;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">📥 Download Guide</button>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+
+        // Quick reference section
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Quick Reference</h3>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
+
+        var quickRef = [
+            { icon: '🔑', title: 'Password Reset', text: 'Click "Forgot your password?" on the login page to receive a reset link via email.' },
+            { icon: '📤', title: 'Upload Documents', text: 'Open a deal, scroll to Documents, and click "Upload Document" to attach files (PDF, JPEG, PNG).' },
+            { icon: '📊', title: 'Track Your Deals', text: 'Click any deal in your pipeline to see full status, notes, and activity timeline.' },
+            { icon: '🔗', title: 'Referral Link', text: 'Find your personal referral link in the Marketing section. Share it to get credit for new deals.' },
+            { icon: '📧', title: 'Need Help?', text: 'Email info@alliancefinancing.ai or call 1-877-660-3660 for support.' },
+            { icon: '📝', title: 'Submit a Deal', text: 'Go to Applications and click "+ New Application" to submit a financing request.' }
+        ];
+
+        for (var i = 0; i < quickRef.length; i++) {
+            var item = quickRef[i];
+            html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:16px;display:flex;gap:12px;align-items:flex-start;">';
+            html += '<div style="font-size:24px;flex-shrink:0;">' + item.icon + '</div>';
+            html += '<div>';
+            html += '<div style="font-weight:600;color:#0D1E3D;font-size:13px;margin-bottom:4px;">' + item.title + '</div>';
+            html += '<div style="color:#64748B;font-size:12px;line-height:1.4;">' + item.text + '</div>';
+            html += '</div>';
+            html += '</div>';
+        }
+        html += '</div>';
+        html += '</div>';
+
+        // Contact section
+        html += '<div style="background:linear-gradient(135deg,#0D1E3D,#1a2e5a);border-radius:10px;padding:24px;color:white;">';
+        html += '<h3 style="margin-bottom:12px;font-size:16px;">Contact Alliance Financing</h3>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;">';
+        html += '<div><div style="font-size:12px;opacity:0.7;margin-bottom:4px;">Phone</div><div style="font-weight:600;">1-877-660-3660</div></div>';
+        html += '<div><div style="font-size:12px;opacity:0.7;margin-bottom:4px;">Email</div><div style="font-weight:600;">info@alliancefinancing.ai</div></div>';
+        html += '<div><div style="font-size:12px;opacity:0.7;margin-bottom:4px;">Website</div><div style="font-weight:600;">alliancefinancing.com</div></div>';
+        html += '</div>';
+        html += '</div>';
+
+        // Check for admin-uploaded resources shared with agents
+        var sharedResources = [];
+        try {
+            var { data: shared } = await db.from('admin_resources').select('*').eq('access_level', 'all_users').order('created_at', { ascending: false });
+            if (shared && shared.length > 0) {
+                sharedResources = shared;
+            }
+        } catch(e) {}
+
+        if (sharedResources.length > 0) {
+            html += '<div style="margin-top:24px;">';
+            html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Additional Resources from Admin</h3>';
+            for (var j = 0; j < sharedResources.length; j++) {
+                var res = sharedResources[j];
+                var catIcon = resCategoryIcons[res.category] || '📎';
+                html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;">';
+                html += '<span style="font-size:20px;">' + catIcon + '</span>';
+                html += '<div style="flex:1;">';
+                html += '<div style="font-weight:600;color:#0D1E3D;font-size:13px;">' + (res.title || 'Untitled') + '</div>';
+                if (res.description) html += '<div style="color:#64748B;font-size:12px;">' + res.description + '</div>';
+                html += '</div>';
+                if (res.resource_type === 'link' && res.url) {
+                    html += '<a href="' + res.url + '" target="_blank" style="color:#3B82F6;font-size:12px;text-decoration:none;font-weight:600;">Open ↗</a>';
+                } else if (res.file_path) {
+                    html += '<button onclick="downloadResource(\'' + res.id + '\')" style="background:#f1f5f9;border:1px solid #e2e8f0;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;color:#0D1E3D;font-weight:600;">Download</button>';
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+        }
+
+        guideCount.textContent = 1 + sharedResources.length;
+        container.innerHTML = html;
+    }
+
+    async function downloadPartnerGuide(filename) {
+        try {
+            // Try to get from Supabase storage first
+            var { data, error } = await db.storage.from('deal-documents').createSignedUrl('partner-guides/' + filename, 3600);
+            if (data && data.signedUrl) {
+                window.open(data.signedUrl, '_blank');
+                return;
+            }
+        } catch(e) {}
+        // Fallback: try direct file path
+        alert('Guide not yet uploaded. Please ask your administrator to upload the partner guides to the system.');
+    }
+
     async function loadResourcesPage() {
         try {
             var { data, error } = await db
@@ -6126,6 +6377,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 break;
             case 'resources':
                 await loadResourcesPage();
+                break;
+            case 'help':
+                await loadHelpPage();
                 break;
         }
     }
@@ -12560,6 +12814,46 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             alert('Error exporting contacts: ' + error.message);
         }
     }
+
+    // ============================================
+    // Page Initialization — check for recovery token
+    // ============================================
+
+    (async function initPage() {
+        // Check for password recovery token in URL
+        var isRecovery = await checkForPasswordRecovery();
+        if (isRecovery) return; // Stop here — show the new password form
+
+        // Check for existing session (auto-login)
+        try {
+            var { data: sessionData } = await db.auth.getSession();
+            var session = sessionData ? sessionData.session : null;
+            if (session && session.user) {
+                currentUser = session.user;
+                var email = session.user.email;
+                try {
+                    var { data: userData } = await db
+                        .from('users')
+                        .select('id, role, full_name, agent_type')
+                        .ilike('email', email)
+                        .single();
+                    if (userData) {
+                        currentUserRole = userData.role || 'agent';
+                        currentUserId = userData.id;
+                        currentUserName = userData.full_name || email;
+                        currentAgentType = userData.agent_type || 'referring_agent';
+                    }
+                } catch(e) {}
+                document.getElementById('userEmailDisplay').textContent = currentUserName || email;
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('appContainer').style.display = 'flex';
+                setupRoleAccess(currentUserRole);
+                loadDashboard();
+            }
+        } catch(e) {
+            console.error('Session check error:', e);
+        }
+    })();
 
     // ============================================
     // Modal close on background click
