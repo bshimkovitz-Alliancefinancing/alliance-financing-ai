@@ -2396,8 +2396,8 @@
                         <input type="text" id="lenderName" required>
                     </div>
                     <div class="modal-field">
-                        <label>Lender ID</label>
-                        <input type="text" id="lenderId" placeholder="e.g., L-001">
+                        <label>Lender ID <span style="font-size:11px;color:#64748B;font-weight:400;">(auto-generated)</span></label>
+                        <input type="text" id="lenderId" placeholder="Auto-generated on save" readonly style="background:#f1f5f9;color:#64748B;">
                     </div>
                 </div>
                 <div class="modal-row">
@@ -2876,6 +2876,9 @@
         </div>
         <div class="modal-body" id="vendorModalBody">
         </div>
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;padding:15px 20px;border-top:1px solid #e2e8f0;">
+            <button class="btn btn-gold" onclick="closeVendorDetailModal()" style="padding:8px 24px;font-weight:600;">Save & Close</button>
+        </div>
     </div>
 </div>
 
@@ -2888,6 +2891,9 @@
         </div>
         <div class="modal-body" id="lenderModalBody">
         </div>
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;padding:15px 20px;border-top:1px solid #e2e8f0;">
+            <button class="btn btn-gold" onclick="closeLenderDetailModal()" style="padding:8px 24px;font-weight:600;">Save & Close</button>
+        </div>
     </div>
 </div>
 
@@ -2899,6 +2905,9 @@
             <button class="modal-close" onclick="closeAgentDetailModal()">✕</button>
         </div>
         <div class="modal-body" id="agentModalBody">
+        </div>
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;padding:15px 20px;border-top:1px solid #e2e8f0;">
+            <button class="btn btn-gold" onclick="closeAgentDetailModal()" style="padding:8px 24px;font-weight:600;">Save & Close</button>
         </div>
     </div>
 </div>
@@ -10931,6 +10940,32 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         }
     }
 
+    async function generateLenderId(countries) {
+        var prefix = 'L';
+        if (countries) {
+            if (countries.includes('Canada') && !countries.includes('United States')) prefix = 'CA';
+            else if (countries.includes('United States') && !countries.includes('Canada')) prefix = 'US';
+            else if (countries.includes('UK') && !countries.includes('Canada') && !countries.includes('United States')) prefix = 'UK';
+            else if (countries.includes('Germany') && !countries.includes('Canada') && !countries.includes('United States')) prefix = 'DE';
+            else if (countries.includes('Canada') && countries.includes('United States')) prefix = 'NA';
+            else prefix = 'INT';
+        }
+        try {
+            var { data: existing } = await db.from('lenders').select('lender_id').ilike('lender_id', prefix + '-%');
+            var maxNum = 0;
+            if (existing && existing.length > 0) {
+                for (var i = 0; i < existing.length; i++) {
+                    var parts = (existing[i].lender_id || '').split('-');
+                    var num = parseInt(parts[parts.length - 1]);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                }
+            }
+            return prefix + '-' + String(maxNum + 1).padStart(3, '0');
+        } catch(e) {
+            return prefix + '-001';
+        }
+    }
+
     async function handleAddLender(event) {
         event.preventDefault();
 
@@ -10938,6 +10973,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Collect countries from checkboxes
             const countryCheckboxes = document.querySelectorAll('input[name="lenderCountries"]:checked');
             const countries = Array.from(countryCheckboxes).map(cb => cb.value).join(', ');
+
+            // Auto-generate lender ID
+            var autoLenderId = await generateLenderId(countries);
 
             // Collect criteria
             const prefProducts = Array.from(document.querySelectorAll('input[name="lenderPrefProducts"]:checked')).map(cb => cb.value);
@@ -10949,7 +10987,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 .from('lenders')
                 .insert([{
                     name: document.getElementById('lenderName').value,
-                    lender_id: document.getElementById('lenderId').value || null,
+                    lender_id: autoLenderId,
                     lender_type: document.getElementById('lenderType').value || null,
                     country: countries || null,
                     currency: document.getElementById('lenderCurrency').value || null,
