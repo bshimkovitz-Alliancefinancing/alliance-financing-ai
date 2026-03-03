@@ -3043,9 +3043,8 @@
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
 
-    // Resend API key for direct email sending
-    const RESEND_API_KEY = 're_eDYpbNcY_4uAdqWzyb7yEbQTP1A8H3zcr';
-    const RESEND_FROM = 'Alliance Financing Group <noreply@alliancefinancing.com>';
+    // Email sending via Supabase Edge Function (API key stored securely as secret)
+    const EMAIL_FUNCTION_URL = SUPABASE_URL + '/functions/v1/send-email';
 
     // Initialize Supabase client
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -9403,20 +9402,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     // ============================================
-    // Send Email via Resend API
+    // Send Email via Supabase Edge Function
     // ============================================
 
     async function sendEmailViaResend(to, subject, htmlBody, textBody) {
         try {
-            var response = await fetch('https://api.resend.com/emails', {
+            var response = await fetch(EMAIL_FUNCTION_URL, {
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Bearer ' + RESEND_API_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    from: RESEND_FROM,
-                    to: [to],
+                    to: to,
                     subject: subject,
                     html: htmlBody,
                     text: textBody || ''
@@ -9424,11 +9422,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             });
             if (!response.ok) {
                 var errData = await response.json().catch(function() { return { message: response.statusText }; });
-                throw new Error(errData.message || 'Email send failed (' + response.status + ')');
+                throw new Error(errData.error || errData.message || 'Email send failed (' + response.status + ')');
             }
             return await response.json();
         } catch (err) {
-            console.error('Resend email error:', err);
+            console.error('Email send error:', err);
             throw err;
         }
     }
