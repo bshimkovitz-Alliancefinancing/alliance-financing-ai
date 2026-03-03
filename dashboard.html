@@ -5136,6 +5136,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     // Status color map for badges
     var dealStatusColors = {
         'Prospect': { bg: '#EFF6FF', text: '#1D4ED8', border: '#93C5FD' },
+        'Application Sent': { bg: '#FEF3C7', text: '#92400E', border: '#F59E0B' },
         'Quote Requested': { bg: '#F3E8FF', text: '#6B21A8', border: '#D8B4FE' },
         'Quote sent': { bg: '#F0F9FF', text: '#0369A1', border: '#7DD3FC' },
         'Info received': { bg: '#ECFDF5', text: '#047857', border: '#6EE7B7' },
@@ -5157,7 +5158,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     // Deal tab categories
-    var activeDealStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
+    var activeDealStatuses = ['Prospect', 'Application Sent', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
     var bookedDealStatuses = ['Funded'];
     var deadDealStatuses = ['Declined', 'Dead approval', 'Withdrawn'];
     var currentDealTab = 'active';
@@ -5197,8 +5198,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     var statusPriority = {
         'In funding': 1, 'Docs out for signing': 2, 'Docs requested': 3,
         'Approval sent': 4, 'Approved': 5, 'In Credit': 6,
-        'Info received': 7, 'Quote sent': 8, 'Prospect': 9,
-        'Funded': 10, 'Declined': 11, 'Dead approval': 12, 'Withdrawn': 13
+        'Info received': 7, 'Quote sent': 8, 'Application Sent': 9, 'Prospect': 10,
+        'Funded': 11, 'Declined': 12, 'Dead approval': 13, 'Withdrawn': 14
     };
 
     function renderDealsTable(data) {
@@ -7154,8 +7155,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 <!-- Section 9b: Request Documents (admin only) -->
                 ${!isAgentView ? buildRequestDocsHtml(deal, dealId, clientContacts) : ''}
 
-                <!-- Section 9c: Send Credit Application (admin only) -->
-                ${!isAgentView ? buildSendCreditAppHtml(deal, dealId, clientContacts) : ''}
+                <!-- Section 9c: Send Credit Application (admin and agents) -->
+                ${buildSendCreditAppHtml(deal, dealId, clientContacts)}
 
                 <!-- Section 10: Approval Notice (Admin only) -->
                 ${!isAgentView ? buildApprovalNoticeHtml(deal, dealId, clientContacts, approvalNotices) : ''}
@@ -7205,7 +7206,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     function getDealStatusOptions(currentStatus) {
-        const statuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding', 'Funded', 'Declined', 'Dead approval', 'Withdrawn'];
+        const statuses = ['Prospect', 'Application Sent', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding', 'Funded', 'Declined', 'Dead approval', 'Withdrawn'];
         return statuses.map(s => `<option value="${s}" ${s === currentStatus ? 'selected' : ''}>${s}</option>`).join('');
     }
 
@@ -9730,7 +9731,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 date: dateStr,
                 visible_to_agent: true
             });
-            await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+            await db.from('deals').update({ notes: JSON.stringify(notes), status: 'Application Sent' }).eq('id', dealId);
+
+            // Log to applications_sent tracking table
+            try {
+                var appTypeMap = { 'apply-merchant-advance.html': 'MCA', 'apply-leasing.html': 'Lease', 'apply-working-capital.html': 'Working Capital' };
+                await db.from('applications_sent').insert({
+                    applicant_name: name !== 'there' ? name : '',
+                    applicant_email: email,
+                    application_type: appTypeMap[page] || 'MCA',
+                    subject: 'Alliance Financing - ' + appTypeName + ' Application',
+                    status: 'Sent',
+                    follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+                    sent_by: currentUserName || 'Unknown'
+                });
+            } catch (trackErr) { console.error('Failed to log sent application:', trackErr); }
 
             btn.textContent = '✓ Email Sent!';
             btn.style.background = '#10B981';
