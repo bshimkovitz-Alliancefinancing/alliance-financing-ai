@@ -832,6 +832,20 @@
                                 <a id="agentPartnerLink" href="#" target="_blank" style="font-size: 14px; color: #2563EB; text-decoration: underline;">View your landing page</a>
                             </div>
                         </div>
+                        <!-- Email Landing Page to Client -->
+                        <div style="border-top: 1px solid rgba(13,30,61,0.1); padding-top: 15px; margin-top: 15px;">
+                            <label style="display: block; font-weight: 600; color: #0D1E3D; margin-bottom: 10px;">Email Landing Page to a Client:</label>
+                            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 200px;">
+                                    <input type="email" id="landingPageClientEmail" placeholder="client@company.com" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
+                                </div>
+                                <div style="flex: 1; min-width: 150px;">
+                                    <input type="text" id="landingPageClientName" placeholder="Client name (optional)" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
+                                </div>
+                                <button class="btn btn-gold btn-sm" onclick="emailLandingPage()" id="landingPageSendBtn" style="padding: 8px 16px; font-weight: 600;">Send Landing Page</button>
+                            </div>
+                            <div id="landingPageEmailStatus" style="display:none;margin-top:8px;padding:8px 12px;border-radius:4px;font-size:13px;text-align:center;"></div>
+                        </div>
                         <!-- Application Form Links -->
                         <div style="border-top: 1px solid rgba(13,30,61,0.1); padding-top: 15px; margin-top: 15px;">
                             <label style="display: block; font-weight: 600; color: #0D1E3D; margin-bottom: 10px;">Client Application Forms (share these with your clients):</label>
@@ -8428,6 +8442,67 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             btn.style.background = '#10B981';
             setTimeout(function() { btn.textContent = 'Copy Link'; btn.style.background = ''; }, 2000);
         });
+    }
+
+    async function emailLandingPage() {
+        var email = document.getElementById('landingPageClientEmail').value.trim();
+        var clientName = document.getElementById('landingPageClientName').value.trim() || 'there';
+        var statusDiv = document.getElementById('landingPageEmailStatus');
+        var btn = document.getElementById('landingPageSendBtn');
+        var landingPageUrl = document.getElementById('agentPartnerLink').href;
+
+        if (!email) { alert('Please enter the client\'s email address.'); return; }
+
+        var senderName = currentUserName || document.getElementById('userEmailDisplay').textContent || 'Alliance Financing Group';
+        var subject = 'Explore Financing Options with Alliance Financing Group';
+
+        var htmlBody =
+            '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+            '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+            '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+            '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+            '<p style="font-size:16px;color:#1E293B;">Hi ' + clientName + ',</p>' +
+            '<p style="font-size:14px;color:#475569;line-height:1.6;">I wanted to reach out and introduce you to Alliance Financing Group. We specialize in helping businesses access the financing they need to grow, with solutions including:</p>' +
+            '<ul style="font-size:14px;color:#475569;line-height:1.8;">' +
+            '<li><strong>Equipment Leasing & Financing</strong></li>' +
+            '<li><strong>Working Capital & Factoring</strong></li>' +
+            '<li><strong>Merchant Cash Advances</strong></li>' +
+            '<li><strong>Lines of Credit & Term Loans</strong></li>' +
+            '</ul>' +
+            '<p style="font-size:14px;color:#475569;line-height:1.6;">I\'ve set up a personalized page where you can learn more and get started with a quick application:</p>' +
+            '<div style="text-align:center;margin:25px 0;">' +
+            '<a href="' + landingPageUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">View Financing Options</a></div>' +
+            '<p style="font-size:13px;color:#64748B;">Or visit: <a href="' + landingPageUrl + '" style="color:#3B82F6;">' + landingPageUrl + '</a></p>' +
+            '<p style="font-size:14px;color:#475569;line-height:1.6;">Feel free to reach out if you have any questions — I\'m happy to help.</p>' +
+            '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>Alliance Financing Group Ltd.<br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.ai" style="color:#3B82F6;">info@alliancefinancing.ai</a></p>' +
+            '</div>' +
+            '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+            '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        statusDiv.style.display = 'none';
+
+        try {
+            await sendEmailViaResend(email, subject, htmlBody);
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#DCFCE7';
+            statusDiv.style.color = '#166534';
+            statusDiv.textContent = 'Landing page sent successfully to ' + email;
+            btn.textContent = 'Sent!';
+            setTimeout(function() { btn.disabled = false; btn.textContent = 'Send Landing Page'; }, 3000);
+            // Clear fields
+            document.getElementById('landingPageClientEmail').value = '';
+            document.getElementById('landingPageClientName').value = '';
+        } catch (err) {
+            console.error('Landing page email error:', err);
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#FEE2E2';
+            statusDiv.style.color = '#991B1B';
+            statusDiv.textContent = 'Email send failed: ' + (err.message || 'Unknown error');
+            btn.disabled = false;
+            btn.textContent = 'Send Landing Page';
+        }
     }
 
     async function emailSendAppLink() {
