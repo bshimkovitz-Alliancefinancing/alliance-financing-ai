@@ -1099,7 +1099,7 @@
                 <div class="table-container" id="applicationsSentSection" style="margin-top: 20px;">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Applications Sent</div>
-                        <div style="display: flex; gap: 8px; align-items: center;">
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                             <select id="appSentStatusFilter" onchange="loadApplicationsSent()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
                                 <option value="">All Status</option>
                                 <option value="Sent">Sent</option>
@@ -1108,8 +1108,14 @@
                                 <option value="Opened">Opened</option>
                                 <option value="Expired">Expired</option>
                             </select>
+                            <!-- Admin-only: filter by agent -->
+                            <select id="appSentAgentFilter" onchange="loadApplicationsSent()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; display: none;">
+                                <option value="">All Agents</option>
+                            </select>
                         </div>
                     </div>
+                    <!-- Summary Stats -->
+                    <div id="appSentSummary" style="display:none;gap:12px;padding:12px 20px;flex-wrap:wrap;"></div>
                     <div style="overflow-x:auto;">
                     <table style="min-width:900px;">
                         <thead>
@@ -1741,8 +1747,8 @@
                         </div>
                     </div>
 
-                    <!-- Drag and Drop Upload Zone -->
-                    <div id="docDropZone" style="margin: 0 20px 15px 20px; border: 2px dashed #CBD5E1; border-radius: 10px; padding: 25px; text-align: center; background: #F8FAFC; cursor: pointer; transition: all 0.2s;" ondragover="event.preventDefault(); this.style.borderColor='#3B82F6'; this.style.background='#EFF6FF';" ondragleave="this.style.borderColor='#CBD5E1'; this.style.background='#F8FAFC';" ondrop="handleDocDrop(event)" onclick="document.getElementById('docBulkFileInput').click()">
+                    <!-- Drag and Drop Upload Zone (admin only) -->
+                    <div id="docDropZone" class="admin-only-element" style="margin: 0 20px 15px 20px; border: 2px dashed #CBD5E1; border-radius: 10px; padding: 25px; text-align: center; background: #F8FAFC; cursor: pointer; transition: all 0.2s;" ondragover="event.preventDefault(); this.style.borderColor='#3B82F6'; this.style.background='#EFF6FF';" ondragleave="this.style.borderColor='#CBD5E1'; this.style.background='#F8FAFC';" ondrop="handleDocDrop(event)" onclick="document.getElementById('docBulkFileInput').click()">
                         <div style="font-size: 32px; margin-bottom: 8px;">📤</div>
                         <div style="font-weight: 600; color: var(--navy); font-size: 14px;">Drag & drop files here or click to browse</div>
                         <div style="font-size: 12px; color: #64748B; margin-top: 4px;">PDF, PNG, JPG, Word, Excel — max 10MB per file</div>
@@ -3241,6 +3247,33 @@
             // Apply role-based access
             applyRoleAccess();
 
+            // Show admin agent filter on Applications Sent section
+            if (['super_admin', 'admin'].includes(currentUserRole)) {
+                var agentFilterEl = document.getElementById('appSentAgentFilter');
+                if (agentFilterEl) {
+                    agentFilterEl.style.display = '';
+                    // Populate with agent names
+                    db.from('applications_sent').select('sent_by').then(function(result) {
+                        if (result.data) {
+                            var agents = [];
+                            result.data.forEach(function(row) {
+                                if (row.sent_by && agents.indexOf(row.sent_by) === -1) agents.push(row.sent_by);
+                            });
+                            agents.sort();
+                            agents.forEach(function(agent) {
+                                var opt = document.createElement('option');
+                                opt.value = agent;
+                                opt.textContent = agent;
+                                agentFilterEl.appendChild(opt);
+                            });
+                        }
+                    });
+                }
+            }
+
+            // Check for follow-up reminders after brief delay
+            setTimeout(function() { checkFollowUpReminders(); }, 2000);
+
             // Load dashboard
             loadDashboard();
         } catch (error) {
@@ -3377,6 +3410,11 @@
 
         // Hide lender column from agents in pipeline table
         document.querySelectorAll('.lender-col').forEach(el => {
+            el.style.display = isAdmin ? '' : 'none';
+        });
+
+        // Hide admin-only elements (drag & drop upload, etc.)
+        document.querySelectorAll('.admin-only-element').forEach(el => {
             el.style.display = isAdmin ? '' : 'none';
         });
 
@@ -9569,11 +9607,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         const tbody = document.getElementById('applicationsSentBody');
         if (!tbody) return;
         const statusFilter = document.getElementById('appSentStatusFilter')?.value || '';
+        const agentFilter = document.getElementById('appSentAgentFilter')?.value || '';
         const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
         try {
             let query = db.from('applications_sent').select('*').order('sent_at', { ascending: false });
             if (statusFilter) query = query.eq('status', statusFilter);
+            if (agentFilter) query = query.eq('sent_by', agentFilter);
             if (!isAdmin && currentUserName) {
                 query = query.eq('sent_by', currentUserName);
             }
@@ -9581,8 +9621,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             if (error) throw error;
             if (!data || data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No applications sent yet.</td></tr>';
+                // Hide summary stats
+                var summaryEl = document.getElementById('appSentSummary');
+                if (summaryEl) summaryEl.style.display = 'none';
                 return;
             }
+
+            // Update summary stats
+            var summaryEl = document.getElementById('appSentSummary');
+            if (summaryEl) {
+                var totalSent = data.length;
+                var totalOpened = data.filter(function(a) { return a.status === 'Opened'; }).length;
+                var totalOverdue = data.filter(function(a) { return a.status === 'Sent' && a.follow_up_date && new Date(a.follow_up_date) < new Date(); }).length;
+                var totalReturned = data.filter(function(a) { return a.status === 'Returned'; }).length;
+                summaryEl.style.display = 'flex';
+                summaryEl.innerHTML =
+                    '<div style="background:#EFF6FF;padding:8px 16px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:20px;font-weight:700;color:#3B82F6;">' + totalSent + '</div><div style="font-size:11px;color:#64748B;">Total Sent</div></div>' +
+                    '<div style="background:#F5F3FF;padding:8px 16px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:20px;font-weight:700;color:#8B5CF6;">' + totalOpened + '</div><div style="font-size:11px;color:#64748B;">Opened</div></div>' +
+                    '<div style="background:#FFF7ED;padding:8px 16px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:20px;font-weight:700;color:#F59E0B;">' + totalOverdue + '</div><div style="font-size:11px;color:#64748B;">Overdue</div></div>' +
+                    '<div style="background:#F0FDF4;padding:8px 16px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:20px;font-weight:700;color:#10B981;">' + totalReturned + '</div><div style="font-size:11px;color:#64748B;">Returned</div></div>';
+            }
+
             tbody.innerHTML = data.map(function(app) {
                 var isOverdue = app.status === 'Sent' && app.follow_up_date && new Date(app.follow_up_date) < new Date();
                 var colors = { 'Sent': '#3B82F6', 'Follow-Up Needed': '#F59E0B', 'Returned': '#10B981', 'Opened': '#8B5CF6', 'Expired': '#EF4444' };
@@ -9604,6 +9663,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                             '<option value="Opened"' + (app.status === 'Opened' ? ' selected' : '') + '>Opened</option>' +
                             '<option value="Expired"' + (app.status === 'Expired' ? ' selected' : '') + '>Expired</option>' +
                         '</select>' +
+                        (isOverdue ? ' <button onclick="sendFollowUpEmail(\'' + app.id + '\', \'' + (app.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (app.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (app.application_type || '').replace(/'/g, "\\'") + '\')" style="margin-left:4px;padding:4px 8px;background:#F59E0B;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;" title="Send follow-up email">Follow Up</button>' : '') +
                     '</td></tr>';
             }).join('');
         } catch (err) {
@@ -9618,6 +9678,79 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             loadApplicationsSent();
         } catch (err) {
             console.error('Update app sent status error:', err);
+        }
+    }
+
+    // Automated Follow-Up: Check for overdue applications and show reminder banner
+    async function checkFollowUpReminders() {
+        var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+        try {
+            var query = db.from('applications_sent').select('*')
+                .in('status', ['Sent', 'Follow-Up Needed'])
+                .lt('follow_up_date', new Date().toISOString());
+            if (!isAdmin && currentUserName) {
+                query = query.eq('sent_by', currentUserName);
+            }
+            var { data, error } = await query;
+            if (error || !data || data.length === 0) return;
+
+            // Auto-update status to Follow-Up Needed for overdue Sent items
+            for (var i = 0; i < data.length; i++) {
+                if (data[i].status === 'Sent') {
+                    await db.from('applications_sent').update({ status: 'Follow-Up Needed' }).eq('id', data[i].id);
+                }
+            }
+
+            // Show reminder banner
+            var existingBanner = document.getElementById('followUpBanner');
+            if (existingBanner) existingBanner.remove();
+            var banner = document.createElement('div');
+            banner.id = 'followUpBanner';
+            banner.style.cssText = 'background:linear-gradient(135deg,#FFF7ED,#FFFBEB);border:1px solid #F59E0B;border-radius:8px;padding:14px 20px;margin:0 20px 16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+            banner.innerHTML = '<div style="display:flex;align-items:center;gap:10px;">' +
+                '<span style="font-size:20px;">⏰</span>' +
+                '<div><strong style="color:#92400E;">' + data.length + ' Application' + (data.length > 1 ? 's' : '') + ' Need Follow-Up</strong>' +
+                '<div style="font-size:12px;color:#B45309;margin-top:2px;">These applications were sent 3+ days ago with no response.</div></div></div>' +
+                '<button onclick="showPage(\'deals\');document.getElementById(\'appSentStatusFilter\').value=\'Follow-Up Needed\';loadApplicationsSent();" style="background:#F59E0B;color:white;border:none;padding:8px 16px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">View & Follow Up</button>' +
+                '<button onclick="this.parentElement.remove();" style="background:none;border:none;color:#B45309;font-size:18px;cursor:pointer;padding:0 4px;">✕</button>';
+            var mainContent = document.querySelector('.main-content');
+            if (mainContent && mainContent.firstChild) {
+                mainContent.insertBefore(banner, mainContent.firstChild);
+            }
+        } catch (err) {
+            console.error('Follow-up reminder check error:', err);
+        }
+    }
+
+    // Send a follow-up email for an overdue application
+    async function sendFollowUpEmail(appId, email, name, appType) {
+        if (!confirm('Send a follow-up email to ' + (name || email) + ' about their ' + appType + ' application?')) return;
+        try {
+            var clientName = name || 'there';
+            var subject = 'Follow Up - Your ' + appType + ' Application with Alliance Financing';
+            var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:30px;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;">' +
+                '<div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #C9A84C;margin-bottom:20px;">' +
+                '<h1 style="color:#0D1E3D;font-size:22px;margin:0;">Alliance Financing Group</h1></div>' +
+                '<p style="font-size:16px;color:#333;">Hi ' + clientName + ',</p>' +
+                '<p style="font-size:15px;color:#555;line-height:1.6;">We wanted to follow up regarding the <strong>' + appType + '</strong> application we sent you recently. ' +
+                'We want to make sure you have everything you need to move forward.</p>' +
+                '<p style="font-size:15px;color:#555;line-height:1.6;">If you have any questions about the application or need assistance filling it out, please don\'t hesitate to reach out. ' +
+                'We\'re here to help you secure the best financing options for your business.</p>' +
+                '<p style="font-size:15px;color:#555;">Best regards,<br><strong>Alliance Financing Group</strong></p></div>';
+            await sendEmailViaResend(email, subject, htmlBody);
+            // Update follow-up count and date
+            var { data: appData } = await db.from('applications_sent').select('follow_up_count').eq('id', appId).single();
+            var newCount = (appData?.follow_up_count || 0) + 1;
+            await db.from('applications_sent').update({
+                follow_up_count: newCount,
+                follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+                status: 'Follow-Up Needed'
+            }).eq('id', appId);
+            alert('Follow-up email sent to ' + email);
+            loadApplicationsSent();
+        } catch (err) {
+            console.error('Follow-up email error:', err);
+            alert('Failed to send follow-up: ' + err.message);
         }
     }
 
