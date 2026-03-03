@@ -724,6 +724,14 @@
                 <span class="nav-icon">📁</span>
                 <span>Documents</span>
             </div>
+            <div class="nav-item" id="vendorProgramsNav" onclick="showPage('vendorPrograms')" style="display: none;">
+                <span class="nav-icon">🤝</span>
+                <span>Vendor Programs</span>
+            </div>
+            <div class="nav-item" id="subAgentsNav" onclick="showPage('subAgents')" style="display: none;">
+                <span class="nav-icon">👥</span>
+                <span>Sub-Agents</span>
+            </div>
             <div class="nav-item" id="marketingNav" onclick="showPage('marketing')" style="display: none;">
                 <span class="nav-icon">📣</span>
                 <span>Marketing</span>
@@ -912,57 +920,7 @@
                     </div>
                 </div>
 
-                <!-- Agent Vendor Programs Section (agents only) -->
-                <div id="agentVendorProgramsSection" class="table-container" style="display: none;">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Your Vendor Programs</div>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <button class="btn btn-gold btn-sm" onclick="openAgentAddVendorModal()">+ Submit Vendor</button>
-                        </div>
-                    </div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Vendor Name</th>
-                                <th>Product</th>
-                                <th>Country</th>
-                                <th>Salespeople</th>
-                                <th>Projected Vol.</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="agentVendorsBody">
-                            <tr><td colspan="6" class="empty-state">Loading vendor programs...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Agent Sub-Agents Section (agents only) -->
-                <div id="agentSubAgentsSection" class="table-container" style="display: none;">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Your Sub-Agents</div>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <button class="btn btn-gold btn-sm" onclick="openInviteSubAgentModal()">+ Invite Sub-Agent</button>
-                        </div>
-                    </div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Phone</th>
-                                <th>Status</th>
-                                <th># Deals</th>
-                                <th>Override Earned</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="agentSubAgentsBody">
-                            <tr><td colspan="7" class="empty-state">Loading sub-agents...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+                <!-- Vendor Programs and Sub-Agents moved to their own pages -->
 
                 <!-- Agent Deals Section (agents only) -->
                 <div id="agentCommissionsSection" class="table-container" style="display: none;">
@@ -1378,6 +1336,62 @@
                             <tr>
                                 <td colspan="6" class="empty-state">Loading...</td>
                             </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Vendor Programs Page (agents only) -->
+            <div id="vendorPrograms" class="page-section">
+                <div id="agentVendorProgramsSection" class="table-container">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
+                        <div class="table-title">Your Vendor Programs</div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="btn btn-gold btn-sm" onclick="openAgentAddVendorModal()">+ Submit Vendor</button>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Vendor Name</th>
+                                <th>Product</th>
+                                <th>Country</th>
+                                <th>Salespeople</th>
+                                <th>Projected Vol.</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agentVendorsBody">
+                            <tr><td colspan="7" class="empty-state">Loading vendor programs...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Sub-Agents Page (agents only) -->
+            <div id="subAgents" class="page-section">
+                <div id="agentSubAgentsSection" class="table-container">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
+                        <div class="table-title">Your Sub-Agents</div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="btn btn-gold btn-sm" onclick="openInviteSubAgentModal()">+ Invite Sub-Agent</button>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Status</th>
+                                <th># Deals</th>
+                                <th>Override Earned</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agentSubAgentsBody">
+                            <tr><td colspan="7" class="empty-state">Loading sub-agents...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -3341,17 +3355,16 @@
             const label = item.querySelector('span:last-child').textContent.trim();
 
             if (isAdmin) {
-                // Admins see everything except Marketing and Help & Resources (agents-only)
-                var agentOnlyItems = ['Marketing', 'Help & Resources'];
+                // Admins see everything except agent-only items
+                var agentOnlyItems = ['Marketing', 'Help & Resources', 'Vendor Programs', 'Sub-Agents'];
                 item.style.display = agentOnlyItems.includes(label) ? 'none' : 'flex';
             } else {
                 // Agent views depend on agent_type
                 const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing', 'Team', 'Admin Resources'];
-                const agentOnly = ['Help & Resources'];
 
                 if (adminOnly.includes(label)) {
                     item.style.display = 'none';
-                } else if (label === 'Help & Resources') {
+                } else if (label === 'Help & Resources' || label === 'Vendor Programs' || label === 'Sub-Agents') {
                     item.style.display = 'flex';
                 } else if (label === 'Marketing') {
                     // Syndication desks don't get marketing
@@ -4885,6 +4898,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             'contacts': 'Contact Submissions',
             'documents': 'Document Center',
             'alliance': 'Alliance Financing Group',
+            'vendorPrograms': 'Vendor Programs',
+            'subAgents': 'Sub-Agents',
             'marketing': 'Marketing',
             'team': 'Team Members',
             'resources': 'Admin Resources',
@@ -6463,6 +6478,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 break;
             case 'alliance':
                 await loadAllianceHouse();
+                break;
+            case 'vendorPrograms':
+                await loadAgentVendors();
+                break;
+            case 'subAgents':
+                await loadAgentSubAgents();
                 break;
             case 'marketing':
                 await loadMarketingPage();
