@@ -2944,7 +2944,7 @@
 </div>
 
 <!-- Send Application Form Modal -->
-<div id="sendApplicationModal" class="modal">
+<div id="sendApplicationModal" class="modal" style="z-index: 1100;">
     <div class="modal-content" style="max-width: 600px;">
         <div class="modal-header">
             <h2>Send Application Form</h2>
@@ -11860,7 +11860,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     </div>
                     <div class="modal-field">
                         <label>Onboarding Status</label>
-                        <div class="modal-field-value">${agent.onboarding_status === 'invited' ? '<span style="color:#92400E;font-weight:600;">Invited</span> — ' + formatDate(agent.invite_sent_at) : agent.onboarding_status === 'active' ? '<span style="color:#166534;font-weight:600;">Active</span>' + (agent.invite_accepted_at ? ' — Activated ' + formatDate(agent.invite_accepted_at) : '') : (agent.onboarding_status || 'active')}</div>
+                        <div class="modal-field-value">
+                            ${agent.onboarding_status === 'invited' ? '<span style="color:#92400E;font-weight:600;">Invited</span> — ' + formatDate(agent.invite_sent_at) : agent.onboarding_status === 'active' ? '<span style="color:#166534;font-weight:600;">Active</span>' + (agent.invite_accepted_at ? ' — Activated ' + formatDate(agent.invite_accepted_at) : '') : (agent.onboarding_status || 'active')}
+                            ${agent.onboarding_status === 'invited' && agent.invite_token ? ' <button class="btn btn-sm" onclick="resendAgentInvite(\'' + agentId + '\', \'' + (agent.email || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.full_name || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.invite_token || '') + '\', \'' + (agent.agent_type || 'referring_agent') + '\')" style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;padding:4px 12px;font-size:12px;font-weight:600;margin-left:8px;">Resend Invite</button>' : ''}
+                        </div>
                     </div>
                 </div>
 
@@ -11899,6 +11902,46 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     function closeAgentDetailModal() {
         document.getElementById('agentDetailModal').classList.remove('active');
+    }
+
+    async function resendAgentInvite(agentId, agentEmail, agentName, inviteToken, agentType) {
+        if (!confirm('Send activation invite to ' + agentEmail + '?')) return;
+        try {
+            const activateUrl = window.location.origin + '/agent-activate.html?token=' + inviteToken;
+            const typeLabel = getAgentTypeLabel(agentType);
+            const inviteSubject = 'Welcome to Alliance Financing Group - Activate Your Account';
+            const inviteHtml =
+                '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                '<p style="font-size:16px;color:#1E293B;">Hi ' + agentName + ',</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">Welcome to Alliance Financing Group! You have been set up as a <strong>' + typeLabel + '</strong> in our system.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">To activate your account and get started, please click the button below:</p>' +
+                '<div style="text-align:center;margin:25px 0;">' +
+                '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Activate My Account</a></div>' +
+                '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;">' + activateUrl + '</a></p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">This link will allow you to set up your password and access your dashboard.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, don\'t hesitate to reach out.</p>' +
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="https://alliancefinancing.ai" style="color:#3B82F6;">alliancefinancing.ai</a></p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+
+            await sendEmailViaResend(agentEmail, inviteSubject, inviteHtml);
+
+            // Update invite_sent_at
+            await db.from('users').update({ invite_sent_at: new Date().toISOString() }).eq('id', agentId);
+
+            // Copy activation link to clipboard
+            try { await navigator.clipboard.writeText(activateUrl); } catch(e) {}
+
+            alert('Invite sent to ' + agentEmail + '! Activation link also copied to clipboard.');
+            await viewAgent(agentId);
+        } catch (error) {
+            console.error('Resend invite error:', error);
+            alert('Error sending invite: ' + error.message);
+        }
     }
 
     async function updateAgentStatus(agentId, newStatus) {
