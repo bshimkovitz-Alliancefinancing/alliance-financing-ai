@@ -12647,19 +12647,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 <div id="brandedDocsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
                     <p style="color:var(--text-light);font-size:13px;font-style:italic;" id="brandedDocsLoading">Loading...</p>
                 </div>
-                <script>
-                    // Load existing branded docs for this agent
-                    (async function() {
-                        const docs = await loadBrandedDocsForAgent('${agentId}', '${agent.referral_slug || ''}');
-                        const container = document.getElementById('brandedDocsList');
-                        if (docs && docs.length > 0) {
-                            container.innerHTML = docs.map(d => '<a href="' + d.file + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;text-decoration:none;font-size:12px;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'#E2E8F0\'"><span style="font-size:16px;">' + d.icon + '</span><span style="color:var(--navy);font-weight:600;">' + d.label + '</span><span style="margin-left:auto;color:var(--text-light);font-size:10px;background:#E2E8F0;padding:2px 6px;border-radius:3px;">PDF</span></a>').join('');
-                            document.getElementById('generateBrandedDocsBtn').textContent = 'Regenerate PDFs';
-                        } else {
-                            container.innerHTML = '<p style="color:var(--text-light);font-size:13px;">No branded documents yet. Click "Generate Branded PDFs" to create them.</p>';
-                        }
-                    })();
-                </script>
 
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Referral Applications (${apps ? apps.length : 0})</label>
@@ -12682,6 +12669,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             `;
 
             document.getElementById('agentDetailModal').classList.add('active');
+
+            // Load branded docs for this agent (async, non-blocking)
+            setTimeout(async function() {
+                try {
+                    const docs = await loadBrandedDocsForAgent(agentId, agent.referral_slug || '');
+                    const docsContainer = document.getElementById('brandedDocsList');
+                    if (!docsContainer) return;
+                    if (docs && docs.length > 0) {
+                        docsContainer.innerHTML = docs.map(function(d) {
+                            return '<a href="' + d.file + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;text-decoration:none;font-size:12px;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'#E2E8F0\'"><span style="font-size:16px;">' + d.icon + '</span><span style="color:var(--navy);font-weight:600;">' + d.label + '</span><span style="margin-left:auto;color:var(--text-light);font-size:10px;background:#E2E8F0;padding:2px 6px;border-radius:3px;">PDF</span></a>';
+                        }).join('');
+                        var genBtn = document.getElementById('generateBrandedDocsBtn');
+                        if (genBtn) genBtn.textContent = 'Regenerate PDFs';
+                    } else {
+                        docsContainer.innerHTML = '<p style="color:var(--text-light);font-size:13px;">No branded documents yet. Click "Generate Branded PDFs" to create them.</p>';
+                    }
+                } catch(e) { console.error('Load branded docs:', e); }
+            }, 100);
         } catch (error) {
             console.error('View agent error:', error);
             alert('Error loading agent details');
@@ -15281,10 +15286,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     }
                 } catch(e) {}
                 document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('dashboardContainer').style.display = 'block';
-                document.getElementById('userEmailDisplay').textContent = displayName;
-                configureNavForRole(displayRole);
-                showPage('dashboard');
+                document.getElementById('appContainer').style.display = 'flex';
+                document.getElementById('userEmailDisplay').textContent = email;
+                document.getElementById('currentUser').textContent = displayName + ' (' + displayRole + ')';
+                applyRoleAccess();
+                loadDashboard();
                 return;
             }
         } catch(e) {}
