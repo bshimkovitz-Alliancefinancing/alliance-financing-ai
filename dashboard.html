@@ -10960,8 +10960,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         <div class="modal-field-value">${contact.phone || 'N/A'}</div>
                     </div>
                     <div class="modal-field">
-                        <label>Submitted</label>
-                        <div class="modal-field-value">${formatDate(contact.submitted_at)}</div>
+                        <label>Company</label>
+                        <div class="modal-field-value">${contact.company || '<span style="color:#94a3b8;">Not provided</span>'}</div>
                     </div>
                 </div>
                 <div class="modal-row">
@@ -10970,6 +10970,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         <div class="modal-field-value">${contact.subject || 'N/A'}</div>
                     </div>
                     <div class="modal-field">
+                        <label>Submitted</label>
+                        <div class="modal-field-value">${formatDate(contact.submitted_at)}</div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field" style="flex:1;">
                         <label>Status</label>
                         <div class="modal-field-value">
                             <select id="contactStatusSelect" onchange="updateContactStatus('${contactId}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
@@ -10984,6 +10990,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         <div class="modal-field-value">${contact.message || 'No message'}</div>
                     </div>
                 </div>
+
+                ${['super_admin', 'admin'].includes(currentUserRole) ? `
+                <div class="modal-row full" style="margin-top: 12px;">
+                    <div class="modal-field">
+                        <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Send Response</label>
+                        <div id="responseFormContainer">
+                            <textarea id="responseMessageText" placeholder="Type your response to ${contact.name || 'this contact'}..." style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px; font-family: inherit; resize: vertical; margin-bottom: 8px;"></textarea>
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                <button class="btn btn-sm" id="sendResponseBtn" onclick="sendContactResponse('${contactId}', '${(contact.email || '').replace(/'/g, "\\'")}', '${(contact.name || '').replace(/'/g, "\\'")}')" style="background: var(--navy); color: #fff; padding: 8px 20px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer;">
+                                    Send Response
+                                </button>
+                                <span style="font-size: 12px; color: var(--text-light);">Sends from info@alliancefinancing.ai — recipient can reply directly</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>` : ''}
+
                 <div class="modal-row full" style="margin-top: 10px;">
                     <div class="modal-field">
                         <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Activity Notes</label>
@@ -11060,6 +11083,96 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         } catch (error) {
             console.error('Add note error:', error);
             alert('Error adding note: ' + error.message);
+        }
+    }
+
+    async function sendContactResponse(contactId, recipientEmail, recipientName) {
+        const messageText = document.getElementById('responseMessageText').value.trim();
+        if (!messageText) {
+            alert('Please type a response message.');
+            return;
+        }
+
+        const sendBtn = document.getElementById('sendResponseBtn');
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+
+        try {
+            // Build branded HTML email
+            const htmlBody = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1E293B;">
+                    <div style="background: #0D1E3D; padding: 24px 30px; border-bottom: 3px solid #C9A84C;">
+                        <h1 style="color: #FFFFFF; font-size: 20px; margin: 0; font-weight: 700;">Alliance Financing Group</h1>
+                        <p style="color: #C9A84C; font-size: 13px; margin: 4px 0 0 0;">Commercial Financing Solutions</p>
+                    </div>
+                    <div style="padding: 30px; background: #FFFFFF; border: 1px solid #E2E8F0; border-top: none;">
+                        <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">Hi ${recipientName || 'there'},</p>
+                        <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px 0; white-space: pre-wrap;">${messageText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                        <p style="font-size: 15px; line-height: 1.6; margin: 24px 0 0 0;">Best regards,</p>
+                        <p style="font-size: 15px; line-height: 1.6; margin: 0; font-weight: 600; color: #0D1E3D;">Alliance Financing Group</p>
+                        <p style="font-size: 13px; color: #64748B; margin: 4px 0 0 0;">1-877-660-3660 ext. 222 | info@alliancefinancing.ai</p>
+                    </div>
+                    <div style="padding: 16px 30px; background: #F8FAFC; border: 1px solid #E2E8F0; border-top: none; text-align: center;">
+                        <p style="font-size: 12px; color: #94A3B8; margin: 0;">Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai" style="color: #C9A84C;">alliancefinancing.ai</a></p>
+                        <p style="font-size: 11px; color: #94A3B8; margin: 4px 0 0 0;">You can reply directly to this email.</p>
+                    </div>
+                </div>
+            `;
+
+            const textBody = `Hi ${recipientName || 'there'},\n\n${messageText}\n\nBest regards,\nAlliance Financing Group\n1-877-660-3660 ext. 222 | info@alliancefinancing.ai`;
+
+            // Send via Resend edge function with reply-to address
+            const EMAIL_FUNCTION_URL = SUPABASE_URL + '/functions/v1/send-email';
+            const response = await fetch(EMAIL_FUNCTION_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    to: recipientEmail,
+                    subject: 'Re: Your Inquiry — Alliance Financing Group',
+                    html: htmlBody,
+                    text: textBody,
+                    from: 'Alliance Financing Group <info@alliancefinancing.ai>',
+                    reply_to: 'info@alliancefinancing.ai'
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(function() { return { message: response.statusText }; });
+                throw new Error(errData.error || errData.message || 'Email send failed');
+            }
+
+            // Log the response as a note
+            const { data: contact } = await db.from('contact_submissions').select('admin_notes').eq('id', contactId).single();
+            let notes = [];
+            try { notes = contact.admin_notes ? JSON.parse(contact.admin_notes) : []; } catch(e) { notes = []; }
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay').textContent;
+            notes.push({
+                text: 'Response sent via email: "' + (messageText.length > 80 ? messageText.substring(0, 80) + '...' : messageText) + '"',
+                author: userEmail,
+                date: dateStr
+            });
+
+            // Update status to Responded and save note
+            await db.from('contact_submissions')
+                .update({ status: 'Responded', admin_notes: JSON.stringify(notes) })
+                .eq('id', contactId);
+
+            showNotification('Response sent to ' + recipientEmail, 'success');
+
+            // Refresh the modal to show updated notes and status
+            await viewContact(contactId);
+            await loadContacts();
+        } catch (error) {
+            console.error('Send response error:', error);
+            alert('Error sending response: ' + error.message);
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send Response';
         }
     }
 
@@ -11192,14 +11305,39 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 var emailField = document.getElementById('addDealEmail') || document.getElementById('dealEmail');
                 var phoneField = document.getElementById('addDealPhone') || document.getElementById('dealPhone');
                 var businessField = document.getElementById('addDealBusinessName') || document.getElementById('dealBusinessName');
+                var companyField = document.getElementById('companyName');
 
                 if (nameField) nameField.value = contact.name || '';
                 if (emailField) emailField.value = contact.email || '';
                 if (phoneField) phoneField.value = contact.phone || '';
 
-                // Try to extract business name from message if subject is Funding Inquiry
-                if (businessField && contact.subject === 'Funding Inquiry' && !businessField.value) {
-                    businessField.value = '';
+                // Auto-populate Company Name from contact submission
+                if (companyField && contact.company) {
+                    companyField.value = contact.company;
+                } else if (companyField && !contact.company) {
+                    // Fallback: try to extract company from email domain (if not a common provider)
+                    var commonDomains = ['gmail.com','yahoo.com','hotmail.com','outlook.com','icloud.com','aol.com','live.com','msn.com','protonmail.com','mail.com'];
+                    if (contact.email) {
+                        var domain = contact.email.split('@')[1] || '';
+                        if (domain && !commonDomains.includes(domain.toLowerCase())) {
+                            var domainName = domain.split('.')[0];
+                            companyField.value = domainName.charAt(0).toUpperCase() + domainName.slice(1);
+                        }
+                    }
+                }
+
+                // Set source to "Contact Form"
+                var sourceField = document.getElementById('dealSource');
+                if (sourceField) {
+                    // Check if "Contact Form" option exists, if not add it
+                    var hasContactFormOption = Array.from(sourceField.options).some(o => o.value === 'Contact Form');
+                    if (!hasContactFormOption) {
+                        var opt = document.createElement('option');
+                        opt.value = 'Contact Form';
+                        opt.textContent = 'Contact Form';
+                        sourceField.appendChild(opt);
+                    }
+                    sourceField.value = 'Contact Form';
                 }
 
                 // Update contact status to reflect it was moved
