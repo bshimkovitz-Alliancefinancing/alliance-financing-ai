@@ -3331,12 +3331,11 @@
         try {
             errorEl.textContent = '';
 
-            // If "Remember Me" is unchecked, sign out will clear session on browser close
-            if (!rememberMe) {
-                // Store flag so we can clear session on page unload
-                sessionStorage.setItem('af_no_remember', 'true');
+            // Store "Remember Me" preference in localStorage
+            if (rememberMe) {
+                localStorage.setItem('af_remember_me', 'true');
             } else {
-                sessionStorage.removeItem('af_no_remember');
+                localStorage.removeItem('af_remember_me');
             }
 
             const { data, error } = await db.auth.signInWithPassword({
@@ -3491,6 +3490,7 @@
 
     async function handleLogout() {
         try {
+            localStorage.removeItem('af_remember_me');
             await db.auth.signOut();
             currentUser = null;
             currentUserRole = 'agent';
@@ -15255,17 +15255,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var isRecovery = await checkForPasswordRecovery();
         if (isRecovery) return; // Stop here — show the new password form
 
-        // If "Remember Me" was unchecked (no-remember flag set), sign out
-        if (sessionStorage.getItem('af_no_remember')) {
+        // Only auto-login if "Remember Me" was explicitly checked (flag stored in localStorage)
+        // If no flag or flag is false, always show the login screen and clear any cached session
+        var rememberFlag = localStorage.getItem('af_remember_me');
+        if (rememberFlag !== 'true') {
+            // Clear any stale Supabase session so it doesn't interfere
             try { await db.auth.signOut(); } catch(e) {}
             return;
         }
 
-        // Check for existing session and auto-login if valid
+        // "Remember Me" was checked — try to auto-login with existing session
         try {
             const { data: { session } } = await db.auth.getSession();
             if (session && session.user) {
-                // Auto-login with existing session
                 currentUser = session.user;
                 const email = session.user.email;
                 let displayName = email;
