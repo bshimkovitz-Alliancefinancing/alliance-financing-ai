@@ -981,6 +981,29 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- New Contact Submissions Feed (admin only) -->
+                <div id="dashContactSubmissions" class="table-container" style="display: none;">
+                    <div class="table-header">
+                        <div class="table-title">New Contact Submissions</div>
+                        <button class="btn btn-secondary btn-sm" onclick="showPage('Contact Submissions')">View All</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Subject</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashContactSubmissionsBody">
+                            <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Deal Pipeline Page -->
@@ -1327,9 +1350,14 @@
             <!-- Contact Submissions Page -->
             <div id="contacts" class="page-section">
                 <div class="table-container">
-                    <div class="table-header">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Contact Submissions</div>
-                        <button class="btn btn-secondary btn-sm" onclick="exportContacts()" style="margin-left: 8px;">Export CSV</button>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#666;cursor:pointer;">
+                                <input type="checkbox" id="showArchivedContacts" onchange="loadContacts()"> Show Archived
+                            </label>
+                            <button class="btn btn-secondary btn-sm" onclick="exportContacts()" style="margin-left: 8px;">Export CSV</button>
+                        </div>
                     </div>
                     <table id="contactsTable">
                         <thead>
@@ -5268,6 +5296,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 }).join('');
             }
 
+            // Load contact submissions feed for admin dashboard
+            await loadDashContactSubmissions();
+
             // === Agent Portal Features ===
             const isAgentUser = !['super_admin', 'admin'].includes(currentUserRole) && currentUserId;
 
@@ -5979,10 +6010,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     async function loadContacts() {
         try {
-            const { data, error } = await db
-                .from('contact_submissions')
-                .select('*')
-                .order('submitted_at', { ascending: false });
+            const showArchived = document.getElementById('showArchivedContacts')?.checked || false;
+
+            let query = db.from('contact_submissions').select('*').order('submitted_at', { ascending: false });
+
+            if (!showArchived) {
+                query = query.neq('status', 'Archived');
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
 
@@ -5992,18 +6028,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 return;
             }
 
-            tbody.innerHTML = data.map(contact => `
-                <tr>
-                    <td><strong>${contact.name || 'N/A'}</strong></td>
-                    <td>${contact.email || 'N/A'}</td>
-                    <td>${contact.subject || 'N/A'}</td>
-                    <td>${formatDate(contact.submitted_at)}</td>
-                    <td>${getContactStatusBadge(contact.status || 'New')}</td>
-                    <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewContact('${contact.id}')">View</button>
-                    </td>
-                </tr>
-            `).join('');
+            const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
+            tbody.innerHTML = data.map(contact => {
+                const isArchived = contact.status === 'Archived';
+                const rowStyle = isArchived ? 'opacity: 0.55;' : '';
+                const archiveBtn = isAdmin && !isArchived
+                    ? `<button class="btn btn-sm" onclick="archiveContact('${contact.id}')" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 8px;font-size:11px;" title="Archive this submission">Archive</button>`
+                    : isAdmin && isArchived
+                    ? `<button class="btn btn-sm" onclick="unarchiveContact('${contact.id}')" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;padding:3px 8px;font-size:11px;" title="Restore from archive">Restore</button>`
+                    : '';
+
+                return `
+                    <tr style="${rowStyle}">
+                        <td><strong>${contact.name || 'N/A'}</strong></td>
+                        <td>${contact.email || 'N/A'}</td>
+                        <td>${contact.subject || 'N/A'}</td>
+                        <td>${formatDate(contact.submitted_at)}</td>
+                        <td>${getContactStatusBadge(contact.status || 'New')}</td>
+                        <td style="display:flex;gap:4px;flex-wrap:wrap;">
+                            <button class="btn btn-secondary btn-sm" onclick="viewContact('${contact.id}')">View</button>
+                            ${archiveBtn}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         } catch (error) {
             console.error('Load contacts error:', error);
         }
@@ -10859,7 +10908,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 `).join('')
                 : '<p style="color: var(--text-light); font-size: 14px;">No notes yet.</p>';
 
-            const contactStatusOptions = ['New', 'In Progress', 'Responded', 'Closed'].map(s =>
+            const contactStatusOptions = ['New', 'In Progress', 'Responded', 'Closed', 'Moved to Pipeline', 'Archived'].map(s =>
                 `<option value="${s}" ${(contact.status || 'New') === s ? 'selected' : ''}>${s}</option>`
             ).join('');
 
@@ -10915,6 +10964,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         <button class="btn btn-gold btn-sm" onclick="addContactNote('${contactId}')" style="margin-top: 8px;">Add Note</button>
                     </div>
                 </div>
+                ${['super_admin', 'admin'].includes(currentUserRole) ? `
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 2px solid var(--border-gray); display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-gold btn-sm" onclick="moveContactToPipeline('${contactId}')" style="padding: 8px 16px; font-weight: 600;">
+                        Move to Deal Pipeline
+                    </button>
+                    ${(contact.status || 'New') !== 'Archived' ? `
+                    <button class="btn btn-sm" onclick="archiveContact('${contactId}')" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:8px 16px;">
+                        Archive Submission
+                    </button>` : `
+                    <button class="btn btn-sm" onclick="unarchiveContact('${contactId}')" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;padding:8px 16px;">
+                        Restore from Archive
+                    </button>`}
+                </div>` : ''}
             `;
 
             document.getElementById('contactModal').classList.add('active');
@@ -11020,6 +11082,159 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     function closeContactModal() {
         document.getElementById('contactModal').classList.remove('active');
+    }
+
+    // Archive a contact submission
+    async function archiveContact(contactId) {
+        if (!confirm('Archive this contact submission? It will be hidden from the default view.')) return;
+        try {
+            // Get current notes
+            const { data: contact } = await db.from('contact_submissions').select('admin_notes').eq('id', contactId).single();
+            let notes = [];
+            try { notes = contact.admin_notes ? JSON.parse(contact.admin_notes) : []; } catch(e) { notes = []; }
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay').textContent;
+            notes.push({ text: 'Submission archived', author: userEmail, date: dateStr });
+
+            const { error } = await db.from('contact_submissions')
+                .update({ status: 'Archived', admin_notes: JSON.stringify(notes) })
+                .eq('id', contactId);
+            if (error) throw error;
+
+            closeContactModal();
+            await loadContacts();
+            showNotification('Contact submission archived', 'success');
+        } catch (error) {
+            console.error('Archive contact error:', error);
+            alert('Error archiving: ' + error.message);
+        }
+    }
+
+    // Restore an archived contact submission
+    async function unarchiveContact(contactId) {
+        try {
+            const { data: contact } = await db.from('contact_submissions').select('admin_notes').eq('id', contactId).single();
+            let notes = [];
+            try { notes = contact.admin_notes ? JSON.parse(contact.admin_notes) : []; } catch(e) { notes = []; }
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay').textContent;
+            notes.push({ text: 'Submission restored from archive', author: userEmail, date: dateStr });
+
+            const { error } = await db.from('contact_submissions')
+                .update({ status: 'New', admin_notes: JSON.stringify(notes) })
+                .eq('id', contactId);
+            if (error) throw error;
+
+            closeContactModal();
+            await loadContacts();
+            showNotification('Contact submission restored', 'success');
+        } catch (error) {
+            console.error('Unarchive contact error:', error);
+            alert('Error restoring: ' + error.message);
+        }
+    }
+
+    // Move a contact submission to deal pipeline
+    async function moveContactToPipeline(contactId) {
+        try {
+            // Get the contact details
+            const { data: contact, error: fetchErr } = await db
+                .from('contact_submissions')
+                .select('*')
+                .eq('id', contactId)
+                .single();
+            if (fetchErr) throw fetchErr;
+
+            // Pre-fill and open the Add Deal modal
+            closeContactModal();
+            openAddDealModal();
+
+            // Wait a tick for modal to render, then pre-fill fields
+            setTimeout(function() {
+                // Try to fill common deal fields from contact info
+                var nameField = document.getElementById('addDealFullName') || document.getElementById('dealFullName');
+                var emailField = document.getElementById('addDealEmail') || document.getElementById('dealEmail');
+                var phoneField = document.getElementById('addDealPhone') || document.getElementById('dealPhone');
+                var businessField = document.getElementById('addDealBusinessName') || document.getElementById('dealBusinessName');
+
+                if (nameField) nameField.value = contact.name || '';
+                if (emailField) emailField.value = contact.email || '';
+                if (phoneField) phoneField.value = contact.phone || '';
+
+                // Try to extract business name from message if subject is Funding Inquiry
+                if (businessField && contact.subject === 'Funding Inquiry' && !businessField.value) {
+                    businessField.value = '';
+                }
+
+                // Update contact status to reflect it was moved
+                db.from('contact_submissions').select('admin_notes').eq('id', contactId).single().then(function(res) {
+                    let notes = [];
+                    try { notes = res.data.admin_notes ? JSON.parse(res.data.admin_notes) : []; } catch(e) { notes = []; }
+                    const now = new Date();
+                    const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const userEmail = document.getElementById('userEmailDisplay').textContent;
+                    notes.push({ text: 'Moved to deal pipeline', author: userEmail, date: dateStr });
+                    db.from('contact_submissions')
+                        .update({ status: 'Moved to Pipeline', admin_notes: JSON.stringify(notes) })
+                        .eq('id', contactId);
+                });
+
+                showNotification('Contact info pre-filled in new deal form. Complete the deal details and save.', 'success');
+            }, 300);
+        } catch (error) {
+            console.error('Move contact to pipeline error:', error);
+            alert('Error: ' + error.message);
+        }
+    }
+
+    // Load new contact submissions on admin dashboard
+    async function loadDashContactSubmissions() {
+        const container = document.getElementById('dashContactSubmissions');
+        if (!container) return;
+
+        const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+        if (!isAdmin) { container.style.display = 'none'; return; }
+
+        try {
+            const { data, error } = await db
+                .from('contact_submissions')
+                .select('*')
+                .neq('status', 'Archived')
+                .neq('status', 'Moved to Pipeline')
+                .order('submitted_at', { ascending: false })
+                .limit(10);
+
+            if (error) throw error;
+
+            container.style.display = 'block';
+            const tbody = document.getElementById('dashContactSubmissionsBody');
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No new contact submissions.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(contact => `
+                <tr>
+                    <td><strong>${contact.name || 'N/A'}</strong></td>
+                    <td>${contact.email || 'N/A'}</td>
+                    <td>${contact.subject || 'N/A'}</td>
+                    <td>${formatDate(contact.submitted_at)}</td>
+                    <td>${getContactStatusBadge(contact.status || 'New')}</td>
+                    <td style="display:flex;gap:4px;flex-wrap:wrap;">
+                        <button class="btn btn-secondary btn-sm" onclick="viewContact('${contact.id}')">View</button>
+                        <button class="btn btn-gold btn-sm" onclick="moveContactToPipeline('${contact.id}')" style="padding:3px 8px;font-size:11px;">Pipeline</button>
+                        <button class="btn btn-sm" onclick="archiveContact('${contact.id}')" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 8px;font-size:11px;">Archive</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Load dash contact submissions error:', error);
+        }
     }
 
     // ============================================
@@ -13731,6 +13946,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         if (status === 'Closed' || status === 'Responded') badgeClass = 'badge-success';
         else if (status === 'In Progress') badgeClass = 'badge-warning';
         else if (status === 'New') badgeClass = 'badge-info';
+        else if (status === 'Archived') badgeClass = 'badge-secondary';
+        else if (status === 'Moved to Pipeline') badgeClass = 'badge-success';
         return `<span class="badge ${badgeClass}">${status}</span>`;
     }
 

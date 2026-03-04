@@ -206,6 +206,11 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                 <h2>Send Us a Message</h2>
 
                 <form id="contactForm">
+                    <!-- Honeypot field - hidden from real users, bots will fill it -->
+                    <div style="position:absolute;left:-9999px;top:-9999px;height:0;width:0;overflow:hidden;" aria-hidden="true">
+                        <label for="website_url">Website</label>
+                        <input type="text" id="website_url" name="website_url" tabindex="-1" autocomplete="off">
+                    </div>
                     <div class="form-group">
                         <label for="name">Name *</label>
                         <input type="text" id="name" name="name" required>
@@ -364,6 +369,15 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
             submitBtn.textContent = 'Sending...';
 
             try {
+                // Honeypot check — if the hidden field is filled, it's a bot
+                const honeypot = document.getElementById('website_url').value;
+                if (honeypot) {
+                    // Silently pretend success so bot doesn't retry
+                    form.style.display = 'none';
+                    successMsg.style.display = 'block';
+                    return;
+                }
+
                 // Get form values
                 const name = document.getElementById('name').value.trim();
                 const email = document.getElementById('email').value.trim();
@@ -378,6 +392,36 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                 // Validate required fields
                 if (!name || !email || !phone || !subject || !message) {
                     throw new Error('Please fill in all required fields.');
+                }
+
+                // Spam validation — reject gibberish names
+                const nameWords = name.split(/\s+/);
+                if (nameWords.length < 2) {
+                    throw new Error('Please enter your full name (first and last).');
+                }
+                // Check for random character spam (names with excessive consonant clusters or all-caps gibberish)
+                const gibberishPattern = /^[^aeiouAEIOU\s]{5,}|^[A-Z]{6,}|[0-9]{4,}/;
+                for (var w = 0; w < nameWords.length; w++) {
+                    if (gibberishPattern.test(nameWords[w])) {
+                        throw new Error('Please enter a valid name.');
+                    }
+                }
+
+                // Basic email domain validation
+                const emailDomain = email.split('@')[1] || '';
+                if (emailDomain.length < 3 || !emailDomain.includes('.')) {
+                    throw new Error('Please enter a valid email address.');
+                }
+
+                // Phone must have at least 7 digits
+                const phoneDigits = phone.replace(/\D/g, '');
+                if (phoneDigits.length < 7) {
+                    throw new Error('Please enter a valid phone number.');
+                }
+
+                // Message minimum length
+                if (message.length < 10) {
+                    throw new Error('Please provide a more detailed message.');
                 }
 
                 // Build insert data
