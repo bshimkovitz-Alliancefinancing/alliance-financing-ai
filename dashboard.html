@@ -649,6 +649,10 @@
                 <label for="loginPassword">Password</label>
                 <input type="password" id="loginPassword" name="password" required>
             </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                <input type="checkbox" id="rememberMe" checked style="width:16px;height:16px;cursor:pointer;">
+                <label for="rememberMe" style="font-size:13px;color:var(--text-light);cursor:pointer;margin:0;">Remember me</label>
+            </div>
             <button type="submit" class="btn btn-primary">Sign In</button>
         </form>
         <div style="text-align: center; margin-top: 15px;">
@@ -3328,10 +3332,20 @@
         event.preventDefault();
         const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
+        const rememberMe = document.getElementById('rememberMe').checked;
         const errorEl = document.getElementById('loginError');
 
         try {
             errorEl.textContent = '';
+
+            // If "Remember Me" is unchecked, sign out will clear session on browser close
+            if (!rememberMe) {
+                // Store flag so we can clear session on page unload
+                sessionStorage.setItem('af_no_remember', 'true');
+            } else {
+                sessionStorage.removeItem('af_no_remember');
+            }
+
             const { data, error } = await db.auth.signInWithPassword({
                 email,
                 password
@@ -14475,8 +14489,44 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var isRecovery = await checkForPasswordRecovery();
         if (isRecovery) return; // Stop here — show the new password form
 
-        // Sign out any existing session so user always sees login screen
-        try { await db.auth.signOut(); } catch(e) {}
+        // If "Remember Me" was unchecked (no-remember flag set), sign out
+        if (sessionStorage.getItem('af_no_remember')) {
+            try { await db.auth.signOut(); } catch(e) {}
+            return;
+        }
+
+        // Check for existing session and auto-login if valid
+        try {
+            const { data: { session } } = await db.auth.getSession();
+            if (session && session.user) {
+                // Auto-login with existing session
+                currentUser = session.user;
+                const email = session.user.email;
+                let displayName = email;
+                let displayRole = 'admin';
+                try {
+                    const { data: userData } = await db
+                        .from('users')
+                        .select('id, role, full_name, agent_type')
+                        .ilike('email', email)
+                        .maybeSingle();
+                    if (userData) {
+                        displayName = userData.full_name || email;
+                        displayRole = userData.role || 'admin';
+                        currentUserId = userData.id;
+                        currentUserRole = displayRole;
+                        currentUserName = displayName;
+                        currentUserAgentType = userData.agent_type || null;
+                    }
+                } catch(e) {}
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('dashboardContainer').style.display = 'block';
+                document.getElementById('userEmailDisplay').textContent = displayName;
+                configureNavForRole(displayRole);
+                showPage('dashboard');
+                return;
+            }
+        } catch(e) {}
     })();
 
     // ============================================
