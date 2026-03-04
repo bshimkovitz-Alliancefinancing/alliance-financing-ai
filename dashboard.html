@@ -3235,6 +3235,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
     // ============================================
     // BERNIE: Paste your Supabase anon key below
@@ -3856,39 +3857,54 @@
 
         const slug = agentProfile.referral_slug || '';
 
-        // Populate branded materials (agent-specific or generic)
+        // Populate branded materials (dynamic from DB, fallback to hardcoded/generic)
         const container = document.getElementById('marketingPagePDFs');
         if (container) {
+            container.innerHTML = '<p style="color:var(--text-light);font-size:13px;">Loading branded materials...</p>';
+
             const genericPDFs = [
                 { file: 'marketing/Alliance_Overview.pptx', label: 'Alliance Overview', icon: '📄' },
                 { file: 'marketing/alliance-mortgage-brokers.pdf', label: 'Mortgage Brokers One-Pager', icon: '🏠' },
                 { file: 'marketing/alliance-insurance-brokers.pdf', label: 'Insurance Brokers One-Pager', icon: '🛡️' },
                 { file: 'marketing/alliance-accountants-cfos.pdf', label: 'Accountants & CFOs One-Pager', icon: '📊' }
             ];
-            const agentPDFs = {
-                'paul-morrison': [
-                    { file: 'pdfs/Alliance_Overview-Pj.pdf', label: 'Alliance Overview', icon: '📄' },
-                    { file: 'pdfs/paul-morrison-mortgage-brokers-a9b08ec8.pdf', label: 'Mortgage Brokers One-Pager', icon: '🏠' },
-                    { file: 'pdfs/paul-morrison-insurance-brokers-a626986e.pdf', label: 'Insurance Brokers One-Pager', icon: '🛡️' },
-                    { file: 'pdfs/paul-morrison-accountants-cfos-164326bd.pdf', label: 'Accountants & CFOs One-Pager', icon: '📊' }
-                ],
-                'lee-harrison': [
-                    { file: 'pdfs/Alliance_Overview_LH.pdf', label: 'Alliance Overview', icon: '📄' },
-                    { file: 'pdfs/lee-harrison-mortgage-brokers.pdf', label: 'Mortgage Brokers One-Pager', icon: '🏠' },
-                    { file: 'pdfs/lee-harrison-insurance-brokers.pdf', label: 'Insurance Brokers One-Pager', icon: '🛡️' },
-                    { file: 'pdfs/lee-harrison-accountants-cfos.pdf', label: 'Accountants & CFOs One-Pager', icon: '📊' }
-                ]
-            };
-            const pdfs = agentPDFs[slug] || genericPDFs;
-            container.innerHTML = pdfs.map(p => `
+
+            // Try loading from DB first (auto-generated branded docs)
+            let pdfs = null;
+            if (currentUserId) {
+                pdfs = await loadBrandedDocsForAgent(currentUserId, slug);
+            }
+
+            // Fallback to legacy hardcoded PDFs for Paul & Lee
+            if (!pdfs) {
+                const legacyPDFs = {
+                    'paul-morrison': [
+                        { file: 'pdfs/Alliance_Overview-Pj.pdf', label: 'Alliance Overview', icon: '📄' },
+                        { file: 'pdfs/paul-morrison-mortgage-brokers-a9b08ec8.pdf', label: 'Mortgage Brokers One-Pager', icon: '🏠' },
+                        { file: 'pdfs/paul-morrison-insurance-brokers-a626986e.pdf', label: 'Insurance Brokers One-Pager', icon: '🛡️' },
+                        { file: 'pdfs/paul-morrison-accountants-cfos-164326bd.pdf', label: 'Accountants & CFOs One-Pager', icon: '📊' }
+                    ],
+                    'lee-harrison': [
+                        { file: 'pdfs/Alliance_Overview_LH.pdf', label: 'Alliance Overview', icon: '📄' },
+                        { file: 'pdfs/lee-harrison-mortgage-brokers.pdf', label: 'Mortgage Brokers One-Pager', icon: '🏠' },
+                        { file: 'pdfs/lee-harrison-insurance-brokers.pdf', label: 'Insurance Brokers One-Pager', icon: '🛡️' },
+                        { file: 'pdfs/lee-harrison-accountants-cfos.pdf', label: 'Accountants & CFOs One-Pager', icon: '📊' }
+                    ]
+                };
+                pdfs = legacyPDFs[slug] || genericPDFs;
+            }
+
+            container.innerHTML = pdfs.map(p => {
+                const isExternal = p.isExternal || p.file.startsWith('http');
+                return `
                 <a href="${p.file}" target="_blank" style="text-decoration: none; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; display: flex; align-items: center; gap: 10px; cursor: pointer;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='#E2E8F0'">
                     <span style="font-size: 24px;">${p.icon}</span>
                     <div style="flex: 1;">
                         <div style="font-weight: 600; font-size: 13px; color: var(--navy);">${p.label}</div>
                     </div>
-                    <span style="font-size: 11px; color: var(--text-light); background: #E2E8F0; padding: 3px 8px; border-radius: 4px;">${p.file.endsWith('.pptx') ? 'PPTX' : 'PDF'}</span>
-                </a>
-            `).join('');
+                    <span style="font-size: 11px; color: var(--text-light); background: #E2E8F0; padding: 3px 8px; border-radius: 4px;">PDF</span>
+                </a>`;
+            }).join('');
         }
 
         // Show team materials section if this agent has sub-agents
@@ -4179,6 +4195,713 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             newWindow.document.close();
         } else {
             alert('Please allow popups for this site to view the MCA one-pager.');
+        }
+    }
+
+    // ============================================
+    // BRANDED DOCUMENT GENERATION MODULE
+    // ============================================
+
+    // Shared CSS for all branded one-pager templates
+    function getBrandedDocCSS() {
+        return `
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--navy:#0D1E3D;--navy-mid:#1A3160;--gold:#C9A84C;--gold-lt:#e8c96a;--white:#FFFFFF;--off-wh:#F5F7FA;--gray:#8A9BB0;--dark:#2C3E55;--accent:#1E6FB0;}
+  body{font-family:'Source Sans 3',sans-serif;background:#fff;color:var(--dark);margin:0;padding:0;}
+  .page{width:816px;margin:0 auto;background:var(--white);}
+  .header{background:var(--navy);padding:36px 48px 28px;position:relative;overflow:hidden;}
+  .header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;background:var(--gold);}
+  .header-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;}
+  .brand-badge{display:inline-flex;align-items:center;gap:10px;}
+  .brand-badge .bar{width:3px;height:28px;background:var(--gold);}
+  .brand-name{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);}
+  .header-stats{display:flex;gap:20px;}
+  .header-stat{text-align:center;border:1px solid rgba(201,168,76,0.25);padding:8px 14px;background:rgba(255,255,255,0.04);}
+  .header-stat .num{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--gold);display:block;}
+  .header-stat .lbl{font-size:8px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#8a9bb0;}
+  .header h1{font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:var(--white);line-height:1.15;margin-bottom:6px;}
+  .header h1 em{font-style:normal;color:var(--gold);}
+  .header-sub{font-size:12px;color:#b0c4de;letter-spacing:0.5px;}
+  .gold-strip{background:var(--gold);padding:10px 48px;text-align:center;}
+  .gold-strip p{font-size:12px;font-weight:700;color:var(--navy);}
+  .body-grid{display:grid;grid-template-columns:1fr 1fr;min-height:400px;}
+  .col-l{padding:28px 32px 24px 48px;border-right:1px solid #e4e9f0;}
+  .col-r{padding:28px 48px 24px 32px;}
+  .sec-label{font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;}
+  .sec-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--navy);line-height:1.25;margin-bottom:10px;}
+  .sec-body{font-size:11.5px;color:#4a5568;line-height:1.6;margin-bottom:12px;}
+  .benefit-list{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+  .benefit{display:flex;gap:9px;align-items:flex-start;padding:7px 10px;background:var(--off-wh);}
+  .benefit-icon{width:18px;height:18px;background:var(--navy);border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  .benefit-icon svg{width:9px;height:9px;fill:none;stroke:var(--gold);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
+  .benefit p{font-size:11px;color:#3d4e61;line-height:1.4;}
+  .benefit p strong{color:var(--navy);font-weight:700;}
+  .refer-box{background:var(--off-wh);border-left:3px solid var(--gold);padding:10px 12px;margin-bottom:6px;}
+  .refer-box span{font-size:11px;font-weight:600;color:var(--navy);}
+  .steps{display:flex;flex-direction:column;gap:10px;}
+  .step{display:flex;gap:10px;align-items:flex-start;}
+  .step-num{width:24px;height:24px;background:var(--navy);color:var(--gold);font-family:'Playfair Display',serif;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .step-content h4{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:2px;}
+  .step-content p{font-size:10.5px;color:#5a6a7e;line-height:1.45;}
+  .cta-band{background:var(--navy);padding:16px 48px;display:flex;justify-content:space-between;align-items:center;}
+  .cta-band-text{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--white);}
+  .cta-band-text em{font-style:normal;color:var(--gold);}
+  .cta-btn{display:inline-block;background:var(--gold);color:var(--navy);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:10px 20px;text-decoration:none;white-space:nowrap;}
+  .products-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;}
+  .product-item{padding:8px 10px;background:var(--off-wh);border-left:3px solid var(--gold);}
+  .product-item strong{font-size:11px;color:var(--navy);display:block;margin-bottom:1px;}
+  .product-item span{font-size:10px;color:#5a6a7e;}
+  .footer{background:var(--navy);}
+  .footer-main{display:flex;justify-content:space-between;align-items:center;padding:14px 48px;border-bottom:1px solid rgba(201,168,76,0.18);}
+  .footer-brand{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:2px;}
+  .footer-info{font-size:10px;color:#8a9bb0;}
+  .footer-contact{text-align:right;}
+  .footer-contact .name{font-size:12px;font-weight:700;color:var(--white);margin-bottom:2px;}
+  .footer-contact .detail{font-size:10px;color:#8a9bb0;}
+  .footer-contact .email{font-size:10px;color:var(--gold);}
+  .footer-contact .link{font-size:10px;color:var(--gold-lt);margin-top:2px;}
+  .footer-bottom{padding:6px 48px;display:flex;justify-content:space-between;}
+  .footer-bottom p{font-size:8px;color:rgba(138,155,176,0.6);}
+  @media print{body{background:white;padding:0;}.page{box-shadow:none;width:100%;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}`;
+    }
+
+    // Build footer HTML for branded docs
+    function getBrandedDocFooter(agent) {
+        const refLink = 'alliancefinancing.ai/ref/' + (agent.referral_slug || '');
+        return `
+  <div class="footer">
+    <div class="footer-main">
+      <div>
+        <div class="footer-brand">Alliance Financing Group</div>
+        <div class="footer-info">Toronto, Canada &bull; Est. 1989 &bull; 35+ Years &bull; 70+ Lenders</div>
+      </div>
+      <div class="footer-contact">
+        <div class="name">Your Contact: ${agent.full_name || 'Alliance Advisor'}</div>
+        ${agent.phone ? '<div class="detail">M: ' + agent.phone + '</div>' : ''}
+        ${agent.email ? '<div class="email">' + agent.email + '</div>' : ''}
+        <div class="link">${refLink}</div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2025 Alliance Financing Group Ltd. | Confidential</p>
+      <p>${refLink} &nbsp;|&nbsp; alliancefinancing.com</p>
+    </div>
+  </div>`;
+    }
+
+    // ---- TEMPLATE 1: Mortgage Brokers One-Pager ----
+    function generateMortgageBrokersHTML(agent) {
+        const css = getBrandedDocCSS();
+        const footer = getBrandedDocFooter(agent);
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Mortgage Brokers Partnership - Alliance Financing Group</title><style>${css}</style></head><body>
+<div class="page">
+  <div class="header">
+    <div class="header-top">
+      <div class="brand-badge"><div class="bar"></div><span class="brand-name">Alliance Financing Group</span></div>
+      <div class="header-stats">
+        <div class="header-stat"><span class="num">35+</span><span class="lbl">Years</span></div>
+        <div class="header-stat"><span class="num">70+</span><span class="lbl">Lenders</span></div>
+        <div class="header-stat"><span class="num">85%+</span><span class="lbl">Approval</span></div>
+      </div>
+    </div>
+    <h1>Partnership Opportunity for<br><em>Mortgage Brokers</em></h1>
+    <p class="header-sub">Earn referral fees by connecting your clients with commercial financing solutions</p>
+  </div>
+  <div class="gold-strip"><p>Your clients already trust you &mdash; now offer them access to 70+ commercial lenders through Alliance's AI-powered platform</p></div>
+  <div class="body-grid">
+    <div class="col-l">
+      <div class="sec-label">Why Partner</div>
+      <h2 class="sec-title">Unlock New Revenue<br>From Your Existing Clients</h2>
+      <p class="sec-body">As a mortgage broker, your clients often need commercial financing solutions beyond residential mortgages. Rather than turning them away, partner with Alliance Financing Group and earn referral fees on every funded deal.</p>
+      <div class="benefit-list">
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Earn on Every Referral</strong> &mdash; Competitive referral fees on all funded commercial deals</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Zero Effort Required</strong> &mdash; We handle the entire process from application to funding</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Strengthen Client Relationships</strong> &mdash; Offer more solutions without expanding your license</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Branded Partner Portal</strong> &mdash; Track your referrals, commissions, and pipeline in real-time</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>35 Years of Expertise</strong> &mdash; Backed by decades of commercial financing experience</p></div>
+      </div>
+      <div class="sec-label" style="margin-top:6px;">Products Your Clients Need</div>
+      <div class="products-grid">
+        <div class="product-item"><strong>Commercial Mortgages</strong><span>$250K &ndash; $25M+</span></div>
+        <div class="product-item"><strong>Equipment Financing</strong><span>$25K &ndash; $5M</span></div>
+        <div class="product-item"><strong>Working Capital / MCA</strong><span>$10K &ndash; $2M</span></div>
+        <div class="product-item"><strong>Construction Loans</strong><span>$500K &ndash; $20M+</span></div>
+        <div class="product-item"><strong>Business Acquisition</strong><span>$250K &ndash; $10M+</span></div>
+        <div class="product-item"><strong>Bridge Financing</strong><span>$100K &ndash; $5M</span></div>
+      </div>
+    </div>
+    <div class="col-r">
+      <div class="sec-label">When to Refer</div>
+      <h2 class="sec-title">Your Client Needs Alliance<br>When They Say&hellip;</h2>
+      <div class="benefit-list">
+        <div class="refer-box"><span>&ldquo;I need financing for a commercial property&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;My business needs new equipment&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;I need working capital for my business&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;The bank turned down my commercial loan&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;I need bridge financing for a deal&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;I'm buying or expanding a business&rdquo;</span></div>
+      </div>
+      <div class="sec-label" style="margin-top:10px;">How It Works</div>
+      <h2 class="sec-title">Three Simple Steps</h2>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Send Us the Referral</h4><p>Use your branded referral link or send a quick intro email. We only need a name and phone number to get started.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>We Handle Everything</h4><p>Alliance manages the full process &mdash; application, lender matching via AI, underwriting, and funding. Your client is in expert hands.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Get Paid on Funding</h4><p>When the deal funds, you receive your referral fee. Track everything through your Alliance partner dashboard.</p></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="cta-band">
+    <div class="cta-band-text">Ready to earn more from your <em>existing client base</em>?</div>
+    <a href="https://alliancefinancing.ai" class="cta-btn">Partner with Alliance &rarr;</a>
+  </div>
+  ${footer}
+</div></body></html>`;
+    }
+
+    // ---- TEMPLATE 2: Insurance Brokers One-Pager ----
+    function generateInsuranceBrokersHTML(agent) {
+        const css = getBrandedDocCSS();
+        const footer = getBrandedDocFooter(agent);
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Insurance Brokers Partnership - Alliance Financing Group</title><style>${css}</style></head><body>
+<div class="page">
+  <div class="header">
+    <div class="header-top">
+      <div class="brand-badge"><div class="bar"></div><span class="brand-name">Alliance Financing Group</span></div>
+      <div class="header-stats">
+        <div class="header-stat"><span class="num">35+</span><span class="lbl">Years</span></div>
+        <div class="header-stat"><span class="num">70+</span><span class="lbl">Lenders</span></div>
+        <div class="header-stat"><span class="num">85%+</span><span class="lbl">Approval</span></div>
+      </div>
+    </div>
+    <h1>Partnership Opportunity for<br><em>Insurance Brokers</em></h1>
+    <p class="header-sub">Earn referral fees by connecting your commercial clients with financing solutions</p>
+  </div>
+  <div class="gold-strip"><p>Your commercial clients trust you to protect their business &mdash; now help them grow it with Alliance's 70+ lender network</p></div>
+  <div class="body-grid">
+    <div class="col-l">
+      <div class="sec-label">Why Partner</div>
+      <h2 class="sec-title">Turn Insurance Conversations<br>Into Revenue</h2>
+      <p class="sec-body">As an insurance broker, you already have deep relationships with business owners. When they mention growth plans, cash flow challenges, or new equipment needs, that's an Alliance referral. Earn fees without lifting a finger.</p>
+      <div class="benefit-list">
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Earn Passive Revenue</strong> &mdash; Referral fees on every funded deal from your introductions</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Deepen Client Loyalty</strong> &mdash; Be the broker who solves more than just insurance</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>We Do All the Work</strong> &mdash; Application to funding handled entirely by Alliance</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Real-Time Tracking</strong> &mdash; Monitor referrals and commissions via your partner portal</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>All Credit Accepted</strong> &mdash; A, B, C, and D credit profiles &mdash; even bank-declined clients</p></div>
+      </div>
+      <div class="sec-label" style="margin-top:6px;">Financing Solutions</div>
+      <div class="products-grid">
+        <div class="product-item"><strong>Working Capital / MCA</strong><span>$10K &ndash; $2M</span></div>
+        <div class="product-item"><strong>Equipment Financing</strong><span>$25K &ndash; $5M</span></div>
+        <div class="product-item"><strong>Commercial Mortgages</strong><span>$250K &ndash; $25M+</span></div>
+        <div class="product-item"><strong>Business Acquisition</strong><span>$250K &ndash; $10M+</span></div>
+        <div class="product-item"><strong>Bridge Financing</strong><span>$100K &ndash; $5M</span></div>
+        <div class="product-item"><strong>Construction Loans</strong><span>$500K &ndash; $20M+</span></div>
+      </div>
+    </div>
+    <div class="col-r">
+      <div class="sec-label">When to Refer</div>
+      <h2 class="sec-title">Referral Triggers During<br>Insurance Conversations</h2>
+      <div class="benefit-list">
+        <div class="refer-box"><span>&ldquo;I need to insure new equipment I'm purchasing&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;We're expanding to a new commercial location&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;Cash flow is tight this quarter&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;I'm looking to buy another business&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;The bank won't lend to us right now&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;We're starting a construction project&rdquo;</span></div>
+      </div>
+      <div class="sec-label" style="margin-top:10px;">How It Works</div>
+      <h2 class="sec-title">Three Simple Steps</h2>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Introduce Your Client</h4><p>Share your branded referral link or send a quick email introduction. A name and phone number is all we need.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Alliance Takes Over</h4><p>We manage the full process: application, AI-powered lender matching across 70+ partners, underwriting, and funding.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Earn Your Fee</h4><p>When the deal funds, your referral fee is paid. Track everything in real-time through your partner dashboard.</p></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="cta-band">
+    <div class="cta-band-text">Add <em>commercial financing</em> to your client conversations</div>
+    <a href="https://alliancefinancing.ai" class="cta-btn">Partner with Alliance &rarr;</a>
+  </div>
+  ${footer}
+</div></body></html>`;
+    }
+
+    // ---- TEMPLATE 3: Accountants & CFOs One-Pager ----
+    function generateAccountantsCFOsHTML(agent) {
+        const css = getBrandedDocCSS();
+        const footer = getBrandedDocFooter(agent);
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Accountants & CFOs Partnership - Alliance Financing Group</title><style>${css}</style></head><body>
+<div class="page">
+  <div class="header">
+    <div class="header-top">
+      <div class="brand-badge"><div class="bar"></div><span class="brand-name">Alliance Financing Group</span></div>
+      <div class="header-stats">
+        <div class="header-stat"><span class="num">35+</span><span class="lbl">Years</span></div>
+        <div class="header-stat"><span class="num">70+</span><span class="lbl">Lenders</span></div>
+        <div class="header-stat"><span class="num">85%+</span><span class="lbl">Approval</span></div>
+      </div>
+    </div>
+    <h1>Partnership Opportunity for<br><em>Accountants &amp; CFOs</em></h1>
+    <p class="header-sub">Earn referral fees by connecting your clients with the right commercial financing</p>
+  </div>
+  <div class="gold-strip"><p>You know your clients' financials better than anyone &mdash; help them access capital through 70+ lenders via Alliance</p></div>
+  <div class="body-grid">
+    <div class="col-l">
+      <div class="sec-label">Why Partner</div>
+      <h2 class="sec-title">Your Financial Insight<br>Creates Referral Opportunities</h2>
+      <p class="sec-body">As a trusted financial advisor, you see the full picture of your clients' capital needs. When they need growth funding, equipment financing, or working capital, an Alliance referral earns you fees and strengthens your advisory relationship.</p>
+      <div class="benefit-list">
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Referral Fees on Funded Deals</strong> &mdash; Earn competitive commissions on every completed transaction</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Elevate Your Advisory Role</strong> &mdash; Be the advisor who connects clients to capital, not just numbers</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>No Licensing Needed</strong> &mdash; Alliance handles all compliance, underwriting, and lender management</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>AI-Powered Matching</strong> &mdash; Clients matched to best-fit lender from 70+ partner network instantly</p></div>
+        <div class="benefit"><div class="benefit-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Transparent Tracking</strong> &mdash; Real-time pipeline visibility through your partner dashboard</p></div>
+      </div>
+      <div class="sec-label" style="margin-top:6px;">Financing Solutions</div>
+      <div class="products-grid">
+        <div class="product-item"><strong>Working Capital / MCA</strong><span>$10K &ndash; $2M</span></div>
+        <div class="product-item"><strong>Equipment Financing</strong><span>$25K &ndash; $5M</span></div>
+        <div class="product-item"><strong>Commercial Mortgages</strong><span>$250K &ndash; $25M+</span></div>
+        <div class="product-item"><strong>Business Acquisition</strong><span>$250K &ndash; $10M+</span></div>
+        <div class="product-item"><strong>Bridge Financing</strong><span>$100K &ndash; $5M</span></div>
+        <div class="product-item"><strong>Construction Loans</strong><span>$500K &ndash; $20M+</span></div>
+      </div>
+    </div>
+    <div class="col-r">
+      <div class="sec-label">When to Refer</div>
+      <h2 class="sec-title">Referral Triggers During<br>Financial Reviews</h2>
+      <div class="benefit-list">
+        <div class="refer-box"><span>&ldquo;We need to finance new equipment for the business&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;Cash flow is tight &mdash; we need working capital&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;We're looking at acquiring a competitor&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;We want to buy or refinance commercial property&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;Our bank declined the loan application&rdquo;</span></div>
+        <div class="refer-box"><span>&ldquo;We need bridge financing to close a deal&rdquo;</span></div>
+      </div>
+      <div class="sec-label" style="margin-top:10px;">How It Works</div>
+      <h2 class="sec-title">Three Simple Steps</h2>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Make the Introduction</h4><p>Share your branded referral link or send a quick email. Just a name and contact info gets the process started.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Alliance Does the Heavy Lifting</h4><p>We handle everything: application, AI lender matching, underwriting, negotiation, and funding. Your client gets white-glove service.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Collect Your Referral Fee</h4><p>Deal funds, you get paid. Full transparency through your real-time partner dashboard.</p></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="cta-band">
+    <div class="cta-band-text">Help your clients <em>access the capital</em> they need to grow</div>
+    <a href="https://alliancefinancing.ai" class="cta-btn">Partner with Alliance &rarr;</a>
+  </div>
+  ${footer}
+</div></body></html>`;
+    }
+
+    // ---- TEMPLATE 4: Alliance Overview One-Pager ----
+    function generateAllianceOverviewHTML(agent) {
+        const css = getBrandedDocCSS();
+        const footer = getBrandedDocFooter(agent);
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Alliance Financing Group - Company Overview</title><style>${css}
+  .overview-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+  .overview-card{background:var(--off-wh);padding:12px;text-align:center;border-top:3px solid var(--gold);}
+  .overview-card .num{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--navy);display:block;margin-bottom:2px;}
+  .overview-card .lbl{font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
+  .overview-card .desc{font-size:10px;color:#5a6a7e;margin-top:4px;}
+  .service-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .service-item{display:flex;gap:10px;padding:8px 10px;background:var(--off-wh);border-left:3px solid var(--gold);}
+  .service-item strong{font-size:11px;color:var(--navy);min-width:130px;}
+  .service-item span{font-size:10.5px;color:#5a6a7e;}
+        </style></head><body>
+<div class="page">
+  <div class="header">
+    <div class="header-top">
+      <div class="brand-badge"><div class="bar"></div><span class="brand-name">Alliance Financing Group</span></div>
+      <div class="header-stats">
+        <div class="header-stat"><span class="num">1989</span><span class="lbl">Founded</span></div>
+        <div class="header-stat"><span class="num">70+</span><span class="lbl">Lenders</span></div>
+        <div class="header-stat"><span class="num">$2B+</span><span class="lbl">Funded</span></div>
+      </div>
+    </div>
+    <h1>Alliance Financing Group<br><em>Company Overview</em></h1>
+    <p class="header-sub">35+ Years of Commercial Financing Excellence &bull; AI-Powered Lender Matching &bull; Canada &amp; U.S.</p>
+  </div>
+  <div class="gold-strip"><p>One application. 70+ vetted lending partners. AI-powered matching. The best terms for your business &mdash; guaranteed.</p></div>
+  <div class="body-grid">
+    <div class="col-l">
+      <div class="sec-label">Who We Are</div>
+      <h2 class="sec-title">Canada's Trusted<br>Commercial Finance Partner</h2>
+      <p class="sec-body">Founded in 1989, Alliance Financing Group has spent over 35 years helping Canadian and American businesses access the capital they need to grow. We combine decades of industry expertise with cutting-edge AI technology to match businesses with the best financing solutions from our network of 70+ vetted lending partners.</p>
+      <p class="sec-body">Unlike banks that offer a single product, Alliance acts as your advocate &mdash; shopping the entire market on your behalf to secure the most competitive terms available.</p>
+      <div class="overview-grid">
+        <div class="overview-card"><span class="num">35+</span><span class="lbl">Years</span><span class="desc">Industry experience</span></div>
+        <div class="overview-card"><span class="num">70+</span><span class="lbl">Lenders</span><span class="desc">Vetted partners</span></div>
+        <div class="overview-card"><span class="num">85%+</span><span class="lbl">Approval</span><span class="desc">Success rate</span></div>
+      </div>
+      <div class="sec-label">Our Approach</div>
+      <h2 class="sec-title">AI-Powered, Human-Guided</h2>
+      <p class="sec-body">Our proprietary AI platform analyzes each application and instantly matches it with the best-fit lenders from our network. But technology is just the start &mdash; every deal is guided by experienced financing professionals who negotiate the best terms and manage the process through to funding.</p>
+    </div>
+    <div class="col-r">
+      <div class="sec-label">Our Solutions</div>
+      <h2 class="sec-title">Full-Spectrum Commercial<br>Financing</h2>
+      <div class="service-list">
+        <div class="service-item"><strong>Working Capital / MCA</strong><span>$10K &ndash; $2M &bull; Revenue-based</span></div>
+        <div class="service-item"><strong>Equipment Financing</strong><span>$25K &ndash; $5M &bull; All industries</span></div>
+        <div class="service-item"><strong>Commercial Mortgages</strong><span>$250K &ndash; $25M+ &bull; All property types</span></div>
+        <div class="service-item"><strong>Construction Loans</strong><span>$500K &ndash; $20M+ &bull; Ground-up &amp; reno</span></div>
+        <div class="service-item"><strong>Business Acquisition</strong><span>$250K &ndash; $10M+ &bull; Full &amp; partial</span></div>
+        <div class="service-item"><strong>Bridge Financing</strong><span>$100K &ndash; $5M &bull; Short-term capital</span></div>
+        <div class="service-item"><strong>Accounts Receivable</strong><span>$50K &ndash; $5M &bull; Invoice factoring</span></div>
+        <div class="service-item"><strong>SBA / Government</strong><span>$50K &ndash; $5M &bull; Subsidized programs</span></div>
+      </div>
+      <div class="sec-label" style="margin-top:6px;">How It Works</div>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Apply in 5 Minutes</h4><p>Simple online application. No fees, no credit impact to check eligibility.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>AI Matches You to Best Lender</h4><p>Instantly matched across 70+ partners for the most competitive terms.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Get Funded Fast</h4><p>Decisions in as little as 48 hours. Funds delivered directly via EFT.</p></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="cta-band">
+    <div class="cta-band-text">35 years. 70+ lenders. <em>One mission: your growth.</em></div>
+    <a href="https://alliancefinancing.ai" class="cta-btn">Apply at alliancefinancing.ai &rarr;</a>
+  </div>
+  ${footer}
+</div></body></html>`;
+    }
+
+    // ---- TEMPLATE 5: MCA One-Pager (for PDF generation) ----
+    function generateMCAOnePagerHTML(agent) {
+        const contactsHtml = `
+        <div class="footer-contact">
+            <div class="name">Your Contact: ${agent.full_name || 'Alliance Advisor'}</div>
+            ${agent.phone ? '<div class="detail">M: ' + agent.phone + '</div>' : ''}
+            ${agent.email ? '<div class="email">' + agent.email + '</div>' : ''}
+            <div class="link">alliancefinancing.ai/ref/${agent.referral_slug || ''}</div>
+        </div>`;
+
+        // Reuse the existing MCA HTML structure but with agent branding in footer
+        const css = getBrandedDocCSS();
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Merchant Cash Advance - Alliance Financing Group</title><style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--navy:#0D1E3D;--navy-mid:#1A3160;--gold:#C9A84C;--gold-lt:#e8c96a;--white:#FFFFFF;--off-wh:#F5F7FA;--gray:#8A9BB0;--dark:#2C3E55;}
+  body{font-family:'Source Sans 3',sans-serif;background:#fff;color:var(--dark);margin:0;padding:0;}
+  .page{width:816px;margin:0 auto;background:var(--white);}
+  .hero{background:var(--navy);overflow:hidden;}
+  .hero-inner{display:grid;grid-template-columns:1fr 280px;min-height:260px;}
+  .hero-left{padding:36px 40px 30px;display:flex;flex-direction:column;justify-content:center;}
+  .brand-badge{display:inline-flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .brand-badge .bar{width:3px;height:28px;background:var(--gold);}
+  .brand-name{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);}
+  .hero h1{font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:var(--white);line-height:1.1;margin-bottom:10px;}
+  .hero h1 em{font-style:normal;color:var(--gold);}
+  .hero-tagline{font-size:12px;font-weight:300;color:#b0c4de;line-height:1.55;max-width:340px;}
+  .hero-right{background:var(--navy-mid);display:flex;flex-direction:column;justify-content:center;padding:30px 28px;position:relative;}
+  .hero-right::before{content:'';position:absolute;top:0;left:-18px;width:36px;height:100%;background:var(--navy-mid);clip-path:polygon(18px 0,100% 0,100% 100%,18px 100%,0 50%);}
+  .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative;z-index:1;}
+  .stat-item{text-align:center;border:1px solid rgba(201,168,76,0.25);padding:10px 6px;background:rgba(255,255,255,0.04);}
+  .stat-num{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--gold);line-height:1;display:block;margin-bottom:3px;}
+  .stat-lbl{font-size:8px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#8a9bb0;}
+  .gold-band{background:var(--gold);padding:10px 40px;}
+  .gold-band p{font-size:12px;font-weight:700;color:var(--navy);text-align:center;}
+  .body-content{display:grid;grid-template-columns:1fr 1fr;}
+  .col-left{padding:24px 30px 20px 40px;border-right:1px solid #e4e9f0;}
+  .col-right{padding:24px 40px 20px 30px;}
+  .section-label{font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:5px;}
+  .section-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--navy);line-height:1.2;margin-bottom:8px;}
+  .section-body{font-size:11px;color:#4a5568;line-height:1.55;margin-bottom:10px;}
+  .use-cases{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:4px;}
+  .use-case{padding:7px 9px;background:var(--off-wh);border-left:3px solid var(--gold);}
+  .use-case span{font-size:10.5px;font-weight:600;color:var(--navy);}
+  .steps{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+  .step{display:flex;gap:10px;align-items:flex-start;}
+  .step-num{width:24px;height:24px;background:var(--navy);color:var(--gold);font-family:'Playfair Display',serif;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .step-content h4{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:2px;}
+  .step-content p{font-size:10.5px;color:#5a6a7e;line-height:1.4;}
+  .dark-band{background:var(--navy);padding:14px 40px;display:flex;justify-content:space-between;align-items:center;}
+  .dark-band-text{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--white);}
+  .dark-band-text em{font-style:normal;color:var(--gold);}
+  .apply-btn{display:inline-block;background:var(--gold);color:var(--navy);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:10px 20px;text-decoration:none;}
+  .bottom-content{display:grid;grid-template-columns:1fr 1fr;}
+  .bottom-left{padding:20px 30px 16px 40px;border-right:1px solid #e4e9f0;}
+  .bottom-right{padding:20px 40px 16px 30px;background:var(--off-wh);}
+  .advantages{display:flex;flex-direction:column;gap:6px;}
+  .advantage{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;background:var(--off-wh);}
+  .adv-icon{width:18px;height:18px;background:var(--navy);border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  .adv-icon svg{width:9px;height:9px;fill:none;stroke:var(--gold);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
+  .advantage p{font-size:11px;color:#3d4e61;line-height:1.35;}
+  .advantage p strong{color:var(--navy);font-weight:700;}
+  .eligibility-list{display:flex;flex-direction:column;gap:6px;margin-top:6px;}
+  .elig-item{display:flex;gap:8px;align-items:center;font-size:11px;color:#3d4e61;}
+  .elig-dot{width:6px;height:6px;background:var(--gold);border-radius:50%;flex-shrink:0;}
+  .apply-box{background:var(--navy);padding:14px 16px;margin-top:10px;}
+  .apply-box .box-label{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
+  .apply-box h4{font-size:12px;font-weight:700;color:var(--white);margin-bottom:8px;}
+  .apply-option{padding:8px 10px;border-left:3px solid var(--gold);background:rgba(255,255,255,0.06);margin-bottom:5px;}
+  .apply-option p{font-size:10px;color:#b0c4de;line-height:1.4;}
+  .apply-option a{font-size:10px;font-weight:700;color:var(--gold-lt);text-decoration:none;}
+  .footer{background:var(--navy);}
+  .footer-main{display:flex;justify-content:space-between;align-items:center;padding:14px 40px;border-bottom:1px solid rgba(201,168,76,0.18);}
+  .footer-brand{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:2px;}
+  .footer-info{font-size:10px;color:#8a9bb0;}
+  .footer-contact .name{font-size:12px;font-weight:700;color:var(--white);margin-bottom:2px;}
+  .footer-contact .detail{font-size:10px;color:#8a9bb0;}
+  .footer-contact .email{font-size:10px;color:var(--gold);}
+  .footer-contact .link{font-size:10px;color:var(--gold-lt);margin-top:2px;}
+  .footer-bottom{padding:6px 40px;display:flex;justify-content:space-between;}
+  .footer-bottom p{font-size:8px;color:rgba(138,155,176,0.6);}
+</style></head><body>
+<div class="page">
+  <div class="hero"><div class="hero-inner">
+    <div class="hero-left">
+      <div class="brand-badge"><div class="bar"></div><span class="brand-name">Alliance Financing Group</span></div>
+      <h1>Fund Your<br>Business<br><em>For Growth</em></h1>
+      <p class="hero-tagline">Access working capital based on your future revenue &mdash; fast decisions, flexible repayment, no collateral required.</p>
+    </div>
+    <div class="hero-right"><div class="stats-grid">
+      <div class="stat-item"><span class="stat-num">85%+</span><span class="stat-lbl">Approval<br>Rate</span></div>
+      <div class="stat-item"><span class="stat-num">48hr</span><span class="stat-lbl">Funding<br>Decision</span></div>
+      <div class="stat-item"><span class="stat-num">$2M</span><span class="stat-lbl">Up To<br>Available</span></div>
+      <div class="stat-item"><span class="stat-num">70+</span><span class="stat-lbl">Lender<br>Partners</span></div>
+    </div></div>
+  </div></div>
+  <div class="gold-band"><p>Matched across 70+ lenders through AI-powered intelligence &bull; Apply online at alliancefinancing.ai</p></div>
+  <div class="body-content">
+    <div class="col-left">
+      <div class="section-label">What is a Merchant Cash Advance?</div>
+      <h2 class="section-title">Capital Today,<br>Paid Back Tomorrow</h2>
+      <p class="section-body">A Merchant Cash Advance gives your business a lump sum of capital based on your average monthly revenue. Instead of fixed monthly payments, a small percentage of your daily or weekly sales automatically goes toward repayment.</p>
+      <p class="section-body">No hard assets required. Our AI matches your business with the right lender based on your cash flow &mdash; not just your credit score.</p>
+      <div class="section-label">What Can You Use It For?</div>
+      <div class="use-cases">
+        <div class="use-case"><span>Renovate or Expand</span></div>
+        <div class="use-case"><span>Replenish Inventory</span></div>
+        <div class="use-case"><span>Upgrade Equipment</span></div>
+        <div class="use-case"><span>Cover Payroll</span></div>
+        <div class="use-case"><span>Marketing &amp; Promos</span></div>
+        <div class="use-case"><span>Bridge Cash Flow</span></div>
+        <div class="use-case"><span>Pay Off Debt</span></div>
+        <div class="use-case"><span>Seize Opportunities</span></div>
+      </div>
+    </div>
+    <div class="col-right">
+      <div class="section-label">How It Works</div>
+      <h2 class="section-title">Three Steps to<br>Your Funding</h2>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Apply Online &mdash; 5 Minutes</h4><p>Simple application. No fees, no credit impact to check eligibility. Our AI gets to work immediately.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Get Matched &amp; Approved Fast</h4><p>AI matches you with best-fit lenders across our 70+ partner network. Decisions in as little as 48 hours.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Repay as You Grow</h4><p>A fixed percentage of daily/weekly revenue is automatically remitted. Slow month? Pay less. Renew for additional capital up to $2M.</p></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="dark-band">
+    <div class="dark-band-text">Alliance's AI secures the <em>best possible terms</em> from our network.</div>
+    <a href="https://alliancefinancing.ai" class="apply-btn">Apply at alliancefinancing.ai</a>
+  </div>
+  <div class="bottom-content">
+    <div class="bottom-left">
+      <div class="section-label">Key Advantages</div>
+      <h2 class="section-title" style="font-size:16px;">Why Choose Alliance?</h2>
+      <div class="advantages">
+        <div class="advantage"><div class="adv-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>Best Terms</strong> &mdash; AI scans 70+ lenders for the most competitive offer</p></div>
+        <div class="advantage"><div class="adv-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>No Fixed Payments</strong> &mdash; Revenue-based repayment adapts to your business</p></div>
+        <div class="advantage"><div class="adv-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>No Collateral</strong> &mdash; Approved on cash flow, not assets</p></div>
+        <div class="advantage"><div class="adv-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>All Credit Welcome</strong> &mdash; A, B, C, D credit considered</p></div>
+        <div class="advantage"><div class="adv-icon"><svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg></div><p><strong>35 Years Expertise</strong> &mdash; Technology + decades of experience</p></div>
+      </div>
+    </div>
+    <div class="bottom-right">
+      <div class="section-label">Eligibility</div>
+      <h2 class="section-title" style="font-size:16px;">Do You Qualify?</h2>
+      <div class="eligibility-list">
+        <div class="elig-item"><div class="elig-dot"></div>Canadian business, 6+ months operating</div>
+        <div class="elig-item"><div class="elig-dot"></div>Monthly revenue $10,000+</div>
+        <div class="elig-item"><div class="elig-dot"></div>Active Canadian business bank account</div>
+        <div class="elig-item"><div class="elig-dot"></div>Valid business registration</div>
+        <div class="elig-item"><div class="elig-dot"></div>No minimum credit score required</div>
+      </div>
+      <div class="apply-box">
+        <div class="box-label">Get Started</div>
+        <h4>Two Ways to Apply</h4>
+        <div class="apply-option"><p>Apply directly at <a href="https://alliancefinancing.ai">alliancefinancing.ai &rarr;</a></p></div>
+        <div class="apply-option"><p>Contact your Alliance advisor for personal guidance through the entire process.</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <div class="footer-main">
+      <div>
+        <div class="footer-brand">Alliance Financing Group</div>
+        <div class="footer-info">Toronto, Canada &bull; Est. 1989 &bull; 35+ Years &bull; 70+ Lenders</div>
+      </div>
+      ${contactsHtml}
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2025 Alliance Financing Group Ltd. | Confidential</p>
+      <p>alliancefinancing.ai/ref/${agent.referral_slug || ''} &nbsp;|&nbsp; alliancefinancing.com</p>
+    </div>
+  </div>
+</div></body></html>`;
+    }
+
+    // ============================================
+    // CORE: Generate All Branded Docs for an Agent
+    // ============================================
+
+    const BRANDED_DOC_TYPES = [
+        { key: 'mortgage-brokers', label: 'Mortgage Brokers One-Pager', generator: generateMortgageBrokersHTML, icon: '🏠' },
+        { key: 'insurance-brokers', label: 'Insurance Brokers One-Pager', generator: generateInsuranceBrokersHTML, icon: '🛡️' },
+        { key: 'accountants-cfos', label: 'Accountants & CFOs One-Pager', generator: generateAccountantsCFOsHTML, icon: '📊' },
+        { key: 'alliance-overview', label: 'Alliance Overview', generator: generateAllianceOverviewHTML, icon: '📄' },
+        { key: 'mca-one-pager', label: 'MCA One-Pager', generator: generateMCAOnePagerHTML, icon: '💰' }
+    ];
+
+    async function generateBrandedDocsForAgent(agentId, agentData, statusCallback) {
+        // agentData: { full_name, email, phone, referral_slug }
+        const results = [];
+        const totalDocs = BRANDED_DOC_TYPES.length;
+
+        for (let i = 0; i < totalDocs; i++) {
+            const docType = BRANDED_DOC_TYPES[i];
+            if (statusCallback) statusCallback(`Generating ${docType.label}... (${i + 1}/${totalDocs})`);
+
+            try {
+                // 1. Generate HTML
+                const html = docType.generator(agentData);
+
+                // 2. Render HTML to PDF via html2pdf.js
+                const container = document.createElement('div');
+                container.style.position = 'absolute';
+                container.style.left = '-9999px';
+                container.style.top = '0';
+                container.innerHTML = html;
+                document.body.appendChild(container);
+
+                // Wait for fonts to load
+                await new Promise(r => setTimeout(r, 500));
+
+                const pdfBlob = await html2pdf().set({
+                    margin: 0,
+                    filename: docType.key + '.pdf',
+                    image: { type: 'jpeg', quality: 0.95 },
+                    html2canvas: { scale: 2, useCORS: true, width: 816, windowWidth: 816 },
+                    jsPDF: { unit: 'px', format: [816, 1056], hotfixes: ['px_scaling'] }
+                }).from(container).outputPdf('blob');
+
+                document.body.removeChild(container);
+
+                // 3. Upload to Supabase Storage
+                const slug = agentData.referral_slug || 'agent';
+                const storagePath = 'branded-docs/' + slug + '/' + slug + '-' + docType.key + '.pdf';
+
+                await uploadToStorage('deal-documents', storagePath, pdfBlob);
+
+                // 4. Record in agent_branded_documents table
+                const { error: dbErr } = await db.from('agent_branded_documents').upsert({
+                    agent_id: agentId,
+                    document_type: docType.key,
+                    storage_path: storagePath,
+                    generated_at: new Date().toISOString()
+                }, { onConflict: 'agent_id,document_type' });
+
+                if (dbErr) console.error('DB record error for ' + docType.key + ':', dbErr);
+
+                results.push({ key: docType.key, label: docType.label, success: true, path: storagePath });
+            } catch (err) {
+                console.error('Error generating ' + docType.key + ':', err);
+                results.push({ key: docType.key, label: docType.label, success: false, error: err.message });
+            }
+        }
+
+        if (statusCallback) statusCallback('Complete! ' + results.filter(r => r.success).length + '/' + totalDocs + ' documents generated.');
+        return results;
+    }
+
+    // Get public URL for a branded doc in storage
+    function getBrandedDocUrl(storagePath) {
+        return SUPABASE_URL + '/storage/v1/object/public/deal-documents/' + storagePath;
+    }
+
+    // Load branded docs for an agent from DB (replaces hardcoded lookup)
+    async function loadBrandedDocsForAgent(agentId, slug) {
+        try {
+            const { data: docs, error } = await db
+                .from('agent_branded_documents')
+                .select('*')
+                .eq('agent_id', agentId);
+
+            if (error || !docs || docs.length === 0) return null;
+
+            // Build PDF list matching the format expected by the marketing section
+            return docs.map(doc => {
+                const typeInfo = BRANDED_DOC_TYPES.find(t => t.key === doc.document_type);
+                return {
+                    file: getBrandedDocUrl(doc.storage_path),
+                    label: typeInfo ? typeInfo.label : doc.document_type,
+                    icon: typeInfo ? typeInfo.icon : '📄',
+                    isExternal: true
+                };
+            });
+        } catch (e) {
+            console.error('Load branded docs error:', e);
+            return null;
+        }
+    }
+
+    // Handle the Generate Branded Docs button click from agent detail modal
+    async function handleGenerateBrandedDocs(agentId, fullName, email, phone, slug) {
+        const btn = document.getElementById('generateBrandedDocsBtn');
+        const statusEl = document.getElementById('brandedDocsStatus');
+        const listEl = document.getElementById('brandedDocsList');
+
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
+        btn.style.opacity = '0.6';
+        statusEl.textContent = 'Starting document generation...';
+        statusEl.style.color = '#92400E';
+
+        try {
+            const results = await generateBrandedDocsForAgent(agentId, {
+                full_name: fullName,
+                email: email,
+                phone: phone,
+                referral_slug: slug
+            }, function(status) {
+                statusEl.textContent = status;
+            });
+
+            const success = results.filter(r => r.success);
+            const failed = results.filter(r => !r.success);
+
+            if (success.length > 0) {
+                statusEl.textContent = success.length + ' of ' + results.length + ' documents generated successfully!';
+                statusEl.style.color = '#166534';
+
+                // Refresh the docs list
+                listEl.innerHTML = success.map(d => {
+                    const typeInfo = BRANDED_DOC_TYPES.find(t => t.key === d.key);
+                    const url = getBrandedDocUrl(d.path);
+                    return '<a href="' + url + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;text-decoration:none;font-size:12px;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'#E2E8F0\'"><span style="font-size:16px;">' + (typeInfo ? typeInfo.icon : '📄') + '</span><span style="color:var(--navy);font-weight:600;">' + d.label + '</span><span style="margin-left:auto;color:var(--text-light);font-size:10px;background:#E2E8F0;padding:2px 6px;border-radius:3px;">PDF</span></a>';
+                }).join('');
+
+                if (failed.length > 0) {
+                    statusEl.textContent += ' (' + failed.length + ' failed: ' + failed.map(f => f.key).join(', ') + ')';
+                    statusEl.style.color = '#92400E';
+                }
+            } else {
+                statusEl.textContent = 'Generation failed. Check console for details.';
+                statusEl.style.color = '#DC2626';
+            }
+
+            btn.textContent = 'Regenerate PDFs';
+        } catch (err) {
+            console.error('handleGenerateBrandedDocs error:', err);
+            statusEl.textContent = 'Error: ' + err.message;
+            statusEl.style.color = '#DC2626';
+        } finally {
+            btn.disabled = false;
+            btn.style.opacity = '1';
         }
     }
 
@@ -11683,6 +12406,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             closeAddAgentModal();
             await loadAgents();
             alert('Agent "' + agentRecord.full_name + '" created successfully!' + (document.getElementById('sendInviteEmail').checked ? ' Invite email opened.' : ''));
+
+            // Auto-generate branded documents in the background
+            try {
+                generateBrandedDocsForAgent(newAgent.id, {
+                    full_name: newAgent.full_name,
+                    email: newAgent.email,
+                    phone: newAgent.phone || '',
+                    referral_slug: newAgent.referral_slug
+                }, function(status) {
+                    console.log('Branded doc generation:', status);
+                }).then(function(results) {
+                    const success = results.filter(r => r.success).length;
+                    if (success > 0) {
+                        console.log('Generated ' + success + '/' + results.length + ' branded docs for ' + newAgent.full_name);
+                    }
+                }).catch(function(err) {
+                    console.error('Branded doc generation failed:', err);
+                });
+            } catch (docErr) {
+                console.error('Failed to start branded doc generation:', docErr);
+            }
         } catch (error) {
             console.error('Add agent error:', error);
             alert('Error creating agent: ' + error.message);
@@ -11894,6 +12638,28 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     <button class="btn btn-gold btn-sm" onclick="openSendApplicationModalWithRef('${agent.referral_slug || 'agent-' + agentId}')">Generate Tracked Link</button>
                 </div>
                 <p style="color: var(--text-light); font-size: 13px; margin-bottom: 10px;">Send a tracked application link on behalf of this agent. The referral will be attributed to <strong>${agent.full_name || 'this agent'}</strong>.</p>
+
+                <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Branded Documents</label>
+                    <button id="generateBrandedDocsBtn" class="btn btn-sm" onclick="handleGenerateBrandedDocs('${agentId}', '${(agent.full_name || '').replace(/'/g, "\\\\'")}', '${(agent.email || '').replace(/'/g, "\\\\'")}', '${agent.phone || ''}', '${agent.referral_slug || ''}')" style="background:#0D1E3D;color:#C9A84C;border:1px solid #C9A84C;padding:4px 14px;font-size:12px;font-weight:600;">Generate Branded PDFs</button>
+                </div>
+                <div id="brandedDocsStatus" style="font-size:12px;color:var(--text-light);margin-bottom:4px;"></div>
+                <div id="brandedDocsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+                    <p style="color:var(--text-light);font-size:13px;font-style:italic;" id="brandedDocsLoading">Loading...</p>
+                </div>
+                <script>
+                    // Load existing branded docs for this agent
+                    (async function() {
+                        const docs = await loadBrandedDocsForAgent('${agentId}', '${agent.referral_slug || ''}');
+                        const container = document.getElementById('brandedDocsList');
+                        if (docs && docs.length > 0) {
+                            container.innerHTML = docs.map(d => '<a href="' + d.file + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;text-decoration:none;font-size:12px;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'#E2E8F0\'"><span style="font-size:16px;">' + d.icon + '</span><span style="color:var(--navy);font-weight:600;">' + d.label + '</span><span style="margin-left:auto;color:var(--text-light);font-size:10px;background:#E2E8F0;padding:2px 6px;border-radius:3px;">PDF</span></a>').join('');
+                            document.getElementById('generateBrandedDocsBtn').textContent = 'Regenerate PDFs';
+                        } else {
+                            container.innerHTML = '<p style="color:var(--text-light);font-size:13px;">No branded documents yet. Click "Generate Branded PDFs" to create them.</p>';
+                        }
+                    })();
+                </script>
 
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Referral Applications (${apps ? apps.length : 0})</label>
