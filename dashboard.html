@@ -777,7 +777,7 @@
         <div class="header">
             <div class="header-title" id="pageTitle">Dashboard</div>
             <div class="header-actions">
-                <button class="btn btn-secondary btn-sm" onclick="refreshCurrentPage()" title="Refresh current page data" style="margin-right: 10px; font-size: 16px; padding: 4px 10px;">🔄</button>
+                <button class="btn btn-sm" onclick="refreshCurrentPage()" title="Refresh current page data" style="margin-right: 10px; font-size: 13px; padding: 6px 16px; background: var(--gold); color: var(--navy); font-weight: 600; border: none; border-radius: 4px; cursor: pointer;">🔄 Refresh</button>
                 <button class="btn btn-secondary btn-sm" onclick="openCSVImportModal()" style="margin-right: 10px;">Import CSV</button>
                 <span id="currentUser" style="color: var(--text-light); font-size: 14px;"></span>
             </div>
@@ -1590,14 +1590,6 @@
                                     <div style="font-size: 11px; color: var(--text-light);">Complete partner program guide</div>
                                 </div>
                                 <span style="font-size: 11px; color: var(--text-light); background: #E2E8F0; padding: 3px 8px; border-radius: 4px;">PDF</span>
-                            </a>
-                            <a href="marketing/Alliance_Overview.pptx" download style="text-decoration: none; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; display: flex; align-items: center; gap: 10px; cursor: pointer;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='#E2E8F0'">
-                                <span style="font-size: 24px;">📄</span>
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; font-size: 13px; color: var(--navy);">Company Overview</div>
-                                    <div style="font-size: 11px; color: var(--text-light);">Alliance Financing Group presentation</div>
-                                </div>
-                                <span style="font-size: 11px; color: var(--text-light); background: #E2E8F0; padding: 3px 8px; border-radius: 4px;">PPTX</span>
                             </a>
                         </div>
                     </div>
@@ -4938,7 +4930,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             }
             var allArchivedAppIds = (window.archivedAppIds || []).concat(extraArchivedIds);
             var visibleApps = (apps || []).filter(function(a) {
-                return !allArchivedAppIds.includes(a.id);
+                // Hide archived and already-moved-to-pipeline applications (those show in deals table)
+                if (allArchivedAppIds.includes(a.id)) return false;
+                if (a.status === 'Moved to Pipeline') return false;
+                return true;
             });
 
             if (visibleApps.length === 0) {
