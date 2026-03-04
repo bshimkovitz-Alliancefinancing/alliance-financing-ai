@@ -6169,11 +6169,41 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             }
         } catch(e) {}
 
-        if (sharedResources.length > 0) {
+        // Role-based filtering: map guide keywords to agent types
+        // Admins see all; agents only see guides relevant to their role + generic resources
+        var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+        var roleGuideKeywords = {
+            'referring_agent': ['referral partner'],
+            'sub_agent': ['referral partner'],
+            'iso': ['iso partner'],
+            'super_agent': ['iso partner'],
+            'vendor_program': ['vendor partner'],
+            'vendor_salesperson': ['equipment salesperson', 'vendor partner']
+        };
+
+        var myKeywords = roleGuideKeywords[agentType] || [];
+
+        var filteredResources = sharedResources.filter(function(res) {
+            // Admins see everything
+            if (isAdmin) return true;
+            // If no keywords for this role, show all
+            if (myKeywords.length === 0) return true;
+            // Check if this resource is a role-specific guide
+            var titleLower = (res.title || '').toLowerCase();
+            var isRoleGuide = ['referral partner', 'iso partner', 'vendor partner', 'equipment salesperson', 'sub-agent'].some(function(kw) {
+                return titleLower.includes(kw);
+            });
+            // If it's not a role-specific guide, show it to everyone (generic resources)
+            if (!isRoleGuide) return true;
+            // If it IS a role-specific guide, only show if it matches this agent's keywords
+            return myKeywords.some(function(kw) { return titleLower.includes(kw); });
+        });
+
+        if (filteredResources.length > 0) {
             html += '<div style="margin-top:24px;">';
             html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Additional Resources from Admin</h3>';
-            for (var j = 0; j < sharedResources.length; j++) {
-                var res = sharedResources[j];
+            for (var j = 0; j < filteredResources.length; j++) {
+                var res = filteredResources[j];
                 var catIcon = resCategoryIcons[res.category] || '📎';
                 html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;">';
                 html += '<span style="font-size:20px;">' + catIcon + '</span>';
@@ -6191,7 +6221,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             html += '</div>';
         }
 
-        guideCount.textContent = 1 + sharedResources.length;
+        guideCount.textContent = 1 + filteredResources.length;
         container.innerHTML = html;
     }
 
@@ -13961,6 +13991,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             badgeClass = 'badge-danger';
         }
         return `<span class="badge ${badgeClass}">${status || 'Unknown'}</span>`;
+    }
+
+    // Toast notification helper
+    function showNotification(message, type) {
+        type = type || 'info';
+        var colors = { success: '#10B981', error: '#EF4444', warning: '#F59E0B', info: '#3B82F6' };
+        var bgColors = { success: '#ECFDF5', error: '#FEF2F2', warning: '#FFFBEB', info: '#EFF6FF' };
+        var toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;padding:14px 20px;border-radius:8px;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.15);border-left:4px solid ' + (colors[type] || colors.info) + ';background:' + (bgColors[type] || bgColors.info) + ';color:#1E293B;max-width:400px;animation:slideIn 0.3s ease-out;';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 3000);
+        setTimeout(function() { toast.remove(); }, 3500);
     }
 
     function formatCurrency(value) {
