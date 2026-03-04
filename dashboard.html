@@ -1152,13 +1152,14 @@
                                 <th>Type</th>
                                 <th>Status</th>
                                 <th>Sent By</th>
+                                <th>Referred By</th>
                                 <th>Sent Date</th>
                                 <th>Follow-Up</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="applicationsSentBody">
-                            <tr><td colspan="8" class="empty-state">Loading...</td></tr>
+                            <tr><td colspan="9" class="empty-state">Loading...</td></tr>
                         </tbody>
                     </table>
                     </div>
@@ -8899,6 +8900,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // If admin is sending on behalf of an agent, track under agent's name
             var onBehalfAgent = getOnBehalfAgent();
             var trackSentBy = onBehalfAgent ? onBehalfAgent.name : (currentUserName || 'Unknown');
+            var referralAgentName = onBehalfAgent ? onBehalfAgent.name : null;
+            var referralAgentSlug = onBehalfAgent ? onBehalfAgent.slug : null;
+            // If opened from agent profile (currentSendAppRef set), resolve agent name
+            if (!referralAgentName && currentSendAppRef && currentSendAppRef !== 'alliance-house') {
+                try {
+                    var { data: refAgent } = await db.from('users').select('full_name, referral_slug').eq('referral_slug', currentSendAppRef).maybeSingle();
+                    if (refAgent) { referralAgentName = refAgent.full_name; referralAgentSlug = refAgent.referral_slug; }
+                } catch(e) {}
+            }
             try {
                 await db.from('applications_sent').insert({
                     applicant_name: clientName !== 'there' ? clientName : '',
@@ -8908,7 +8918,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     resend_id: emailResult.id || null,
                     status: 'Sent',
                     follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-                    sent_by: trackSentBy
+                    sent_by: trackSentBy,
+                    referral_agent: referralAgentName || null,
+                    referral_slug: referralAgentSlug || null
                 });
             } catch (trackErr) { console.error('Failed to log sent application:', trackErr); }
             statusDiv.style.display = 'block';
@@ -9914,7 +9926,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             const { data, error } = await query;
             if (error) throw error;
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No applications sent yet.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No applications sent yet.</td></tr>';
                 // Hide summary stats
                 var summaryEl = document.getElementById('appSentSummary');
                 if (summaryEl) summaryEl.style.display = 'none';
@@ -9947,6 +9959,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     '<td>' + (app.application_type || 'N/A') + '</td>' +
                     '<td><span style="background:' + statusColor + '15;color:' + statusColor + ';padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">' + app.status + '</span>' + (isOverdue ? ' <span style="color:#F59E0B;font-size:11px;font-weight:600;">OVERDUE</span>' : '') + '</td>' +
                     '<td>' + (app.sent_by || 'N/A') + '</td>' +
+                    '<td>' + (app.referral_agent ? '<span style="background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">' + app.referral_agent + '</span>' : '<span style="color:#94A3B8;font-size:12px;">—</span>') + '</td>' +
                     '<td>' + (app.sent_at ? new Date(app.sent_at).toLocaleDateString() : 'N/A') + '</td>' +
                     '<td>' + followUpText + '</td>' +
                     '<td style="white-space:nowrap;">' +
@@ -9957,12 +9970,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                             '<option value="Opened"' + (app.status === 'Opened' ? ' selected' : '') + '>Opened</option>' +
                             '<option value="Expired"' + (app.status === 'Expired' ? ' selected' : '') + '>Expired</option>' +
                         '</select>' +
-                        (isOverdue ? ' <button onclick="sendFollowUpEmail(\'' + app.id + '\', \'' + (app.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (app.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (app.application_type || '').replace(/'/g, "\\'") + '\')" style="margin-left:4px;padding:4px 8px;background:#F59E0B;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;" title="Send follow-up email">Follow Up</button>' : '') +
+                        (['Sent', 'Follow-Up Needed', 'Opened'].includes(app.status) ? ' <button onclick="sendFollowUpEmail(\'' + app.id + '\', \'' + (app.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (app.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (app.application_type || '').replace(/'/g, "\\'") + '\')" style="margin-left:4px;padding:4px 8px;background:' + (isOverdue ? '#F59E0B' : '#0D1E3D') + ';color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;" title="Send follow-up reminder">' + (isOverdue ? 'Follow Up' : 'Remind') + '</button>' : '') +
                     '</td></tr>';
             }).join('');
         } catch (err) {
             console.error('Load applications sent error:', err);
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Error loading applications.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Error loading applications.</td></tr>';
         }
     }
 
