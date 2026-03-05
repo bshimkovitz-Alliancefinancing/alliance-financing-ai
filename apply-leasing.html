@@ -796,6 +796,22 @@ async function submitLeaseApp(){
             }
         }
 
+        // Auto-update applications_sent status to "Returned"
+        try {
+            var clientEmail = document.getElementById('bizEmail').value.trim().toLowerCase();
+            if (clientEmail) {
+                var { data: sentRecords } = await db.from('applications_sent')
+                    .select('id')
+                    .ilike('applicant_email', clientEmail)
+                    .in('status', ['Sent', 'Follow-Up Needed']);
+                if (sentRecords && sentRecords.length > 0) {
+                    for (var sr = 0; sr < sentRecords.length; sr++) {
+                        await db.from('applications_sent').update({ status: 'Returned' }).eq('id', sentRecords[sr].id);
+                    }
+                }
+            }
+        } catch (sentUpdateErr) { console.error('Auto-update applications_sent:', sentUpdateErr); }
+
         // Show success
         document.getElementById('formCard').style.display='none';
         document.getElementById('successMsg').style.display='block';

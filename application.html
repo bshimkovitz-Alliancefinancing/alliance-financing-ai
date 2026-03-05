@@ -990,6 +990,22 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                     console.error('Auto-deal creation failed:', dealCreateErr);
                 }
 
+                // Auto-update applications_sent status to "Returned"
+                try {
+                    var clientEmail = document.getElementById('email').value.trim().toLowerCase();
+                    if (clientEmail) {
+                        var { data: sentRecords } = await db.from('applications_sent')
+                            .select('id')
+                            .ilike('applicant_email', clientEmail)
+                            .in('status', ['Sent', 'Follow-Up Needed']);
+                        if (sentRecords && sentRecords.length > 0) {
+                            for (var sr = 0; sr < sentRecords.length; sr++) {
+                                await db.from('applications_sent').update({ status: 'Returned' }).eq('id', sentRecords[sr].id);
+                            }
+                        }
+                    }
+                } catch (sentUpdateErr) { console.error('Auto-update applications_sent:', sentUpdateErr); }
+
                 // Show success message
                 appForm.style.display = 'none';
                 successMsg.style.display = 'block';
