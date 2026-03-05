@@ -14549,17 +14549,44 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 </div>
                 <div class="modal-row full" style="margin-top: 20px;">
                     <div class="modal-field">
+                        <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Marketing Materials</label>
+                        <div id="vendorMaterialsContainer">Loading...</div>
+                        <div style="margin-top: 12px; background: #f9f9f9; padding: 12px; border-radius: 4px; border: 1px solid var(--border-gray);">
+                            <h4 style="font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 10px;">Upload Material</h4>
+                            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 200px;">
+                                    <input type="text" id="vendorMaterialLabel" placeholder="Label (e.g. Product Brochure)" style="width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                </div>
+                                <div>
+                                    <input type="file" id="vendorMaterialFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif" style="font-size: 13px;">
+                                </div>
+                                <button class="btn btn-gold btn-sm" onclick="uploadVendorMaterial('${vendorId}')" style="white-space: nowrap;">Upload</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row full" style="margin-top: 20px;">
+                    <div class="modal-field">
                         <label style="font-size: 15px; color: var(--navy); border-bottom: 1px solid var(--border-gray); padding-bottom: 8px; margin-bottom: 10px;">Activity Notes</label>
                         <div id="vendorNotesContainer">${notesHtml}</div>
                         <div style="margin-top: 12px; display: flex; gap: 8px;">
                             <textarea id="newVendorNoteText" placeholder="Add a note..." style="flex: 1; min-height: 60px; padding: 8px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
                         </div>
-                        <button class="btn btn-gold btn-sm" onclick="addVendorNote('${vendorId}')" style="margin-top: 8px;">Add Note</button>
+                        <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <button class="btn btn-gold btn-sm" onclick="addVendorNote('${vendorId}')">Add Note</button>
+                            ${vendor.source_agent_id ? (() => {
+                                const agentMatch = cachedAgents.find(a => a.id === vendor.source_agent_id);
+                                const agentDisplayName = agentMatch ? (agentMatch.full_name || agentMatch.email) : 'Agent';
+                                return '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--navy);cursor:pointer;margin-left:8px;"><input type="checkbox" id="ccAgentOnNote" data-agent-id="' + vendor.source_agent_id + '"> CC ' + agentDisplayName + ' via email</label>';
+                            })() : ''}
+                        </div>
                     </div>
                 </div>
             `;
 
             document.getElementById('vendorDetailModal').classList.add('active');
+            // Load marketing materials async
+            loadVendorMaterials(vendorId);
         } catch (error) {
             console.error('View vendor error:', error);
             alert('Error loading vendor details: ' + error.message);
@@ -14660,9 +14687,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         if (!noteText) return;
 
         try {
+            // Check if CC Agent is checked
+            const ccCheckbox = document.getElementById('ccAgentOnNote');
+            const shouldCCAgent = ccCheckbox && ccCheckbox.checked;
+            const ccAgentId = ccCheckbox ? ccCheckbox.getAttribute('data-agent-id') : null;
+
             const { data: vendor } = await db
                 .from('vendors')
-                .select('admin_notes')
+                .select('admin_notes, name')
                 .eq('id', vendorId)
                 .single();
 
@@ -14677,11 +14709,48 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             const userEmail = document.getElementById('userEmailDisplay').textContent;
 
-            notes.push({
+            let noteEntry = {
                 text: noteText,
                 author: userEmail,
                 date: dateStr
-            });
+            };
+
+            // If CC agent, send email and mark note
+            if (shouldCCAgent && ccAgentId) {
+                const { data: agent } = await db.from('users').select('full_name, email').eq('id', ccAgentId).single();
+                if (agent && agent.email) {
+                    const vendorName = vendor.name || 'a vendor';
+                    const agentFirst = (agent.full_name || '').split(' ')[0] || '';
+                    const htmlBody = `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="background: #0D1E3D; padding: 20px; text-align: center;">
+                                <h2 style="color: #C9A84C; margin: 0; font-size: 20px;">Alliance Financing Group</h2>
+                            </div>
+                            <div style="padding: 25px; background: #ffffff; border: 1px solid #e2e8f0;">
+                                <p style="font-size: 15px; color: #333; margin-bottom: 8px;">Hi ${agentFirst},</p>
+                                <p style="font-size: 14px; color: #555; margin-bottom: 15px;">The following note was added regarding <strong>${vendorName}</strong>:</p>
+                                <div style="background: #f8f9fa; border-left: 4px solid #C9A84C; padding: 15px; margin: 15px 0; border-radius: 0 4px 4px 0;">
+                                    <p style="font-size: 14px; color: #333; line-height: 1.6; margin: 0; white-space: pre-wrap;">${noteText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                                </div>
+                                <p style="font-size: 13px; color: #999;">— ${userEmail}</p>
+                            </div>
+                            <div style="background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999;">
+                                Internal communication from Alliance Financing Group
+                            </div>
+                        </div>
+                    `;
+                    await sendEmailViaResend(
+                        agent.email,
+                        'Note re: ' + vendorName,
+                        htmlBody,
+                        'Hi ' + agentFirst + ',\n\nNote regarding ' + vendorName + ':\n\n' + noteText + '\n\n— ' + userEmail,
+                        'info@alliancefinancing.com'
+                    );
+                    noteEntry.text = noteText + '\n📧 CC\'d to ' + (agent.full_name || agent.email);
+                }
+            }
+
+            notes.push(noteEntry);
 
             const { error } = await db
                 .from('vendors')
@@ -14689,6 +14758,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 .eq('id', vendorId);
 
             if (error) throw error;
+
+            if (shouldCCAgent) {
+                alert('Note added and emailed to agent!');
+            }
 
             await viewVendor(vendorId);
         } catch (error) {
@@ -14784,6 +14857,97 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         } catch (error) {
             console.error('Delete vendor contact error:', error);
             alert('Error deleting contact: ' + error.message);
+        }
+    }
+
+    // ============================================
+    // Vendor Marketing Materials
+    // ============================================
+
+    async function loadVendorMaterials(vendorId) {
+        const container = document.getElementById('vendorMaterialsContainer');
+        if (!container) return;
+        try {
+            const { data: files, error } = await db.storage.from('deal-documents').list('vendor-materials/' + vendorId);
+            if (error) throw error;
+
+            if (!files || files.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-light); font-size: 14px;">No marketing materials uploaded yet.</p>';
+                return;
+            }
+
+            let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+            for (const file of files) {
+                const filePath = 'vendor-materials/' + vendorId + '/' + file.name;
+                const { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(filePath, 3600);
+                const downloadUrl = urlData ? urlData.signedUrl : '#';
+                const ext = file.name.split('.').pop().toLowerCase();
+                const icon = ['pdf'].includes(ext) ? '📄' : ['doc','docx'].includes(ext) ? '📝' : ['xls','xlsx'].includes(ext) ? '📊' : ['ppt','pptx'].includes(ext) ? '📽️' : ['png','jpg','jpeg','gif'].includes(ext) ? '🖼️' : '📎';
+                // Extract label from filename (remove extension and vendor prefix if present)
+                const displayName = file.name.replace(/^\d+_/, '').replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+                const fileSize = file.metadata && file.metadata.size ? (file.metadata.size / 1024 < 1024 ? Math.round(file.metadata.size / 1024) + ' KB' : (file.metadata.size / 1048576).toFixed(1) + ' MB') : '';
+
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #F8FAFC; border-radius: 6px; border: 1px solid var(--border-gray);">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 20px;">${icon}</span>
+                            <div>
+                                <div style="font-size: 14px; font-weight: 500; color: var(--text-dark);">${displayName}</div>
+                                <div style="font-size: 12px; color: var(--text-light);">${ext.toUpperCase()} ${fileSize ? '· ' + fileSize : ''}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <a href="${downloadUrl}" target="_blank" class="btn btn-sm" style="background: var(--navy); color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer;">Download</a>
+                            <button class="btn btn-sm" onclick="deleteVendorMaterial('${vendorId}', '${file.name}')" style="background: var(--danger); color: white; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; border: none;">✕</button>
+                        </div>
+                    </div>`;
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        } catch (error) {
+            console.error('Load vendor materials error:', error);
+            container.innerHTML = '<p style="color: var(--danger); font-size: 13px;">Error loading materials.</p>';
+        }
+    }
+
+    async function uploadVendorMaterial(vendorId) {
+        const fileInput = document.getElementById('vendorMaterialFile');
+        const labelInput = document.getElementById('vendorMaterialLabel');
+        const file = fileInput.files[0];
+
+        if (!file) { alert('Please select a file to upload.'); return; }
+
+        const label = labelInput.value.trim() || file.name.replace(/\.[^/.]+$/, '');
+        const ext = file.name.split('.').pop();
+        const safeName = Date.now() + '_' + label.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '_') + '.' + ext;
+        const storagePath = 'vendor-materials/' + vendorId + '/' + safeName;
+
+        try {
+            const { error: uploadError } = await db.storage.from('deal-documents').upload(storagePath, file);
+            if (uploadError) throw uploadError;
+
+            // Clear inputs
+            fileInput.value = '';
+            labelInput.value = '';
+
+            // Reload materials list
+            await loadVendorMaterials(vendorId);
+        } catch (error) {
+            console.error('Upload vendor material error:', error);
+            alert('Error uploading file: ' + error.message);
+        }
+    }
+
+    async function deleteVendorMaterial(vendorId, fileName) {
+        if (!confirm('Delete this marketing material? This cannot be undone.')) return;
+        try {
+            const filePath = 'vendor-materials/' + vendorId + '/' + fileName;
+            const { error } = await db.storage.from('deal-documents').remove([filePath]);
+            if (error) throw error;
+            await loadVendorMaterials(vendorId);
+        } catch (error) {
+            console.error('Delete vendor material error:', error);
+            alert('Error deleting file: ' + error.message);
         }
     }
 
