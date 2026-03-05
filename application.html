@@ -951,44 +951,41 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                     }
                 }
 
-                // Auto-create deal in pipeline from this application
+                // =============================================
+                // AUTO-CREATE DEAL in pipeline from application
+                // =============================================
                 try {
-                    var agentId = null;
+                    var productType = financingTypes.length > 0 ? financingTypes[0] : 'Other';
+                    var parsedAmount = parseFloat(fundingAmount.replace(/[^0-9.]/g, '')) || null;
+
+                    // Look up agent for source_agent_id
+                    var srcAgentId = null;
                     if (referralSlug) {
-                        var { data: agentLookup } = await db.from('users').select('id').eq('referral_slug', referralSlug).eq('role', 'agent').maybeSingle();
-                        if (agentLookup) agentId = agentLookup.id;
+                        try {
+                            var { data: agMatch } = await db.from('users').select('id').eq('referral_slug', referralSlug).eq('role', 'agent').single();
+                            if (agMatch) srcAgentId = agMatch.id;
+                        } catch(e) {}
                     }
-                    // Map first financing type to deal product type
-                    var productTypeMap = {
-                        'Equipment Leasing': 'Equipment Leasing',
-                        'Working Capital': 'Working Capital Loan',
-                        'Merchant Cash Advance': 'Merchant Advance',
-                        'Commercial Mortgage': 'Commercial Mortgage',
-                        'Business Line of Credit': 'Business Line of Credit',
-                        'SBA Loan': 'SBA'
-                    };
-                    var dealProductType = productTypeMap[financingTypes[0]] || financingTypes[0] || 'Other';
 
                     var dealRecord = {
-                        company_name: businessName || fullName || 'Unknown',
-                        deal_amount: fundingAmount ? parseFloat(fundingAmount.replace(/[^0-9.]/g, '')) || null : null,
+                        company_name: businessName,
+                        deal_amount: parsedAmount,
                         application_id: appRecord.id,
                         source: referralSlug ? 'Agent Referral' : 'Online',
-                        source_agent_id: agentId,
-                        product_type: dealProductType,
+                        source_agent_id: srcAgentId,
+                        product_type: productType,
                         date_submitted: new Date().toISOString(),
                         status: 'Prospect'
                     };
-                    var { data: newDeal, error: dealError } = await db.from('deals').insert(dealRecord).select().single();
-                    if (!dealError && newDeal) {
-                        // Mark application as moved to pipeline
+
+                    var { data: newDeal, error: dealErr } = await db.from('deals').insert(dealRecord).select().single();
+                    if (dealErr) console.error('Auto-deal creation error:', dealErr);
+                    else {
+                        console.log('Auto-created deal:', newDeal.id);
                         await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', appRecord.id);
-                        console.log('Deal auto-created:', newDeal.id);
-                    } else if (dealError) {
-                        console.error('Auto-create deal error:', dealError);
                     }
-                } catch (dealErr) {
-                    console.error('Auto-create deal failed:', dealErr);
+                } catch (dealCreateErr) {
+                    console.error('Auto-deal creation failed:', dealCreateErr);
                 }
 
                 // Show success message

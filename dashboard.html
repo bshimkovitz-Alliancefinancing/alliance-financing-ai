@@ -6409,6 +6409,100 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         }
     }
 
+    // =============================================
+    // Extract client profile fields from application form_data
+    // Maps form-specific field names → deal client profile fields for AI Lender Matching
+    // =============================================
+    function extractClientProfileFromFormData(application) {
+        const fd = application.form_data || {};
+        const formType = fd.formType || application.form_type || '';
+        const profile = {};
+
+        // --- Annual Revenue ---
+        // MCA: annualRevenue (string like "$500,000" or "500000")
+        // Working Capital: annualSales (string)
+        // Leasing: not collected directly
+        let rawRevenue = fd.annualRevenue || fd.annualSales || '';
+        if (rawRevenue) {
+            let revNum = parseFloat(String(rawRevenue).replace(/[^0-9.]/g, ''));
+            if (!isNaN(revNum) && revNum > 0) profile.client_annual_revenue = revNum;
+        }
+
+        // --- Time in Business (years) ---
+        // MCA: timeInBusiness (e.g., "5", "3 years", "2+")
+        // Working Capital: yrsOwner (e.g., "5")
+        // Leasing: businessStartDate (e.g., "2019-03-15" → calculate years)
+        let rawYears = fd.timeInBusiness || fd.yrsOwner || '';
+        if (rawYears) {
+            let yearsNum = parseFloat(String(rawYears).replace(/[^0-9.]/g, ''));
+            if (!isNaN(yearsNum) && yearsNum >= 0) profile.client_time_in_business = yearsNum;
+        } else if (fd.businessStartDate) {
+            // Calculate years from start date
+            let startDate = new Date(fd.businessStartDate);
+            if (!isNaN(startDate.getTime())) {
+                let years = Math.round(((new Date() - startDate) / (365.25 * 24 * 60 * 60 * 1000)) * 10) / 10;
+                if (years >= 0) profile.client_time_in_business = years;
+            }
+        }
+
+        // --- Industry ---
+        // MCA: industry (directly)
+        // Leasing: businessDescription (rough proxy)
+        // Working Capital: not collected
+        let rawIndustry = fd.industry || '';
+        if (rawIndustry) profile.client_industry = rawIndustry;
+
+        // --- Province/State ---
+        // MCA: bizProv
+        // Leasing: province
+        // Working Capital: bizProv
+        let rawProvince = fd.bizProv || fd.province || '';
+        if (rawProvince) profile.client_province = rawProvince.trim().toUpperCase().substring(0, 2);
+
+        // --- Monthly Revenue (for additional context) ---
+        // MCA: monthlyRevenue — if annualRevenue wasn't available, calculate from monthly
+        if (!profile.client_annual_revenue && fd.monthlyRevenue) {
+            let monthlyNum = parseFloat(String(fd.monthlyRevenue).replace(/[^0-9.]/g, ''));
+            if (!isNaN(monthlyNum) && monthlyNum > 0) profile.client_annual_revenue = monthlyNum * 12;
+        }
+
+        // --- Equipment Cost for Leasing (maps to deal_amount if not set) ---
+        if (formType === 'leasing' && fd.equipmentCost) {
+            let eqCost = parseFloat(String(fd.equipmentCost).replace(/[^0-9.]/g, ''));
+            if (!isNaN(eqCost) && eqCost > 0) profile._equipment_cost = eqCost;
+        }
+
+        return profile;
+    }
+
+    // Auto-fill deal client profile from linked application form_data
+    async function autoFillDealFromApplication(dealId, applicationId) {
+        try {
+            const { data: app, error: appErr } = await db.from('applications').select('*').eq('id', applicationId).single();
+            if (appErr) throw appErr;
+            if (!app || !app.form_data) { alert('No application form data found to extract.'); return; }
+
+            const profile = extractClientProfileFromFormData(app);
+            delete profile._equipment_cost; // Don't overwrite deal amount
+
+            // Only update fields that have values
+            const updates = {};
+            Object.keys(profile).forEach(k => { if (profile[k] !== undefined && profile[k] !== null && profile[k] !== '') updates[k] = profile[k]; });
+
+            if (Object.keys(updates).length === 0) { alert('No matching fields found in application data to extract.'); return; }
+
+            const { error: updateErr } = await db.from('deals').update(updates).eq('id', dealId);
+            if (updateErr) throw updateErr;
+
+            // Refresh the deal modal
+            alert('✅ Client profile auto-filled from application data!\n\nUpdated: ' + Object.keys(updates).map(k => k.replace('client_', '').replace(/_/g, ' ')).join(', '));
+            viewDeal(dealId);
+        } catch (err) {
+            console.error('Auto-fill error:', err);
+            alert('Error auto-filling: ' + err.message);
+        }
+    }
+
     async function moveToPipeline(applicationId) {
         try {
             // Fetch the application
@@ -6430,19 +6524,33 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 productType = application.application_products[0].product || 'Other';
             }
 
-            // Create new deal
+            // Extract client profile from form_data for AI lender matching
+            const clientProfile = extractClientProfileFromFormData(application);
+            const dealAmount = application.funding_amount_requested || clientProfile._equipment_cost || null;
+            delete clientProfile._equipment_cost;
+
+            // Create new deal with client profile fields populated
+            const dealRecord = {
+                company_name: application.business_name,
+                deal_amount: dealAmount,
+                application_id: application.id,
+                source: application.source_channel || 'Online',
+                source_agent_id: application.source_agent_id || null,
+                product_type: productType,
+                date_submitted: new Date().toISOString(),
+                status: 'Prospect'
+            };
+
+            // Merge client profile fields (revenue, years, industry, province)
+            Object.keys(clientProfile).forEach(k => {
+                if (clientProfile[k] !== undefined && clientProfile[k] !== null && clientProfile[k] !== '') {
+                    dealRecord[k] = clientProfile[k];
+                }
+            });
+
             const { data: newDeal, error: dealError } = await db
                 .from('deals')
-                .insert({
-                    company_name: application.business_name,
-                    deal_amount: application.funding_amount_requested,
-                    application_id: application.id,
-                    source: application.source_channel || 'Online',
-                    source_agent_id: application.source_agent_id || null,
-                    product_type: productType,
-                    date_submitted: new Date().toISOString(),
-                    status: 'Prospect'
-                })
+                .insert(dealRecord)
                 .select()
                 .single();
 
@@ -6469,7 +6577,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             await loadDashboard();
             await loadDeals();
 
-            alert('Application moved to pipeline successfully!');
+            alert('Application moved to pipeline successfully! Client profile auto-populated for AI lender matching.');
         } catch (error) {
             console.error('Move to pipeline error:', error);
             alert('Error moving application to pipeline: ' + error.message);
@@ -7948,6 +8056,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #7C3AED;">
                     <span style="color:#7C3AED;">AI Lender Match Profile</span>
                     <button type="button" onclick="findMatchingLenders('${dealId}')" style="float:right;padding:6px 16px;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">🔍 Find Matching Lenders</button>
+                    ${deal.application_id ? `<button type="button" onclick="autoFillDealFromApplication('${dealId}', '${deal.application_id}')" style="float:right;padding:6px 12px;background:#D97706;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;margin-right:8px;" title="Extract client data from application form into AI match fields">📋 Auto-fill from Application</button>` : ''}
                 </h3>
                 <div class="modal-row">
                     <div class="modal-field">

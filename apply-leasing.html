@@ -751,31 +751,46 @@ async function submitLeaseApp(){
             }
         }
 
-        // Auto-create deal in pipeline from this application
+        // =============================================
+        // AUTO-CREATE DEAL in pipeline from application
+        // =============================================
         if (appData && appData.length > 0) {
+            var appUUID2 = appData[0].id;
             try {
+                // Calculate time in business from start date
+                var tibParsed = null;
+                if (formData.businessStartDate) {
+                    var startD = new Date(formData.businessStartDate);
+                    if (!isNaN(startD.getTime())) {
+                        tibParsed = Math.round(((new Date() - startD) / (365.25 * 24 * 60 * 60 * 1000)) * 10) / 10;
+                    }
+                }
+                var provinceParsed = (formData.province || '').trim().toUpperCase().substring(0, 2) || null;
+
                 var dealRecord = {
-                    company_name: document.getElementById('legalName').value || document.getElementById('contactName').value || 'Unknown',
-                    deal_amount: fundingAmount || null,
-                    application_id: appData[0].id,
+                    company_name: document.getElementById('legalName').value,
+                    deal_amount: fundingAmount,
+                    application_id: appUUID2,
                     source: referralSlug ? 'Agent Referral' : 'Online',
                     source_agent_id: sourceAgentId || null,
                     product_type: 'Equipment Leasing',
-                    date_submitted: new Date().toISOString(),
-                    status: 'Prospect'
+                    date_submitted: now,
+                    status: 'Prospect',
+                    client_time_in_business: tibParsed,
+                    client_province: provinceParsed
                 };
-                var { data: newDeal, error: dealError } = await db.from('deals').insert(dealRecord).select().single();
-                if (dealError) {
-                    console.error('Auto-create deal error:', dealError);
-                } else {
+
+                var { data: newDeal, error: dealErr } = await db.from('deals').insert(dealRecord).select().single();
+                if (dealErr) console.error('Auto-deal creation error:', dealErr);
+                else {
+                    console.log('Auto-created deal:', newDeal.id);
                     if (newDeal && newDeal.id) {
-                        await db.from('documents').update({ deal_id: newDeal.id }).eq('application_id', appData[0].id);
+                        await db.from('documents').update({ deal_id: newDeal.id }).eq('application_id', appUUID2);
                     }
-                    await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', appData[0].id);
-                    console.log('Deal auto-created:', newDeal.id);
+                    await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', appUUID2);
                 }
-            } catch (dealErr) {
-                console.error('Auto-create deal failed:', dealErr);
+            } catch (dealCreateErr) {
+                console.error('Auto-deal creation failed:', dealCreateErr);
             }
         }
 

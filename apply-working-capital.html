@@ -656,31 +656,55 @@ async function submitWCApp(){
             }
         }
 
-        // Auto-create deal in pipeline from this application
+        // =============================================
+        // AUTO-CREATE DEAL in pipeline from application
+        // =============================================
         if (appData && appData.length > 0) {
+            var appUUID2 = appData[0].id;
             try {
+                var annRevParsed = annRevNum > 0 ? annRevNum : null;
+                var tibParsed = null;
+                if (formData.yrsOwner) {
+                    var yrNum = parseFloat(String(formData.yrsOwner).replace(/[^0-9.]/g, ''));
+                    if (!isNaN(yrNum) && yrNum >= 0) tibParsed = yrNum;
+                } else if (formData.dateIncorporated) {
+                    // Calculate from incorporation date
+                    var incParts = formData.dateIncorporated.match(/(\d{1,2})\s*[\/\-]\s*(\d{4})/);
+                    if (incParts) {
+                        var incDate = new Date(parseInt(incParts[2]), parseInt(incParts[1]) - 1, 1);
+                        tibParsed = Math.round(((new Date() - incDate) / (365.25 * 24 * 60 * 60 * 1000)) * 10) / 10;
+                    } else {
+                        var yrMatch = formData.dateIncorporated.match(/(\d{4})/);
+                        if (yrMatch) tibParsed = new Date().getFullYear() - parseInt(yrMatch[1]);
+                    }
+                }
+                var provinceParsed = (formData.bizProv || '').trim().toUpperCase().substring(0, 2) || null;
+
                 var dealRecord = {
-                    company_name: document.getElementById('legalName').value || document.getElementById('o1Name').value || 'Unknown',
-                    deal_amount: fundingAmount || null,
-                    application_id: appData[0].id,
+                    company_name: document.getElementById('legalName').value,
+                    deal_amount: fundingAmount,
+                    application_id: appUUID2,
                     source: referralSlug ? 'Agent Referral' : 'Online',
                     source_agent_id: sourceAgentId || null,
-                    product_type: 'Working Capital Loan',
-                    date_submitted: new Date().toISOString(),
-                    status: 'Prospect'
+                    product_type: product,
+                    date_submitted: now,
+                    status: 'Prospect',
+                    client_annual_revenue: annRevParsed,
+                    client_time_in_business: tibParsed,
+                    client_province: provinceParsed
                 };
-                var { data: newDeal, error: dealError } = await db.from('deals').insert(dealRecord).select().single();
-                if (dealError) {
-                    console.error('Auto-create deal error:', dealError);
-                } else {
+
+                var { data: newDeal, error: dealErr } = await db.from('deals').insert(dealRecord).select().single();
+                if (dealErr) console.error('Auto-deal creation error:', dealErr);
+                else {
+                    console.log('Auto-created deal:', newDeal.id);
                     if (newDeal && newDeal.id) {
-                        await db.from('documents').update({ deal_id: newDeal.id }).eq('application_id', appData[0].id);
+                        await db.from('documents').update({ deal_id: newDeal.id }).eq('application_id', appUUID2);
                     }
-                    await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', appData[0].id);
-                    console.log('Deal auto-created:', newDeal.id);
+                    await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', appUUID2);
                 }
-            } catch (dealErr) {
-                console.error('Auto-create deal failed:', dealErr);
+            } catch (dealCreateErr) {
+                console.error('Auto-deal creation failed:', dealCreateErr);
             }
         }
 

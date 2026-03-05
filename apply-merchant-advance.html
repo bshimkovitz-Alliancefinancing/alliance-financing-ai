@@ -584,33 +584,55 @@ async function submitMCAApp(){
             }
         }
 
-        // Auto-create deal in pipeline from this application
+        // =============================================
+        // AUTO-CREATE DEAL in pipeline from application
+        // =============================================
         if (appData && appData.length > 0) {
+            var appUUID2 = appData[0].id;
             try {
+                // Parse client profile data for AI lender matching
+                var annRevParsed = annRevNum > 0 ? annRevNum : null;
+                if (!annRevParsed && formData.monthlyRevenue) {
+                    var mRev = parseFloat(String(formData.monthlyRevenue).replace(/[^0-9.]/g, ''));
+                    if (!isNaN(mRev) && mRev > 0) annRevParsed = mRev * 12;
+                }
+                var tibParsed = null;
+                if (formData.timeInBusiness) {
+                    var tibNum = parseFloat(String(formData.timeInBusiness).replace(/[^0-9.]/g, ''));
+                    if (!isNaN(tibNum) && tibNum >= 0) tibParsed = tibNum;
+                }
+                var provinceParsed = (formData.bizProv || '').trim().toUpperCase().substring(0, 2) || null;
+                var industryParsed = formData.industry || null;
+
                 var dealRecord = {
-                    company_name: document.getElementById('legalName').value || document.getElementById('ownerName').value || 'Unknown',
-                    deal_amount: fundingAmount || null,
-                    application_id: appData[0].id,
+                    company_name: document.getElementById('legalName').value,
+                    deal_amount: fundingAmount,
+                    application_id: appUUID2,
                     source: referralSlug ? 'Agent Referral' : 'Online',
                     source_agent_id: sourceAgentId || null,
                     product_type: 'Merchant Advance',
-                    date_submitted: new Date().toISOString(),
-                    status: 'Prospect'
+                    date_submitted: now,
+                    status: 'Prospect',
+                    client_annual_revenue: annRevParsed,
+                    client_time_in_business: tibParsed,
+                    client_industry: industryParsed,
+                    client_province: provinceParsed
                 };
-                var { data: newDeal, error: dealError } = await db.from('deals').insert(dealRecord).select().single();
-                if (dealError) {
-                    console.error('Auto-create deal error:', dealError);
-                } else {
-                    // Link documents to the new deal
+
+                var { data: newDeal, error: dealErr } = await db.from('deals').insert(dealRecord).select().single();
+                if (dealErr) console.error('Auto-deal creation error:', dealErr);
+                else {
+                    console.log('Auto-created deal:', newDeal.id);
+                    // Link uploaded documents to the new deal
                     if (newDeal && newDeal.id) {
-                        await db.from('documents').update({ deal_id: newDeal.id }).eq('application_id', appData[0].id);
+                        await db.from('documents').update({ deal_id: newDeal.id }).eq('application_id', appUUID2);
                     }
-                    // Mark application as moved to pipeline
-                    await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', appData[0].id);
-                    console.log('Deal auto-created:', newDeal.id);
+                    // Update application status
+                    await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', appUUID2);
                 }
-            } catch (dealErr) {
-                console.error('Auto-create deal failed:', dealErr);
+            } catch (dealCreateErr) {
+                console.error('Auto-deal creation failed:', dealCreateErr);
+                // Non-fatal — application was still submitted successfully
             }
         }
 
