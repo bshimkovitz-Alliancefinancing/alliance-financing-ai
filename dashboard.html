@@ -3457,6 +3457,17 @@
             // Check for follow-up reminders after brief delay
             setTimeout(function() { checkFollowUpReminders(); }, 2000);
 
+            // Set up auth state listener to handle token refresh
+            db.auth.onAuthStateChange(function(event, session) {
+                if (event === 'TOKEN_REFRESHED') {
+                    console.log('Auth token refreshed successfully');
+                } else if (event === 'SIGNED_OUT') {
+                    console.log('User signed out');
+                    document.getElementById('loginScreen').style.display = 'flex';
+                    document.getElementById('appContainer').style.display = 'none';
+                }
+            });
+
             // Load dashboard
             loadDashboard();
         } catch (error) {
@@ -7788,7 +7799,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         });
     }
 
-    function refreshCurrentPage() {
+    async function refreshCurrentPage() {
+        // Refresh auth session to prevent stale token issues
+        try {
+            var { data, error } = await db.auth.refreshSession();
+            if (error) {
+                console.warn('Session refresh failed:', error.message);
+                // If session can't be refreshed, redirect to login
+                if (error.message.includes('refresh_token') || error.message.includes('expired')) {
+                    alert('Your session has expired. Please log in again.');
+                    db.auth.signOut();
+                    window.location.reload();
+                    return;
+                }
+            }
+        } catch(e) { console.warn('Session refresh error:', e); }
         loadPageData(currentPage || 'dashboard');
     }
 
