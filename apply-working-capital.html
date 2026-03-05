@@ -656,6 +656,34 @@ async function submitWCApp(){
             }
         }
 
+        // Auto-create deal in pipeline from this application
+        if (appData && appData.length > 0) {
+            try {
+                var dealRecord = {
+                    company_name: document.getElementById('legalName').value || document.getElementById('o1Name').value || 'Unknown',
+                    deal_amount: fundingAmount || null,
+                    application_id: appData[0].id,
+                    source: referralSlug ? 'Agent Referral' : 'Online',
+                    source_agent_id: sourceAgentId || null,
+                    product_type: 'Working Capital Loan',
+                    date_submitted: new Date().toISOString(),
+                    status: 'Prospect'
+                };
+                var { data: newDeal, error: dealError } = await db.from('deals').insert(dealRecord).select().single();
+                if (dealError) {
+                    console.error('Auto-create deal error:', dealError);
+                } else {
+                    if (newDeal && newDeal.id) {
+                        await db.from('documents').update({ deal_id: newDeal.id }).eq('application_id', appData[0].id);
+                    }
+                    await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', appData[0].id);
+                    console.log('Deal auto-created:', newDeal.id);
+                }
+            } catch (dealErr) {
+                console.error('Auto-create deal failed:', dealErr);
+            }
+        }
+
         // Show success
         document.getElementById('formCard').style.display='none';
         document.getElementById('successMsg').style.display='block';
