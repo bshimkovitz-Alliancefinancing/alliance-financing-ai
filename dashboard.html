@@ -1148,6 +1148,7 @@
                                     <th>Amount</th>
                                     <th>Status</th>
                                     <th>Submitted</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="agentReferralAppsBody">
@@ -5663,7 +5664,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Get agent's referral slug
             const { data: agent } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
             if (!agent || !agent.referral_slug) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999;">No referral slug configured. Contact admin.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#999;">No referral slug configured. Contact admin.</td></tr>';
                 card.style.display = 'block';
                 return;
             }
@@ -5704,13 +5705,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             });
 
             if (visibleApps.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999;">No applications yet. Share your referral links to get started!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#999;">No applications yet. Share your referral links to get started!</td></tr>';
             } else {
                 tbody.innerHTML = visibleApps.map(a => {
                     const formLabel = formTypeLabels[a.form_type] || a.form_type || 'Standard';
                     const amount = a.funding_amount_requested ? formatCurrency(a.funding_amount_requested) : (a.funding_amount_text || 'N/A');
                     const submitted = a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : 'N/A';
-                    return `<tr style="cursor:pointer" onclick="viewApplication('${a.id}')">
+                    return `<tr>
                         <td><strong>${a.application_id || 'N/A'}</strong></td>
                         <td><span style="background:#EFF6FF;color:#3B82F6;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${formLabel}</span></td>
                         <td>${a.full_name || 'N/A'}</td>
@@ -5718,6 +5719,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         <td>${amount}</td>
                         <td>${getStatusBadge(a.status)}</td>
                         <td>${submitted}</td>
+                        <td><button onclick="viewApplication('${a.id}')" style="background:#0D1E3D;color:#fff;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;">View</button></td>
                     </tr>`;
                 }).join('');
             }
@@ -5725,7 +5727,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             card.style.display = 'block';
         } catch (err) {
             console.error('Load agent referral apps error:', err);
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#c00;">Error loading applications</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#c00;">Error loading applications</td></tr>';
             card.style.display = 'block';
         }
     }
