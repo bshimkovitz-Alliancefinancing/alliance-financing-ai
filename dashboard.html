@@ -5007,16 +5007,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
             if (error || !docs || docs.length === 0) return null;
 
-            // Build PDF list matching the format expected by the marketing section
-            return docs.map(doc => {
-                const typeInfo = BRANDED_DOC_TYPES.find(t => t.key === doc.document_type);
-                return {
-                    file: getBrandedDocUrl(doc.storage_path),
+            // Build PDF list with signed URLs (bucket is private)
+            var results = [];
+            for (var i = 0; i < docs.length; i++) {
+                var doc = docs[i];
+                var typeInfo = BRANDED_DOC_TYPES.find(t => t.key === doc.document_type);
+                var signedUrl = '';
+                try {
+                    var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(doc.storage_path, 3600);
+                    if (urlData && urlData.signedUrl) signedUrl = urlData.signedUrl;
+                } catch(e) {
+                    console.log('Signed URL error for branded doc:', e);
+                    signedUrl = getBrandedDocUrl(doc.storage_path); // fallback to public URL
+                }
+                results.push({
+                    file: signedUrl || getBrandedDocUrl(doc.storage_path),
                     label: typeInfo ? typeInfo.label : doc.document_type,
                     icon: typeInfo ? typeInfo.icon : '📄',
                     isExternal: true
-                };
-            });
+                });
+            }
+            return results;
         } catch (e) {
             console.error('Load branded docs error:', e);
             return null;
