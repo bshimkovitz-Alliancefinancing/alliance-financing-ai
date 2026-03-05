@@ -2283,7 +2283,7 @@
                         <input type="text" id="companyName" required>
                     </div>
                     <div class="modal-field">
-                        <label>Deal Amount</label>
+                        <label>Deal Amount (before taxes)</label>
                         <input type="number" id="dealAmount" step="0.01" required>
                     </div>
                 </div>
@@ -2320,51 +2320,57 @@
                         </select>
                     </div>
                 </div>
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Source</label>
-                        <select id="dealSource">
-                            <option value="Direct">Direct</option>
-                            <option value="Online">Online</option>
-                            <option value="Agent Referral">Agent Referral</option>
-                            <option value="Vendor">Vendor</option>
-                            <option value="Repeat Client">Repeat Client</option>
-                        </select>
+                <!-- Source: hidden, auto-set to agent name. Status: hidden, always "Prospect" for new apps -->
+                <input type="hidden" id="dealSource" value="Agent Referral">
+                <input type="hidden" id="dealStatus" value="Prospect">
+                <!-- Assign Lender: admin-only, shown conditionally -->
+                <div id="addDealAdminFields" style="display:none;">
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Source</label>
+                            <select id="dealSourceAdmin">
+                                <option value="Direct">Direct</option>
+                                <option value="Online">Online</option>
+                                <option value="Agent Referral" selected>Agent Referral</option>
+                                <option value="Vendor">Vendor</option>
+                                <option value="Repeat Client">Repeat Client</option>
+                            </select>
+                        </div>
+                        <div class="modal-field">
+                            <label>Status</label>
+                            <select id="dealStatusAdmin" required>
+                                <option value="Prospect" selected>Prospect</option>
+                                <option value="Quote Requested">Quote Requested</option>
+                                <option value="Quote sent">Quote sent</option>
+                                <option value="Info received">Info received</option>
+                                <option value="In Credit">In Credit</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Approval sent">Approval sent</option>
+                                <option value="Docs requested">Docs requested</option>
+                                <option value="Docs out for signing">Docs out for signing</option>
+                                <option value="In funding">In funding</option>
+                                <option value="Funded">Funded</option>
+                                <option value="Declined">Declined</option>
+                                <option value="Dead approval">Dead approval</option>
+                                <option value="Withdrawn">Withdrawn</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="modal-field">
-                        <label>Status</label>
-                        <select id="dealStatus" required>
-                            <option value="Prospect" selected>Prospect</option>
-                            <option value="Quote Requested">Quote Requested</option>
-                            <option value="Quote sent">Quote sent</option>
-                            <option value="Info received">Info received</option>
-                            <option value="In Credit">In Credit</option>
-                            <option value="Approved">Approved</option>
-                            <option value="Approval sent">Approval sent</option>
-                            <option value="Docs requested">Docs requested</option>
-                            <option value="Docs out for signing">Docs out for signing</option>
-                            <option value="In funding">In funding</option>
-                            <option value="Funded">Funded</option>
-                            <option value="Declined">Declined</option>
-                            <option value="Dead approval">Dead approval</option>
-                            <option value="Withdrawn">Withdrawn</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Assign Lender</label>
-                        <select id="dealLender">
-                            <option value="">None</option>
-                        </select>
-                    </div>
-                    <div class="modal-field">
-                        <label>&nbsp;</label>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Assign Lender</label>
+                            <select id="dealLender">
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                        <div class="modal-field">
+                            <label>&nbsp;</label>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeAddDealModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Deal</button>
+                    <button type="submit" class="btn btn-primary">Submit Application</button>
                 </div>
             </form>
         </div>
@@ -9017,14 +9023,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     async function openAddDealModal() {
         document.getElementById('addDealForm').reset();
-        // Populate lender dropdown
-        if (cachedLenders.length === 0) {
-            const { data: lenderList } = await db.from('lenders').select('id, name').order('name');
-            cachedLenders = lenderList || [];
+        var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
+        // Show admin-only fields (Source, Status, Assign Lender) only for admins
+        var adminFields = document.getElementById('addDealAdminFields');
+        if (adminFields) adminFields.style.display = isAdmin ? 'block' : 'none';
+
+        // Populate lender dropdown for admins
+        if (isAdmin) {
+            if (cachedLenders.length === 0) {
+                const { data: lenderList } = await db.from('lenders').select('id, name').order('name');
+                cachedLenders = lenderList || [];
+            }
+            const lenderSelect = document.getElementById('dealLender');
+            lenderSelect.innerHTML = '<option value="">None</option>' +
+                cachedLenders.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
         }
-        const lenderSelect = document.getElementById('dealLender');
-        lenderSelect.innerHTML = '<option value="">None</option>' +
-            cachedLenders.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+
         document.getElementById('addDealModal').classList.add('active');
     }
 
@@ -9036,19 +9051,32 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         event.preventDefault();
 
         try {
-            const lenderVal = document.getElementById('dealLender').value;
+            var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
+            // For agents: source is auto-set, status is always Prospect, no lender assignment
+            var source = isAdmin ? (document.getElementById('dealSourceAdmin').value || 'Agent Referral') : 'Agent Referral';
+            var status = isAdmin ? (document.getElementById('dealStatusAdmin').value || 'Prospect') : 'Prospect';
+            var lenderVal = isAdmin ? document.getElementById('dealLender').value : null;
+
+            var dealRecord = {
+                company_name: document.getElementById('companyName').value,
+                deal_amount: parseFloat(document.getElementById('dealAmount').value),
+                currency: document.getElementById('dealCurrency').value,
+                product_type: document.getElementById('productType').value,
+                source: source,
+                status: status,
+                assigned_lender_id: lenderVal || null,
+                date_submitted: new Date().toISOString()
+            };
+
+            // Auto-set source_agent_id to the current user if they're an agent
+            if (!isAdmin && currentUserId) {
+                dealRecord.source_agent_id = currentUserId;
+            }
+
             const { data, error } = await db
                 .from('deals')
-                .insert([{
-                    company_name: document.getElementById('companyName').value,
-                    deal_amount: parseFloat(document.getElementById('dealAmount').value),
-                    currency: document.getElementById('dealCurrency').value,
-                    product_type: document.getElementById('productType').value,
-                    source: document.getElementById('dealSource').value,
-                    status: document.getElementById('dealStatus').value,
-                    assigned_lender_id: lenderVal || null,
-                    date_submitted: new Date().toISOString()
-                }])
+                .insert([dealRecord])
                 .select();
 
             if (error) throw error;
