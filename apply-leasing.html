@@ -169,6 +169,7 @@ footer{background:#0F172A;color:#94A3B8;padding:3rem 0 0}
                 <input type="text" id="tradeName">
             </div>
         </div>
+        <!-- Honeypot --><div style="position:absolute;left:-9999px;top:-9999px;"><label for="website_url">Website</label><input type="text" id="website_url" name="website_url" tabindex="-1" autocomplete="off"></div>
         <div class="form-row">
             <div class="form-group">
                 <label>Phone *</label>
@@ -417,6 +418,52 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
 });
 
+// ============================================
+// Token Validation (Sent Application Links)
+// ============================================
+var sentAppToken = new URLSearchParams(window.location.search).get('token');
+
+async function validateSentAppToken() {
+    if (!sentAppToken) return;
+    try {
+        var { data: record, error } = await db.from('applications_sent')
+            .select('id, status, expires_at')
+            .eq('link_token', sentAppToken)
+            .maybeSingle();
+        if (error || !record) {
+            showTokenBlockedMessage('This application link is invalid or has expired.', 'Please contact your financing representative for a new link.');
+            return;
+        }
+        if (record.status === 'Returned') {
+            showTokenBlockedMessage('This application has already been completed.', 'If you need to submit another application, please contact your financing representative.');
+            return;
+        }
+        if (record.expires_at && new Date(record.expires_at) < new Date()) {
+            await db.from('applications_sent').update({ status: 'Expired' }).eq('id', record.id);
+            showTokenBlockedMessage('This application link has expired.', 'Links are valid for 15 days. Please contact your financing representative for a new link.');
+            return;
+        }
+    } catch (err) {
+        console.error('Token validation error:', err);
+    }
+}
+
+function showTokenBlockedMessage(title, subtitle) {
+    var formCard = document.getElementById('formCard');
+    if (formCard) formCard.style.display = 'none';
+    var blockedDiv = document.createElement('div');
+    blockedDiv.style.cssText = 'max-width:600px;margin:120px auto 60px;padding:40px;text-align:center;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);';
+    blockedDiv.innerHTML = '<div style="width:64px;height:64px;background:#FEE2E2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">' +
+        '<svg width="32" height="32" fill="none" stroke="#DC2626" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg></div>' +
+        '<h2 style="color:#1E293B;font-size:22px;margin:0 0 12px;">' + title + '</h2>' +
+        '<p style="color:#64748B;font-size:15px;line-height:1.6;margin:0 0 24px;">' + subtitle + '</p>' +
+        '<a href="mailto:info@alliancefinancing.com" style="display:inline-block;background:#0D1E3D;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Contact Us</a>' +
+        '<p style="color:#94A3B8;font-size:13px;margin-top:16px;">1-877-660-3660 ext. 222</p>';
+    document.querySelector('.form-container').appendChild(blockedDiv);
+}
+
+validateSentAppToken();
+
 function toggleEquipLocation(){
     var f=document.getElementById('equipLocationFields');
     f.style.display=document.getElementById('sameAsAbove').checked?'none':'block';
@@ -567,8 +614,21 @@ document.getElementById('signatureName').addEventListener('input', function() {
     }
 });
 
+var _formLoadTime = Date.now();
+function looksLikeBot(val) {
+    if (!val) return false;
+    if (/^[A-Za-z0-9+/=]{15,}$/.test(val) && !/\s/.test(val)) return true;
+    if (val.length > 5 && !/[aeiouAEIOU]/.test(val)) return true;
+    return false;
+}
+
 async function submitLeaseApp(){
     var btn=document.getElementById('submitBtn');
+
+    // Bot protection
+    var hpVal = document.getElementById('website_url').value;
+    if (hpVal) { document.getElementById('successMessage') ? document.getElementById('successMessage').style.display = 'block' : null; return; }
+    if (Date.now() - _formLoadTime < 3000) { return; }
 
     // Validate e-signature
     var sigName = document.getElementById('signatureName').value.trim();
@@ -589,6 +649,13 @@ async function submitLeaseApp(){
     for(var i=0;i<required.length;i++){
         var el=document.getElementById(required[i]);
         if(!el.value.trim()){el.focus();el.style.borderColor='#EF4444';alert('Please fill in all required fields.');return;}
+    }
+
+    // Bot detection: check if name fields look suspicious
+    var legalNameVal = document.getElementById('legalName').value;
+    if (looksLikeBot(legalNameVal)) {
+        document.getElementById('successMessage') ? document.getElementById('successMessage').style.display = 'block' : null;
+        return;
     }
 
     btn.disabled=true;btn.textContent='Submitting...';
@@ -798,15 +865,19 @@ async function submitLeaseApp(){
 
         // Auto-update applications_sent status to "Returned"
         try {
-            var clientEmail = document.getElementById('bizEmail').value.trim().toLowerCase();
-            if (clientEmail) {
-                var { data: sentRecords } = await db.from('applications_sent')
-                    .select('id')
-                    .ilike('applicant_email', clientEmail)
-                    .in('status', ['Sent', 'Follow-Up Needed']);
-                if (sentRecords && sentRecords.length > 0) {
-                    for (var sr = 0; sr < sentRecords.length; sr++) {
-                        await db.from('applications_sent').update({ status: 'Returned' }).eq('id', sentRecords[sr].id);
+            if (sentAppToken) {
+                await db.from('applications_sent').update({ status: 'Returned' }).eq('link_token', sentAppToken);
+            } else {
+                var clientEmail = document.getElementById('bizEmail').value.trim().toLowerCase();
+                if (clientEmail) {
+                    var { data: sentRecords } = await db.from('applications_sent')
+                        .select('id')
+                        .ilike('applicant_email', clientEmail)
+                        .in('status', ['Sent', 'Follow-Up Needed']);
+                    if (sentRecords && sentRecords.length > 0) {
+                        for (var sr = 0; sr < sentRecords.length; sr++) {
+                            await db.from('applications_sent').update({ status: 'Returned' }).eq('id', sentRecords[sr].id);
+                        }
                     }
                 }
             }
