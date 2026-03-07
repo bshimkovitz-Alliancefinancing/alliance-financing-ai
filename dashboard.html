@@ -15053,7 +15053,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
                                     ${(() => {
                                         const prods = lender.preferred_products || [];
-                                        return prods.length > 0 ? prods.map(p => `<span style="background:#EDE9FE;color:#7C3AED;padding:3px 10px;border-radius:14px;font-size:12px;font-weight:500;">${p}</span>`).join('') : '<span style="color:#64748B;font-size:13px;">None set</span>';
+                                        const allProducts = ['Equipment Leasing','MCA','Working Capital Loan','Business Line of Credit','CSBFL','SRED','Factoring','Private Debt','Startup Financing','Franchise Financing'];
+                                        return allProducts.map(p => {
+                                            const checked = prods.includes(p) ? 'checked' : '';
+                                            return '<label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderDetailPrefProducts" value="' + p + '" ' + checked + ' onchange="updateLenderProducts(' + lenderId + ', \'preferred_products\', \'lenderDetailPrefProducts\')"> ' + p + '</label>';
+                                        }).join('');
                                     })()}
                                 </div>
                             </div>
@@ -15063,7 +15067,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
                                     ${(() => {
                                         const prods = lender.consider_products || [];
-                                        return prods.length > 0 ? prods.map(p => `<span style="background:#F3E8FF;color:#6D28D9;padding:3px 10px;border-radius:14px;font-size:12px;font-weight:500;">${p}</span>`).join('') : '<span style="color:#64748B;font-size:13px;">None set</span>';
+                                        const allProducts = ['Equipment Leasing','MCA','Working Capital Loan','Business Line of Credit','CSBFL','SRED','Factoring','Private Debt','Startup Financing','Franchise Financing'];
+                                        return allProducts.map(p => {
+                                            const checked = prods.includes(p) ? 'checked' : '';
+                                            return '<label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:12px;cursor:pointer;"><input type="checkbox" name="lenderDetailConsiderProducts" value="' + p + '" ' + checked + ' onchange="updateLenderProducts(' + lenderId + ', \'consider_products\', \'lenderDetailConsiderProducts\')"> ' + p + '</label>';
+                                        }).join('');
                                     })()}
                                 </div>
                             </div>
@@ -15247,12 +15255,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     async function updateLenderStatus(lenderId, newStatus) {
         try {
+            const { data: currentLender } = await db.from('lenders').select('status, admin_notes, name').eq('id', lenderId).single();
+            const oldStatus = currentLender ? currentLender.status : null;
+
             const { error } = await db
                 .from('lenders')
                 .update({ status: newStatus })
                 .eq('id', lenderId);
 
             if (error) throw error;
+
+            // Log status change
+            await logLenderFieldChange(lenderId, currentLender, 'status', oldStatus, newStatus);
+
             await loadLenders();
         } catch (error) {
             console.error('Update lender status error:', error);
@@ -15262,12 +15277,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     async function updateLenderField(lenderId, field, value) {
         try {
+            // Get current value for audit trail
+            const { data: currentLender } = await db.from('lenders').select(field + ', admin_notes, name').eq('id', lenderId).single();
+            const oldValue = currentLender ? currentLender[field] : null;
+
             const { error } = await db
                 .from('lenders')
                 .update({ [field]: value })
                 .eq('id', lenderId);
 
             if (error) throw error;
+
+            // Log change to admin_notes
+            await logLenderFieldChange(lenderId, currentLender, field, oldValue, value);
+
             await loadLenders();
         } catch (error) {
             console.error('Update lender field error:', error);
@@ -15275,8 +15298,65 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         }
     }
 
+    async function updateLenderProducts(lenderId, field, checkboxName) {
+        const checked = Array.from(document.querySelectorAll('input[name="' + checkboxName + '"]:checked')).map(cb => cb.value);
+        await updateLenderField(lenderId, field, checked.length > 0 ? checked : null);
+    }
+
+    async function logLenderFieldChange(lenderId, currentLender, field, oldValue, newValue) {
+        try {
+            let notes = [];
+            try {
+                notes = currentLender && currentLender.admin_notes ? JSON.parse(currentLender.admin_notes) : [];
+            } catch(e) { notes = []; }
+
+            // Format values for display
+            const fieldLabels = {
+                status: 'Status',
+                country: 'Countries',
+                preferred_products: 'Preferred Products',
+                consider_products: 'Will Also Consider',
+                terms_offered: 'Terms Offered',
+                purchase_options: 'Purchase Options',
+                min_deal_size: 'Min Deal Size',
+                max_deal_size: 'Max Deal Size',
+                min_credit_score: 'Min Credit Score',
+                min_time_in_business: 'Min Time in Business',
+                min_annual_revenue: 'Min Annual Revenue',
+                approval_speed: 'Approval Speed',
+                restricted_industries: 'Restricted Industries',
+                covered_regions: 'Covered Regions',
+                rate_range: 'Rate Range',
+                special_notes: 'Lender Notes'
+            };
+            const label = fieldLabels[field] || field;
+            const formatVal = (v) => {
+                if (v === null || v === undefined || v === '') return 'empty';
+                if (Array.isArray(v)) return v.length > 0 ? v.join(', ') : 'empty';
+                return String(v);
+            };
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay').textContent || 'Unknown';
+
+            notes.push({
+                text: '✏️ Updated "' + label + '" from "' + formatVal(oldValue) + '" to "' + formatVal(newValue) + '"',
+                author: userEmail,
+                date: dateStr
+            });
+
+            await db.from('lenders').update({ admin_notes: JSON.stringify(notes) }).eq('id', lenderId);
+        } catch(e) {
+            console.error('Failed to log lender field change:', e);
+        }
+    }
+
     async function updateLenderCountries(lenderId) {
         try {
+            const { data: currentLender } = await db.from('lenders').select('country, admin_notes, name').eq('id', lenderId).single();
+            const oldCountries = currentLender ? currentLender.country : null;
+
             const countryCheckboxes = document.querySelectorAll('input[name="lenderDetailCountries"]:checked');
             const countries = Array.from(countryCheckboxes).map(cb => cb.value).join(', ');
 
@@ -15286,6 +15366,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 .eq('id', lenderId);
 
             if (error) throw error;
+
+            await logLenderFieldChange(lenderId, currentLender, 'country', oldCountries, countries || null);
+
             await loadLenders();
         } catch (error) {
             console.error('Update lender countries error:', error);
