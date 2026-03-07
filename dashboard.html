@@ -1188,12 +1188,13 @@
                                 <th>Sent By</th>
                                 <th>Referred By</th>
                                 <th>Sent Date</th>
+                                <th>Expires</th>
                                 <th>Follow-Up</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="applicationsSentBody">
-                            <tr><td colspan="9" class="empty-state">Loading...</td></tr>
+                            <tr><td colspan="10" class="empty-state">Loading...</td></tr>
                         </tbody>
                     </table>
                     </div>
@@ -5748,7 +5749,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 tbody.innerHTML = visibleApps.map(a => {
                     const formLabel = formTypeLabels[a.form_type] || a.form_type || 'Standard';
                     const amount = a.funding_amount_requested ? formatCurrency(a.funding_amount_requested) : (a.funding_amount_text || 'N/A');
-                    const submitted = a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : 'N/A';
+                    const submitted = a.submitted_at ? formatDate(a.submitted_at) : 'N/A';
                     return `<tr>
                         <td><strong>${a.application_id || 'N/A'}</strong></td>
                         <td><span style="background:#EFF6FF;color:#3B82F6;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${formLabel}</span></td>
@@ -10110,6 +10111,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         if (!email) { alert('Please enter the client\'s email address.'); return; }
         if (!selectedSendAppType) { alert('Please select an application type first.'); return; }
 
+        // Generate unique token and 15-day expiry for one-time use links
+        var linkToken = crypto.randomUUID();
+        var expiresAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
+        // Append token to the application link
+        var tokenizedLink = link + (link.includes('?') ? '&' : '?') + 'token=' + linkToken;
+
         var typeNames = { leasing: 'Equipment Leasing', mca: 'Merchant Cash Advance', wc: 'Working Capital & Factoring', general: 'Financing' };
         var typeName = typeNames[selectedSendAppType];
         var subject = 'Alliance Financing - ' + typeName + ' Application';
@@ -10132,8 +10139,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your interest in financing with Alliance Financing Group.</p>' +
             '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete our <strong>' + typeName + '</strong> application using the button below:</p>' +
             '<div style="text-align:center;margin:25px 0;">' +
-            '<a href="' + link + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Complete Application</a></div>' +
-            '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + link + '" style="color:#3B82F6;">' + link + '</a></p>' +
+            '<a href="' + tokenizedLink + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Complete Application</a></div>' +
+            '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + tokenizedLink + '" style="color:#3B82F6;">' + tokenizedLink + '</a></p>' +
             '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, please don\'t hesitate to reach out.</p>' +
             '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>Alliance Financing Group Ltd.<br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>' +
             '</div>' +
@@ -10170,7 +10177,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
                     sent_by: trackSentBy,
                     referral_agent: referralAgentName || null,
-                    referral_slug: referralAgentSlug || null
+                    referral_slug: referralAgentSlug || null,
+                    link_token: linkToken,
+                    expires_at: expiresAt
                 });
             } catch (trackErr) { console.error('Failed to log sent application:', trackErr); }
             statusDiv.style.display = 'block';
@@ -10189,7 +10198,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             btn.textContent = 'Send via Email';
             // Fallback to mailto
             var subjectEnc = encodeURIComponent(subject);
-            var bodyText = 'Hi ' + clientName + ',\n\n' + (personalMsg ? personalMsg + '\n\n' : '') + 'Please complete our ' + typeName + ' application:\n\n' + link + '\n\nBest regards,\n' + senderName + '\nAlliance Financing Group Ltd.\n1-877-660-3660 ext. 222';
+            var bodyText = 'Hi ' + clientName + ',\n\n' + (personalMsg ? personalMsg + '\n\n' : '') + 'Please complete our ' + typeName + ' application:\n\n' + tokenizedLink + '\n\nBest regards,\n' + senderName + '\nAlliance Financing Group Ltd.\n1-877-660-3660 ext. 222';
             window.open('mailto:' + email + '?subject=' + subjectEnc + '&body=' + encodeURIComponent(bodyText));
         }
     }
@@ -11176,11 +11185,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             const { data, error } = await query;
             if (error) throw error;
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No applications sent yet.</td></tr>';
-                // Hide summary stats
+                tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No applications sent yet.</td></tr>';
                 var summaryEl = document.getElementById('appSentSummary');
                 if (summaryEl) summaryEl.style.display = 'none';
                 return;
+            }
+
+            // Auto-expire: mark any past-due links as Expired
+            var now = new Date();
+            for (var ei = 0; ei < data.length; ei++) {
+                if (data[ei].expires_at && !['Returned', 'Expired'].includes(data[ei].status) && new Date(data[ei].expires_at) < now) {
+                    data[ei].status = 'Expired';
+                    try { await db.from('applications_sent').update({ status: 'Expired' }).eq('id', data[ei].id); } catch(e) {}
+                }
             }
 
             // Update summary stats
@@ -11190,12 +11207,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 var totalOpened = data.filter(function(a) { return a.status === 'Opened'; }).length;
                 var totalOverdue = data.filter(function(a) { return a.status === 'Sent' && a.follow_up_date && new Date(a.follow_up_date) < new Date(); }).length;
                 var totalReturned = data.filter(function(a) { return a.status === 'Returned'; }).length;
+                var totalExpired = data.filter(function(a) { return a.status === 'Expired'; }).length;
                 summaryEl.style.display = 'flex';
                 summaryEl.innerHTML =
                     '<div style="background:#EFF6FF;padding:8px 16px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:20px;font-weight:700;color:#3B82F6;">' + totalSent + '</div><div style="font-size:11px;color:#64748B;">Total Sent</div></div>' +
                     '<div style="background:#F5F3FF;padding:8px 16px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:20px;font-weight:700;color:#8B5CF6;">' + totalOpened + '</div><div style="font-size:11px;color:#64748B;">Opened</div></div>' +
                     '<div style="background:#FFF7ED;padding:8px 16px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:20px;font-weight:700;color:#F59E0B;">' + totalOverdue + '</div><div style="font-size:11px;color:#64748B;">Overdue</div></div>' +
-                    '<div style="background:#F0FDF4;padding:8px 16px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:20px;font-weight:700;color:#10B981;">' + totalReturned + '</div><div style="font-size:11px;color:#64748B;">Returned</div></div>';
+                    '<div style="background:#F0FDF4;padding:8px 16px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:20px;font-weight:700;color:#10B981;">' + totalReturned + '</div><div style="font-size:11px;color:#64748B;">Returned</div></div>' +
+                    '<div style="background:#FEF2F2;padding:8px 16px;border-radius:6px;text-align:center;flex:1;"><div style="font-size:20px;font-weight:700;color:#EF4444;">' + totalExpired + '</div><div style="font-size:11px;color:#64748B;">Expired</div></div>';
             }
 
             tbody.innerHTML = data.map(function(app) {
@@ -11203,6 +11222,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 var colors = { 'Sent': '#3B82F6', 'Delivered': '#06B6D4', 'Follow-Up Needed': '#F59E0B', 'Returned': '#10B981', 'Opened': '#8B5CF6', 'Clicked': '#7C3AED', 'Replied': '#059669', 'Bounced': '#DC2626', 'Expired': '#EF4444', 'Spam': '#991B1B' };
                 var statusColor = colors[app.status] || '#64748B';
                 var followUpText = app.follow_up_date ? new Date(app.follow_up_date).toLocaleDateString() : '—';
+                var expiryText = '—';
+                if (app.expires_at) {
+                    var expiryDate = new Date(app.expires_at);
+                    var isExpired = expiryDate < new Date();
+                    var daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+                    if (app.status === 'Returned') {
+                        expiryText = '<span style="color:#10B981;font-size:12px;">Completed</span>';
+                    } else if (isExpired) {
+                        expiryText = '<span style="color:#EF4444;font-size:12px;font-weight:600;">Expired</span>';
+                    } else if (daysLeft <= 3) {
+                        expiryText = '<span style="color:#F59E0B;font-size:12px;font-weight:600;">' + daysLeft + 'd left</span>';
+                    } else {
+                        expiryText = '<span style="color:#64748B;font-size:12px;">' + expiryDate.toLocaleDateString() + '</span>';
+                    }
+                }
                 return '<tr style="' + (isOverdue ? 'background:#FFF7ED;' : '') + '">' +
                     '<td><strong>' + (app.applicant_name || 'N/A') + '</strong></td>' +
                     '<td>' + (app.applicant_email || 'N/A') + '</td>' +
@@ -11211,6 +11245,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     '<td>' + (app.sent_by || 'N/A') + '</td>' +
                     '<td>' + (app.referral_agent ? '<span style="background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">' + app.referral_agent + '</span>' : '<span style="color:#94A3B8;font-size:12px;">—</span>') + '</td>' +
                     '<td>' + (app.sent_at ? new Date(app.sent_at).toLocaleDateString() : 'N/A') + '</td>' +
+                    '<td>' + expiryText + '</td>' +
                     '<td>' + followUpText + '</td>' +
                     '<td style="white-space:nowrap;">' +
                         '<select onchange="updateAppSentStatus(\'' + app.id + '\', this.value)" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;cursor:pointer;">' +
@@ -11225,7 +11260,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             }).join('');
         } catch (err) {
             console.error('Load applications sent error:', err);
-            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Error loading applications.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Error loading applications.</td></tr>';
         }
     }
 
@@ -15824,7 +15859,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     function formatDate(dateString) {
         if (!dateString) return 'N/A';
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
     }
 
     // ============================================
