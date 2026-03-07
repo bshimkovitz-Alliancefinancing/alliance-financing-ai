@@ -1291,7 +1291,7 @@
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Lenders</div>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <input type="text" id="lenderSearch" placeholder="Search by name, type, country, currency..."
+                            <input type="text" id="lenderSearch" placeholder="Search by name, type, product, region, notes..."
                                    oninput="filterLenders()"
                                    style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 300px;">
                             <select id="lenderCountryFilter" onchange="filterLenders()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
@@ -6895,7 +6895,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 (lender.lender_type || '').toLowerCase().includes(search) ||
                 (lender.country || '').toLowerCase().includes(search) ||
                 (lender.currency || '').toLowerCase().includes(search) ||
-                (lender.lender_id || '').toLowerCase().includes(search);
+                (lender.lender_id || '').toLowerCase().includes(search) ||
+                (lender.preferred_products || []).some(p => p.toLowerCase().includes(search)) ||
+                (lender.consider_products || []).some(p => p.toLowerCase().includes(search)) ||
+                (lender.purchase_options || []).some(p => p.toLowerCase().includes(search)) ||
+                (lender.approval_speed || '').toLowerCase().includes(search) ||
+                (lender.restricted_industries || '').toLowerCase().includes(search) ||
+                (lender.covered_regions || '').toLowerCase().includes(search) ||
+                (lender.rate_range || '').toLowerCase().includes(search) ||
+                (lender.special_notes || '').toLowerCase().includes(search);
             const matchesCountry = !countryFilter || (lender.country || '').includes(countryFilter);
             const matchesStatus = !statusFilter || lender.status === statusFilter;
             return matchesSearch && matchesCountry && matchesStatus;
