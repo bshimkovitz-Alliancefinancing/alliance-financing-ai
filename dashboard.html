@@ -15291,7 +15291,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Log change to admin_notes
             await logLenderFieldChange(lenderId, currentLender, field, oldValue, value);
 
-            await loadLenders();
+            // Refresh lender list in background
+            loadLenders();
         } catch (error) {
             console.error('Update lender field error:', error);
             alert('Error updating field: ' + error.message);
@@ -15300,7 +15301,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     async function updateLenderProducts(lenderId, field, checkboxName) {
         const checked = Array.from(document.querySelectorAll('input[name="' + checkboxName + '"]:checked')).map(cb => cb.value);
-        await updateLenderField(lenderId, field, checked.length > 0 ? checked : null);
+        try {
+            const { data: currentLender } = await db.from('lenders').select(field + ', admin_notes, name').eq('id', lenderId).single();
+            const oldValue = currentLender ? currentLender[field] : null;
+            const newValue = checked.length > 0 ? checked : null;
+
+            const { error } = await db
+                .from('lenders')
+                .update({ [field]: newValue })
+                .eq('id', lenderId);
+
+            if (error) {
+                console.error('Update lender products error:', error);
+                alert('Error saving products: ' + error.message);
+                return;
+            }
+
+            // Log change to admin_notes
+            await logLenderFieldChange(lenderId, currentLender, field, oldValue, newValue);
+
+            // Refresh the modal to show saved state
+            await viewLender(lenderId);
+        } catch (err) {
+            console.error('Update lender products error:', err);
+            alert('Error saving products: ' + (err.message || 'Unknown error'));
+        }
     }
 
     async function logLenderFieldChange(lenderId, currentLender, field, oldValue, newValue) {
