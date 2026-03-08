@@ -464,6 +464,76 @@ function showTokenBlockedMessage(title, subtitle) {
 
 validateSentAppToken();
 
+// ============================================
+// Quote Display (Attached via Send Application)
+// ============================================
+var quoteToken = new URLSearchParams(window.location.search).get('quote');
+
+async function loadAttachedQuote() {
+    if (!quoteToken) return;
+    try {
+        var { data: record, error } = await db.from('applications_sent')
+            .select('quote_data')
+            .eq('link_token', quoteToken)
+            .maybeSingle();
+        if (error || !record || !record.quote_data) return;
+
+        var q = record.quote_data;
+        var banner = document.createElement('div');
+        banner.id = 'quoteBanner';
+        banner.style.cssText = 'background:#EFF6FF;border:2px solid #93C5FD;border-radius:12px;padding:20px 24px;margin:0 0 24px;';
+
+        if (q.type === 'file') {
+            banner.innerHTML =
+                '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' +
+                '<span style="font-size:24px;">📎</span>' +
+                '<strong style="font-size:15px;color:#1E40AF;">Equipment Quote Attached</strong></div>' +
+                '<p style="font-size:13px;color:#475569;margin:0 0 10px;">A quote has been included with this application for your reference.</p>' +
+                (q.url ? '<a href="' + q.url + '" target="_blank" style="display:inline-block;background:#2563EB;color:white;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">View Quote Document</a>' : '') +
+                (q.file_name ? '<span style="font-size:12px;color:#64748B;margin-left:10px;">' + q.file_name + '</span>' : '');
+        } else if (q.type === 'manual') {
+            var rows = '';
+            if (q.equipment_description) rows += '<tr><td style="padding:4px 16px 4px 0;font-weight:600;color:#1E40AF;font-size:13px;white-space:nowrap;">Equipment:</td><td style="padding:4px 0;font-size:13px;color:#334155;">' + q.equipment_description + '</td></tr>';
+            if (q.equipment_cost) rows += '<tr><td style="padding:4px 16px 4px 0;font-weight:600;color:#1E40AF;font-size:13px;white-space:nowrap;">Estimated Cost:</td><td style="padding:4px 0;font-size:13px;color:#334155;">$' + q.equipment_cost + '</td></tr>';
+            if (q.vendor_name) rows += '<tr><td style="padding:4px 16px 4px 0;font-weight:600;color:#1E40AF;font-size:13px;white-space:nowrap;">Vendor:</td><td style="padding:4px 0;font-size:13px;color:#334155;">' + q.vendor_name + '</td></tr>';
+            if (q.condition) rows += '<tr><td style="padding:4px 16px 4px 0;font-weight:600;color:#1E40AF;font-size:13px;white-space:nowrap;">Condition:</td><td style="padding:4px 0;font-size:13px;color:#334155;">' + q.condition + '</td></tr>';
+            if (q.notes) rows += '<tr><td style="padding:4px 16px 4px 0;font-weight:600;color:#1E40AF;font-size:13px;white-space:nowrap;">Notes:</td><td style="padding:4px 0;font-size:13px;color:#334155;">' + q.notes + '</td></tr>';
+            banner.innerHTML =
+                '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
+                '<span style="font-size:24px;">📋</span>' +
+                '<strong style="font-size:15px;color:#1E40AF;">Equipment Quote Details</strong></div>' +
+                '<table style="border-collapse:collapse;">' + rows + '</table>';
+
+            // Auto-fill equipment fields from quote data
+            if (q.equipment_description) {
+                var descField = document.getElementById('equipmentDesc');
+                if (descField && !descField.value) descField.value = q.equipment_description;
+            }
+            if (q.equipment_cost) {
+                var costField = document.getElementById('equipmentCost');
+                if (costField && !costField.value) costField.value = '$' + q.equipment_cost;
+            }
+            if (q.vendor_name) {
+                var vendorField = document.getElementById('vendorName');
+                if (vendorField && !vendorField.value) vendorField.value = q.vendor_name;
+            }
+            if (q.condition) {
+                var condRadios = document.querySelectorAll('input[name="condition"]');
+                condRadios.forEach(function(r) { if (r.value === q.condition) r.checked = true; });
+            }
+        }
+
+        // Insert banner at top of form card
+        var formCard = document.getElementById('formCard');
+        if (formCard) formCard.insertBefore(banner, formCard.firstChild);
+
+    } catch (err) {
+        console.error('Load attached quote error:', err);
+    }
+}
+
+loadAttachedQuote();
+
 function toggleEquipLocation(){
     var f=document.getElementById('equipLocationFields');
     f.style.display=document.getElementById('sameAsAbove').checked?'none':'block';

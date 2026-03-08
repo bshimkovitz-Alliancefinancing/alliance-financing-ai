@@ -382,6 +382,13 @@
             // Set page title
             document.title = agent.full_name + ' — Alliance Financing Group Partner';
 
+            // Detect vendor agent type — show equipment-focused layout
+            const isVendor = ['vendor_program', 'vendor_salesperson'].includes(agent.agent_type);
+            if (isVendor) {
+                renderVendorLayout(agent, slug);
+                return;
+            }
+
             // Determine which products to show
             let productKeys = agent.landing_page_products || DEFAULT_PRODUCTS;
             if (typeof productKeys === 'string') {
@@ -447,6 +454,74 @@
             console.error('Partner page load error:', err);
             showError();
         }
+    }
+
+    function renderVendorLayout(agent, slug) {
+        // Replace hero content for vendor/equipment focus
+        document.querySelector('.hero h1').innerHTML = 'Finance Your Equipment <em>Today</em>';
+        document.getElementById('heroSubtitle').textContent = 'Get fast, flexible equipment financing through Alliance\'s network of 70+ lenders. ' + (agent.full_name || 'Your sales representative') + ' is here to help you secure the best rates.';
+
+        // Update stats bar for vendor context
+        var statsInner = document.querySelector('.stats-bar-inner');
+        statsInner.innerHTML =
+            '<div class="stat-item"><div class="stat-num">$2.5K–$10M+</div><div class="stat-label">Financing Range</div></div>' +
+            '<div class="stat-item"><div class="stat-num">70+</div><div class="stat-label">Lender Partners</div></div>' +
+            '<div class="stat-item"><div class="stat-num">New & Used</div><div class="stat-label">Equipment</div></div>' +
+            '<div class="stat-item"><div class="stat-num">Fast</div><div class="stat-label">Approvals</div></div>';
+
+        // Replace products section with equipment benefits
+        var productsSection = document.querySelector('.section');
+        productsSection.querySelector('.section-label').textContent = 'Equipment Financing';
+        productsSection.querySelector('.section-title').textContent = 'Why Finance Through Alliance?';
+        productsSection.querySelector('.section-subtitle').textContent = 'We make it easy for you and your customers to get the equipment financing they need.';
+        var grid = document.getElementById('productsGrid');
+        grid.innerHTML =
+            '<div class="product-card"><div class="product-icon">⚡</div><div class="product-name">Fast Approvals</div><div class="product-desc">Our AI-powered platform matches applications with the best lender from 70+ partners for quick decisions.</div></div>' +
+            '<div class="product-card"><div class="product-icon">📋</div><div class="product-name">Simple Application</div><div class="product-desc">One quick online application — no paperwork hassle. We handle the rest so you can focus on selling.</div></div>' +
+            '<div class="product-card"><div class="product-icon">🏗️</div><div class="product-name">All Equipment Types</div><div class="product-desc">Construction, technology, vehicles, medical, manufacturing — we finance virtually any type of business equipment.</div></div>' +
+            '<div class="product-card"><div class="product-icon">💰</div><div class="product-name">Competitive Rates</div><div class="product-desc">Access to 70+ lenders means competitive rates and flexible terms tailored to each customer\'s situation.</div></div>' +
+            '<div class="product-card"><div class="product-icon">🤝</div><div class="product-name">Vendor Support</div><div class="product-desc">Dedicated support for you and your customers throughout the entire financing process.</div></div>' +
+            '<div class="product-card"><div class="product-icon">✅</div><div class="product-name">High Approval Rates</div><div class="product-desc">Our broad lender network means more approvals — even for newer businesses or challenging credit situations.</div></div>';
+
+        // Update How It Works for vendor context
+        var steps = document.querySelectorAll('.step-card');
+        if (steps.length >= 3) {
+            steps[0].querySelector('.step-title').textContent = 'Customer Applies';
+            steps[0].querySelector('.step-desc').textContent = 'Your customer completes a quick online application in under 5 minutes. You can also send the application directly with a quote attached.';
+            steps[1].querySelector('.step-title').textContent = 'We Find the Best Lender';
+            steps[1].querySelector('.step-desc').textContent = 'Our AI scans 70+ lenders to find the best financing terms for your customer\'s equipment purchase.';
+            steps[2].querySelector('.step-title').textContent = 'Equipment Gets Funded';
+            steps[2].querySelector('.step-desc').textContent = 'Once approved, financing is arranged and you get paid. Flexible lease and loan terms available for your customers.';
+        }
+
+        // CTA section — single "Apply for Equipment Financing" button
+        document.querySelector('.cta-section h2').innerHTML = 'Ready to <em>Get Financed</em>?';
+        document.querySelector('.cta-section p').textContent = 'Start your equipment financing application in under 5 minutes.';
+        var ctaButtons = document.getElementById('ctaButtons');
+        ctaButtons.innerHTML = '<a href="apply-leasing.html?ref=' + encodeURIComponent(slug) + '" class="cta-btn cta-btn-gold">Apply for Equipment Financing</a>' +
+            '<a href="#contact" class="cta-btn cta-btn-outline" onclick="document.getElementById(\'contactFormSection\').style.display=\'block\';document.getElementById(\'contactFormSection\').scrollIntoView({behavior:\'smooth\'});return false;">Contact Us</a>';
+
+        // Populate contact form with agent name
+        window._partnerAgent = agent;
+        var contactNameEl = document.getElementById('contactAgentName');
+        if (contactNameEl) contactNameEl.textContent = agent.full_name || 'your sales representative';
+        var successMsgEl = document.getElementById('contactSuccessMsg');
+        if (successMsgEl) successMsgEl.textContent = 'Thank you for reaching out. ' + (agent.full_name || 'Your representative') + ' will be in touch shortly.';
+
+        // Show contact info
+        if (agent.email || agent.phone) {
+            var contactBar = document.getElementById('contactBar');
+            var contactInner = document.getElementById('contactBarInner');
+            contactBar.style.display = 'block';
+            var contactHtml = '<span style="font-weight:600;color:var(--navy);">Contact ' + (agent.full_name || 'your representative') + ':</span>';
+            if (agent.phone) contactHtml += '<div class="contact-item">📞 <a href="tel:' + agent.phone.replace(/\s/g, '') + '">' + agent.phone + '</a></div>';
+            if (agent.email) contactHtml += '<div class="contact-item">✉️ <a href="mailto:' + agent.email + '">' + agent.email + '</a></div>';
+            contactInner.innerHTML = contactHtml;
+        }
+
+        // Show page
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('pageContent').style.display = 'block';
     }
 
     function showError() {

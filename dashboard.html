@@ -3036,6 +3036,51 @@
                     </div>
                 </div>
 
+                <!-- Quote Attachment Section (shows for leasing applications) -->
+                <div id="sendAppQuoteSection" style="display: none; border: 1px solid #DBEAFE; background: #EFF6FF; border-radius: 8px; padding: 14px; margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; color: #1E40AF; margin-bottom: 8px; font-size: 13px;">📎 Attach Equipment Quote (optional)</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <button type="button" id="quoteMethodUpload" onclick="toggleQuoteMethod('upload')" style="flex:1;padding:8px;border:2px solid #93C5FD;border-radius:6px;background:white;cursor:pointer;font-size:12px;font-weight:600;color:#1E40AF;">Upload Quote PDF</button>
+                        <button type="button" id="quoteMethodManual" onclick="toggleQuoteMethod('manual')" style="flex:1;padding:8px;border:2px solid #E2E8F0;border-radius:6px;background:white;cursor:pointer;font-size:12px;font-weight:600;color:var(--text-light);">Enter Details Manually</button>
+                    </div>
+                    <!-- Upload method -->
+                    <div id="quoteUploadArea" style="display:block;">
+                        <input type="file" id="quoteFileInput" accept=".pdf,.jpg,.jpeg,.png" style="width:100%;padding:6px;border:1px solid #93C5FD;border-radius:4px;font-size:12px;background:white;">
+                        <p style="font-size:11px;color:#64748B;margin-top:4px;">PDF, JPG, or PNG — max 10MB</p>
+                    </div>
+                    <!-- Manual entry method -->
+                    <div id="quoteManualArea" style="display:none;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                            <div>
+                                <label style="font-size:11px;color:#64748B;display:block;margin-bottom:2px;">Equipment Description</label>
+                                <input type="text" id="quoteEquipDesc" placeholder="e.g. CAT 320 Excavator" style="width:100%;padding:6px 8px;border:1px solid #93C5FD;border-radius:4px;font-size:13px;">
+                            </div>
+                            <div>
+                                <label style="font-size:11px;color:#64748B;display:block;margin-bottom:2px;">Equipment Cost ($)</label>
+                                <input type="text" id="quoteEquipCost" placeholder="e.g. 125,000" style="width:100%;padding:6px 8px;border:1px solid #93C5FD;border-radius:4px;font-size:13px;">
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                            <div>
+                                <label style="font-size:11px;color:#64748B;display:block;margin-bottom:2px;">Vendor / Dealer Name</label>
+                                <input type="text" id="quoteVendorName" placeholder="e.g. Heavy Equipment Co." style="width:100%;padding:6px 8px;border:1px solid #93C5FD;border-radius:4px;font-size:13px;">
+                            </div>
+                            <div>
+                                <label style="font-size:11px;color:#64748B;display:block;margin-bottom:2px;">Condition</label>
+                                <select id="quoteCondition" style="width:100%;padding:6px 8px;border:1px solid #93C5FD;border-radius:4px;font-size:13px;">
+                                    <option value="New">New</option>
+                                    <option value="Used">Used</option>
+                                    <option value="Refurbished">Refurbished</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size:11px;color:#64748B;display:block;margin-bottom:2px;">Additional Notes</label>
+                            <textarea id="quoteNotes" placeholder="Any other details about the quote..." rows="2" style="width:100%;padding:6px 8px;border:1px solid #93C5FD;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical;"></textarea>
+                        </div>
+                    </div>
+                </div>
+
                 <div style="border-top: 1px solid var(--border-gray); padding-top: 15px;">
                     <label style="display: block; font-weight: 600; color: var(--navy); margin-bottom: 6px;">Email the form to a client:</label>
                     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
@@ -10104,6 +10149,30 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         }
         document.getElementById('sendAppLinkUrl').value = url;
         document.getElementById('sendAppLinkSection').style.display = 'block';
+
+        // Show quote section only for leasing applications
+        var quoteSection = document.getElementById('sendAppQuoteSection');
+        if (quoteSection) {
+            quoteSection.style.display = (type === 'leasing') ? 'block' : 'none';
+        }
+    }
+
+    function toggleQuoteMethod(method) {
+        var uploadBtn = document.getElementById('quoteMethodUpload');
+        var manualBtn = document.getElementById('quoteMethodManual');
+        var uploadArea = document.getElementById('quoteUploadArea');
+        var manualArea = document.getElementById('quoteManualArea');
+        if (method === 'upload') {
+            uploadBtn.style.borderColor = '#93C5FD'; uploadBtn.style.color = '#1E40AF';
+            manualBtn.style.borderColor = '#E2E8F0'; manualBtn.style.color = 'var(--text-light)';
+            uploadArea.style.display = 'block';
+            manualArea.style.display = 'none';
+        } else {
+            manualBtn.style.borderColor = '#93C5FD'; manualBtn.style.color = '#1E40AF';
+            uploadBtn.style.borderColor = '#E2E8F0'; uploadBtn.style.color = 'var(--text-light)';
+            uploadArea.style.display = 'none';
+            manualArea.style.display = 'block';
+        }
     }
 
     function openSendApplicationModalWithRef(ref) {
@@ -10196,12 +10265,71 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         // Generate unique token and 15-day expiry for one-time use links
         var linkToken = crypto.randomUUID();
         var expiresAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
-        // Append token to the application link
+
+        // Handle quote attachment for leasing applications
+        var quoteData = null;
+        var quoteFileUrl = null;
+        if (selectedSendAppType === 'leasing') {
+            // Check if a quote file was uploaded
+            var quoteFileInput = document.getElementById('quoteFileInput');
+            if (quoteFileInput && quoteFileInput.files.length > 0) {
+                var quoteFile = quoteFileInput.files[0];
+                if (quoteFile.size > 10 * 1024 * 1024) { alert('Quote file exceeds 10MB limit.'); return; }
+                try {
+                    var quotePath = 'quotes/' + linkToken + '/' + quoteFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                    await uploadToStorage('deal-documents', quotePath, quoteFile);
+                    // Get a signed URL for the quote
+                    var { data: qUrlData } = await db.storage.from('deal-documents').createSignedUrl(quotePath, 30 * 24 * 3600); // 30 days
+                    quoteFileUrl = (qUrlData && qUrlData.signedUrl) ? qUrlData.signedUrl : getBrandedDocUrl(quotePath);
+                    quoteData = { type: 'file', file_name: quoteFile.name, storage_path: quotePath, url: quoteFileUrl };
+                } catch (qErr) {
+                    console.error('Quote upload error:', qErr);
+                    // Continue without quote — don't block the send
+                }
+            }
+            // Check if manual quote details were entered
+            var quoteEquipDesc = document.getElementById('quoteEquipDesc');
+            if (!quoteData && quoteEquipDesc && quoteEquipDesc.value.trim()) {
+                quoteData = {
+                    type: 'manual',
+                    equipment_description: quoteEquipDesc.value.trim(),
+                    equipment_cost: (document.getElementById('quoteEquipCost').value || '').trim(),
+                    vendor_name: (document.getElementById('quoteVendorName').value || '').trim(),
+                    condition: document.getElementById('quoteCondition').value || 'New',
+                    notes: (document.getElementById('quoteNotes').value || '').trim()
+                };
+            }
+        }
+
+        // Append token (and quote reference if available) to the application link
         var tokenizedLink = link + (link.includes('?') ? '&' : '?') + 'token=' + linkToken;
+        if (quoteData) {
+            tokenizedLink += '&quote=' + linkToken;
+        }
 
         var typeNames = { leasing: 'Equipment Leasing', mca: 'Merchant Cash Advance', wc: 'Working Capital & Factoring', general: 'Financing' };
         var typeName = typeNames[selectedSendAppType];
         var subject = 'Alliance Financing - ' + typeName + ' Application';
+
+        // Build quote section for email if we have quote data
+        var quoteHtml = '';
+        if (quoteData) {
+            if (quoteData.type === 'file') {
+                quoteHtml = '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:12px;margin:12px 0;">' +
+                    '<p style="font-size:13px;color:#1E40AF;font-weight:600;margin:0 0 4px;">📎 Equipment Quote Attached</p>' +
+                    '<p style="font-size:12px;color:#475569;margin:0;">A quote has been included with this application. <a href="' + quoteFileUrl + '" style="color:#2563EB;font-weight:600;">View Quote</a></p></div>';
+            } else if (quoteData.type === 'manual') {
+                quoteHtml = '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:12px;margin:12px 0;">' +
+                    '<p style="font-size:13px;color:#1E40AF;font-weight:600;margin:0 0 6px;">📋 Equipment Details</p>' +
+                    '<table style="font-size:12px;color:#475569;border-collapse:collapse;">' +
+                    (quoteData.equipment_description ? '<tr><td style="padding:2px 12px 2px 0;font-weight:600;">Equipment:</td><td>' + quoteData.equipment_description + '</td></tr>' : '') +
+                    (quoteData.equipment_cost ? '<tr><td style="padding:2px 12px 2px 0;font-weight:600;">Cost:</td><td>$' + quoteData.equipment_cost + '</td></tr>' : '') +
+                    (quoteData.vendor_name ? '<tr><td style="padding:2px 12px 2px 0;font-weight:600;">Vendor:</td><td>' + quoteData.vendor_name + '</td></tr>' : '') +
+                    (quoteData.condition ? '<tr><td style="padding:2px 12px 2px 0;font-weight:600;">Condition:</td><td>' + quoteData.condition + '</td></tr>' : '') +
+                    (quoteData.notes ? '<tr><td style="padding:2px 12px 2px 0;font-weight:600;">Notes:</td><td>' + quoteData.notes + '</td></tr>' : '') +
+                    '</table></div>';
+            }
+        }
 
         // Build personal message paragraph if provided
         var personalParagraph = personalMsg
@@ -10219,6 +10347,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             '<p style="font-size:16px;color:#1E293B;">Hi ' + clientName + ',</p>' +
             personalParagraph +
             '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your interest in financing with Alliance Financing Group.</p>' +
+            quoteHtml +
             '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete our <strong>' + typeName + '</strong> application using the button below:</p>' +
             '<div style="text-align:center;margin:25px 0;">' +
             '<a href="' + tokenizedLink + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Complete Application</a></div>' +
@@ -10261,7 +10390,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     referral_agent: referralAgentName || null,
                     referral_slug: referralAgentSlug || null,
                     link_token: linkToken,
-                    expires_at: expiresAt
+                    expires_at: expiresAt,
+                    quote_data: quoteData || null
                 });
             } catch (trackErr) { console.error('Failed to log sent application:', trackErr); }
             statusDiv.style.display = 'block';
