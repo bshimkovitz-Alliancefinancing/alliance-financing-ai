@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix Simon Vendryes Status</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; background: #F8FAFC; }
+        .card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { color: #0D1E3D; font-size: 18px; }
+        .btn { display: inline-block; background: #0D1E3D; color: #C9A84C; padding: 12px 28px; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 15px; width: 100%; }
+        .btn:hover { background: #162d5a; }
+        .result { margin-top: 15px; padding: 12px; border-radius: 8px; font-size: 13px; display: none; }
+        .success { background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
+        .error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Fix Simon Vendryes - Onboarding Status</h1>
+        <p style="color:#64748B;font-size:13px;">Updates onboarding_status from "invited" to "pending_setup" and clears invite_sent_at since no invite was sent.</p>
+        <button class="btn" id="fixBtn" onclick="fixStatus()">Fix Onboarding Status</button>
+        <div class="result" id="result"></div>
+    </div>
+    <script>
+        const db = supabase.createClient(
+            'https://uernphejrcsicnkobsdw.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI'
+        );
+        async function fixStatus() {
+            const btn = document.getElementById('fixBtn');
+            const result = document.getElementById('result');
+            btn.disabled = true;
+            btn.textContent = 'Updating...';
+            try {
+                const { data, error } = await db.from('users')
+                    .update({ onboarding_status: 'pending_setup', invite_sent_at: null })
+                    .eq('email', 'simon.vendryes@rmabroker.ca')
+                    .select();
+                if (error) throw error;
+                result.className = 'result success';
+                result.innerHTML = '✅ Updated! Onboarding status is now "Pending Setup". You can close this page.';
+                result.style.display = 'block';
+                btn.textContent = 'Done ✓';
+            } catch (err) {
+                result.className = 'result error';
+                result.innerHTML = '❌ Error: ' + (err.message || JSON.stringify(err));
+                result.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Retry';
+            }
+        }
+    </script>
+</body>
+</html>
