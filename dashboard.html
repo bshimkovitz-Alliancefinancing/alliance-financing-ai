@@ -1856,8 +1856,8 @@
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Document Center</div>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <input type="text" id="docSearchInput" placeholder="Search by company, file name..." oninput="filterDocumentsPage()" style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; width: 220px;">
-                            <select id="docTypeFilter" onchange="filterDocumentsPage()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; cursor: pointer;">
+                            <input type="text" id="docSearchInput" placeholder="Search by company, file name..." oninput="filterDocumentsPage(true)" style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; width: 220px;">
+                            <select id="docTypeFilter" onchange="filterDocumentsPage(true)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; cursor: pointer;">
                                 <option value="">All Types</option>
                                 <option value="bank_statement">Bank Statement</option>
                                 <option value="processing_statement">Processing Statement</option>
@@ -1874,17 +1874,29 @@
                                 <option value="approval_letter">Approval Letter</option>
                                 <option value="other">Other</option>
                             </select>
-                            <select id="docStatusFilter" onchange="filterDocumentsPage()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; cursor: pointer;">
+                            <select id="docStatusFilter" onchange="filterDocumentsPage(true)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; cursor: pointer;">
                                 <option value="">All Statuses</option>
                                 <option value="complete">Complete (5+ docs)</option>
                                 <option value="partial">Partial (1-4 docs)</option>
                                 <option value="missing">Missing (0 docs)</option>
                             </select>
                             <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#64748B;cursor:pointer;user-select:none;">
-                                <input type="checkbox" id="docShowArchived" onchange="filterDocumentsPage()" style="cursor:pointer;"> Show Archived
+                                <input type="checkbox" id="docShowArchived" onchange="filterDocumentsPage(true)" style="cursor:pointer;"> Show Archived
                             </label>
                             <button class="btn btn-secondary btn-sm" onclick="toggleAllDealFolders(true)" style="padding: 5px 10px; font-size: 11px;">Expand All</button>
                             <button class="btn btn-secondary btn-sm" onclick="toggleAllDealFolders(false)" style="padding: 5px 10px; font-size: 11px;">Collapse All</button>
+                        </div>
+                    </div>
+
+                    <!-- Bulk Action Toolbar (hidden until selections made) -->
+                    <div id="docBulkActionBar" style="display:none;margin:0 20px 10px 20px;padding:10px 16px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;display:none;justify-content:space-between;align-items:center;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span style="font-weight:600;font-size:13px;color:#92400E;" id="docBulkCount">0 files selected</span>
+                            <button onclick="docSelectAllVisible()" class="btn btn-sm" style="padding:3px 10px;font-size:11px;background:#fff;border:1px solid #D97706;color:#92400E;border-radius:4px;cursor:pointer;">Select All Visible</button>
+                            <button onclick="docClearSelection()" class="btn btn-sm" style="padding:3px 10px;font-size:11px;background:#fff;border:1px solid #ccc;color:#64748B;border-radius:4px;cursor:pointer;">Clear Selection</button>
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                            <button onclick="docBulkArchive()" class="btn btn-sm" style="padding:5px 14px;font-size:12px;background:#F59E0B;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;">Archive Selected</button>
                         </div>
                     </div>
 
@@ -10467,6 +10479,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     var allDocDeals = [];
     var pendingDocFiles = [];
     var expandedDealFolders = {};
+    var docCurrentPage = 1;
+    var docPageSize = 15;
 
     var docTypeLabelsGlobal = {
         bank_statement: 'Bank Statement', processing_statement: 'Processing Statement',
@@ -10559,7 +10573,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         document.getElementById('docStatSize').textContent = totalMB > 1024 ? (totalMB / 1024).toFixed(1) + ' GB' : totalMB + ' MB';
     }
 
-    function filterDocumentsPage() {
+    function filterDocumentsPage(resetPage) {
+        if (resetPage) docCurrentPage = 1;
         var search = (document.getElementById('docSearchInput').value || '').toLowerCase();
         var typeFilter = document.getElementById('docTypeFilter').value;
         var statusFilter = document.getElementById('docStatusFilter').value;
@@ -10571,11 +10586,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var unlinkedDocs = [];
 
         allDocumentsPage.forEach(function(doc) {
-            // Archive filter — hide archived unless toggle is on
             if (doc.archived && !showArchived) return;
-            // Agent visibility filter
             if (!isAdmin && doc.visible_to_agent !== true && doc.uploaded_by !== currentUserId) return;
-            // Type filter
             if (typeFilter && doc.document_type !== typeFilter) return;
 
             if (doc.deal_id) {
@@ -10586,9 +10598,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             }
         });
 
-        // Build deal groups: include deals with docs AND deals without docs (for "missing" filter)
         var dealGroups = [];
-        var dealsWithDocsSet = new Set(Object.keys(docsByDeal));
 
         allDocDeals.forEach(function(deal) {
             var docs = docsByDeal[deal.id] || [];
@@ -10599,7 +10609,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             if (statusFilter === 'partial' && (docCount < 1 || docCount >= 5)) return;
             if (statusFilter === 'missing' && docCount > 0) return;
 
-            // Search filter (match on company name or file names within)
+            // Hide deals with 0 documents by default (unless searching, filtering by status, or explicitly requesting missing)
+            if (!search && !statusFilter && docCount === 0) return;
+
+            // Search filter
             if (search) {
                 var companyMatch = (deal.company_name || '').toLowerCase().includes(search);
                 var fileMatch = docs.some(function(d) {
@@ -10613,7 +10626,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             dealGroups.push({ deal: deal, docs: docs });
         });
 
-        // Sort: deals with most recent uploads first, then alphabetically
+        // Sort: deals with most recent uploads first
         dealGroups.sort(function(a, b) {
             if (a.docs.length > 0 && b.docs.length > 0) {
                 var aDate = new Date(a.docs[0].uploaded_at || 0);
@@ -10625,10 +10638,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             return (a.deal.company_name || '').localeCompare(b.deal.company_name || '');
         });
 
-        renderGroupedDocuments(dealGroups, unlinkedDocs);
+        // Pagination
+        var totalGroups = dealGroups.length;
+        var totalPages = Math.max(1, Math.ceil(totalGroups / docPageSize));
+        if (docCurrentPage > totalPages) docCurrentPage = totalPages;
+        var startIdx = (docCurrentPage - 1) * docPageSize;
+        var pagedGroups = dealGroups.slice(startIdx, startIdx + docPageSize);
+
+        renderGroupedDocuments(pagedGroups, unlinkedDocs, totalGroups, totalPages);
     }
 
-    function renderGroupedDocuments(dealGroups, unlinkedDocs) {
+    function renderGroupedDocuments(dealGroups, unlinkedDocs, totalGroups, totalPages) {
         var container = document.getElementById('docGroupedContainer');
         var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
@@ -10637,7 +10657,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             return;
         }
 
+        // Pagination header
         var html = '';
+        if (totalGroups > docPageSize) {
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 12px;font-size:13px;color:#64748B;">';
+            html += '<span>Showing ' + ((docCurrentPage - 1) * docPageSize + 1) + '–' + Math.min(docCurrentPage * docPageSize, totalGroups) + ' of ' + totalGroups + ' deals</span>';
+            html += '<div style="display:flex;gap:6px;align-items:center;">';
+            html += '<button onclick="docGoToPage(' + (docCurrentPage - 1) + ')" ' + (docCurrentPage <= 1 ? 'disabled' : '') + ' style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;cursor:pointer;background:#fff;' + (docCurrentPage <= 1 ? 'opacity:0.4;cursor:default;' : '') + '">← Prev</button>';
+            html += '<span style="font-size:12px;font-weight:600;">Page ' + docCurrentPage + ' of ' + totalPages + '</span>';
+            html += '<button onclick="docGoToPage(' + (docCurrentPage + 1) + ')" ' + (docCurrentPage >= totalPages ? 'disabled' : '') + ' style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;cursor:pointer;background:#fff;' + (docCurrentPage >= totalPages ? 'opacity:0.4;cursor:default;' : '') + '">Next →</button>';
+            html += '</div></div>';
+        } else if (totalGroups > 0) {
+            html += '<div style="padding:4px 4px 10px;font-size:13px;color:#64748B;">' + totalGroups + ' deal' + (totalGroups !== 1 ? 's' : '') + ' with documents</div>';
+        }
 
         dealGroups.forEach(function(group) {
             var deal = group.deal;
@@ -10785,9 +10817,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                             var rowOpacity = isArchived ? 'opacity:0.7;' : '';
 
                             html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:' + rowBg + ';border:1px solid ' + rowBorder + ';border-radius:6px;margin-bottom:4px;' + rowOpacity + '">';
+                            html += '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">';
+                            if (isAdmin) html += '<input type="checkbox" class="doc-bulk-checkbox" value="' + doc.id + '" onchange="docUpdateBulkBar()" style="cursor:pointer;flex-shrink:0;">';
                             html += '<div style="flex:1;min-width:0;">';
                             html += '<div style="font-weight:500;font-size:13px;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + icon + ' ' + (doc.file_name || 'Unknown') + visBadge + '</div>';
                             html += '<div style="font-size:11px;color:#64748B;margin-top:1px;">' + sizeMB + (uploaded ? ' • ' + uploaded : '') + ' • ' + uploader + (doc.notes ? ' • <em>' + doc.notes + '</em>' : '') + '</div>';
+                            html += '</div>';
                             html += '</div>';
                             html += '<div style="display:flex;gap:4px;margin-left:10px;flex-shrink:0;">' + actions + '</div>';
                             html += '</div>';
@@ -10815,7 +10850,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             html += '</div>';
         }
 
+        // Bottom pagination
+        if (totalGroups > docPageSize) {
+            html += '<div style="display:flex;justify-content:center;align-items:center;padding:12px 4px 4px;gap:6px;">';
+            html += '<button onclick="docGoToPage(' + (docCurrentPage - 1) + ')" ' + (docCurrentPage <= 1 ? 'disabled' : '') + ' style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;cursor:pointer;background:#fff;' + (docCurrentPage <= 1 ? 'opacity:0.4;cursor:default;' : '') + '">← Prev</button>';
+            html += '<span style="font-size:12px;font-weight:600;color:#64748B;">Page ' + docCurrentPage + ' of ' + totalPages + '</span>';
+            html += '<button onclick="docGoToPage(' + (docCurrentPage + 1) + ')" ' + (docCurrentPage >= totalPages ? 'disabled' : '') + ' style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;cursor:pointer;background:#fff;' + (docCurrentPage >= totalPages ? 'opacity:0.4;cursor:default;' : '') + '">Next →</button>';
+            html += '</div>';
+        }
+
         container.innerHTML = html;
+    }
+
+    function docGoToPage(page) {
+        docCurrentPage = page;
+        filterDocumentsPage();
+        // Scroll to top of document section
+        var docSection = document.getElementById('documents');
+        if (docSection) docSection.scrollIntoView({ behavior: 'smooth' });
     }
 
     function toggleDealFolder(dealId) {
@@ -10828,6 +10880,52 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             expandedDealFolders[deal.id] = expand;
         });
         filterDocumentsPage();
+    }
+
+    // Bulk selection functions
+    function docUpdateBulkBar() {
+        var checked = document.querySelectorAll('.doc-bulk-checkbox:checked');
+        var bar = document.getElementById('docBulkActionBar');
+        if (checked.length > 0) {
+            bar.style.display = 'flex';
+            document.getElementById('docBulkCount').textContent = checked.length + ' file' + (checked.length !== 1 ? 's' : '') + ' selected';
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+
+    function docSelectAllVisible() {
+        var checkboxes = document.querySelectorAll('.doc-bulk-checkbox');
+        checkboxes.forEach(function(cb) { cb.checked = true; });
+        docUpdateBulkBar();
+    }
+
+    function docClearSelection() {
+        var checkboxes = document.querySelectorAll('.doc-bulk-checkbox');
+        checkboxes.forEach(function(cb) { cb.checked = false; });
+        docUpdateBulkBar();
+    }
+
+    async function docBulkArchive() {
+        var checked = document.querySelectorAll('.doc-bulk-checkbox:checked');
+        if (checked.length === 0) return;
+        if (!confirm('Archive ' + checked.length + ' file' + (checked.length !== 1 ? 's' : '') + '? They can be restored later from the "Show Archived" view.')) return;
+
+        var ids = Array.from(checked).map(function(cb) { return cb.value; });
+        var errors = 0;
+        for (var i = 0; i < ids.length; i++) {
+            try {
+                var { error } = await db.from('documents').update({ archived: true }).eq('id', ids[i]);
+                if (error) errors++;
+            } catch(e) { errors++; }
+        }
+
+        if (errors > 0) {
+            alert('Archived ' + (ids.length - errors) + ' files. ' + errors + ' failed.');
+        }
+
+        document.getElementById('docBulkActionBar').style.display = 'none';
+        await loadDocumentsPage();
     }
 
     // Archive / Restore from Documents page (no delete — files are never removed)
