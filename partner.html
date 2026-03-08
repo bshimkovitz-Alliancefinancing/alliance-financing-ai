@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alliance Financing Group — Partner Page</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --navy: #0D1E3D;
+            --navy-mid: #1A3160;
+            --gold: #C9A84C;
+            --gold-light: #E8D5A0;
+            --white: #FFFFFF;
+            --off-white: #F8FAFC;
+            --gray: #64748B;
+            --border: #E2E8F0;
+            --text: #1E293B;
+            --text-light: #475569;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; color: var(--text); background: var(--white); }
+
+        /* Loading state */
+        .loading-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--off-white); }
+        .loading-spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Error state */
+        .error-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: var(--off-white); text-align: center; padding: 40px; }
+        .error-screen h1 { color: var(--navy); font-size: 24px; margin-bottom: 10px; }
+        .error-screen p { color: var(--gray); font-size: 16px; margin-bottom: 20px; }
+        .error-screen a { color: var(--gold); font-weight: 600; text-decoration: none; }
+
+        /* Navbar */
+        .navbar { background: var(--navy); padding: 14px 0; position: sticky; top: 0; z-index: 100; }
+        .navbar-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
+        .navbar-brand { color: var(--gold); font-size: 16px; font-weight: 700; letter-spacing: 1px; text-decoration: none; }
+        .navbar-link { color: var(--gold-light); font-size: 13px; text-decoration: none; font-weight: 500; }
+        .navbar-link:hover { color: var(--gold); }
+
+        /* Hero */
+        .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%); padding: 60px 0 50px; position: relative; overflow: hidden; }
+        .hero::after { content: ''; position: absolute; top: -50%; right: -20%; width: 600px; height: 600px; border-radius: 50%; background: rgba(201,168,76,0.04); }
+        .hero-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+        .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(201,168,76,0.12); padding: 6px 14px; border-radius: 20px; margin-bottom: 20px; }
+        .hero-badge-dot { width: 6px; height: 6px; background: var(--gold); border-radius: 50%; }
+        .hero-badge-text { color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+        .hero h1 { color: var(--white); font-size: 36px; font-weight: 700; line-height: 1.2; margin-bottom: 8px; }
+        .hero h1 em { font-style: normal; color: var(--gold); }
+        .hero-subtitle { color: #94A3B8; font-size: 15px; line-height: 1.6; max-width: 600px; margin-bottom: 24px; }
+        .hero-agent-card { display: inline-flex; align-items: center; gap: 16px; background: rgba(255,255,255,0.06); border: 1px solid rgba(201,168,76,0.2); border-radius: 12px; padding: 16px 24px; }
+        .hero-agent-avatar { width: 50px; height: 50px; background: var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: var(--navy); }
+        .hero-agent-name { color: var(--white); font-size: 16px; font-weight: 700; }
+        .hero-agent-title { color: #94A3B8; font-size: 13px; margin-top: 2px; }
+        .hero-agent-company { color: var(--gold); font-size: 12px; font-weight: 600; margin-top: 2px; }
+
+        /* Stats bar */
+        .stats-bar { background: var(--gold); padding: 16px 0; }
+        .stats-bar-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-around; gap: 20px; }
+        .stat-item { text-align: center; }
+        .stat-num { font-size: 24px; font-weight: 700; color: var(--navy); }
+        .stat-label { font-size: 11px; font-weight: 600; color: var(--navy); opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Products section */
+        .section { padding: 50px 0; }
+        .section-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+        .section-label { font-size: 11px; font-weight: 700; color: var(--gold); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
+        .section-title { font-size: 28px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+        .section-subtitle { color: var(--gray); font-size: 15px; line-height: 1.6; max-width: 600px; margin-bottom: 30px; }
+
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+        .product-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 24px; transition: all 0.2s; cursor: default; }
+        .product-card:hover { border-color: var(--gold); box-shadow: 0 4px 16px rgba(201,168,76,0.12); transform: translateY(-2px); }
+        .product-icon { font-size: 28px; margin-bottom: 12px; }
+        .product-name { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+        .product-range { font-size: 13px; font-weight: 600; color: var(--gold); margin-bottom: 8px; }
+        .product-desc { font-size: 13px; color: var(--text-light); line-height: 1.5; }
+
+        /* How it works */
+        .how-section { background: var(--off-white); }
+        .steps-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .step-card { text-align: center; padding: 30px 20px; }
+        .step-num { width: 40px; height: 40px; background: var(--navy); color: var(--gold); font-size: 18px; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+        .step-title { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+        .step-desc { font-size: 13px; color: var(--text-light); line-height: 1.5; }
+
+        /* CTA */
+        .cta-section { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%); padding: 50px 0; text-align: center; }
+        .cta-section h2 { color: var(--white); font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+        .cta-section h2 em { font-style: normal; color: var(--gold); }
+        .cta-section p { color: #94A3B8; font-size: 15px; margin-bottom: 24px; }
+        .cta-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .cta-btn { display: inline-block; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; transition: all 0.2s; }
+        .cta-btn-gold { background: var(--gold); color: var(--navy); }
+        .cta-btn-gold:hover { background: #D4B55C; }
+        .cta-btn-outline { background: transparent; color: var(--gold); border: 2px solid var(--gold); }
+        .cta-btn-outline:hover { background: rgba(201,168,76,0.1); }
+
+        /* Contact */
+        .contact-bar { background: var(--off-white); border-top: 1px solid var(--border); padding: 20px 0; }
+        .contact-bar-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; align-items: center; }
+        .contact-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-light); }
+        .contact-item a { color: var(--navy); font-weight: 600; text-decoration: none; }
+
+        /* Footer */
+        .footer { background: var(--navy); padding: 20px 0; text-align: center; }
+        .footer p { color: #64748B; font-size: 12px; }
+        .footer a { color: var(--gold); text-decoration: none; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 26px; }
+            .stats-bar-inner { flex-wrap: wrap; gap: 12px; }
+            .stat-item { flex: 1 1 40%; }
+            .steps-row { grid-template-columns: 1fr; }
+            .products-grid { grid-template-columns: 1fr; }
+            .hero-agent-card { flex-direction: column; text-align: center; }
+        }
+
+        /* Hidden until loaded */
+        .page-content { display: none; }
+    </style>
+</head>
+<body>
+
+<!-- Loading state -->
+<div id="loadingScreen" class="loading-screen">
+    <div class="loading-spinner"></div>
+</div>
+
+<!-- Error state -->
+<div id="errorScreen" class="error-screen" style="display:none;">
+    <h1>Partner Not Found</h1>
+    <p>This referral link is not valid or has expired.</p>
+    <a href="https://alliancefinancing.ai">Visit AllianceFinancing.ai →</a>
+</div>
+
+<!-- Main content -->
+<div id="pageContent" class="page-content">
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <a href="https://alliancefinancing.ai" class="navbar-brand">Alliance Financing Group</a>
+            <a href="https://alliancefinancing.ai/contact.html" class="navbar-link">Contact Us</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-inner">
+            <div class="hero-badge">
+                <div class="hero-badge-dot"></div>
+                <span class="hero-badge-text">Authorized Referral Partner</span>
+            </div>
+            <h1>Business Financing Made <em>Simple</em></h1>
+            <p class="hero-subtitle" id="heroSubtitle">Access working capital, equipment financing, and more through Alliance's network of 70+ lenders. Your dedicated partner is here to help.</p>
+            <div class="hero-agent-card">
+                <div class="hero-agent-avatar" id="agentAvatar"></div>
+                <div>
+                    <div class="hero-agent-name" id="agentName"></div>
+                    <div class="hero-agent-title" id="agentTitle"></div>
+                    <div class="hero-agent-company" id="agentCompany"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="stats-bar">
+        <div class="stats-bar-inner">
+            <div class="stat-item"><div class="stat-num">70+</div><div class="stat-label">Lender Partners</div></div>
+            <div class="stat-item"><div class="stat-num">85%+</div><div class="stat-label">Approval Rate</div></div>
+            <div class="stat-item"><div class="stat-num">48hr</div><div class="stat-label">Funding Decision</div></div>
+            <div class="stat-item"><div class="stat-num">35+</div><div class="stat-label">Years Experience</div></div>
+        </div>
+    </div>
+
+    <section class="section">
+        <div class="section-inner">
+            <div class="section-label">Financing Solutions</div>
+            <h2 class="section-title">Products Available Through Alliance</h2>
+            <p class="section-subtitle">Our AI-powered platform matches your business with the best lender from our 70+ partner network.</p>
+            <div class="products-grid" id="productsGrid">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </section>
+
+    <section class="section how-section">
+        <div class="section-inner">
+            <div class="section-label">How It Works</div>
+            <h2 class="section-title">Three Simple Steps</h2>
+            <p class="section-subtitle">From application to funding — we handle the heavy lifting.</p>
+            <div class="steps-row">
+                <div class="step-card">
+                    <div class="step-num">1</div>
+                    <div class="step-title">Apply Online</div>
+                    <div class="step-desc">Complete a quick application in under 5 minutes. No fees, no obligation, no impact to your credit score.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-num">2</div>
+                    <div class="step-title">Get Matched</div>
+                    <div class="step-desc">Our AI scans 70+ lenders to find the best terms for your business. Decisions in as little as 48 hours.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-num">3</div>
+                    <div class="step-title">Get Funded</div>
+                    <div class="step-desc">Once approved, funds are deposited directly to your business account. Flexible repayment terms available.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <div class="section-inner">
+            <h2>Ready to <em>Get Started</em>?</h2>
+            <p>Choose the financing product that fits your business needs.</p>
+            <div class="cta-buttons" id="ctaButtons">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </section>
+
+    <div class="contact-bar" id="contactBar" style="display:none;">
+        <div class="contact-bar-inner" id="contactBarInner">
+            <!-- Populated dynamically -->
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2025 Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai">alliancefinancing.ai</a> | <a href="https://alliancefinancing.ai/privacy-policy.html">Privacy</a></p>
+    </footer>
+</div>
+
+<script>
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // All available products with metadata
+    const ALL_PRODUCTS = [
+        { key: 'working-capital', name: 'Working Capital & Factoring', icon: '📊', range: '$10K – $2M', desc: 'Flexible working capital solutions including lines of credit, invoice factoring, and revenue-based financing to keep your business running.', applyPage: 'apply-working-capital.html' },
+        { key: 'equipment-financing', name: 'Equipment Financing', icon: '🏗️', range: '$25K – $5M', desc: 'Finance new or used equipment with competitive rates. From construction machinery to technology — we cover it all.', applyPage: 'apply-leasing.html' },
+        { key: 'merchant-advance', name: 'Merchant Cash Advance', icon: '💰', range: '$10K – $2M', desc: 'Revenue-based funding with flexible repayment. Get capital based on your monthly sales — no collateral required.', applyPage: 'apply-merchant-advance.html' },
+        { key: 'tax-credit', name: 'Canadian Tax Credit Financing', icon: '🇨🇦', range: 'Up to 75% advance', desc: 'Get early access to your SR&ED, IRAP, and other government tax credits. Don\'t wait 12-18 months for your refund.', applyPage: 'apply-working-capital.html' },
+        { key: 'business-acquisition', name: 'Business Acquisition Loans', icon: '🏢', range: '$250K – $10M+', desc: 'Financing for buying an existing business. Leverage the target\'s cash flow and assets to fund your acquisition.', applyPage: 'apply-working-capital.html' },
+        { key: 'bridge-financing', name: 'Bridge Financing', icon: '🌉', range: '$100K – $5M', desc: 'Short-term funding to bridge gaps between transactions. Fast closings for time-sensitive opportunities.', applyPage: 'apply-working-capital.html' },
+        { key: 'construction', name: 'Construction Financing', icon: '🔨', range: '$500K – $20M+', desc: 'Project-based financing for builders and developers. Progress draws, completion financing, and more.', applyPage: 'apply-working-capital.html' },
+        { key: 'franchise', name: 'Franchise Financing', icon: '🏪', range: '$50K – $5M', desc: 'Specialized funding for franchise purchases, build-outs, and expansions. We know the franchise lending landscape.', applyPage: 'apply-working-capital.html' }
+    ];
+
+    // Default products if agent has no specific config
+    const DEFAULT_PRODUCTS = ['working-capital', 'equipment-financing', 'merchant-advance', 'tax-credit', 'business-acquisition', 'bridge-financing'];
+
+    async function loadPartnerPage() {
+        try {
+            // Get slug from URL: /partner.html?ref=slug OR /ref/slug
+            const params = new URLSearchParams(window.location.search);
+            let slug = params.get('ref') || params.get('slug') || '';
+
+            // Also check path-based routing: /ref/slug-name
+            if (!slug) {
+                const path = window.location.pathname;
+                const refMatch = path.match(/\/ref\/([^\/]+)/);
+                if (refMatch) slug = refMatch[1];
+            }
+
+            if (!slug) {
+                showError();
+                return;
+            }
+
+            // Fetch agent by referral slug
+            const { data: agent, error } = await db
+                .from('users')
+                .select('id, full_name, email, phone, company_name, agent_type, business_type, referral_slug, program_details, landing_page_products')
+                .eq('referral_slug', slug)
+                .eq('role', 'agent')
+                .maybeSingle();
+
+            if (error || !agent) {
+                showError();
+                return;
+            }
+
+            // Populate agent info
+            const initials = (agent.full_name || 'A').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+            document.getElementById('agentAvatar').textContent = initials;
+            document.getElementById('agentName').textContent = agent.full_name || 'Alliance Partner';
+
+            // Build title from business_type or agent_type
+            let title = agent.business_type || '';
+            if (!title && agent.program_details && agent.program_details.license_type) {
+                title = agent.program_details.license_type;
+            }
+            if (!title) {
+                const typeLabels = { 'super_agent': 'ISO Partner', 'referring_agent': 'Referral Partner', 'vendor_program': 'Vendor Partner', 'syndication_desk': 'Syndication Partner' };
+                title = typeLabels[agent.agent_type] || 'Referral Partner';
+            }
+            document.getElementById('agentTitle').textContent = title;
+
+            if (agent.company_name) {
+                document.getElementById('agentCompany').textContent = agent.company_name;
+            }
+
+            // Set page title
+            document.title = agent.full_name + ' — Alliance Financing Group Partner';
+
+            // Determine which products to show
+            let productKeys = agent.landing_page_products || DEFAULT_PRODUCTS;
+            if (typeof productKeys === 'string') {
+                try { productKeys = JSON.parse(productKeys); } catch(e) { productKeys = DEFAULT_PRODUCTS; }
+            }
+            const products = productKeys.map(k => ALL_PRODUCTS.find(p => p.key === k)).filter(Boolean);
+
+            // Render products
+            const grid = document.getElementById('productsGrid');
+            grid.innerHTML = products.map(function(p) {
+                return '<div class="product-card">' +
+                    '<div class="product-icon">' + p.icon + '</div>' +
+                    '<div class="product-name">' + p.name + '</div>' +
+                    '<div class="product-range">' + p.range + '</div>' +
+                    '<div class="product-desc">' + p.desc + '</div>' +
+                '</div>';
+            }).join('');
+
+            // Render CTA buttons (unique apply pages only)
+            const uniquePages = {};
+            products.forEach(function(p) {
+                if (!uniquePages[p.applyPage]) {
+                    uniquePages[p.applyPage] = p;
+                }
+            });
+            const ctaButtons = document.getElementById('ctaButtons');
+            const pageLabels = {
+                'apply-working-capital.html': 'Apply for Working Capital',
+                'apply-leasing.html': 'Apply for Equipment Financing',
+                'apply-merchant-advance.html': 'Apply for Merchant Advance'
+            };
+            let isFirst = true;
+            Object.keys(uniquePages).forEach(function(page) {
+                const label = pageLabels[page] || 'Apply Now';
+                const cls = isFirst ? 'cta-btn cta-btn-gold' : 'cta-btn cta-btn-outline';
+                ctaButtons.innerHTML += '<a href="' + page + '?ref=' + encodeURIComponent(slug) + '" class="' + cls + '">' + label + '</a>';
+                isFirst = false;
+            });
+
+            // Show contact info if available
+            if (agent.email || agent.phone) {
+                const contactBar = document.getElementById('contactBar');
+                const contactInner = document.getElementById('contactBarInner');
+                contactBar.style.display = 'block';
+                let contactHtml = '<span style="font-weight:600;color:var(--navy);">Contact ' + (agent.full_name || 'your partner') + ':</span>';
+                if (agent.phone) contactHtml += '<div class="contact-item">📞 <a href="tel:' + agent.phone.replace(/\s/g, '') + '">' + agent.phone + '</a></div>';
+                if (agent.email) contactHtml += '<div class="contact-item">✉️ <a href="mailto:' + agent.email + '">' + agent.email + '</a></div>';
+                contactInner.innerHTML = contactHtml;
+            }
+
+            // Show page
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('pageContent').style.display = 'block';
+
+        } catch (err) {
+            console.error('Partner page load error:', err);
+            showError();
+        }
+    }
+
+    function showError() {
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('errorScreen').style.display = 'flex';
+    }
+
+    // Load on page ready
+    loadPartnerPage();
+</script>
+</body>
+</html>

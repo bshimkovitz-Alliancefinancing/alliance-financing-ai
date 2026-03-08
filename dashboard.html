@@ -4662,6 +4662,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     // ---- TEMPLATE 5: MCA One-Pager (for PDF generation) ----
     function generateMCAOnePagerHTML(agent) {
+        const agentMCALink = 'https://alliancefinancing.ai/ref/' + (agent.referral_slug || '');
         const contactsHtml = `
         <div class="footer-contact">
             <div class="name">Your Contact: ${agent.full_name || 'Alliance Advisor'}</div>
@@ -4846,13 +4847,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         { key: 'mca-one-pager', label: 'MCA One-Pager', generator: generateMCAOnePagerHTML, icon: '💰' }
     ];
 
-    async function generateBrandedDocsForAgent(agentId, agentData, statusCallback) {
+    async function generateBrandedDocsForAgent(agentId, agentData, statusCallback, selectedKeys) {
         // agentData: { full_name, email, phone, referral_slug }
+        // selectedKeys: optional array of doc type keys to generate (e.g. ['insurance-brokers', 'mca-one-pager'])
         const results = [];
-        const totalDocs = BRANDED_DOC_TYPES.length;
+        const docsToGenerate = selectedKeys && selectedKeys.length > 0
+            ? BRANDED_DOC_TYPES.filter(dt => selectedKeys.includes(dt.key))
+            : BRANDED_DOC_TYPES;
+        const totalDocs = docsToGenerate.length;
 
         for (let i = 0; i < totalDocs; i++) {
-            const docType = BRANDED_DOC_TYPES[i];
+            const docType = docsToGenerate[i];
             if (statusCallback) statusCallback(`Generating ${docType.label}... (${i + 1}/${totalDocs})`);
 
             try {
@@ -4864,27 +4869,37 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 container.style.position = 'absolute';
                 container.style.left = '-9999px';
                 container.style.top = '0';
+                container.style.width = '816px';
                 container.innerHTML = html;
                 document.body.appendChild(container);
 
-                // Wait for fonts to load
-                await new Promise(r => setTimeout(r, 500));
+                // Wait for fonts/images to load
+                await new Promise(r => setTimeout(r, 1000));
 
+                // Use toPdf().output('blob') chain for proper PDF blob output
                 const pdfBlob = await html2pdf().set({
                     margin: 0,
                     filename: docType.key + '.pdf',
                     image: { type: 'jpeg', quality: 0.95 },
                     html2canvas: { scale: 2, useCORS: true, width: 816, windowWidth: 816 },
                     jsPDF: { unit: 'px', format: [816, 1056], hotfixes: ['px_scaling'] }
-                }).from(container).outputPdf('blob');
+                }).from(container).toPdf().output('blob');
 
                 document.body.removeChild(container);
+
+                // Ensure it's a proper PDF Blob with correct MIME type
+                const properBlob = new Blob([pdfBlob], { type: 'application/pdf' });
+                console.log('Generated PDF blob for ' + docType.key + ': size=' + properBlob.size + ' bytes');
+
+                if (properBlob.size < 500) {
+                    throw new Error('Generated PDF is too small (' + properBlob.size + ' bytes) - likely empty');
+                }
 
                 // 3. Upload to Supabase Storage
                 const slug = agentData.referral_slug || 'agent';
                 const storagePath = 'branded-docs/' + slug + '/' + slug + '-' + docType.key + '.pdf';
 
-                await uploadToStorage('deal-documents', storagePath, pdfBlob);
+                await uploadToStorage('deal-documents', storagePath, properBlob);
 
                 // 4. Record in agent_branded_documents table
                 const { error: dbErr } = await db.from('agent_branded_documents').upsert({
@@ -4929,11 +4944,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 var typeInfo = BRANDED_DOC_TYPES.find(t => t.key === doc.document_type);
                 var signedUrl = '';
                 try {
-                    var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(doc.storage_path, 3600);
-                    if (urlData && urlData.signedUrl) signedUrl = urlData.signedUrl;
+                    // Try signed URL first (7 days expiry)
+                    var { data: urlData, error: urlErr } = await db.storage.from('deal-documents').createSignedUrl(doc.storage_path, 604800);
+                    if (urlData && urlData.signedUrl) {
+                        signedUrl = urlData.signedUrl;
+                    } else {
+                        console.log('No signed URL returned for:', doc.storage_path, urlErr);
+                    }
                 } catch(e) {
                     console.log('Signed URL error for branded doc:', e);
-                    signedUrl = getBrandedDocUrl(doc.storage_path); // fallback to public URL
+                }
+                // Fallback: try public URL, then download URL
+                if (!signedUrl) {
+                    try {
+                        var { data: dlData } = await db.storage.from('deal-documents').getPublicUrl(doc.storage_path);
+                        if (dlData && dlData.publicUrl) signedUrl = dlData.publicUrl;
+                    } catch(e2) {
+                        signedUrl = getBrandedDocUrl(doc.storage_path);
+                    }
                 }
                 results.push({
                     file: signedUrl || getBrandedDocUrl(doc.storage_path),
@@ -4951,14 +4979,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     // Handle the Generate Branded Docs button click from agent detail modal
     async function handleGenerateBrandedDocs(agentId, fullName, email, phone, slug) {
+        return handleGenerateSelectedDocs(agentId, fullName, email, phone, slug);
+    }
+
+    // Generate only the selected (checked) branded docs for an agent
+    async function handleGenerateSelectedDocs(agentId, fullName, email, phone, slug) {
         const btn = document.getElementById('generateBrandedDocsBtn');
         const statusEl = document.getElementById('brandedDocsStatus');
         const listEl = document.getElementById('brandedDocsList');
 
+        // Get selected doc types from checkboxes
+        const selectedKeys = Array.from(document.querySelectorAll('input[name="brandedDocSelect"]:checked')).map(cb => cb.value);
+        if (selectedKeys.length === 0) {
+            statusEl.textContent = 'Please select at least one document to generate.';
+            statusEl.style.color = '#DC2626';
+            return;
+        }
+
         btn.disabled = true;
         btn.textContent = 'Generating...';
         btn.style.opacity = '0.6';
-        statusEl.textContent = 'Starting document generation...';
+        statusEl.textContent = 'Starting generation of ' + selectedKeys.length + ' document(s)...';
         statusEl.style.color = '#92400E';
 
         try {
@@ -4969,7 +5010,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 referral_slug: slug
             }, function(status) {
                 statusEl.textContent = status;
-            });
+            }, selectedKeys);
 
             const success = results.filter(r => r.success);
             const failed = results.filter(r => !r.success);
@@ -4978,25 +5019,33 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 statusEl.textContent = success.length + ' of ' + results.length + ' documents generated successfully!';
                 statusEl.style.color = '#166534';
 
-                // Refresh the docs list
-                listEl.innerHTML = success.map(d => {
-                    const typeInfo = BRANDED_DOC_TYPES.find(t => t.key === d.key);
-                    const url = getBrandedDocUrl(d.path);
-                    return '<a href="' + url + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;text-decoration:none;font-size:12px;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'#E2E8F0\'"><span style="font-size:16px;">' + (typeInfo ? typeInfo.icon : '📄') + '</span><span style="color:var(--navy);font-weight:600;">' + d.label + '</span><span style="margin-left:auto;color:var(--text-light);font-size:10px;background:#E2E8F0;padding:2px 6px;border-radius:3px;">PDF</span></a>';
-                }).join('');
+                // Refresh the docs list - load ALL existing docs (including previously generated ones)
+                var allDocs = await loadBrandedDocsForAgent(agentId, slug);
+                if (allDocs && allDocs.length > 0) {
+                    listEl.innerHTML = allDocs.map(function(d) {
+                        return '<a href="' + d.file + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;text-decoration:none;font-size:12px;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'#E2E8F0\'"><span style="font-size:16px;">' + d.icon + '</span><span style="color:var(--navy);font-weight:600;">' + d.label + '</span><span style="margin-left:auto;color:var(--text-light);font-size:10px;background:#E2E8F0;padding:2px 6px;border-radius:3px;">PDF</span></a>';
+                    }).join('');
+                } else {
+                    // Fallback: show just the newly generated ones
+                    listEl.innerHTML = success.map(d => {
+                        const typeInfo = BRANDED_DOC_TYPES.find(t => t.key === d.key);
+                        const url = getBrandedDocUrl(d.path);
+                        return '<a href="' + url + '" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;text-decoration:none;font-size:12px;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'#E2E8F0\'"><span style="font-size:16px;">' + (typeInfo ? typeInfo.icon : '📄') + '</span><span style="color:var(--navy);font-weight:600;">' + d.label + '</span><span style="margin-left:auto;color:var(--text-light);font-size:10px;background:#E2E8F0;padding:2px 6px;border-radius:3px;">PDF</span></a>';
+                    }).join('');
+                }
 
                 if (failed.length > 0) {
-                    statusEl.textContent += ' (' + failed.length + ' failed: ' + failed.map(f => f.key).join(', ') + ')';
+                    statusEl.textContent += ' (' + failed.length + ' failed: ' + failed.map(f => f.key + ': ' + (f.error || 'unknown')).join('; ') + ')';
                     statusEl.style.color = '#92400E';
                 }
             } else {
-                statusEl.textContent = 'Generation failed. Check console for details.';
+                statusEl.textContent = 'Generation failed: ' + (failed.length > 0 ? failed.map(f => f.key + ': ' + (f.error || 'unknown')).join('; ') : 'Check console for details.');
                 statusEl.style.color = '#DC2626';
             }
 
-            btn.textContent = 'Regenerate PDFs';
+            btn.textContent = 'Generate Selected PDFs';
         } catch (err) {
-            console.error('handleGenerateBrandedDocs error:', err);
+            console.error('handleGenerateSelectedDocs error:', err);
             statusEl.textContent = 'Error: ' + err.message;
             statusEl.style.color = '#DC2626';
         } finally {
@@ -10273,11 +10322,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     async function uploadToStorage(bucketName, filePath, file) {
         // Direct REST API upload - bypasses JS client RLS issues
         var url = SUPABASE_URL + '/storage/v1/object/' + bucketName + '/' + filePath;
+        var contentType = (file && file.type) ? file.type : 'application/octet-stream';
         var response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
                 'apikey': SUPABASE_ANON_KEY,
+                'Content-Type': contentType,
                 'x-upsert': 'true'
             },
             body: file
@@ -13198,6 +13249,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Generate invite token
             const inviteToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 
+            // Check if invite will be sent
+            const sendInviteEl = document.getElementById('sendInviteEmail');
+            const willSendInvite = sendInviteEl ? sendInviteEl.checked : false;
+            const selectedStatus = document.getElementById('agentStatus').value || 'Active';
+
             const agentRecord = {
                 full_name: document.getElementById('agentName').value,
                 email: document.getElementById('agentEmail').value,
@@ -13208,10 +13264,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 commission_type: document.getElementById('agentCommissionType').value || 'referral_fee',
                 company_name: document.getElementById('agentCompanyName').value || null,
                 referral_slug: referralSlug,
-                agent_status: document.getElementById('agentStatus').value || 'Invited',
-                onboarding_status: 'invited',
+                agent_status: selectedStatus,
+                onboarding_status: willSendInvite ? 'invited' : 'pending_setup',
                 invite_token: inviteToken,
-                invite_sent_at: new Date().toISOString(),
+                invite_sent_at: willSendInvite ? new Date().toISOString() : null,
                 program_details: programDetails,
                 parent_agent_id: parentAgentId,
                 created_at: new Date().toISOString()
@@ -13395,7 +13451,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             document.getElementById('agentDetailTitle').textContent = agent.full_name || 'Agent Details';
             const modalBody = document.getElementById('agentModalBody');
             modalBody.innerHTML = `
-                <div style="margin-bottom: 16px;">${getAgentTypeBadge(agent.agent_type || 'referring_agent')} ${agent.onboarding_status === 'invited' ? '<span style="display:inline-block;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:6px;">⏳ Invite Pending</span>' : ''} ${agent.company_name ? '<span style="color:var(--text-light);font-size:13px;margin-left:8px;">' + agent.company_name + '</span>' : ''}</div>
+                <div style="margin-bottom: 16px;">${getAgentTypeBadge(agent.agent_type || 'referring_agent')} ${agent.onboarding_status === 'invited' ? '<span style="display:inline-block;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:6px;">⏳ Invite Pending</span>' : agent.onboarding_status === 'pending_setup' ? '<span style="display:inline-block;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:6px;">📋 Pending Setup</span>' : ''} ${agent.company_name ? '<span style="color:var(--text-light);font-size:13px;margin-left:8px;">' + agent.company_name + '</span>' : ''}</div>
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Full Name</label>
@@ -13491,8 +13547,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     <div class="modal-field">
                         <label>Onboarding Status</label>
                         <div class="modal-field-value">
-                            ${agent.onboarding_status === 'invited' ? '<span style="color:#92400E;font-weight:600;">Invited</span> — ' + formatDate(agent.invite_sent_at) : agent.onboarding_status === 'active' ? '<span style="color:#166534;font-weight:600;">Active</span>' + (agent.invite_accepted_at ? ' — Activated ' + formatDate(agent.invite_accepted_at) : '') : (agent.onboarding_status || 'active')}
-                            ${agent.onboarding_status === 'invited' && agent.invite_token ? ' <button class="btn btn-sm" onclick="resendAgentInvite(\'' + agentId + '\', \'' + (agent.email || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.full_name || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.invite_token || '') + '\', \'' + (agent.agent_type || 'referring_agent') + '\')" style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;padding:4px 12px;font-size:12px;font-weight:600;margin-left:8px;">Resend Invite</button>' : ''}
+                            ${agent.onboarding_status === 'invited' ? '<span style="color:#92400E;font-weight:600;">Invited</span> — ' + formatDate(agent.invite_sent_at) : agent.onboarding_status === 'pending_setup' ? '<span style="color:#3B82F6;font-weight:600;">Pending Setup</span> — Added ' + formatDate(agent.created_at) : agent.onboarding_status === 'active' ? '<span style="color:#166534;font-weight:600;">Active</span>' + (agent.invite_accepted_at ? ' — Activated ' + formatDate(agent.invite_accepted_at) : '') : (agent.onboarding_status || 'active')}
+                            ${agent.onboarding_status === 'invited' && agent.invite_token ? ' <button class="btn btn-sm" onclick="resendAgentInvite(\'' + agentId + '\', \'' + (agent.email || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.full_name || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.invite_token || '') + '\', \'' + (agent.agent_type || 'referring_agent') + '\')" style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;padding:4px 12px;font-size:12px;font-weight:600;margin-left:8px;">Resend Invite</button>' : agent.onboarding_status === 'pending_setup' && agent.invite_token ? ' <button class="btn btn-sm" onclick="resendAgentInvite(\'' + agentId + '\', \'' + (agent.email || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.full_name || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.invite_token || '') + '\', \'' + (agent.agent_type || 'referring_agent') + '\')" style="background:#DBEAFE;color:#1E40AF;border:1px solid #93C5FD;padding:4px 12px;font-size:12px;font-weight:600;margin-left:8px;">Send Invite</button>' : ''}
                         </div>
                     </div>
                 </div>
@@ -13504,8 +13560,47 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 <p style="color: var(--text-light); font-size: 13px; margin-bottom: 10px;">Send a tracked application link on behalf of this agent. The referral will be attributed to <strong>${agent.full_name || 'this agent'}</strong>.</p>
 
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Landing Page</label>
+                    <a href="partner.html?ref=${agent.referral_slug || ''}" target="_blank" class="btn btn-sm" style="background:var(--gold);color:var(--navy);padding:4px 14px;font-size:12px;font-weight:600;text-decoration:none;border-radius:4px;">View Landing Page ↗</a>
+                </div>
+                <p style="color:var(--text-light);font-size:12px;margin-bottom:8px;">Select which financing products appear on this agent's landing page:</p>
+                <div id="landingPageProducts" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+                    ${(function() {
+                        var allProds = [
+                            { key: 'working-capital', label: 'Working Capital & Factoring', icon: '📊' },
+                            { key: 'equipment-financing', label: 'Equipment Financing', icon: '🏗️' },
+                            { key: 'merchant-advance', label: 'Merchant Cash Advance', icon: '💰' },
+                            { key: 'tax-credit', label: 'Tax Credit Financing', icon: '🇨🇦' },
+                            { key: 'business-acquisition', label: 'Business Acquisition', icon: '🏢' },
+                            { key: 'bridge-financing', label: 'Bridge Financing', icon: '🌉' },
+                            { key: 'construction', label: 'Construction Financing', icon: '🔨' },
+                            { key: 'franchise', label: 'Franchise Financing', icon: '🏪' }
+                        ];
+                        var currentProds = agent.landing_page_products || ['working-capital', 'equipment-financing', 'merchant-advance', 'tax-credit', 'business-acquisition', 'bridge-financing'];
+                        return allProds.map(function(p) {
+                            var checked = currentProds.includes(p.key) ? 'checked' : '';
+                            return '<label style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;cursor:pointer;font-size:12px;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.borderColor=\'#E2E8F0\';else this.style.borderColor=\'var(--gold)\'">' +
+                                '<input type="checkbox" name="landingPageProduct" value="' + p.key + '" ' + checked + ' onchange="saveLandingPageProducts(\'' + agentId + '\')" style="margin:0;accent-color:var(--gold);">' +
+                                '<span>' + p.icon + '</span>' +
+                                '<span style="color:var(--navy);font-weight:500;">' + p.label + '</span></label>';
+                        }).join('');
+                    })()}
+                </div>
+                <div id="landingPageSaveStatus" style="font-size:11px;color:var(--text-light);margin-bottom:6px;"></div>
+                <p style="font-size:11px;color:var(--text-light);margin-bottom:10px;">URL: <a href="partner.html?ref=${agent.referral_slug || ''}" target="_blank" style="color:var(--gold);font-weight:600;">alliancefinancing.ai/partner.html?ref=${agent.referral_slug || ''}</a></p>
+
+                <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Branded Documents</label>
-                    <button id="generateBrandedDocsBtn" class="btn btn-sm" onclick="handleGenerateBrandedDocs('${agentId}', '${(agent.full_name || '').replace(/'/g, "\\\\'")}', '${(agent.email || '').replace(/'/g, "\\\\'")}', '${agent.phone || ''}', '${agent.referral_slug || ''}')" style="background:#0D1E3D;color:#C9A84C;border:1px solid #C9A84C;padding:4px 14px;font-size:12px;font-weight:600;">Generate Branded PDFs</button>
+                    <button id="generateBrandedDocsBtn" class="btn btn-sm" onclick="handleGenerateSelectedDocs('${agentId}', '${(agent.full_name || '').replace(/'/g, "\\\\'")}', '${(agent.email || '').replace(/'/g, "\\\\'")}', '${agent.phone || ''}', '${agent.referral_slug || ''}')" style="background:#0D1E3D;color:#C9A84C;border:1px solid #C9A84C;padding:4px 14px;font-size:12px;font-weight:600;">Generate Selected PDFs</button>
+                </div>
+                <p style="color:var(--text-light);font-size:12px;margin-bottom:8px;">Select which documents to generate for this agent:</p>
+                <div id="brandedDocsChecklist" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+                    ${BRANDED_DOC_TYPES.map(function(dt) {
+                        return '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;cursor:pointer;font-size:12px;min-width:180px;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.borderColor=\'#E2E8F0\';else this.style.borderColor=\'var(--gold)\'">' +
+                            '<input type="checkbox" name="brandedDocSelect" value="' + dt.key + '" checked style="margin:0;accent-color:var(--gold);">' +
+                            '<span style="font-size:14px;">' + dt.icon + '</span>' +
+                            '<span style="color:var(--navy);font-weight:600;">' + dt.label + '</span></label>';
+                    }).join('')}
                 </div>
                 <div id="brandedDocsStatus" style="font-size:12px;color:var(--text-light);margin-bottom:4px;"></div>
                 <div id="brandedDocsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
@@ -13611,6 +13706,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         } catch (error) {
             console.error('Update agent status error:', error);
             alert('Error updating status: ' + error.message);
+        }
+    }
+
+    async function saveLandingPageProducts(agentId) {
+        var statusEl = document.getElementById('landingPageSaveStatus');
+        var checked = Array.from(document.querySelectorAll('input[name="landingPageProduct"]:checked')).map(function(cb) { return cb.value; });
+        if (checked.length === 0) {
+            if (statusEl) { statusEl.textContent = '⚠️ Select at least one product.'; statusEl.style.color = '#DC2626'; }
+            return;
+        }
+        try {
+            if (statusEl) { statusEl.textContent = 'Saving...'; statusEl.style.color = '#92400E'; }
+            var { error } = await db.from('users').update({ landing_page_products: checked }).eq('id', agentId);
+            if (error) throw error;
+            if (statusEl) { statusEl.textContent = '✓ Saved — ' + checked.length + ' products selected'; statusEl.style.color = '#166534'; }
+        } catch (err) {
+            console.error('Save landing page products error:', err);
+            if (statusEl) { statusEl.textContent = '❌ Error: ' + (err.message || 'Save failed'); statusEl.style.color = '#DC2626'; }
         }
     }
 
