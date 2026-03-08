@@ -1352,9 +1352,10 @@
                                 <option value="Germany">Germany</option>
                             </select>
                             <select id="vendorStatusFilter" onchange="filterVendors()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                                <option value="">All Status</option>
+                                <option value="">Active & Inactive</option>
                                 <option value="Active">Active</option>
                                 <option value="Inactive">Inactive</option>
+                                <option value="Archived">Archived</option>
                             </select>
                         </div>
                         <div style="display: flex; gap: 8px;">
@@ -6852,7 +6853,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             if (error) throw error;
 
             allVendors = data || [];
-            renderVendorsTable(allVendors);
+            filterVendors();
         } catch (error) {
             console.error('Load vendors error:', error);
         }
@@ -6886,12 +6887,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 <td style="text-align: center;"><span style="background: ${spCount > 0 ? '#EFF6FF' : '#f5f5f5'}; color: ${spCount > 0 ? '#3B82F6' : '#999'}; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 13px;">${spCount}</span></td>
                 <td>${vendor.projected_volume ? formatCurrency(vendor.projected_volume) : 'N/A'}</td>
                 <td>
-                    <select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                    ${vendor.status === 'Archived'
+                        ? '<span style="background:#F1F5F9;color:#94A3B8;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">Archived</span>'
+                        : `<select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
                         ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
-                    </select>
+                    </select>`}
                 </td>
-                <td>
+                <td style="white-space:nowrap;">
                     <button class="btn btn-secondary btn-sm" onclick="viewVendor('${vendor.id}')">View</button>
+                    ${vendor.status === 'Archived'
+                        ? `<button class="btn btn-sm" onclick="updateVendorStatus('${vendor.id}', 'Active')" style="margin-left:4px;padding:4px 8px;background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;border-radius:4px;font-size:11px;cursor:pointer;">Restore</button>`
+                        : `<button class="btn btn-sm" onclick="if(confirm('Archive ${(vendor.name || '').replace(/'/g, "\\'")}?')) updateVendorStatus('${vendor.id}', 'Archived')" style="margin-left:4px;padding:4px 8px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;border-radius:4px;font-size:11px;cursor:pointer;">Archive</button>`}
                 </td>
             </tr>
         `;
@@ -6937,7 +6943,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 (vendor.product_description || '').toLowerCase().includes(search) ||
                 (vendor.country || '').toLowerCase().includes(search);
             const matchesCountry = !countryFilter || (vendor.country || '').includes(countryFilter);
-            const matchesStatus = !statusFilter || vendor.status === statusFilter;
+            // Default view hides archived; specific filter shows only that status
+            const matchesStatus = statusFilter === 'Archived'
+                ? vendor.status === 'Archived'
+                : statusFilter
+                    ? vendor.status === statusFilter
+                    : vendor.status !== 'Archived';
             return matchesSearch && matchesCountry && matchesStatus;
         });
 
