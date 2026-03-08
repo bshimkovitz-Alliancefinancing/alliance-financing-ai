@@ -11285,11 +11285,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         const activeStatuses = ['Sent', 'Follow-Up Needed', 'Opened'];
 
         try {
+            // Always fetch ALL records so summary stats are accurate
             let query = db.from('applications_sent').select('*').order('sent_at', { ascending: false });
-            // Apply specific status filter
-            if (statusFilter && statusFilter !== 'all') {
-                query = query.eq('status', statusFilter);
-            }
             if (agentFilter) query = query.eq('sent_by', agentFilter);
             if (!isAdmin && currentUserName) {
                 query = query.eq('sent_by', currentUserName);
@@ -11312,10 +11309,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 }
             }
 
-            // Default view: hide Returned, Expired, and Archived unless explicitly filtered
+            // Apply status filter client-side
             var filteredData = data;
             if (!statusFilter) {
+                // Default: show only active
                 filteredData = data.filter(function(a) { return activeStatuses.includes(a.status); });
+            } else if (statusFilter !== 'all') {
+                // Specific status filter
+                filteredData = data.filter(function(a) { return a.status === statusFilter; });
             }
 
             // Update summary stats (always based on ALL data for accurate counts)
