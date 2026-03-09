@@ -5025,11 +5025,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 iframe.style.border = 'none';
                 document.body.appendChild(iframe);
 
-                // Write the full HTML document into the iframe
+                // Write the full HTML document into the iframe, forcing content to fit one page
                 const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                 iframeDoc.open();
                 iframeDoc.write(html);
                 iframeDoc.close();
+
+                // Force the body to fit exactly one page — no overflow, no pagination
+                iframeDoc.body.style.width = '816px';
+                iframeDoc.body.style.height = '1056px';
+                iframeDoc.body.style.overflow = 'hidden';
+                iframeDoc.body.style.margin = '0';
+                iframeDoc.body.style.padding = '0';
+                // Also constrain the first child (the main wrapper div)
+                if (iframeDoc.body.firstElementChild) {
+                    iframeDoc.body.firstElementChild.style.width = '816px';
+                    iframeDoc.body.firstElementChild.style.maxHeight = '1056px';
+                    iframeDoc.body.firstElementChild.style.overflow = 'hidden';
+                }
 
                 // Wait for fonts/images/styles to load
                 await new Promise(r => setTimeout(r, 2000));
@@ -5041,8 +5054,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     margin: 0,
                     filename: docType.key + '.pdf',
                     image: { type: 'jpeg', quality: 0.95 },
-                    html2canvas: { scale: 2, useCORS: true, logging: false, width: 816, scrollX: 0, scrollY: 0, windowWidth: 816 },
-                    jsPDF: { unit: 'px', format: [816, 1056], hotfixes: ['px_scaling'] }
+                    html2canvas: { scale: 2, useCORS: true, logging: false, width: 816, height: 1056, scrollX: 0, scrollY: 0, windowWidth: 816, windowHeight: 1056 },
+                    jsPDF: { unit: 'px', format: [816, 1056], hotfixes: ['px_scaling'] },
+                    pagebreak: { mode: 'avoid-all' }
                 }).from(captureTarget).toPdf().output('blob');
 
                 document.body.removeChild(iframe);
