@@ -4418,8 +4418,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   :root{--navy:#0D1E3D;--navy-mid:#1A3160;--gold:#C9A84C;--gold-lt:#e8c96a;--white:#FFFFFF;--off-wh:#F5F7FA;--gray:#8A9BB0;--dark:#2C3E55;--accent:#1E6FB0;}
-  body{font-family:'Source Sans 3',sans-serif;background:#fff;color:var(--dark);margin:0;padding:0;}
-  .page{width:816px;margin:0 auto;background:var(--white);}
+  html,body{font-family:'Source Sans 3',sans-serif;background:#fff;color:var(--dark);margin:0;padding:0;width:816px;height:1056px;overflow:hidden;}
+  .page{width:816px;height:1056px;margin:0 auto;background:var(--white);overflow:hidden;}
   .header{background:var(--navy);padding:36px 48px 28px;position:relative;overflow:hidden;}
   .header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;background:var(--gold);}
   .header-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;}
@@ -4728,8 +4728,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   :root{--navy:#0D1E3D;--navy-mid:#1A3160;--gold:#C9A84C;--gold-lt:#e8c96a;--white:#FFFFFF;--off-wh:#F5F7FA;--gray:#8A9BB0;--dark:#2C3E55;}
-  body{font-family:'Source Sans 3',sans-serif;background:#fff;color:var(--dark);margin:0;padding:0;}
-  .page{width:816px;margin:0 auto;background:var(--white);}
+  html,body{font-family:'Source Sans 3',sans-serif;background:#fff;color:var(--dark);margin:0;padding:0;width:816px;height:1056px;overflow:hidden;}
+  .page{width:816px;height:1056px;margin:0 auto;background:var(--white);overflow:hidden;}
   .hero{background:var(--navy);overflow:hidden;}
   .hero-inner{display:grid;grid-template-columns:1fr 280px;min-height:260px;}
   .hero-left{padding:36px 40px 30px;display:flex;flex-direction:column;justify-content:center;}
@@ -4913,11 +4913,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
       <div class="header-stats">
         <div class="header-stat"><span class="num">70+</span><span class="lbl">Lenders</span></div>
         <div class="header-stat"><span class="num">85%+</span><span class="lbl">Approval</span></div>
-        <div class="header-stat"><span class="num">$10M+</span><span class="lbl">Per Deal</span></div>
       </div>
     </div>
     <h1>Vendor Equipment<br><em>Leasing Program</em></h1>
-    <p class="header-sub">Help Your Customers Finance Equipment Purchases &bull; Increase Sales &bull; Close Deals Faster</p>
+    <p class="header-sub">Trusted Since 1989 &bull; Financing Solutions for Equipment Vendors &amp; Resellers</p>
   </div>
   <div class="gold-strip"><p>Increase Sales &bull; Improve Margins &bull; Capture the Lifetime Value of Your Customers</p></div>
   <div class="body-grid">
@@ -5012,43 +5011,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 // 1. Generate HTML
                 const html = docType.generator(agentData);
 
-                // 2. Render HTML to PDF via html2pdf.js
-                // Use iframe approach so full HTML document (with <style> tags) renders properly
+                // 2. Render HTML to PDF via html2pdf.js using iframe
                 const iframe = document.createElement('iframe');
-                iframe.style.position = 'fixed';
-                iframe.style.left = '0';
-                iframe.style.top = '0';
-                iframe.style.width = '816px';
-                iframe.style.height = '1056px';
-                iframe.style.zIndex = '-1';
-                iframe.style.opacity = '0.01';
-                iframe.style.border = 'none';
+                iframe.style.cssText = 'position:fixed;left:0;top:0;width:816px;height:1056px;z-index:-1;opacity:0.01;border:none;';
                 document.body.appendChild(iframe);
 
-                // Write the full HTML document into the iframe, forcing content to fit one page
                 const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                 iframeDoc.open();
                 iframeDoc.write(html);
                 iframeDoc.close();
 
-                // Force the body to fit exactly one page — no overflow, no pagination
-                iframeDoc.body.style.width = '816px';
-                iframeDoc.body.style.height = '1056px';
-                iframeDoc.body.style.overflow = 'hidden';
-                iframeDoc.body.style.margin = '0';
-                iframeDoc.body.style.padding = '0';
-                // Also constrain the first child (the main wrapper div)
-                if (iframeDoc.body.firstElementChild) {
-                    iframeDoc.body.firstElementChild.style.width = '816px';
-                    iframeDoc.body.firstElementChild.style.maxHeight = '1056px';
-                    iframeDoc.body.firstElementChild.style.overflow = 'hidden';
-                }
-
                 // Wait for fonts/images/styles to load
                 await new Promise(r => setTimeout(r, 2000));
 
-                // Capture the iframe body content (which now has styles applied)
-                const captureTarget = iframeDoc.body;
+                // Capture the .page element (which has fixed 816x1056 in CSS)
+                const captureTarget = iframeDoc.querySelector('.page') || iframeDoc.body;
 
                 const pdfBlob = await html2pdf().set({
                     margin: 0,
@@ -5061,7 +5038,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
                 document.body.removeChild(iframe);
 
-                // Ensure it's a proper PDF Blob with correct MIME type
                 const properBlob = new Blob([pdfBlob], { type: 'application/pdf' });
                 console.log('Generated PDF blob for ' + docType.key + ': size=' + properBlob.size + ' bytes');
 
@@ -5075,17 +5051,32 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
                 await uploadToStorage('deal-documents', storagePath, properBlob);
 
-                // 4. Record in agent_branded_documents table
-                const { error: dbErr } = await db.from('agent_branded_documents').upsert({
+                // 4. Record in agent_branded_documents table (try multiple approaches to handle RLS)
+                let dbRecorded = false;
+                const docRecord = {
                     agent_id: agentId,
                     document_type: docType.key,
                     storage_path: storagePath,
                     generated_at: new Date().toISOString()
-                }, { onConflict: 'agent_id,document_type' });
+                };
+                // Try upsert first
+                const { error: upsertErr } = await db.from('agent_branded_documents').upsert(docRecord, { onConflict: 'agent_id,document_type' });
+                if (!upsertErr) {
+                    dbRecorded = true;
+                } else {
+                    console.warn('Upsert failed for ' + docType.key + ', trying delete+insert:', upsertErr.message);
+                    // Try delete existing then insert fresh
+                    await db.from('agent_branded_documents').delete().eq('agent_id', agentId).eq('document_type', docType.key);
+                    const { error: insertErr } = await db.from('agent_branded_documents').insert([docRecord]);
+                    if (!insertErr) {
+                        dbRecorded = true;
+                    } else {
+                        console.warn('Insert also failed for ' + docType.key + ':', insertErr.message);
+                        // PDF was still uploaded to storage — doc is accessible, just not tracked in DB
+                    }
+                }
 
-                if (dbErr) console.error('DB record error for ' + docType.key + ':', dbErr);
-
-                results.push({ key: docType.key, label: docType.label, success: true, path: storagePath });
+                results.push({ key: docType.key, label: docType.label, success: true, path: storagePath, dbRecorded: dbRecorded });
             } catch (err) {
                 console.error('Error generating ' + docType.key + ':', err);
                 results.push({ key: docType.key, label: docType.label, success: false, error: err.message });
@@ -10582,13 +10573,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     async function uploadToStorage(bucketName, filePath, file) {
-        // Direct REST API upload - bypasses JS client RLS issues
+        // Get the authenticated user's session token (not anon key) to satisfy storage RLS
+        var authToken = SUPABASE_ANON_KEY;
+        try {
+            var sessionResult = await db.auth.getSession();
+            if (sessionResult && sessionResult.data && sessionResult.data.session && sessionResult.data.session.access_token) {
+                authToken = sessionResult.data.session.access_token;
+            }
+        } catch(e) { console.log('Could not get session token, using anon key'); }
+
         var url = SUPABASE_URL + '/storage/v1/object/' + bucketName + '/' + filePath;
         var contentType = (file && file.type) ? file.type : 'application/octet-stream';
         var response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                'Authorization': 'Bearer ' + authToken,
                 'apikey': SUPABASE_ANON_KEY,
                 'Content-Type': contentType,
                 'x-upsert': 'true'
