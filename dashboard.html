@@ -6802,7 +6802,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 source: application.source_channel || 'Online',
                 source_agent_id: application.source_agent_id || null,
                 product_type: productType,
-                date_submitted: new Date().toISOString(),
+                date_submitted: new Date().toLocaleDateString('en-CA'),
                 status: 'Prospect'
             };
 
@@ -7918,6 +7918,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     async function refreshCurrentPage() {
+        // Clear all cached data so fresh data is fetched
+        cachedAgents = [];
+
         // Refresh auth session to prevent stale token issues
         try {
             var { data, error } = await db.auth.refreshSession();
@@ -16475,7 +16478,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     function formatDate(dateString) {
         if (!dateString) return 'N/A';
-        const date = new Date(dateString);
+        // Handle YYYY-MM-DD strings without timezone shift by parsing parts directly
+        var parts = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (parts) {
+            var date = new Date(parseInt(parts[1]), parseInt(parts[2]) - 1, parseInt(parts[3]));
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+        var date = new Date(dateString);
         return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
     }
 
