@@ -5119,18 +5119,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 const bodyHTML = parsedDoc.body.innerHTML;
 
                 // 3. Create render div with inline-styled content
+                // Use position:absolute off-screen (NOT opacity:0 which html2canvas may skip)
                 const renderDiv = document.createElement('div');
                 renderDiv.id = 'bdoc_' + Date.now() + '_' + i;
-                renderDiv.style.cssText = 'position:fixed;left:0;top:0;width:816px;height:1056px;z-index:-1;opacity:0.01;overflow:hidden;';
-                // Add a scoped style tag and the body content
+                renderDiv.style.cssText = 'position:absolute;left:-2000px;top:0;width:816px;';
                 renderDiv.innerHTML = bodyHTML;
                 document.body.appendChild(renderDiv);
 
                 // Wait for rendering
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 800));
 
-                // Get capture target (the table or first element contains all styling)
-                const captureTarget = renderDiv.firstElementChild || renderDiv;
+                // Capture the render div (which contains the full table with inline styles)
+                const captureTarget = renderDiv;
 
                 const pdfBlob = await html2pdf().set({
                     margin: 0,
