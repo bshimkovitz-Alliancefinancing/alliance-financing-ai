@@ -5013,31 +5013,39 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 const html = docType.generator(agentData);
 
                 // 2. Render HTML to PDF via html2pdf.js
-                // Container must be visible and on-screen for html2canvas to capture it
-                const container = document.createElement('div');
-                container.style.position = 'fixed';
-                container.style.left = '0';
-                container.style.top = '0';
-                container.style.width = '816px';
-                container.style.zIndex = '-1';
-                container.style.opacity = '0.01';
-                container.style.overflow = 'hidden';
-                container.innerHTML = html;
-                document.body.appendChild(container);
+                // Use iframe approach so full HTML document (with <style> tags) renders properly
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'fixed';
+                iframe.style.left = '0';
+                iframe.style.top = '0';
+                iframe.style.width = '816px';
+                iframe.style.height = '1056px';
+                iframe.style.zIndex = '-1';
+                iframe.style.opacity = '0.01';
+                iframe.style.border = 'none';
+                document.body.appendChild(iframe);
 
-                // Wait for fonts/images to load
-                await new Promise(r => setTimeout(r, 1500));
+                // Write the full HTML document into the iframe
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                iframeDoc.open();
+                iframeDoc.write(html);
+                iframeDoc.close();
 
-                // Use toPdf().output('blob') chain for proper PDF blob output
+                // Wait for fonts/images/styles to load
+                await new Promise(r => setTimeout(r, 2000));
+
+                // Capture the iframe body content (which now has styles applied)
+                const captureTarget = iframeDoc.body;
+
                 const pdfBlob = await html2pdf().set({
                     margin: 0,
                     filename: docType.key + '.pdf',
                     image: { type: 'jpeg', quality: 0.95 },
                     html2canvas: { scale: 2, useCORS: true, logging: false, width: 816, scrollX: 0, scrollY: 0, windowWidth: 816 },
                     jsPDF: { unit: 'px', format: [816, 1056], hotfixes: ['px_scaling'] }
-                }).from(container).toPdf().output('blob');
+                }).from(captureTarget).toPdf().output('blob');
 
-                document.body.removeChild(container);
+                document.body.removeChild(iframe);
 
                 // Ensure it's a proper PDF Blob with correct MIME type
                 const properBlob = new Blob([pdfBlob], { type: 'application/pdf' });
