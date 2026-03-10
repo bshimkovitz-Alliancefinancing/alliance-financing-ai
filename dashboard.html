@@ -17300,13 +17300,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         currentUserId = userData.id;
                         currentUserRole = displayRole;
                         currentUserName = displayName;
-                        currentUserAgentType = userData.agent_type || null;
+                        if (userData.agent_type) currentAgentType = userData.agent_type;
                     }
                 } catch(e) {}
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('appContainer').style.display = 'flex';
                 document.getElementById('userEmailDisplay').textContent = email;
-                document.getElementById('currentUser').textContent = displayName + ' (' + displayRole + ')';
+                var roleLabel = displayRole;
+                if (displayRole === 'agent' && currentAgentType) {
+                    roleLabel = getAgentTypeLabel(currentAgentType);
+                }
+                document.getElementById('currentUser').textContent = displayName + ' (' + roleLabel + ')';
                 applyRoleAccess();
                 loadDashboard();
                 return;
