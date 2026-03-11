@@ -715,6 +715,12 @@
                     isManager = true;
                     dashboardAccess = 'full';
                 }
+                // Mark portal as activated on first login
+                if (!vc.portal_activated_at) {
+                    await db.from('vendor_contacts').update({
+                        portal_activated_at: new Date().toISOString()
+                    }).eq('id', vc.id);
+                }
             }
         } catch (e) { console.warn('Could not look up vendor contact:', e); }
 

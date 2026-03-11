@@ -15845,13 +15845,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         : '<p style="color: var(--text-light); font-size: 12px; margin: 4px 0;">No notes for this contact yet.</p>';
                     const statusColor = (c.status === 'Left Company') ? 'var(--danger)' : (c.status === 'Inactive') ? 'var(--warning)' : 'var(--success)';
                     const contactStatus = c.status || 'Active';
+                    const portalStatus = c.portal_activated_at ? 'active' : c.portal_invited_at ? 'invited' : 'none';
+                    const portalBadge = portalStatus === 'active'
+                        ? '<span style="font-size:10px;padding:2px 6px;border-radius:8px;background:#DCFCE7;color:#166534;margin-left:4px;">Portal Active</span>'
+                        : portalStatus === 'invited'
+                        ? '<span style="font-size:10px;padding:2px 6px;border-radius:8px;background:#FEF3C7;color:#92400E;margin-left:4px;">Invite Sent</span>'
+                        : '';
                     return `
                     <div class="vendor-contact-card" style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--border-gray); ${contactStatus === 'Left Company' ? 'opacity: 0.65;' : ''}">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div id="vendorContactDisplay_${c.id}">
-                                <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                     <span style="font-weight: 600; color: var(--navy);">${c.contact_name || 'N/A'}</span>
                                     <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${statusColor}; color: white;">${contactStatus}</span>
+                                    ${portalBadge}
                                 </div>
                                 <div style="font-size: 13px; color: var(--text-light); margin-top: 4px;">
                                     ${c.email ? `<div>Email: <a href="mailto:${c.email}">${c.email}</a></div>` : ''}
@@ -15889,6 +15896,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                                 <select onchange="updateVendorContactStatus('${c.id}', '${vendorId}', this.value)" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 11px; cursor: pointer;">
                                     ${'Active,Inactive,Left Company'.split(',').map(s => `<option value="${s}" ${contactStatus === s ? 'selected' : ''}>${s}</option>`).join('')}
                                 </select>
+                                ${c.email && !c.portal_activated_at ? `<button class="btn btn-sm" id="portalInviteBtn_${c.id}" onclick="sendPortalInvite('${c.id}', '${vendorId}', '${(c.contact_name || '').replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}', '${(c.role_title || 'Sales').replace(/'/g, "\\'")}')" style="padding: 3px 8px; font-size: 11px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="Send portal login invite">${c.portal_invited_at ? '↻ Resend Invite' : '✉ Invite to Portal'}</button>` : ''}
                                 <button class="btn btn-secondary btn-sm" onclick="toggleEditVendorContact('${c.id}')" style="padding: 3px 8px; font-size: 11px;" title="Edit">Edit</button>
                                 <button class="btn btn-sm" onclick="deleteVendorContact('${c.id}', '${vendorId}', '${(c.contact_name || '').replace(/'/g, "\\'")}')" style="padding: 3px 8px; font-size: 11px; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer;" title="Delete">Del</button>
                                 <button class="btn btn-secondary btn-sm" onclick="this.closest('.vendor-contact-card').querySelector('.contact-notes-section').style.display = this.closest('.vendor-contact-card').querySelector('.contact-notes-section').style.display === 'none' ? 'block' : 'none'" style="padding: 3px 8px; font-size: 11px; white-space: nowrap;">Notes (${cNotes.length})</button>
@@ -16259,6 +16267,125 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         } catch (err) {
             console.error('Remove approved lender error:', err);
             alert('Error removing approved lender: ' + err.message);
+        }
+    }
+
+    // ============================================
+    // Portal Invite for Vendor Contacts
+    // ============================================
+    async function sendPortalInvite(contactId, vendorId, contactName, contactEmail, roleName) {
+        if (!contactEmail) { alert('This contact has no email address. Please add an email first.'); return; }
+
+        const portalType = (roleName === 'Admin' || roleName === 'Owner') ? 'Admin (full dashboard)' : 'Sales (own deals only)';
+        if (!confirm('Send portal invite to ' + contactName + ' (' + contactEmail + ')?\n\nThey will be set up as: ' + portalType + '\n\nThis will create their login account and email them an activation link to set their password.')) return;
+
+        const btn = document.getElementById('portalInviteBtn_' + contactId);
+        if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+
+        try {
+            // Get vendor info for the email
+            const { data: vendor } = await db.from('vendors').select('name').eq('id', vendorId).single();
+            const vendorName = vendor ? vendor.name : 'Vendor Program';
+
+            // Determine agent_type based on role
+            const agentType = (roleName === 'Admin' || roleName === 'Owner') ? 'vendor_program' : 'vendor_salesperson';
+
+            // Generate invite token
+            const inviteToken = crypto.randomUUID ? crypto.randomUUID() : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+
+            // Check if a users record already exists for this email
+            const { data: existingUser } = await db.from('users').select('id').ilike('email', contactEmail).maybeSingle();
+
+            let userId;
+            if (existingUser) {
+                // Update existing record with new invite token
+                const { error: updateError } = await db.from('users').update({
+                    invite_token: inviteToken,
+                    invite_sent_at: new Date().toISOString(),
+                    onboarding_status: 'invited',
+                    agent_type: agentType,
+                    company_name: vendorName
+                }).eq('id', existingUser.id);
+                if (updateError) throw updateError;
+                userId = existingUser.id;
+            } else {
+                // Create new user record
+                const slug = contactName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now().toString(36);
+                const { data: newUser, error: insertError } = await db.from('users').insert([{
+                    full_name: contactName,
+                    email: contactEmail,
+                    role: 'agent',
+                    agent_type: agentType,
+                    company_name: vendorName,
+                    referral_slug: slug,
+                    agent_status: 'Invited',
+                    onboarding_status: 'invited',
+                    invite_token: inviteToken,
+                    invite_sent_at: new Date().toISOString(),
+                    commission_type: 'none',
+                    program_details: { vendor_contact_id: contactId, vendor_id: vendorId, role: roleName },
+                    created_at: new Date().toISOString()
+                }]).select();
+                if (insertError) throw insertError;
+                userId = newUser[0].id;
+            }
+
+            // Update vendor_contacts with invite tracking
+            await db.from('vendor_contacts').update({
+                portal_invited_at: new Date().toISOString(),
+                portal_invite_token: inviteToken,
+                portal_user_id: userId
+            }).eq('id', contactId);
+
+            // Send activation email via Resend
+            const activateUrl = window.location.origin + '/agent-activate.html?token=' + inviteToken;
+            const portalUrl = window.location.origin + '/vendor-portal.html';
+
+            const emailSubject = 'Welcome to ' + vendorName + ' — Alliance Financing Portal Access';
+            const emailHtml =
+                '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1>' +
+                '<p style="color:#94A3B8;margin:6px 0 0;font-size:13px;">Vendor Program Portal</p></div>' +
+                '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                '<p style="font-size:16px;color:#1E293B;">Hi ' + contactName + ',</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">You have been invited to access the <strong>' + vendorName + '</strong> financing portal on Alliance Financing Group.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">Your access level: <strong>' + portalType + '</strong></p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">To get started, click below to set up your password and activate your account:</p>' +
+                '<div style="text-align:center;margin:25px 0;">' +
+                '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Activate My Account</a></div>' +
+                '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;">' + activateUrl + '</a></p>' +
+                '<div style="background:#F8FAFC;padding:16px;border-radius:6px;margin:20px 0;border:1px solid #E2E8F0;">' +
+                '<p style="font-size:13px;color:#475569;margin:0 0 6px;"><strong>Once activated, you can:</strong></p>' +
+                '<p style="font-size:13px;color:#475569;margin:0;line-height:1.8;">• Submit financing deals and credit applications<br>• Request quotes for your clients<br>• Track all your submissions in real-time<br>• Access your portal at: <a href="' + portalUrl + '" style="color:#3B82F6;">' + portalUrl + '</a></p></div>' +
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong></p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a></p></div></div>';
+
+            await sendEmailViaResend(contactEmail, emailSubject, emailHtml, '', 'info@alliancefinancing.com');
+
+            // Log to vendor admin_notes
+            const { data: vendorNotes } = await db.from('vendors').select('admin_notes').eq('id', vendorId).single();
+            let notes = [];
+            try { notes = vendorNotes.admin_notes ? JSON.parse(vendorNotes.admin_notes) : []; } catch(e) { notes = []; }
+            const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            notes.unshift({
+                text: '✉️ Portal invite sent to ' + contactName + ' (' + contactEmail + ') — ' + portalType,
+                author: userEmail,
+                date: dateStr
+            });
+            await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
+
+            alert('Portal invite sent successfully to ' + contactName + '!\n\nThey will receive an email with a link to set up their password and access the vendor portal.');
+
+            // Refresh the vendor detail view
+            await viewVendor(vendorId);
+
+        } catch (err) {
+            console.error('Portal invite error:', err);
+            alert('Error sending portal invite: ' + err.message);
+            if (btn) { btn.disabled = false; btn.textContent = '✉ Invite to Portal'; }
         }
     }
 
