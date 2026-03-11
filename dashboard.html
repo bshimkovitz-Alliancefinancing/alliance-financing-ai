@@ -7009,9 +7009,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
                 const ad = agentDeals || [];
                 const sad = subAgentDeals || [];
-                const fundedDeals = ad.filter(d => d.status === 'Funded');
-                // Active = everything except terminal statuses (Funded, Declined, Dead approval)
-                const activeDeals = ad.filter(d => d.status !== 'Funded' && d.status !== 'Declined' && d.status !== 'Dead approval');
+                const fundedDeals = ad.filter(d => d.status === 'Funded' && !d.is_archived);
+                // Active = not archived, not booked (Funded), not dead (Declined, Dead approval, Withdrawn)
+                const activeDeals = ad.filter(d => !d.is_archived && d.status !== 'Funded' && d.status !== 'Declined' && d.status !== 'Dead approval' && d.status !== 'Withdrawn');
                 const projectedFees = activeDeals.reduce((s, d) => s + (d.agent_fee_amount || 0), 0);
                 const closedFees = fundedDeals.reduce((s, d) => s + (d.agent_fee_amount || 0), 0);
                 const fundedVolume = fundedDeals.reduce((s, d) => s + (d.deal_amount || 0), 0);
