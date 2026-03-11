@@ -752,6 +752,10 @@
                 <span class="nav-icon">👤</span>
                 <span>Team</span>
             </div>
+            <div class="nav-item" id="vendorPortalNav" onclick="showPage('vendorPortal')" style="display: none;">
+                <span class="nav-icon">🏢</span>
+                <span>Vendor Portal</span>
+            </div>
             <div class="nav-item" id="resourcesNav" onclick="showPage('resources')" style="display: none;">
                 <span class="nav-icon">📚</span>
                 <span>Admin Resources</span>
@@ -2050,6 +2054,91 @@
     </div>
 </div>
 
+<!-- Vendor Portal Page -->
+<div id="vendorPortal" class="page-section">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h2 id="vendorPortalTitle" style="margin: 0; font-size: 20px; font-weight: 600; color: var(--navy);">Vendor Portal</h2>
+            <div id="vendorPortalSubtitle" style="font-size: 13px; color: var(--text-light); margin-top: 4px;"></div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary" onclick="refreshCurrentPage()" style="padding: 8px 16px;">Refresh</button>
+            <div style="padding: 8px 14px; background: #F3F4F6; border-radius: 6px; font-size: 13px; color: var(--navy); font-weight: 500;">
+                <span id="vendorPortalUser"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);" id="vendorStatCardsContainer">
+        <div class="stat-card">
+            <div class="stat-label" id="vendorStat1Label">Total Deals</div>
+            <div class="stat-value" id="vendorStat1">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label" id="vendorStat2Label">Active Applications</div>
+            <div class="stat-value" id="vendorStat2">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label" id="vendorStat3Label">Funded Deals</div>
+            <div class="stat-value" id="vendorStat3">0</div>
+        </div>
+        <div class="stat-card" id="vendorStat4Card" style="display: none;">
+            <div class="stat-label" id="vendorStat4Label">Team Members</div>
+            <div class="stat-value" id="vendorStat4">0</div>
+        </div>
+    </div>
+
+    <!-- Deal Pipeline Table -->
+    <div class="table-container" style="margin-top: 30px;">
+        <div class="table-header">
+            <div class="table-title">Deal Pipeline</div>
+            <button class="btn btn-primary btn-sm" onclick="openSendApplicationModalWithRef('vendor')" style="padding: 6px 14px;">+ Send Lease Application</button>
+        </div>
+        <table style="width: 100%;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border-gray);">
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Deal #</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Company</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Product</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Amount</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Status</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Date</th>
+                    <th style="text-align: center; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="vendorDealsBody">
+                <tr>
+                    <td colspan="7" style="padding: 40px; text-align: center; color: var(--text-light);">Loading deals...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Team Members Section (for vendor admins only) -->
+    <div class="table-container" style="margin-top: 30px; display: none;" id="vendorTeamSection">
+        <div class="table-header">
+            <div class="table-title">Team Members</div>
+        </div>
+        <table style="width: 100%;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border-gray);">
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Name</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Email</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Role</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Deals Sourced</th>
+                    <th style="text-align: center; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="vendorTeamBody">
+                <tr>
+                    <td colspan="5" style="padding: 40px; text-align: center; color: var(--text-light);">Loading team members...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- Deal Detail Modal -->
 <div id="dealModal" class="modal">
     <div class="modal-content" style="max-width: 1000px;">
@@ -2851,87 +2940,385 @@
 
 <!-- Add Vendor Modal -->
 <div id="addVendorModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
         <div class="modal-header">
-            <h2>New Vendor</h2>
+            <h2>New Vendor - Onboarding Application</h2>
             <button class="modal-close" onclick="closeAddVendorModal()">✕</button>
         </div>
         <div class="modal-body">
             <form id="addVendorForm" onsubmit="handleAddVendor(event)">
-                <div class="modal-row">
-                    <div class="modal-field full">
-                        <label>Name <span style="color: var(--danger);">*</span></label>
-                        <input type="text" id="vendorName" required>
+                <!-- Section 1: Company Information -->
+                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
+                    <div class="section-header" onclick="toggleSection('vendorSection1')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
+                        <span id="vendorSection1Toggle" style="font-size: 14px;">▼</span>
+                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 1: Company Information</h3>
                     </div>
-                </div>
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Website</label>
-                        <input type="url" id="vendorWebsite" placeholder="https://example.com">
-                    </div>
-                    <div class="modal-field">
-                        <label>Countries</label>
-                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
-                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
-                                <input type="checkbox" name="vendorCountries" value="Canada"> Canada
-                            </label>
-                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
-                                <input type="checkbox" name="vendorCountries" value="United States"> United States
-                            </label>
-                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
-                                <input type="checkbox" name="vendorCountries" value="UK"> UK
-                            </label>
-                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
-                                <input type="checkbox" name="vendorCountries" value="Germany"> Germany
-                            </label>
+                    <div id="vendorSection1" style="padding: 15px;">
+                        <div class="modal-row">
+                            <div class="modal-field full">
+                                <label>Company Name <span style="color: var(--danger);">*</span></label>
+                                <input type="text" id="vendorName" required>
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Trade Name / Operating Name</label>
+                                <input type="text" id="vendorTradeName">
+                            </div>
+                            <div class="modal-field">
+                                <label>Website</label>
+                                <input type="url" id="vendorWebsite" placeholder="https://example.com">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Mailing Address</label>
+                                <input type="text" id="vendorMailingAddress">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>City</label>
+                                <input type="text" id="vendorCity">
+                            </div>
+                            <div class="modal-field">
+                                <label>Province/State</label>
+                                <input type="text" id="vendorProvinceState">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Postal/Zip Code</label>
+                                <input type="text" id="vendorPostalZip">
+                            </div>
+                            <div class="modal-field">
+                                <label>Telephone</label>
+                                <input type="tel" id="vendorTelephone">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Fax</label>
+                                <input type="text" id="vendorFax">
+                            </div>
+                            <div class="modal-field">
+                                <label>GST / Federal ID Number</label>
+                                <input type="text" id="vendorTaxId">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Date Incorporated</label>
+                                <input type="date" id="vendorDateIncorporated">
+                            </div>
+                            <div class="modal-field">
+                                <label>Years Under Present Owner</label>
+                                <input type="number" id="vendorYearsUnderOwner" min="0">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Number of Employees</label>
+                                <input type="number" id="vendorNumEmployees" min="0">
+                            </div>
+                            <div class="modal-field">
+                                <label>Business Structure</label>
+                                <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
+                                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;">
+                                        <input type="radio" name="vendorBusinessStructure" value="Corporation"> Corporation
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;">
+                                        <input type="radio" name="vendorBusinessStructure" value="LLC"> LLC
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;">
+                                        <input type="radio" name="vendorBusinessStructure" value="Partnership"> Partnership
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;">
+                                        <input type="radio" name="vendorBusinessStructure" value="Proprietorship"> Proprietorship
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;">
+                                        <input type="radio" name="vendorBusinessStructure" value="Other"> Other
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Alliance Rep</label>
+                                <select id="vendorAllianceRep">
+                                    <option value="">Select Team Member</option>
+                                </select>
+                            </div>
+                            <div class="modal-field">
+                                <label>Countries</label>
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                                    <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                        <input type="checkbox" name="vendorCountries" value="Canada"> Canada
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                        <input type="checkbox" name="vendorCountries" value="United States"> United States
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                        <input type="checkbox" name="vendorCountries" value="UK"> UK
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                        <input type="checkbox" name="vendorCountries" value="Germany"> Germany
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Product Description</label>
+                                <textarea id="vendorProduct" style="resize: vertical; min-height: 60px;"></textarea>
+                            </div>
+                            <div class="modal-field">
+                                <label>Status</label>
+                                <select id="vendorStatus">
+                                    <option value="">Select Status</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Product Description</label>
-                        <input type="text" id="vendorProduct">
-                    </div>
-                    <div class="modal-field">
-                        <label>Status</label>
-                        <select id="vendorStatus">
-                            <option value="">Select Status</option>
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                        </select>
-                    </div>
-                </div>
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-gray);">
-                    <h3 style="font-size: 14px; font-weight: 600; color: var(--navy); margin-bottom: 15px;">Primary Contact (Optional)</h3>
-                    <div class="modal-row">
-                        <div class="modal-field">
-                            <label>Contact Name</label>
-                            <input type="text" id="vendorContactName" class="vendorContact">
-                        </div>
-                        <div class="modal-field">
-                            <label>Contact Email</label>
-                            <input type="email" id="vendorContactEmail" class="vendorContact">
-                        </div>
-                    </div>
-                    <div class="modal-row">
-                        <div class="modal-field">
-                            <label>Contact Phone</label>
-                            <input type="text" id="vendorContactPhone" class="vendorContact">
-                        </div>
-                        <div class="modal-field">
-                            <label>Contact Role/Title</label>
-                            <input type="text" id="vendorContactRole" class="vendorContact">
-                        </div>
-                    </div>
 
-                    <!-- Extra Contacts Container -->
-                    <div id="vendorExtraContacts"></div>
-
-                    <!-- Add Another Contact Button -->
-                    <div style="margin-top: 15px; text-align: center;">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="addVendorContactField()" style="padding: 6px 12px;">+ Add Another Contact</button>
+                <!-- Section 2: Bank References -->
+                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
+                    <div class="section-header" onclick="toggleSection('vendorSection2')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
+                        <span id="vendorSection2Toggle" style="font-size: 14px;">▼</span>
+                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 2: Bank References</h3>
+                    </div>
+                    <div id="vendorSection2" style="padding: 15px;">
+                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 15px;">Provide two bank references for credit verification.</div>
+                        <div id="vendorBankReferences">
+                            <!-- Bank reference rows will be populated here -->
+                        </div>
                     </div>
                 </div>
+
+                <!-- Section 3: Trade References -->
+                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
+                    <div class="section-header" onclick="toggleSection('vendorSection3')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
+                        <span id="vendorSection3Toggle" style="font-size: 14px;">▼</span>
+                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 3: Trade References</h3>
+                    </div>
+                    <div id="vendorSection3" style="padding: 15px;">
+                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 15px;">Provide three trade references for verification.</div>
+                        <div id="vendorTradeReferences">
+                            <!-- Trade reference rows will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: Equipment / Machinery Sold -->
+                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
+                    <div class="section-header" onclick="toggleSection('vendorSection4')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
+                        <span id="vendorSection4Toggle" style="font-size: 14px;">▼</span>
+                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 4: Equipment / Machinery Sold</h3>
+                    </div>
+                    <div id="vendorSection4" style="padding: 15px;">
+                        <div class="modal-row">
+                            <div class="modal-field full">
+                                <label>Description of Equipment/Machinery</label>
+                                <textarea id="vendorEquipmentDescription" style="resize: vertical; min-height: 80px;"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Equipment % of Lease</label>
+                                <input type="number" id="vendorEquipmentRatio" min="0" max="100" step="0.01"> %
+                            </div>
+                            <div class="modal-field">
+                                <label>Soft Cost %</label>
+                                <input type="number" id="vendorSoftCostRatio" min="0" max="100" step="0.01"> %
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Price Range - Low</label>
+                                <input type="number" id="vendorPriceLow" min="0" step="0.01">
+                            </div>
+                            <div class="modal-field">
+                                <label>Price Range - High</label>
+                                <input type="number" id="vendorPriceHigh" min="0" step="0.01">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Average Sale</label>
+                                <input type="number" id="vendorAverageSale" min="0" step="0.01">
+                            </div>
+                            <div class="modal-field">
+                                <label>Estimated Useful Life (years)</label>
+                                <input type="number" id="vendorUsefulLife" min="0" step="0.1">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Resale Value after 3 years (%)</label>
+                                <input type="number" id="vendorResaleValue3yr" min="0" max="100" step="0.01"> %
+                            </div>
+                            <div class="modal-field">
+                                <label>Resale Value after 5 years (%)</label>
+                                <input type="number" id="vendorResaleValue5yr" min="0" max="100" step="0.01"> %
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
+                                    <input type="checkbox" id="vendorSellsUsedEquipment">
+                                    Is used equipment sold?
+                                </label>
+                            </div>
+                            <div class="modal-field">
+                                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
+                                    <input type="checkbox" id="vendorOffersService">
+                                    Is service offered?
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Warranty Length</label>
+                                <input type="text" id="vendorWarrantyLength" placeholder="e.g., 24 months">
+                            </div>
+                            <div class="modal-field">
+                                <label>Authorized Distributor For</label>
+                                <input type="text" id="vendorAuthorizedDistributor">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 5: Sales / Customer Information -->
+                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
+                    <div class="section-header" onclick="toggleSection('vendorSection5')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
+                        <span id="vendorSection5Toggle" style="font-size: 14px;">▼</span>
+                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 5: Sales / Customer Information</h3>
+                    </div>
+                    <div id="vendorSection5" style="padding: 15px;">
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Last Year's Sales Volume</label>
+                                <input type="number" id="vendorAnnualVolume" min="0" step="0.01">
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-light); margin: 15px 0 10px;">Customer Breakdown (Total should equal 100%)</div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Established Businesses %</label>
+                                <input type="number" id="vendorPctEstablished" min="0" max="100" step="0.01"> %
+                            </div>
+                            <div class="modal-field">
+                                <label>New Businesses %</label>
+                                <input type="number" id="vendorPctNewBusiness" min="0" max="100" step="0.01"> %
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Consumers %</label>
+                                <input type="number" id="vendorPctConsumers" min="0" max="100" step="0.01"> %
+                            </div>
+                            <div class="modal-field">
+                                <label>Other %</label>
+                                <input type="number" id="vendorPctOther" min="0" max="100" step="0.01"> %
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 6: Salespeople / Contacts -->
+                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
+                    <div class="section-header" onclick="toggleSection('vendorSection6')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
+                        <span id="vendorSection6Toggle" style="font-size: 14px;">▼</span>
+                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 6: Salespeople / Contacts</h3>
+                    </div>
+                    <div id="vendorSection6" style="padding: 15px;">
+                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 15px;">Add contacts who will have access to the vendor portal.</div>
+
+                        <!-- Primary Contact -->
+                        <h4 style="font-size: 13px; font-weight: 600; color: var(--navy); margin: 0 0 12px;">Primary Contact</h4>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Contact Name</label>
+                                <input type="text" id="vendorContactName" class="vendorContact">
+                            </div>
+                            <div class="modal-field">
+                                <label>Contact Email</label>
+                                <input type="email" id="vendorContactEmail" class="vendorContact">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Contact Phone</label>
+                                <input type="text" id="vendorContactPhone" class="vendorContact">
+                            </div>
+                            <div class="modal-field">
+                                <label>Contact Role/Title</label>
+                                <input type="text" id="vendorContactRole" class="vendorContact">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
+                                    <input type="checkbox" id="vendorContactPortalUser" class="vendorContact">
+                                    Set up as portal user
+                                </label>
+                            </div>
+                            <div class="modal-field">
+                                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
+                                    <input type="checkbox" id="vendorContactAdmin" class="vendorContact">
+                                    Vendor Admin (vs Salesperson)
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Extra Contacts Container -->
+                        <div id="vendorExtraContacts"></div>
+
+                        <!-- Add Another Contact Button -->
+                        <div style="margin-top: 15px; text-align: center;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="addVendorContactField()" style="padding: 6px 12px;">+ Add Another Contact</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 7: Authorization -->
+                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
+                    <div class="section-header" onclick="toggleSection('vendorSection7')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
+                        <span id="vendorSection7Toggle" style="font-size: 14px;">▼</span>
+                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 7: Authorization</h3>
+                    </div>
+                    <div id="vendorSection7" style="padding: 15px;">
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Authorized Signatory Name</label>
+                                <input type="text" id="vendorSignatory">
+                            </div>
+                            <div class="modal-field">
+                                <label>Title</label>
+                                <input type="text" id="vendorSignatoryTitle">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Date</label>
+                                <input type="date" id="vendorAuthorizationDate">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field full">
+                                <label style="display: flex; align-items: center; gap: 6px; font-weight: 500;">
+                                    <input type="checkbox" id="vendorOnboardingCompleted">
+                                    Authorization to obtain credit information granted
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="modal-footer" style="margin-top: 20px;">
                     <button type="button" class="btn btn-secondary" onclick="closeAddVendorModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Create Vendor</button>
@@ -3473,6 +3860,12 @@
             // Apply role-based access
             applyRoleAccess();
 
+            // Route vendor users to vendor portal
+            if (currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') {
+                showPage('vendorPortal');
+                loadPageData('vendorPortal');
+            }
+
             // Show admin agent filter on Applications Sent section
             if (['super_admin', 'admin'].includes(currentUserRole)) {
                 var agentFilterEl = document.getElementById('appSentAgentFilter');
@@ -3620,6 +4013,7 @@
     function applyRoleAccess() {
         const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
         const isReferralAgent = !isAdmin && currentAgentType === 'referring_agent';
+        const isVendor = currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson';
 
         // Hide/show nav items based on role AND agent type
         const navItems = document.querySelectorAll('.nav-item');
@@ -3628,15 +4022,19 @@
 
             if (isAdmin) {
                 // Admins see everything except agent-only items
-                var agentOnlyItems = ['Marketing', 'Help & Resources', 'Vendor Programs', 'Referral Partners'];
+                var agentOnlyItems = ['Marketing', 'Help & Resources', 'Vendor Programs', 'Referral Partners', 'Vendor Portal'];
                 item.style.display = agentOnlyItems.includes(label) ? 'none' : 'flex';
+            } else if (isVendor) {
+                // Vendor users see only Vendor Portal and Help
+                var vendorAllowed = ['Dashboard', 'Vendor Portal', 'Help & Resources'];
+                item.style.display = vendorAllowed.includes(label) ? 'flex' : 'none';
             } else if (isReferralAgent) {
                 // Referral agents get a minimal nav: Dashboard, My Referrals, Help
                 var referralAllowed = ['Dashboard', 'My Referrals', 'Help & Resources'];
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
             } else {
                 // ISO/other agent views
-                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing', 'Team', 'Admin Resources'];
+                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing', 'Team', 'Admin Resources', 'Vendor Portal'];
 
                 if (adminOnly.includes(label)) {
                     item.style.display = 'none';
@@ -3655,6 +4053,12 @@
         var myReferralsNav = document.getElementById('myReferralsNav');
         if (myReferralsNav) {
             myReferralsNav.style.display = isReferralAgent ? 'flex' : 'none';
+        }
+
+        // Show "Vendor Portal" nav for vendor users
+        var vendorPortalNav = document.getElementById('vendorPortalNav');
+        if (vendorPortalNav) {
+            vendorPortalNav.style.display = isVendor ? 'flex' : 'none';
         }
 
         // Hide lender column from agents in pipeline table
@@ -6654,6 +7058,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             'myReferrals': 'My Referrals',
             'marketing': 'Marketing',
             'team': 'Team Members',
+            'vendorPortal': 'Vendor Portal',
             'resources': 'Admin Resources',
             'help': 'Help & Resources'
         };
@@ -7774,6 +8179,145 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         'salesperson': { label: 'Equipment Salesperson', file: 'Guide-Equipment-Salesperson.docx', icon: '💼', desc: 'Guide for equipment salespeople on offering financing, the application process, products available, and tips for closing more deals.' }
     };
 
+    async function loadVendorPortal() {
+        try {
+            var isAdmin = currentAgentType === 'vendor_program';
+            var vendorId = null;
+            var vendorName = '';
+
+            // Fetch current user's vendor association
+            if (!currentUserId) {
+                document.getElementById('vendorDealsBody').innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: var(--text-light);">User not found</td></tr>';
+                return;
+            }
+
+            // Get vendor_id from vendor_contacts or users table
+            if (isAdmin) {
+                // For vendor_program users, get vendor from their user record or find their primary contact
+                const { data: contactData } = await db
+                    .from('vendor_contacts')
+                    .select('vendor_id')
+                    .eq('email', currentUser?.email || '')
+                    .limit(1);
+                if (contactData && contactData.length > 0) {
+                    vendorId = contactData[0].vendor_id;
+                }
+            } else {
+                // For vendor_salesperson users
+                const { data: contactData } = await db
+                    .from('vendor_contacts')
+                    .select('vendor_id')
+                    .eq('email', currentUser?.email || '')
+                    .limit(1);
+                if (contactData && contactData.length > 0) {
+                    vendorId = contactData[0].vendor_id;
+                }
+            }
+
+            if (!vendorId) {
+                document.getElementById('vendorDealsBody').innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: var(--text-light);">No vendor association found</td></tr>';
+                return;
+            }
+
+            // Fetch vendor details
+            const { data: vendor } = await db
+                .from('vendors')
+                .select('*')
+                .eq('id', vendorId)
+                .single();
+
+            if (vendor) {
+                vendorName = vendor.name;
+                document.getElementById('vendorPortalTitle').textContent = vendorName + ' Portal';
+                document.getElementById('vendorPortalSubtitle').textContent = isAdmin ? 'Vendor Administrator Dashboard' : 'Vendor Salesperson Dashboard';
+            }
+
+            document.getElementById('vendorPortalUser').textContent = currentUserName;
+
+            // Load deals for this vendor
+            var dealsQuery = isAdmin ?
+                db.from('deals').select('*').eq('source_vendor_id', vendorId).order('created_at', { ascending: false }) :
+                db.from('deals').select('*').eq('source_contact_id', currentUserId).order('created_at', { ascending: false });
+
+            const { data: allDeals } = await dealsQuery;
+            const deals = allDeals || [];
+
+            // Calculate stats
+            var totalDeals = deals.length;
+            var activeDeals = deals.filter(d => !['Funded', 'Closed', 'Dead', 'Declined'].includes(d.status)).length;
+            var fundedDeals = deals.filter(d => d.status === 'Funded' || d.status === 'Closed').length;
+
+            document.getElementById('vendorStat1').textContent = totalDeals;
+            document.getElementById('vendorStat2').textContent = activeDeals;
+            document.getElementById('vendorStat3').textContent = fundedDeals;
+
+            // Populate deals table
+            const tbody = document.getElementById('vendorDealsBody');
+            if (deals.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="padding: 40px; text-align: center; color: var(--text-light);">No deals found</td></tr>';
+            } else {
+                tbody.innerHTML = deals.map(d => `
+                    <tr style="border-bottom: 1px solid var(--border-gray);">
+                        <td style="padding: 12px; font-weight: 600; color: var(--navy);">${d.deal_number || 'N/A'}</td>
+                        <td style="padding: 12px;">${d.company_name || 'N/A'}</td>
+                        <td style="padding: 12px;">${d.product_type || 'N/A'}</td>
+                        <td style="padding: 12px;">${d.deal_amount ? formatCurrency(d.deal_amount) : 'N/A'}</td>
+                        <td style="padding: 12px;">${getStatusBadge(d.status)}</td>
+                        <td style="padding: 12px;">${formatDate(d.created_at)}</td>
+                        <td style="padding: 12px; text-align: center;">
+                            <button class="btn btn-secondary btn-sm" onclick="viewDeal('${d.id}')" style="padding: 4px 12px; font-size: 12px;">View</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            // For vendor admins only, show team members section
+            if (isAdmin) {
+                document.getElementById('vendorStat4Card').style.display = 'block';
+                document.getElementById('vendorStat4Label').textContent = 'Team Members';
+                document.getElementById('vendorTeamSection').style.display = 'block';
+
+                // Fetch vendor contacts (team members)
+                const { data: contacts } = await db
+                    .from('vendor_contacts')
+                    .select('*')
+                    .eq('vendor_id', vendorId);
+
+                var teamMembers = contacts || [];
+                document.getElementById('vendorStat4').textContent = teamMembers.length;
+
+                // Count deals per salesperson
+                const teamBody = document.getElementById('vendorTeamBody');
+                if (teamMembers.length === 0) {
+                    teamBody.innerHTML = '<tr><td colspan="5" style="padding: 40px; text-align: center; color: var(--text-light);">No team members found</td></tr>';
+                } else {
+                    teamBody.innerHTML = teamMembers.map(contact => {
+                        var contactDeals = deals.filter(d => d.source_contact_id === contact.id).length;
+                        var roleLabel = contact.is_admin ? 'Admin' : 'Salesperson';
+                        return `
+                            <tr style="border-bottom: 1px solid var(--border-gray);">
+                                <td style="padding: 12px;">${contact.contact_name || 'N/A'}</td>
+                                <td style="padding: 12px;">${contact.email || 'N/A'}</td>
+                                <td style="padding: 12px;">${roleLabel}</td>
+                                <td style="padding: 12px; text-align: center; font-weight: 600;">${contactDeals}</td>
+                                <td style="padding: 12px; text-align: center;">
+                                    <button class="btn btn-secondary btn-sm" onclick="alert('Team member management coming soon')" style="padding: 4px 12px; font-size: 12px;">Manage</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } else {
+                document.getElementById('vendorStat4Card').style.display = 'none';
+                document.getElementById('vendorTeamSection').style.display = 'none';
+            }
+
+        } catch (error) {
+            console.error('Load vendor portal error:', error);
+            document.getElementById('vendorDealsBody').innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: var(--danger);">Error loading portal: ' + error.message + '</td></tr>';
+        }
+    }
+
     async function loadHelpPage() {
         var container = document.getElementById('helpContainer');
         var roleLabel = document.getElementById('helpRoleLabel');
@@ -8506,6 +9050,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 break;
             case 'team':
                 await loadTeamMembers();
+                break;
+            case 'vendorPortal':
+                await loadVendorPortal();
                 break;
             case 'resources':
                 await loadResourcesPage();
@@ -14642,6 +15189,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     <input type="text" class="vendorContact" data-contact-id="${vendorContactCount}" data-field="role">
                 </div>
             </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
+                        <input type="checkbox" class="vendorContact" data-contact-id="${vendorContactCount}" data-field="portalUser">
+                        Set up as portal user
+                    </label>
+                </div>
+                <div class="modal-field">
+                    <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
+                        <input type="checkbox" class="vendorContact" data-contact-id="${vendorContactCount}" data-field="admin">
+                        Vendor Admin (vs Salesperson)
+                    </label>
+                </div>
+            </div>
         `;
         container.appendChild(contactDiv);
     }
@@ -15145,11 +15706,119 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     // Vendor Management
     // ============================================
 
+
+    function toggleSection(sectionId) {
+        var section = document.getElementById(sectionId);
+        var toggle = document.getElementById(sectionId + 'Toggle');
+        if (section.style.display === 'none') {
+            section.style.display = 'block';
+            toggle.textContent = '▼';
+        } else {
+            section.style.display = 'none';
+            toggle.textContent = '▶';
+        }
+    }
+
+    function initializeVendorFormSections() {
+        // Initialize bank references (2 rows)
+        var bankRefContainer = document.getElementById('vendorBankReferences');
+        if (bankRefContainer) {
+            bankRefContainer.innerHTML = '';
+            for (var i = 1; i <= 2; i++) {
+                var bankDiv = document.createElement('div');
+                bankDiv.setAttribute('data-bank-ref-id', i);
+                bankDiv.style.marginBottom = '15px';
+                bankDiv.style.padding = '12px';
+                bankDiv.style.background = '#FAFAFA';
+                bankDiv.style.borderRadius = '4px';
+                bankDiv.innerHTML = `
+                    <div style="font-size: 12px; font-weight: 600; color: var(--navy); margin-bottom: 10px;">Bank Reference ${i}</div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Bank Name</label>
+                            <input type="text" data-field="bankName">
+                        </div>
+                        <div class="modal-field">
+                            <label>Officer</label>
+                            <input type="text" data-field="officer">
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Account #</label>
+                            <input type="text" data-field="account">
+                        </div>
+                        <div class="modal-field">
+                            <label>Phone</label>
+                            <input type="tel" data-field="phone">
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Fax</label>
+                            <input type="text" data-field="fax">
+                        </div>
+                    </div>
+                `;
+                bankRefContainer.appendChild(bankDiv);
+            }
+        }
+
+        // Initialize trade references (3 rows)
+        var tradeRefContainer = document.getElementById('vendorTradeReferences');
+        if (tradeRefContainer) {
+            tradeRefContainer.innerHTML = '';
+            for (var i = 1; i <= 3; i++) {
+                var tradeDiv = document.createElement('div');
+                tradeDiv.setAttribute('data-trade-ref-id', i);
+                tradeDiv.style.marginBottom = '15px';
+                tradeDiv.style.padding = '12px';
+                tradeDiv.style.background = '#FAFAFA';
+                tradeDiv.style.borderRadius = '4px';
+                tradeDiv.innerHTML = `
+                    <div style="font-size: 12px; font-weight: 600; color: var(--navy); margin-bottom: 10px;">Trade Reference ${i}</div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Firm Name</label>
+                            <input type="text" data-field="firmName">
+                        </div>
+                        <div class="modal-field">
+                            <label>Contact</label>
+                            <input type="text" data-field="contact">
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Phone</label>
+                            <input type="tel" data-field="phone">
+                        </div>
+                        <div class="modal-field">
+                            <label>Fax</label>
+                            <input type="text" data-field="fax">
+                        </div>
+                    </div>
+                `;
+                tradeRefContainer.appendChild(tradeDiv);
+            }
+        }
+
+        // Populate Alliance Rep dropdown with team members
+        var allianceRepSelect = document.getElementById('vendorAllianceRep');
+        if (allianceRepSelect && cachedTeamMembers && cachedTeamMembers.length > 0) {
+            cachedTeamMembers.forEach(member => {
+                var option = document.createElement('option');
+                option.value = member.id;
+                option.textContent = member.full_name || member.email;
+                allianceRepSelect.appendChild(option);
+            });
+        }
+    }
+
     function openAddVendorModal() {
-        document.getElementById('addVendorForm').reset();
-        document.getElementById('vendorExtraContacts').innerHTML = '';
-        vendorContactCount = 1;
         document.getElementById('addVendorModal').classList.add('active');
+        initializeVendorFormSections();
+        vendorContactCount = 1;
+        document.getElementById('vendorExtraContacts').innerHTML = '';
     }
 
     function closeAddVendorModal() {
@@ -15164,15 +15833,100 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             const countryCheckboxes = document.querySelectorAll('input[name="vendorCountries"]:checked');
             const countries = Array.from(countryCheckboxes).map(cb => cb.value).join(', ');
 
-            // First, insert vendor
+            // Collect business structure radio
+            const businessStructureRadio = document.querySelector('input[name="vendorBusinessStructure"]:checked');
+            const businessStructure = businessStructureRadio ? businessStructureRadio.value : null;
+
+            // Collect bank references
+            var bankReferences = [];
+            var bankRefRows = document.querySelectorAll('[data-bank-ref-id]');
+            bankRefRows.forEach(row => {
+                var bankName = row.querySelector('[data-field="bankName"]')?.value.trim() || '';
+                var officer = row.querySelector('[data-field="officer"]')?.value.trim() || '';
+                var account = row.querySelector('[data-field="account"]')?.value.trim() || '';
+                var phone = row.querySelector('[data-field="phone"]')?.value.trim() || '';
+                var fax = row.querySelector('[data-field="fax"]')?.value.trim() || '';
+                if (bankName || officer || account || phone || fax) {
+                    bankReferences.push({ bank_name: bankName, officer, account_number: account, phone, fax });
+                }
+            });
+
+            // Collect trade references
+            var tradeReferences = [];
+            var tradeRefRows = document.querySelectorAll('[data-trade-ref-id]');
+            tradeRefRows.forEach(row => {
+                var firmName = row.querySelector('[data-field="firmName"]')?.value.trim() || '';
+                var contact = row.querySelector('[data-field="contact"]')?.value.trim() || '';
+                var phone = row.querySelector('[data-field="phone"]')?.value.trim() || '';
+                var fax = row.querySelector('[data-field="fax"]')?.value.trim() || '';
+                if (firmName || contact || phone || fax) {
+                    tradeReferences.push({ firm_name: firmName, contact, phone, fax });
+                }
+            });
+
+            // Parse numeric values
+            var equipmentRatio = parseFloat(document.getElementById('vendorEquipmentRatio')?.value || 0) || null;
+            var softCostRatio = parseFloat(document.getElementById('vendorSoftCostRatio')?.value || 0) || null;
+            var priceLow = parseFloat(document.getElementById('vendorPriceLow')?.value || 0) || null;
+            var priceHigh = parseFloat(document.getElementById('vendorPriceHigh')?.value || 0) || null;
+            var averageSale = parseFloat(document.getElementById('vendorAverageSale')?.value || 0) || null;
+            var usefulLife = parseFloat(document.getElementById('vendorUsefulLife')?.value || 0) || null;
+            var resaleValue3yr = parseFloat(document.getElementById('vendorResaleValue3yr')?.value || 0) || null;
+            var resaleValue5yr = parseFloat(document.getElementById('vendorResaleValue5yr')?.value || 0) || null;
+            var annualVolume = parseFloat(document.getElementById('vendorAnnualVolume')?.value || 0) || null;
+            var pctEstablished = parseFloat(document.getElementById('vendorPctEstablished')?.value || 0) || null;
+            var pctNewBusiness = parseFloat(document.getElementById('vendorPctNewBusiness')?.value || 0) || null;
+            var pctConsumers = parseFloat(document.getElementById('vendorPctConsumers')?.value || 0) || null;
+            var pctOther = parseFloat(document.getElementById('vendorPctOther')?.value || 0) || null;
+            var yearsUnderOwner = parseInt(document.getElementById('vendorYearsUnderOwner')?.value || 0) || null;
+            var numEmployees = parseInt(document.getElementById('vendorNumEmployees')?.value || 0) || null;
+
+            // First, insert vendor with all fields
             const { data: vendorData, error: vendorError } = await db
                 .from('vendors')
                 .insert([{
                     name: document.getElementById('vendorName').value,
+                    trade_name: document.getElementById('vendorTradeName').value || null,
                     website: document.getElementById('vendorWebsite').value || null,
                     product_description: document.getElementById('vendorProduct').value || null,
                     country: countries || null,
                     status: document.getElementById('vendorStatus').value || null,
+                    mailing_address: document.getElementById('vendorMailingAddress').value || null,
+                    city: document.getElementById('vendorCity').value || null,
+                    province_state: document.getElementById('vendorProvinceState').value || null,
+                    postal_zip: document.getElementById('vendorPostalZip').value || null,
+                    telephone: document.getElementById('vendorTelephone').value || null,
+                    fax: document.getElementById('vendorFax').value || null,
+                    tax_id: document.getElementById('vendorTaxId').value || null,
+                    date_incorporated: document.getElementById('vendorDateIncorporated').value || null,
+                    years_under_present_owner: yearsUnderOwner,
+                    num_employees: numEmployees,
+                    business_structure: businessStructure,
+                    alliance_rep: document.getElementById('vendorAllianceRep').value || null,
+                    bank_references: bankReferences.length > 0 ? bankReferences : null,
+                    trade_references: tradeReferences.length > 0 ? tradeReferences : null,
+                    equipment_description_detail: document.getElementById('vendorEquipmentDescription').value || null,
+                    equipment_ratio_pct: equipmentRatio,
+                    soft_cost_ratio_pct: softCostRatio,
+                    price_range_low: priceLow,
+                    price_range_high: priceHigh,
+                    average_sale: averageSale,
+                    useful_life_years: usefulLife,
+                    resale_value_3yr: resaleValue3yr,
+                    resale_value_5yr: resaleValue5yr,
+                    sells_used_equipment: document.getElementById('vendorSellsUsedEquipment').checked || false,
+                    offers_service: document.getElementById('vendorOffersService').checked || false,
+                    warranty_length: document.getElementById('vendorWarrantyLength').value || null,
+                    authorized_distributor_for: document.getElementById('vendorAuthorizedDistributor').value || null,
+                    annual_lease_volume: annualVolume,
+                    pct_established_business: pctEstablished,
+                    pct_new_business: pctNewBusiness,
+                    pct_consumers: pctConsumers,
+                    pct_other: pctOther,
+                    authorized_signatory: document.getElementById('vendorSignatory').value || null,
+                    signatory_title: document.getElementById('vendorSignatoryTitle').value || null,
+                    authorization_date: document.getElementById('vendorAuthorizationDate').value || null,
+                    onboarding_completed: document.getElementById('vendorOnboardingCompleted').checked || false,
                     created_at: new Date().toISOString()
                 }])
                 .select();
@@ -15191,6 +15945,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     email: document.getElementById('vendorContactEmail').value.trim() || null,
                     phone: document.getElementById('vendorContactPhone').value.trim() || null,
                     role_title: document.getElementById('vendorContactRole').value.trim() || null,
+                    is_portal_user: document.getElementById('vendorContactPortalUser').checked || false,
+                    is_admin: document.getElementById('vendorContactAdmin').checked || false,
                     created_at: new Date().toISOString()
                 });
             }
@@ -15202,6 +15958,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     const emailInput = document.querySelector(`input[data-contact-id="${i}"][data-field="email"]`);
                     const phoneInput = document.querySelector(`input[data-contact-id="${i}"][data-field="phone"]`);
                     const roleInput = document.querySelector(`input[data-contact-id="${i}"][data-field="role"]`);
+                    const portalUserInput = document.querySelector(`input[data-contact-id="${i}"][data-field="portalUser"]`);
+                    const adminInput = document.querySelector(`input[data-contact-id="${i}"][data-field="admin"]`);
 
                     allContacts.push({
                         vendor_id: vendorData[0].id,
@@ -15209,6 +15967,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         email: emailInput ? emailInput.value.trim() || null : null,
                         phone: phoneInput ? phoneInput.value.trim() || null : null,
                         role_title: roleInput ? roleInput.value.trim() || null : null,
+                        is_portal_user: portalUserInput ? portalUserInput.checked : false,
+                        is_admin: adminInput ? adminInput.checked : false,
                         created_at: new Date().toISOString()
                     });
                 }
@@ -17321,7 +18081,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 }
                 document.getElementById('currentUser').textContent = displayName + ' (' + roleLabel + ')';
                 applyRoleAccess();
-                loadDashboard();
+                // Route vendor users to vendor portal
+                if (currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') {
+                    showPage('vendorPortal');
+                    loadPageData('vendorPortal');
+                } else {
+                    loadDashboard();
+                }
                 return;
             }
         } catch(e) {}
