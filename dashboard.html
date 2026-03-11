@@ -6892,51 +6892,53 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 .from('vendor_contacts')
                 .select('id');
 
-            // Calculate deals received this month
-            if (!appError && applications.length >= 0) {
-                const now = new Date();
-                const currentMonth = now.getMonth();
-                const currentYear = now.getFullYear();
-                const dealsThisMonth = applications
-                    .filter(app => {
-                        if (!app.submitted_at) return false;
-                        const submittedDate = new Date(app.submitted_at);
-                        return submittedDate.getMonth() === currentMonth && submittedDate.getFullYear() === currentYear;
-                    })
-                    .length;
-                document.getElementById('dealsThisMonth').textContent = dealsThisMonth;
+            // Only populate stat cards here for admins — agents get their own cards below
+            const isAdminForStats = ['super_admin', 'admin'].includes(currentUserRole);
 
-                // Set month label
-                const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                document.getElementById('dealsMonthLabel').textContent = monthName;
-            }
+            if (isAdminForStats) {
+                // Calculate deals received this month
+                if (!appError && applications.length >= 0) {
+                    const now = new Date();
+                    const currentMonth = now.getMonth();
+                    const currentYear = now.getFullYear();
+                    const dealsThisMonth = applications
+                        .filter(app => {
+                            if (!app.submitted_at) return false;
+                            const submittedDate = new Date(app.submitted_at);
+                            return submittedDate.getMonth() === currentMonth && submittedDate.getFullYear() === currentYear;
+                        })
+                        .length;
+                    document.getElementById('dealsThisMonth').textContent = dealsThisMonth;
 
-            // Calculate pipeline value (active deals) with role-based filtering
-            let dealsQuery = db.from('deals').select('deal_amount, currency, status');
-            if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
-                dealsQuery = dealsQuery.eq('source_agent_id', currentUserId);
-            }
-            const { data: deals, error: dealsError } = await dealsQuery;
+                    // Set month label
+                    const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                    document.getElementById('dealsMonthLabel').textContent = monthName;
+                }
 
-            if (!dealsError && deals) {
-                const activeDealStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
-                const activeDealValue = deals
-                    .filter(d => activeDealStatuses.includes(d.status))
-                    .reduce((sum, d) => sum + (d.deal_amount || 0), 0);
-                document.getElementById('pipelineValue').textContent = formatCurrency(activeDealValue);
-            }
+                // Calculate pipeline value (active deals)
+                let dealsQuery = db.from('deals').select('deal_amount, currency, status');
+                const { data: deals, error: dealsError } = await dealsQuery;
 
-            // Set lender count
-            if (!lendersError && lenders) {
-                document.getElementById('totalLenders').textContent = lenders.length;
-            }
+                if (!dealsError && deals) {
+                    const activeDealStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
+                    const activeDealValue = deals
+                        .filter(d => activeDealStatuses.includes(d.status))
+                        .reduce((sum, d) => sum + (d.deal_amount || 0), 0);
+                    document.getElementById('pipelineValue').textContent = formatCurrency(activeDealValue);
+                }
 
-            // Set vendor count and contacts
-            if (!vendorsError && vendors) {
-                document.getElementById('totalVendors').textContent = vendors.length;
-            }
-            if (!vendorContactsError && vendorContacts) {
-                document.getElementById('vendorSalesPeople').textContent = vendorContacts.length + ' sales contacts';
+                // Set lender count
+                if (!lendersError && lenders) {
+                    document.getElementById('totalLenders').textContent = lenders.length;
+                }
+
+                // Set vendor count and contacts
+                if (!vendorsError && vendors) {
+                    document.getElementById('totalVendors').textContent = vendors.length;
+                }
+                if (!vendorContactsError && vendorContacts) {
+                    document.getElementById('vendorSalesPeople').textContent = vendorContacts.length + ' sales contacts';
+                }
             }
 
             // Load recent applications for intake table - only show ones NOT moved to pipeline
