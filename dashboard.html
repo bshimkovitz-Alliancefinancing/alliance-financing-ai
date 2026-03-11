@@ -16093,7 +16093,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
             closeAddVendorModal();
             await loadVendors();
-            alert('Vendor created successfully!');
+
+            // Ask if they want to send the vendor application form
+            var sendContactName = document.getElementById('vendorContactName') ? document.getElementById('vendorContactName').value.trim() : '';
+            var sendContactEmail = document.getElementById('vendorContactEmail') ? document.getElementById('vendorContactEmail').value.trim() : '';
+            var sendCompanyName = document.getElementById('vendorName') ? document.getElementById('vendorName').value.trim() : '';
+
+            if (confirm('Vendor created successfully!\n\nWould you like to send the Vendor Application Form to the vendor contact to complete?')) {
+                showSendVendorAppModal();
+                // Pre-fill with the contact info from the form
+                setTimeout(function() {
+                    if (sendContactName) document.getElementById('vendorAppSendName').value = sendContactName;
+                    if (sendContactEmail) document.getElementById('vendorAppSendEmail').value = sendContactEmail;
+                    if (sendCompanyName) document.getElementById('vendorAppSendCompany').value = sendCompanyName;
+                }, 100);
+            }
         } catch (error) {
             console.error('Add vendor error:', error);
             alert('Error creating vendor: ' + error.message);
