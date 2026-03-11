@@ -134,6 +134,7 @@
         <div class="nav-tab active" onclick="showVendorPage('overview')">Overview</div>
         <div class="nav-tab" onclick="showVendorPage('quote')">Request Quote</div>
         <div class="nav-tab" onclick="showVendorPage('quotes')">My Quotes</div>
+        <div class="nav-tab" onclick="showVendorPage('credit')">Credit Application</div>
         <div class="nav-tab" onclick="showVendorPage('submit')">Submit Deal</div>
         <div class="nav-tab" onclick="showVendorPage('deals')">My Deals</div>
         <div class="nav-tab" id="teamTab" onclick="showVendorPage('team')" style="display:none;">My Team</div>
@@ -163,20 +164,32 @@
                 </div>
             </div>
 
+            <!-- Admin banner -->
+            <div id="adminBanner" style="display:none;margin-bottom:16px;">
+                <div class="card" style="border-left:4px solid var(--navy);">
+                    <div class="card-body" style="padding:14px 20px;">
+                        <div style="font-weight:700;color:var(--navy);font-size:14px;">Admin Dashboard — You are viewing all deals across your sales team</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Quick Quote CTA -->
             <div class="card" style="border-left:4px solid var(--gold);margin-bottom:24px;">
-                <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;">
+                <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;flex-wrap:wrap;gap:10px;">
                     <div>
                         <div style="font-weight:700;color:var(--navy);font-size:15px;">Need a quick quote for your client?</div>
                         <div style="font-size:13px;color:#64748B;margin-top:2px;">Submit the capital cost and terms — we'll send you back pricing to share with your customer.</div>
                     </div>
-                    <button class="btn btn-gold" onclick="showVendorPage('quote')" style="white-space:nowrap;">📨 Request Quote</button>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-gold" onclick="showVendorPage('quote')" style="white-space:nowrap;">📨 Request Quote</button>
+                        <button class="btn" onclick="showVendorPage('credit')" style="white-space:nowrap;background:#10B981;color:white;border:none;border-radius:6px;">📋 Credit Application</button>
+                    </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="card-header">
-                    <div class="card-title">Recent Deals</div>
+                    <div class="card-title" id="recentDealsTitle">Recent Deals</div>
                     <button class="btn btn-gold btn-sm" onclick="showVendorPage('submit')">+ Submit New Deal</button>
                 </div>
                 <div class="card-body" style="padding:0;">
@@ -187,11 +200,12 @@
                                 <th>Customer</th>
                                 <th>Amount</th>
                                 <th>Status</th>
+                                <th id="recentDealsExtraHeader" style="display:none;">Submitted By</th>
                                 <th>Submitted</th>
                             </tr>
                         </thead>
                         <tbody id="recentDealsBody">
-                            <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                            <tr><td colspan="6" class="empty-state">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -480,6 +494,129 @@
             </div>
         </div>
 
+        <!-- Credit Application Page -->
+        <div id="vendorCredit" class="page-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Submit Credit Application</div>
+                </div>
+                <div class="card-body">
+                    <p style="color:#64748B;font-size:14px;margin-bottom:20px;">Submit a credit application for your customer. Alliance Financing will review and process the application. You can attach an equipment quote if available.</p>
+                    <form id="creditAppForm" onsubmit="submitCreditApplication(event)">
+                        <div style="font-weight:700;color:var(--navy);font-size:15px;margin-bottom:12px;">Applicant Information</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Business / Company Name *</label>
+                                <input type="text" id="caCompanyName" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Contact Name *</label>
+                                <input type="text" id="caContactName" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Contact Email *</label>
+                                <input type="email" id="caContactEmail" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Contact Phone</label>
+                                <input type="tel" id="caContactPhone">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Business Address</label>
+                                <input type="text" id="caAddress" placeholder="Street, City, Province, Postal Code">
+                            </div>
+                            <div class="form-group">
+                                <label>Years in Business</label>
+                                <input type="number" id="caYearsInBusiness" min="0" step="1" placeholder="0">
+                            </div>
+                        </div>
+
+                        <div style="font-weight:700;color:var(--navy);font-size:15px;margin:20px 0 12px;border-top:1px solid #E2E8F0;padding-top:16px;">Equipment & Financing Details</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Equipment Description *</label>
+                                <input type="text" id="caEquipment" required placeholder="e.g., CNC Machine, Forklift, Medical Equipment">
+                            </div>
+                            <div class="form-group">
+                                <label>Equipment Cost *</label>
+                                <input type="number" id="caAmount" required placeholder="0.00" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Financing Type</label>
+                                <select id="caFinancingType">
+                                    <option value="Equipment Leasing">Equipment Leasing</option>
+                                    <option value="Equipment Loan">Equipment Loan</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Preferred Term</label>
+                                <select id="caTerm">
+                                    <option value="">Select Term</option>
+                                    <option value="12">12 Months</option>
+                                    <option value="24">24 Months</option>
+                                    <option value="36">36 Months</option>
+                                    <option value="48">48 Months</option>
+                                    <option value="60">60 Months</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="font-weight:700;color:var(--navy);font-size:15px;margin:20px 0 12px;border-top:1px solid #E2E8F0;padding-top:16px;">Equipment Quote (Optional)</div>
+                        <div class="form-group">
+                            <label>Attach Equipment Quote</label>
+                            <div style="border:2px dashed #E2E8F0;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;" onclick="document.getElementById('caQuoteFile').click()" id="caDropZone">
+                                <div style="font-size:28px;margin-bottom:8px;">📎</div>
+                                <div style="font-size:14px;color:#64748B;">Click to upload equipment quote</div>
+                                <div style="font-size:12px;color:#94A3B8;margin-top:4px;">PDF, DOC, DOCX, XLS, XLSX, PNG, JPG (Max 10MB)</div>
+                                <div id="caFileInfo" style="display:none;margin-top:10px;padding:8px 12px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;font-size:13px;color:#166534;"></div>
+                            </div>
+                            <input type="file" id="caQuoteFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" style="display:none;" onchange="handleQuoteFileSelect(this)">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Additional Notes</label>
+                            <textarea id="caNotes" rows="3" placeholder="Any additional details about the application, customer credit history, etc."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-gold" style="padding:12px 32px;font-size:15px;" id="caBtnSubmit">Submit Credit Application</button>
+                        <p id="creditError" style="color:var(--danger);font-size:13px;margin-top:10px;display:none;"></p>
+                        <p id="creditSuccess" style="color:var(--green);font-size:13px;margin-top:10px;display:none;"></p>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Submitted Credit Applications -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Submitted Applications</div>
+                </div>
+                <div class="card-body" style="padding:0;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>App #</th>
+                                <th>Company</th>
+                                <th>Equipment</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Submitted</th>
+                            </tr>
+                        </thead>
+                        <tbody id="creditAppsBody">
+                            <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- Documents Page -->
         <div id="vendorDocuments" class="page-section">
             <div class="card">
@@ -509,11 +646,14 @@
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let vendorUser = null;
+    let vendorContact = null; // vendor_contacts record for this user
     let vendorDeals = [];
     let vendorQuotes = [];
     let isManager = false;
+    let dashboardAccess = 'own'; // 'full' (admin), 'own' (sales), 'portal_only', 'none'
     let teamMembers = [];
     let allTeamDeals = [];
+    let caSelectedFile = null; // credit app file upload
 
     async function handleVendorLogin() {
         const email = document.getElementById('loginEmail').value.trim();
@@ -548,22 +688,49 @@
 
             vendorUser = userData;
             isManager = userData.agent_type === 'vendor_program';
-            showPortal();
+            await showPortal();
         } catch (err) {
             errEl.textContent = err.message || 'Login failed.';
             errEl.style.display = 'block';
         }
     }
 
-    function showPortal() {
+    async function showPortal() {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('portalApp').style.display = 'block';
         document.getElementById('vendorCompanyName').textContent = vendorUser.company_name || 'Vendor Program';
         document.getElementById('vendorUserName').textContent = vendorUser.full_name || vendorUser.email;
 
+        // Look up vendor_contacts record for dashboard_access
+        try {
+            const { data: vc } = await db.from('vendor_contacts')
+                .select('*')
+                .ilike('email', vendorUser.email)
+                .maybeSingle();
+            if (vc) {
+                vendorContact = vc;
+                dashboardAccess = vc.dashboard_access || 'own';
+                // Admin/Owner contacts or vendor_program users get full access
+                if (vc.role_title === 'Admin' || vc.role_title === 'Owner') {
+                    isManager = true;
+                    dashboardAccess = 'full';
+                }
+            }
+        } catch (e) { console.warn('Could not look up vendor contact:', e); }
+
+        // Fallback: vendor_program users are always managers
+        if (vendorUser.agent_type === 'vendor_program') {
+            isManager = true;
+            dashboardAccess = 'full';
+        }
+
         // Show/hide manager-only features
         const teamTab = document.getElementById('teamTab');
         if (teamTab) teamTab.style.display = isManager ? 'block' : 'none';
+
+        // Show role badge in header
+        const roleBadge = dashboardAccess === 'full' ? ' (Admin)' : dashboardAccess === 'own' ? ' (Sales)' : '';
+        document.getElementById('vendorUserName').textContent = (vendorUser.full_name || vendorUser.email) + roleBadge;
 
         loadVendorData();
     }
@@ -580,17 +747,18 @@
         document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
 
-        const pageMap = { 'overview': 'vendorOverview', 'quote': 'vendorQuote', 'quotes': 'vendorQuotes', 'submit': 'vendorSubmit', 'deals': 'vendorDeals', 'team': 'vendorTeam', 'documents': 'vendorDocuments' };
+        const pageMap = { 'overview': 'vendorOverview', 'quote': 'vendorQuote', 'quotes': 'vendorQuotes', 'credit': 'vendorCredit', 'submit': 'vendorSubmit', 'deals': 'vendorDeals', 'team': 'vendorTeam', 'documents': 'vendorDocuments' };
         const el = document.getElementById(pageMap[page]);
         if (el) el.classList.add('active');
 
-        const labelMap = { 'overview': 'Overview', 'quote': 'Request Quote', 'quotes': 'My Quotes', 'submit': 'Submit Deal', 'deals': 'My Deals', 'team': 'My Team', 'documents': 'Documents' };
+        const labelMap = { 'overview': 'Overview', 'quote': 'Request Quote', 'quotes': 'My Quotes', 'credit': 'Credit Application', 'submit': 'Submit Deal', 'deals': 'My Deals', 'team': 'My Team', 'documents': 'Documents' };
         const tabs = document.querySelectorAll('.nav-tab');
         tabs.forEach(t => { if (t.textContent.trim() === labelMap[page]) t.classList.add('active'); });
 
         if (page === 'deals') loadAllDeals();
         if (page === 'team') loadTeam();
         if (page === 'quotes') loadQuotes();
+        if (page === 'credit') loadCreditApplications();
     }
 
     function getStatusBadge(status) {
@@ -614,6 +782,10 @@
 
     async function loadVendorData() {
         try {
+            // Show admin banner if manager
+            const adminBanner = document.getElementById('adminBanner');
+            if (adminBanner) adminBanner.style.display = isManager ? 'block' : 'none';
+
             // If manager, also load team members and their deals
             if (isManager) {
                 const { data: members } = await db
@@ -658,11 +830,24 @@
             document.getElementById('vStatApproved').textContent = approved.length;
             document.getElementById('vStatFunded').textContent = formatCurrency(totalFunded);
 
-            // Recent deals (last 5)
+            // Recent deals (last 5) — admin sees all team deals with submitter
             const recent = vendorDeals.slice(0, 5);
             const tbody = document.getElementById('recentDealsBody');
+
+            // Build name lookup for admin view
+            const nameLookup = {};
+            nameLookup[vendorUser.id] = vendorUser.full_name || vendorUser.email;
+            teamMembers.forEach(m => { nameLookup[m.id] = m.full_name || m.email; });
+
+            // Show/hide submitter column for admins
+            const extraHeader = document.getElementById('recentDealsExtraHeader');
+            if (extraHeader) extraHeader.style.display = isManager ? '' : 'none';
+            if (isManager) {
+                document.getElementById('recentDealsTitle').textContent = 'Recent Deals (All Team)';
+            }
+
             if (recent.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No deals submitted yet. Click "Submit New Deal" to get started.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="' + (isManager ? 6 : 5) + '" class="empty-state">No deals submitted yet. Click "Submit New Deal" to get started.</td></tr>';
             } else {
                 tbody.innerHTML = recent.map(d => `
                     <tr>
@@ -670,6 +855,7 @@
                         <td>${d.company_name || 'N/A'}</td>
                         <td>${formatCurrency(d.deal_amount)}</td>
                         <td>${getStatusBadge(d.status)}</td>
+                        ${isManager ? '<td>' + (nameLookup[d.source_agent_id] || 'Unknown') + '</td>' : ''}
                         <td>${formatDate(d.created_at)}</td>
                     </tr>
                 `).join('');
@@ -1059,6 +1245,199 @@ ${vendorUser.company_name || 'Alliance Financing Group'}`);
         }
     }
 
+    // ===== Credit Application Functions =====
+    function handleQuoteFileSelect(input) {
+        const fileInfo = document.getElementById('caFileInfo');
+        const dropZone = document.getElementById('caDropZone');
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File is too large. Maximum size is 10MB.');
+                input.value = '';
+                return;
+            }
+            caSelectedFile = file;
+            fileInfo.textContent = '📄 ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+            fileInfo.style.display = 'block';
+            dropZone.style.borderColor = 'var(--gold)';
+        } else {
+            caSelectedFile = null;
+            fileInfo.style.display = 'none';
+            dropZone.style.borderColor = '#E2E8F0';
+        }
+    }
+
+    async function submitCreditApplication(event) {
+        event.preventDefault();
+        const errEl = document.getElementById('creditError');
+        const successEl = document.getElementById('creditSuccess');
+        const submitBtn = document.getElementById('caBtnSubmit');
+        errEl.style.display = 'none';
+        successEl.style.display = 'none';
+
+        try {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            const companyName = document.getElementById('caCompanyName').value.trim();
+            const contactName = document.getElementById('caContactName').value.trim();
+            const contactEmail = document.getElementById('caContactEmail').value.trim();
+            const contactPhone = document.getElementById('caContactPhone').value.trim();
+            const address = document.getElementById('caAddress').value.trim();
+            const yearsInBusiness = document.getElementById('caYearsInBusiness').value;
+            const equipment = document.getElementById('caEquipment').value.trim();
+            const amount = parseFloat(document.getElementById('caAmount').value);
+            const financingType = document.getElementById('caFinancingType').value;
+            const term = document.getElementById('caTerm').value;
+            const notes = document.getElementById('caNotes').value.trim();
+
+            // Generate application number
+            const appNumber = 'CA-' + Date.now().toString(36).toUpperCase();
+
+            // Upload file if attached
+            let fileUrl = null;
+            let fileName = null;
+            if (caSelectedFile) {
+                const filePath = 'credit-apps/' + appNumber + '/' + caSelectedFile.name;
+                const { data: uploadData, error: uploadError } = await db.storage
+                    .from('documents')
+                    .upload(filePath, caSelectedFile);
+                if (uploadError) {
+                    console.warn('File upload error (continuing without file):', uploadError);
+                } else {
+                    const { data: urlData } = db.storage.from('documents').getPublicUrl(filePath);
+                    fileUrl = urlData?.publicUrl || null;
+                    fileName = caSelectedFile.name;
+                }
+            }
+
+            // Build detailed note
+            const noteText = `📋 CREDIT APPLICATION from ${vendorUser.company_name || vendorUser.full_name}\n` +
+                `Applicant: ${companyName}\n` +
+                `Contact: ${contactName} (${contactEmail}${contactPhone ? ', ' + contactPhone : ''})\n` +
+                `${address ? 'Address: ' + address + '\n' : ''}` +
+                `${yearsInBusiness ? 'Years in Business: ' + yearsInBusiness + '\n' : ''}` +
+                `Equipment: ${equipment}\n` +
+                `Amount: $${amount.toLocaleString()}\n` +
+                `Financing Type: ${financingType}\n` +
+                `${term ? 'Preferred Term: ' + term + ' months\n' : ''}` +
+                `${fileName ? 'Equipment Quote Attached: ' + fileName + '\n' : ''}` +
+                `${notes ? 'Notes: ' + notes : ''}`;
+
+            // Create a deal record with source "Credit Application"
+            const { data, error } = await db
+                .from('deals')
+                .insert([{
+                    deal_number: appNumber,
+                    company_name: companyName,
+                    deal_amount: amount,
+                    product: financingType,
+                    status: 'Application Sent',
+                    source_agent_id: vendorUser.id,
+                    source: 'Vendor Portal — Credit Application',
+                    notes: JSON.stringify([{
+                        text: noteText,
+                        author: vendorUser.full_name || 'Vendor',
+                        date: new Date().toISOString(),
+                        visible_to_agent: true
+                    }]),
+                    program_details: {
+                        credit_application: true,
+                        contact_name: contactName,
+                        contact_email: contactEmail,
+                        contact_phone: contactPhone,
+                        business_address: address,
+                        years_in_business: yearsInBusiness || null,
+                        equipment_description: equipment,
+                        financing_type: financingType,
+                        preferred_term: term || null,
+                        equipment_quote_url: fileUrl,
+                        equipment_quote_filename: fileName,
+                        vendor_company: vendorUser.company_name || null,
+                        vendor_name: vendorUser.full_name || null,
+                        vendor_contact_id: vendorContact ? vendorContact.id : null
+                    },
+                    created_at: new Date().toISOString()
+                }])
+                .select();
+
+            if (error) throw error;
+
+            // Add client contact
+            if (data && data[0]) {
+                await db.from('client_contacts').insert([{
+                    deal_id: data[0].id,
+                    contact_name: contactName,
+                    email: contactEmail,
+                    phone: contactPhone || null,
+                    role: 'Customer',
+                    is_primary: true
+                }]);
+            }
+
+            document.getElementById('creditAppForm').reset();
+            caSelectedFile = null;
+            document.getElementById('caFileInfo').style.display = 'none';
+            document.getElementById('caDropZone').style.borderColor = '#E2E8F0';
+
+            successEl.textContent = 'Credit application submitted successfully! Application #: ' + appNumber + '. Alliance Financing will review and process your application.';
+            successEl.style.display = 'block';
+            loadVendorData();
+            loadCreditApplications();
+
+        } catch (err) {
+            console.error('Credit app error:', err);
+            errEl.textContent = err.message || 'Error submitting credit application.';
+            errEl.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Credit Application';
+        }
+    }
+
+    async function loadCreditApplications() {
+        const tbody = document.getElementById('creditAppsBody');
+        try {
+            let query = db
+                .from('deals')
+                .select('deal_number, company_name, deal_amount, status, created_at, program_details')
+                .eq('source', 'Vendor Portal — Credit Application')
+                .order('created_at', { ascending: false });
+
+            if (isManager) {
+                const teamIds = [vendorUser.id, ...teamMembers.map(m => m.id)];
+                query = query.in('source_agent_id', teamIds);
+            } else {
+                query = query.eq('source_agent_id', vendorUser.id);
+            }
+
+            const { data: apps, error } = await query;
+            if (error) throw error;
+
+            if (!apps || apps.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No credit applications submitted yet.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = apps.map(a => {
+                const pd = a.program_details || {};
+                return `
+                    <tr>
+                        <td><strong>${a.deal_number || 'N/A'}</strong></td>
+                        <td>${a.company_name || 'N/A'}</td>
+                        <td>${pd.equipment_description || pd.financing_type || 'N/A'}${pd.equipment_quote_filename ? ' <span style="font-size:11px;color:var(--gold);">📎</span>' : ''}</td>
+                        <td>${formatCurrency(a.deal_amount)}</td>
+                        <td>${getStatusBadge(a.status)}</td>
+                        <td>${formatDate(a.created_at)}</td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (err) {
+            console.error('Load credit apps error:', err);
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading applications.</td></tr>';
+        }
+    }
+
     // Check for existing session on load
     async function checkSession() {
         const { data: { session } } = await db.auth.getSession();
@@ -1071,7 +1450,7 @@ ${vendorUser.company_name || 'Alliance Financing Group'}`);
             if (userData && ['vendor_program', 'vendor_salesperson'].includes(userData.agent_type)) {
                 vendorUser = userData;
                 isManager = userData.agent_type === 'vendor_program';
-                showPortal();
+                await showPortal();
             }
         }
     }

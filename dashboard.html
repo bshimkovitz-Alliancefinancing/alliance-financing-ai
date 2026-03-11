@@ -1359,9 +1359,10 @@
                                 <option value="Germany">Germany</option>
                             </select>
                             <select id="vendorStatusFilter" onchange="filterVendors()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                                <option value="">Active & Inactive</option>
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
+                                <option value="">All Active Vendors</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Requires Approval">Requires Approval</option>
+                                <option value="Declined">Declined</option>
                                 <option value="Archived">Archived</option>
                             </select>
                         </div>
@@ -2946,390 +2947,81 @@
     </div>
 </div>
 
-<!-- Add Vendor Modal -->
+<!-- Add Vendor Modal (Simplified — basic info to register vendor in system) -->
 <div id="addVendorModal" class="modal">
-    <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal-content" style="max-width: 560px; max-height: 90vh; overflow-y: auto;">
         <div class="modal-header">
-            <h2>New Vendor - Onboarding Application</h2>
+            <h2>Submit New Vendor</h2>
             <button class="modal-close" onclick="closeAddVendorModal()">✕</button>
         </div>
         <div class="modal-body">
+            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px;">
+                <p style="font-size: 13px; color: #1E40AF; margin: 0; line-height: 1.5;">
+                    <strong>Step 1:</strong> Enter basic vendor info to register them in the system.<br>
+                    <strong>Step 2:</strong> Once registered, send the full Vendor Application Form for the vendor to complete.
+                </p>
+            </div>
             <form id="addVendorForm" onsubmit="handleAddVendor(event)">
-                <!-- Section 1: Company Information -->
-                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
-                    <div class="section-header" onclick="toggleSection('vendorSection1')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
-                        <span id="vendorSection1Toggle" style="font-size: 14px;">▼</span>
-                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 1: Company Information</h3>
+                <div class="modal-row">
+                    <div class="modal-field full">
+                        <label>Company Name <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="vendorName" required>
                     </div>
-                    <div id="vendorSection1" style="padding: 15px;">
-                        <div class="modal-row">
-                            <div class="modal-field full">
-                                <label>Company Name <span style="color: var(--danger);">*</span></label>
-                                <input type="text" id="vendorName" required>
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Trade Name / Operating Name</label>
-                                <input type="text" id="vendorTradeName">
-                            </div>
-                            <div class="modal-field">
-                                <label>Website</label>
-                                <input type="url" id="vendorWebsite" placeholder="https://example.com">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Mailing Address</label>
-                                <input type="text" id="vendorMailingAddress">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>City</label>
-                                <input type="text" id="vendorCity">
-                            </div>
-                            <div class="modal-field">
-                                <label>Province/State</label>
-                                <input type="text" id="vendorProvinceState">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Postal/Zip Code</label>
-                                <input type="text" id="vendorPostalZip">
-                            </div>
-                            <div class="modal-field">
-                                <label>Telephone</label>
-                                <input type="tel" id="vendorTelephone">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Fax</label>
-                                <input type="text" id="vendorFax">
-                            </div>
-                            <div class="modal-field">
-                                <label>GST / Federal ID Number</label>
-                                <input type="text" id="vendorTaxId">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Date Incorporated</label>
-                                <input type="date" id="vendorDateIncorporated">
-                            </div>
-                            <div class="modal-field">
-                                <label>Years Under Present Owner</label>
-                                <input type="number" id="vendorYearsUnderOwner" min="0">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Number of Employees</label>
-                                <input type="number" id="vendorNumEmployees" min="0">
-                            </div>
-                            <div class="modal-field">
-                                <label>Business Structure</label>
-                                <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
-                                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;">
-                                        <input type="radio" name="vendorBusinessStructure" value="Corporation"> Corporation
-                                    </label>
-                                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;">
-                                        <input type="radio" name="vendorBusinessStructure" value="LLC"> LLC
-                                    </label>
-                                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;">
-                                        <input type="radio" name="vendorBusinessStructure" value="Partnership"> Partnership
-                                    </label>
-                                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;">
-                                        <input type="radio" name="vendorBusinessStructure" value="Proprietorship"> Proprietorship
-                                    </label>
-                                    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;">
-                                        <input type="radio" name="vendorBusinessStructure" value="Other"> Other
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Alliance Rep</label>
-                                <select id="vendorAllianceRep">
-                                    <option value="">Select Team Member</option>
-                                </select>
-                            </div>
-                            <div class="modal-field">
-                                <label>Countries</label>
-                                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
-                                    <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
-                                        <input type="checkbox" name="vendorCountries" value="Canada"> Canada
-                                    </label>
-                                    <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
-                                        <input type="checkbox" name="vendorCountries" value="United States"> United States
-                                    </label>
-                                    <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
-                                        <input type="checkbox" name="vendorCountries" value="UK"> UK
-                                    </label>
-                                    <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
-                                        <input type="checkbox" name="vendorCountries" value="Germany"> Germany
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Product Description</label>
-                                <textarea id="vendorProduct" style="resize: vertical; min-height: 60px;"></textarea>
-                            </div>
-                            <div class="modal-field">
-                                <label>Status</label>
-                                <select id="vendorStatus">
-                                    <option value="">Select Status</option>
-                                    <option value="Active">Active</option>
-                                    <option value="Inactive">Inactive</option>
-                                </select>
-                            </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Contact Name <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="vendorContactName" required>
+                    </div>
+                    <div class="modal-field">
+                        <label>Contact Email <span style="color: var(--danger);">*</span></label>
+                        <input type="email" id="vendorContactEmail" required>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Contact Phone</label>
+                        <input type="tel" id="vendorContactPhone">
+                    </div>
+                    <div class="modal-field">
+                        <label>Contact Role</label>
+                        <select id="vendorContactRole">
+                            <option value="Admin">Admin</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Owner">Owner</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field full">
+                        <label>Product / Equipment Type <span style="color: var(--danger);">*</span></label>
+                        <input type="text" id="vendorProduct" required placeholder="e.g. Computer equipment, office furniture, robots...">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Country</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="vendorCountries" value="Canada" checked> Canada
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="vendorCountries" value="United States"> United States
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="vendorCountries" value="UK"> UK
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" name="vendorCountries" value="Germany"> Germany
+                            </label>
                         </div>
                     </div>
                 </div>
 
-                <!-- Section 2: Bank References -->
-                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
-                    <div class="section-header" onclick="toggleSection('vendorSection2')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
-                        <span id="vendorSection2Toggle" style="font-size: 14px;">▼</span>
-                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 2: Bank References</h3>
-                    </div>
-                    <div id="vendorSection2" style="padding: 15px;">
-                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 15px;">Provide two bank references for credit verification.</div>
-                        <div id="vendorBankReferences">
-                            <!-- Bank reference rows will be populated here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 3: Trade References -->
-                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
-                    <div class="section-header" onclick="toggleSection('vendorSection3')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
-                        <span id="vendorSection3Toggle" style="font-size: 14px;">▼</span>
-                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 3: Trade References</h3>
-                    </div>
-                    <div id="vendorSection3" style="padding: 15px;">
-                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 15px;">Provide three trade references for verification.</div>
-                        <div id="vendorTradeReferences">
-                            <!-- Trade reference rows will be populated here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 4: Equipment / Machinery Sold -->
-                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
-                    <div class="section-header" onclick="toggleSection('vendorSection4')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
-                        <span id="vendorSection4Toggle" style="font-size: 14px;">▼</span>
-                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 4: Equipment / Machinery Sold</h3>
-                    </div>
-                    <div id="vendorSection4" style="padding: 15px;">
-                        <div class="modal-row">
-                            <div class="modal-field full">
-                                <label>Description of Equipment/Machinery</label>
-                                <textarea id="vendorEquipmentDescription" style="resize: vertical; min-height: 80px;"></textarea>
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Equipment % of Lease</label>
-                                <input type="number" id="vendorEquipmentRatio" min="0" max="100" step="0.01"> %
-                            </div>
-                            <div class="modal-field">
-                                <label>Soft Cost %</label>
-                                <input type="number" id="vendorSoftCostRatio" min="0" max="100" step="0.01"> %
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Price Range - Low</label>
-                                <input type="number" id="vendorPriceLow" min="0" step="0.01">
-                            </div>
-                            <div class="modal-field">
-                                <label>Price Range - High</label>
-                                <input type="number" id="vendorPriceHigh" min="0" step="0.01">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Average Sale</label>
-                                <input type="number" id="vendorAverageSale" min="0" step="0.01">
-                            </div>
-                            <div class="modal-field">
-                                <label>Estimated Useful Life (years)</label>
-                                <input type="number" id="vendorUsefulLife" min="0" step="0.1">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Resale Value after 3 years (%)</label>
-                                <input type="number" id="vendorResaleValue3yr" min="0" max="100" step="0.01"> %
-                            </div>
-                            <div class="modal-field">
-                                <label>Resale Value after 5 years (%)</label>
-                                <input type="number" id="vendorResaleValue5yr" min="0" max="100" step="0.01"> %
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
-                                    <input type="checkbox" id="vendorSellsUsedEquipment">
-                                    Is used equipment sold?
-                                </label>
-                            </div>
-                            <div class="modal-field">
-                                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
-                                    <input type="checkbox" id="vendorOffersService">
-                                    Is service offered?
-                                </label>
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Warranty Length</label>
-                                <input type="text" id="vendorWarrantyLength" placeholder="e.g., 24 months">
-                            </div>
-                            <div class="modal-field">
-                                <label>Authorized Distributor For</label>
-                                <input type="text" id="vendorAuthorizedDistributor">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 5: Sales / Customer Information -->
-                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
-                    <div class="section-header" onclick="toggleSection('vendorSection5')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
-                        <span id="vendorSection5Toggle" style="font-size: 14px;">▼</span>
-                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 5: Sales / Customer Information</h3>
-                    </div>
-                    <div id="vendorSection5" style="padding: 15px;">
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Last Year's Sales Volume</label>
-                                <input type="number" id="vendorAnnualVolume" min="0" step="0.01">
-                            </div>
-                        </div>
-                        <div style="font-size: 12px; color: var(--text-light); margin: 15px 0 10px;">Customer Breakdown (Total should equal 100%)</div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Established Businesses %</label>
-                                <input type="number" id="vendorPctEstablished" min="0" max="100" step="0.01"> %
-                            </div>
-                            <div class="modal-field">
-                                <label>New Businesses %</label>
-                                <input type="number" id="vendorPctNewBusiness" min="0" max="100" step="0.01"> %
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Consumers %</label>
-                                <input type="number" id="vendorPctConsumers" min="0" max="100" step="0.01"> %
-                            </div>
-                            <div class="modal-field">
-                                <label>Other %</label>
-                                <input type="number" id="vendorPctOther" min="0" max="100" step="0.01"> %
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 6: Salespeople / Contacts -->
-                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
-                    <div class="section-header" onclick="toggleSection('vendorSection6')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
-                        <span id="vendorSection6Toggle" style="font-size: 14px;">▼</span>
-                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 6: Salespeople / Contacts</h3>
-                    </div>
-                    <div id="vendorSection6" style="padding: 15px;">
-                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 15px;">Add contacts who will have access to the vendor portal.</div>
-
-                        <!-- Primary Contact -->
-                        <h4 style="font-size: 13px; font-weight: 600; color: var(--navy); margin: 0 0 12px;">Primary Contact</h4>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Contact Name</label>
-                                <input type="text" id="vendorContactName" class="vendorContact">
-                            </div>
-                            <div class="modal-field">
-                                <label>Contact Email</label>
-                                <input type="email" id="vendorContactEmail" class="vendorContact">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Contact Phone</label>
-                                <input type="text" id="vendorContactPhone" class="vendorContact">
-                            </div>
-                            <div class="modal-field">
-                                <label>Contact Role/Title</label>
-                                <input type="text" id="vendorContactRole" class="vendorContact">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
-                                    <input type="checkbox" id="vendorContactPortalUser" class="vendorContact">
-                                    Set up as portal user
-                                </label>
-                            </div>
-                            <div class="modal-field">
-                                <label style="display: flex; align-items: center; gap: 6px; font-weight: 400;">
-                                    <input type="checkbox" id="vendorContactAdmin" class="vendorContact">
-                                    Vendor Admin (vs Salesperson)
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Extra Contacts Container -->
-                        <div id="vendorExtraContacts"></div>
-
-                        <!-- Add Another Contact Button -->
-                        <div style="margin-top: 15px; text-align: center;">
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="addVendorContactField()" style="padding: 6px 12px;">+ Add Another Contact</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 7: Authorization -->
-                <div style="margin-bottom: 20px; border: 1px solid var(--border-gray); border-radius: 6px;">
-                    <div class="section-header" onclick="toggleSection('vendorSection7')" style="cursor: pointer; padding: 12px 15px; background: #F8F9FA; border-bottom: 1px solid var(--border-gray); display: flex; align-items: center; gap: 10px;">
-                        <span id="vendorSection7Toggle" style="font-size: 14px;">▼</span>
-                        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--navy);">Section 7: Authorization</h3>
-                    </div>
-                    <div id="vendorSection7" style="padding: 15px;">
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Authorized Signatory Name</label>
-                                <input type="text" id="vendorSignatory">
-                            </div>
-                            <div class="modal-field">
-                                <label>Title</label>
-                                <input type="text" id="vendorSignatoryTitle">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Date</label>
-                                <input type="date" id="vendorAuthorizationDate">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field full">
-                                <label style="display: flex; align-items: center; gap: 6px; font-weight: 500;">
-                                    <input type="checkbox" id="vendorOnboardingCompleted">
-                                    Authorization to obtain credit information granted
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer" style="margin-top: 20px;">
+                <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
                     <button type="button" class="btn btn-secondary" onclick="closeAddVendorModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Vendor</button>
+                    <button type="submit" class="btn btn-primary">Register Vendor</button>
                 </div>
             </form>
         </div>
@@ -6645,7 +6337,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 country: document.getElementById('agentVendorCountry').value,
                 projected_volume: document.getElementById('agentVendorVolume').value ? parseFloat(document.getElementById('agentVendorVolume').value) : null,
                 source_agent_id: currentUserId,
-                status: 'Active'
+                status: 'Requires Approval'
             });
 
             if (error) throw error;
@@ -7437,7 +7129,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         'Funded': { bg: '#DCFCE7', text: '#14532D', border: '#22C55E' },
         'Declined': { bg: '#FEF2F2', text: '#991B1B', border: '#FCA5A5' },
         'Dead approval': { bg: '#F1F5F9', text: '#475569', border: '#94A3B8' },
-        'Withdrawn': { bg: '#FFF1F2', text: '#9F1239', border: '#FDA4AF' }
+        'Withdrawn': { bg: '#FFF1F2', text: '#9F1239', border: '#FDA4AF' },
+        // Vendor statuses
+        'Requires Approval': { bg: '#FEF3C7', text: '#92400E', border: '#F59E0B' },
+        'Archived': { bg: '#F1F5F9', text: '#94A3B8', border: '#CBD5E1' }
     };
 
     function getStatusBadge(status) {
@@ -8052,13 +7747,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     ${vendor.status === 'Archived'
                         ? '<span style="background:#F1F5F9;color:#94A3B8;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">Archived</span>'
                         : `<select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
-                        ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        ${'Approved,Requires Approval,Declined'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
                     </select>`}
                 </td>
                 <td style="white-space:nowrap;">
                     <button class="btn btn-secondary btn-sm" onclick="viewVendor('${vendor.id}')">View</button>
                     ${vendor.status === 'Archived'
-                        ? `<button class="btn btn-sm" onclick="updateVendorStatus('${vendor.id}', 'Active')" style="margin-left:4px;padding:4px 8px;background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;border-radius:4px;font-size:11px;cursor:pointer;">Restore</button>`
+                        ? `<button class="btn btn-sm" onclick="updateVendorStatus('${vendor.id}', 'Approved')" style="margin-left:4px;padding:4px 8px;background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;border-radius:4px;font-size:11px;cursor:pointer;">Restore</button>`
                         : `<button class="btn btn-sm" onclick="if(confirm('Archive ${(vendor.name || '').replace(/'/g, "\\'")}?')) updateVendorStatus('${vendor.id}', 'Archived')" style="margin-left:4px;padding:4px 8px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;border-radius:4px;font-size:11px;cursor:pointer;">Archive</button>`}
                 </td>
             </tr>
@@ -8106,11 +7801,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 (vendor.country || '').toLowerCase().includes(search);
             const matchesCountry = !countryFilter || (vendor.country || '').includes(countryFilter);
             // Default view hides archived; specific filter shows only that status
-            const matchesStatus = statusFilter === 'Archived'
-                ? vendor.status === 'Archived'
-                : statusFilter
-                    ? vendor.status === statusFilter
-                    : vendor.status !== 'Archived';
+            const matchesStatus = statusFilter
+                ? vendor.status === statusFilter
+                : vendor.status !== 'Archived';
             return matchesSearch && matchesCountry && matchesStatus;
         });
 
@@ -16010,164 +15703,49 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             const countryCheckboxes = document.querySelectorAll('input[name="vendorCountries"]:checked');
             const countries = Array.from(countryCheckboxes).map(cb => cb.value).join(', ');
 
-            // Collect business structure radio
-            const businessStructureRadio = document.querySelector('input[name="vendorBusinessStructure"]:checked');
-            const businessStructure = businessStructureRadio ? businessStructureRadio.value : null;
+            // Save contact info before insert (form will be cleared)
+            var sendContactName = document.getElementById('vendorContactName').value.trim();
+            var sendContactEmail = document.getElementById('vendorContactEmail').value.trim();
+            var sendCompanyName = document.getElementById('vendorName').value.trim();
 
-            // Collect bank references
-            var bankReferences = [];
-            var bankRefRows = document.querySelectorAll('[data-bank-ref-id]');
-            bankRefRows.forEach(row => {
-                var bankName = row.querySelector('[data-field="bankName"]')?.value.trim() || '';
-                var officer = row.querySelector('[data-field="officer"]')?.value.trim() || '';
-                var account = row.querySelector('[data-field="account"]')?.value.trim() || '';
-                var phone = row.querySelector('[data-field="phone"]')?.value.trim() || '';
-                var fax = row.querySelector('[data-field="fax"]')?.value.trim() || '';
-                if (bankName || officer || account || phone || fax) {
-                    bankReferences.push({ bank_name: bankName, officer, account_number: account, phone, fax });
-                }
-            });
-
-            // Collect trade references
-            var tradeReferences = [];
-            var tradeRefRows = document.querySelectorAll('[data-trade-ref-id]');
-            tradeRefRows.forEach(row => {
-                var firmName = row.querySelector('[data-field="firmName"]')?.value.trim() || '';
-                var contact = row.querySelector('[data-field="contact"]')?.value.trim() || '';
-                var phone = row.querySelector('[data-field="phone"]')?.value.trim() || '';
-                var fax = row.querySelector('[data-field="fax"]')?.value.trim() || '';
-                if (firmName || contact || phone || fax) {
-                    tradeReferences.push({ firm_name: firmName, contact, phone, fax });
-                }
-            });
-
-            // Parse numeric values
-            var equipmentRatio = parseFloat(document.getElementById('vendorEquipmentRatio')?.value || 0) || null;
-            var softCostRatio = parseFloat(document.getElementById('vendorSoftCostRatio')?.value || 0) || null;
-            var priceLow = parseFloat(document.getElementById('vendorPriceLow')?.value || 0) || null;
-            var priceHigh = parseFloat(document.getElementById('vendorPriceHigh')?.value || 0) || null;
-            var averageSale = parseFloat(document.getElementById('vendorAverageSale')?.value || 0) || null;
-            var usefulLife = parseFloat(document.getElementById('vendorUsefulLife')?.value || 0) || null;
-            var resaleValue3yr = parseFloat(document.getElementById('vendorResaleValue3yr')?.value || 0) || null;
-            var resaleValue5yr = parseFloat(document.getElementById('vendorResaleValue5yr')?.value || 0) || null;
-            var annualVolume = parseFloat(document.getElementById('vendorAnnualVolume')?.value || 0) || null;
-            var pctEstablished = parseFloat(document.getElementById('vendorPctEstablished')?.value || 0) || null;
-            var pctNewBusiness = parseFloat(document.getElementById('vendorPctNewBusiness')?.value || 0) || null;
-            var pctConsumers = parseFloat(document.getElementById('vendorPctConsumers')?.value || 0) || null;
-            var pctOther = parseFloat(document.getElementById('vendorPctOther')?.value || 0) || null;
-            var yearsUnderOwner = parseInt(document.getElementById('vendorYearsUnderOwner')?.value || 0) || null;
-            var numEmployees = parseInt(document.getElementById('vendorNumEmployees')?.value || 0) || null;
-
-            // First, insert vendor with all fields
+            // Insert vendor with basic info — status defaults to "Requires Approval"
             const { data: vendorData, error: vendorError } = await db
                 .from('vendors')
                 .insert([{
-                    name: document.getElementById('vendorName').value,
-                    trade_name: document.getElementById('vendorTradeName').value || null,
-                    website: document.getElementById('vendorWebsite').value || null,
-                    product_description: document.getElementById('vendorProduct').value || null,
+                    name: sendCompanyName,
+                    product_description: document.getElementById('vendorProduct').value.trim() || null,
                     country: countries || null,
-                    status: document.getElementById('vendorStatus').value || null,
-                    mailing_address: document.getElementById('vendorMailingAddress').value || null,
-                    city: document.getElementById('vendorCity').value || null,
-                    province_state: document.getElementById('vendorProvinceState').value || null,
-                    postal_zip: document.getElementById('vendorPostalZip').value || null,
-                    telephone: document.getElementById('vendorTelephone').value || null,
-                    fax: document.getElementById('vendorFax').value || null,
-                    tax_id: document.getElementById('vendorTaxId').value || null,
-                    date_incorporated: document.getElementById('vendorDateIncorporated').value || null,
-                    years_under_present_owner: yearsUnderOwner,
-                    num_employees: numEmployees,
-                    business_structure: businessStructure,
-                    alliance_rep: document.getElementById('vendorAllianceRep').value || null,
-                    bank_references: bankReferences.length > 0 ? bankReferences : null,
-                    trade_references: tradeReferences.length > 0 ? tradeReferences : null,
-                    equipment_description_detail: document.getElementById('vendorEquipmentDescription').value || null,
-                    equipment_ratio_pct: equipmentRatio,
-                    soft_cost_ratio_pct: softCostRatio,
-                    price_range_low: priceLow,
-                    price_range_high: priceHigh,
-                    average_sale: averageSale,
-                    useful_life_years: usefulLife,
-                    resale_value_3yr: resaleValue3yr,
-                    resale_value_5yr: resaleValue5yr,
-                    sells_used_equipment: document.getElementById('vendorSellsUsedEquipment').checked || false,
-                    offers_service: document.getElementById('vendorOffersService').checked || false,
-                    warranty_length: document.getElementById('vendorWarrantyLength').value || null,
-                    authorized_distributor_for: document.getElementById('vendorAuthorizedDistributor').value || null,
-                    annual_lease_volume: annualVolume,
-                    pct_established_business: pctEstablished,
-                    pct_new_business: pctNewBusiness,
-                    pct_consumers: pctConsumers,
-                    pct_other: pctOther,
-                    authorized_signatory: document.getElementById('vendorSignatory').value || null,
-                    signatory_title: document.getElementById('vendorSignatoryTitle').value || null,
-                    authorization_date: document.getElementById('vendorAuthorizationDate').value || null,
-                    onboarding_completed: document.getElementById('vendorOnboardingCompleted').checked || false,
+                    status: 'Requires Approval',
+                    source_agent_id: currentUserId || null,
                     created_at: new Date().toISOString()
                 }])
                 .select();
 
             if (vendorError) throw vendorError;
 
-            // Collect all contacts (primary + extra)
-            const allContacts = [];
-
-            // Primary contact
-            const primaryName = document.getElementById('vendorContactName').value.trim();
-            if (primaryName && vendorData && vendorData.length > 0) {
-                allContacts.push({
-                    vendor_id: vendorData[0].id,
-                    contact_name: primaryName,
-                    email: document.getElementById('vendorContactEmail').value.trim() || null,
-                    phone: document.getElementById('vendorContactPhone').value.trim() || null,
-                    role_title: document.getElementById('vendorContactRole').value.trim() || null,
-                    is_portal_user: document.getElementById('vendorContactPortalUser').checked || false,
-                    is_admin: document.getElementById('vendorContactAdmin').checked || false,
-                    created_at: new Date().toISOString()
-                });
-            }
-
-            // Extra contacts
-            for (let i = 2; i <= vendorContactCount; i++) {
-                const nameInput = document.querySelector(`input[data-contact-id="${i}"][data-field="name"]`);
-                if (nameInput && nameInput.value.trim()) {
-                    const emailInput = document.querySelector(`input[data-contact-id="${i}"][data-field="email"]`);
-                    const phoneInput = document.querySelector(`input[data-contact-id="${i}"][data-field="phone"]`);
-                    const roleInput = document.querySelector(`input[data-contact-id="${i}"][data-field="role"]`);
-                    const portalUserInput = document.querySelector(`input[data-contact-id="${i}"][data-field="portalUser"]`);
-                    const adminInput = document.querySelector(`input[data-contact-id="${i}"][data-field="admin"]`);
-
-                    allContacts.push({
-                        vendor_id: vendorData[0].id,
-                        contact_name: nameInput.value.trim(),
-                        email: emailInput ? emailInput.value.trim() || null : null,
-                        phone: phoneInput ? phoneInput.value.trim() || null : null,
-                        role_title: roleInput ? roleInput.value.trim() || null : null,
-                        is_portal_user: portalUserInput ? portalUserInput.checked : false,
-                        is_admin: adminInput ? adminInput.checked : false,
-                        created_at: new Date().toISOString()
-                    });
-                }
-            }
-
-            // Insert all contacts
-            if (allContacts.length > 0) {
+            // Insert the primary contact
+            if (sendContactName && vendorData && vendorData.length > 0) {
+                const contactRole = document.getElementById('vendorContactRole').value || 'Admin';
                 const { error: contactError } = await db
                     .from('vendor_contacts')
-                    .insert(allContacts);
+                    .insert([{
+                        vendor_id: vendorData[0].id,
+                        contact_name: sendContactName,
+                        email: sendContactEmail || null,
+                        phone: document.getElementById('vendorContactPhone').value.trim() || null,
+                        role_title: contactRole,
+                        dashboard_access: contactRole === 'Admin' || contactRole === 'Owner' ? 'full' : contactRole === 'Sales' ? 'own' : 'none',
+                        is_portal_user: true,
+                        is_admin: contactRole === 'Admin' || contactRole === 'Owner',
+                        created_at: new Date().toISOString()
+                    }]);
                 if (contactError) {
-                    console.warn('Warning: Vendor created but some contacts could not be added:', contactError);
+                    console.warn('Warning: Vendor created but contact could not be added:', contactError);
                 }
             }
 
             closeAddVendorModal();
             await loadVendors();
-
-            // Ask if they want to send the vendor application form
-            var sendContactName = document.getElementById('vendorContactName') ? document.getElementById('vendorContactName').value.trim() : '';
-            var sendContactEmail = document.getElementById('vendorContactEmail') ? document.getElementById('vendorContactEmail').value.trim() : '';
-            var sendCompanyName = document.getElementById('vendorName') ? document.getElementById('vendorName').value.trim() : '';
 
             if (confirm('Vendor created successfully!\n\nWould you like to send the Vendor Application Form to the vendor contact to complete?')) {
                 showSendVendorAppModal();
@@ -16343,7 +15921,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         <label>Status</label>
                         <div class="modal-field-value">
                             <select id="vendorDetailStatus" onchange="updateVendorStatus(${vendorId}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
-                                ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                ${'Approved,Requires Approval,Declined,Archived'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
                             </select>
                         </div>
                     </div>
@@ -16402,6 +15980,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 <div id="vendorSetupFormHistory_${vendorId}" style="margin-bottom: 10px;">
                     <p style="color: var(--text-light); font-size: 12px; font-style: italic;">Loading send history...</p>
                 </div>
+
+                ${['super_admin', 'admin'].includes(currentUserRole) ? `
+                <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Approved Lenders</label>
+                </div>
+                <div id="vendorApprovedLenders_${vendorId}">
+                    <p style="color: var(--text-light); font-size: 12px; font-style: italic;">Loading approved lenders...</p>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
+                    <select id="addApprovedLenderSelect_${vendorId}" style="flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                        <option value="">Select a lender to add...</option>
+                    </select>
+                    <button class="btn btn-gold btn-sm" onclick="addApprovedLender('${vendorId}')" style="white-space: nowrap;">Add Lender</button>
+                </div>
+                ` : ''}
 
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Funding Performance</label>
@@ -16537,6 +16130,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             loadVendorMaterials(vendorId);
             // Load vendor setup form send history
             loadVendorSetupFormHistory(vendorId);
+            // Load approved lenders (admin only)
+            if (['super_admin', 'admin'].includes(currentUserRole)) {
+                loadVendorApprovedLenders(vendorId);
+            }
         } catch (error) {
             console.error('View vendor error:', error);
             alert('Error loading vendor details: ' + error.message);
@@ -16585,6 +16182,84 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 if (companyField) companyField.value = vendorNameEl.value;
             }
         }, 150);
+    }
+
+    // ============================================
+    // Approved Lenders (Admin Only)
+    // ============================================
+    async function loadVendorApprovedLenders(vendorId) {
+        try {
+            // Load approved lenders for this vendor
+            const { data: approvedLenders, error: alError } = await db
+                .from('vendor_approved_lenders')
+                .select('*, lender:lenders(id, name, status)')
+                .eq('vendor_id', vendorId);
+
+            // Load all active lenders for the dropdown
+            const { data: allLenders } = await db.from('lenders').select('id, name').eq('status', 'Active').order('name');
+
+            const container = document.getElementById('vendorApprovedLenders_' + vendorId);
+            if (!container) return;
+
+            const approved = (approvedLenders || []).filter(al => al.lender);
+            const approvedIds = approved.map(al => al.lender.id);
+
+            if (approved.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-light); font-size: 13px; font-style: italic;">No approved lenders yet. Add lenders this vendor is approved with.</p>';
+            } else {
+                container.innerHTML = '<div style="display: flex; flex-wrap: wrap; gap: 8px;">' +
+                    approved.map(al => `
+                        <div style="display: inline-flex; align-items: center; gap: 6px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 20px; padding: 5px 12px; font-size: 13px;">
+                            <span style="color: #166534; font-weight: 500;">${al.lender.name}</span>
+                            ${al.approved_at ? '<span style="color:#86EFAC;font-size:10px;">(' + new Date(al.approved_at).toLocaleDateString() + ')</span>' : ''}
+                            <button onclick="removeApprovedLender('${vendorId}', '${al.id}')" style="background: none; border: none; color: #DC2626; cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1;" title="Remove">&times;</button>
+                        </div>
+                    `).join('') +
+                '</div>';
+            }
+
+            // Populate dropdown with lenders not already approved
+            const select = document.getElementById('addApprovedLenderSelect_' + vendorId);
+            if (select) {
+                const available = (allLenders || []).filter(l => !approvedIds.includes(l.id));
+                select.innerHTML = '<option value="">Select a lender to add...</option>' +
+                    available.map(l => '<option value="' + l.id + '">' + l.name + '</option>').join('');
+            }
+        } catch (err) {
+            console.warn('Could not load approved lenders:', err);
+            const container = document.getElementById('vendorApprovedLenders_' + vendorId);
+            if (container) container.innerHTML = '<p style="color: var(--danger); font-size: 12px;">Could not load approved lenders. The table may need to be created — see the migration SQL.</p>';
+        }
+    }
+
+    async function addApprovedLender(vendorId) {
+        const select = document.getElementById('addApprovedLenderSelect_' + vendorId);
+        if (!select || !select.value) { alert('Please select a lender to add.'); return; }
+        try {
+            const { error } = await db.from('vendor_approved_lenders').insert([{
+                vendor_id: vendorId,
+                lender_id: select.value,
+                approved_at: new Date().toISOString(),
+                approved_by: userEmail || null
+            }]);
+            if (error) throw error;
+            await loadVendorApprovedLenders(vendorId);
+        } catch (err) {
+            console.error('Add approved lender error:', err);
+            alert('Error adding approved lender: ' + err.message);
+        }
+    }
+
+    async function removeApprovedLender(vendorId, approvalId) {
+        if (!confirm('Remove this lender from the approved list?')) return;
+        try {
+            const { error } = await db.from('vendor_approved_lenders').delete().eq('id', approvalId);
+            if (error) throw error;
+            await loadVendorApprovedLenders(vendorId);
+        } catch (err) {
+            console.error('Remove approved lender error:', err);
+            alert('Error removing approved lender: ' + err.message);
+        }
     }
 
     async function updateVendorStatus(vendorId, newStatus) {
@@ -18039,12 +17714,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     function getStatusBadge(status) {
         let badgeClass = 'badge-info';
-        if (['Funded', 'Active', 'Approved'].includes(status)) {
+        if (['Funded', 'Approved'].includes(status)) {
             badgeClass = 'badge-success';
-        } else if (['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approval sent'].includes(status)) {
+        } else if (['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approval sent', 'Requires Approval'].includes(status)) {
             badgeClass = 'badge-warning';
         } else if (['Declined', 'Dead approval'].includes(status)) {
             badgeClass = 'badge-danger';
+        } else if (['Archived'].includes(status)) {
+            badgeClass = 'badge-secondary';
         }
         return `<span class="badge ${badgeClass}">${status || 'Unknown'}</span>`;
     }
