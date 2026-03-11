@@ -10975,7 +10975,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         if (!select) return;
         select.innerHTML = '<option value="">-- No vendor tracking --</option>';
         try {
-            const { data: vendors } = await db.from('vendors').select('id, name').neq('status', 'Archived').order('name');
+            var query = db.from('vendors').select('id, name').neq('status', 'Archived');
+            if (!['super_admin', 'admin'].includes(currentUserRole)) {
+                query = query.eq('source_agent_id', currentUserId);
+            }
+            const { data: vendors } = await query.order('name');
             if (vendors && vendors.length > 0) {
                 vendors.forEach(function(v) {
                     var opt = document.createElement('option');
