@@ -220,10 +220,43 @@
             });
             if (authError) throw authError;
 
+            // Build complete terms acceptance record
+            var termsRecord = {
+                accepted_at: new Date().toISOString(),
+                terms_version: 'v1.0 — March 2026',
+                ip_address: null,
+                user_agent: navigator.userAgent || 'Unknown',
+                accepted_by_name: userData.full_name || '',
+                accepted_by_email: userData.email || '',
+                method: 'checkbox_and_click',
+                platform_agreement_title: 'Alliance Financing Group — Platform Access Agreement',
+                sections_accepted: [
+                    '1. License and Access',
+                    '2. Platform Ownership',
+                    '3. Acceptable Use',
+                    '4. Confidentiality',
+                    '5. Data Privacy',
+                    '6. Right to Suspend or Terminate Access',
+                    '7. No Guarantee of Earnings',
+                    '8. Indemnification',
+                    '9. Limitation of Liability',
+                    '10. Modification of Terms',
+                    '11. Governing Law'
+                ]
+            };
+
+            // Try to get IP address for the record
+            try {
+                var ipResp = await fetch('https://api.ipify.org?format=json');
+                var ipData = await ipResp.json();
+                termsRecord.ip_address = ipData.ip || null;
+            } catch(e) { /* IP lookup optional */ }
+
             var updates = {
                 onboarding_status: 'active',
                 terms_accepted_at: new Date().toISOString(),
-                invite_accepted_at: new Date().toISOString()
+                invite_accepted_at: new Date().toISOString(),
+                terms_acceptance_record: termsRecord
             };
             if (authData && authData.user && authData.user.id) {
                 updates.auth_id = authData.user.id;

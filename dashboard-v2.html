@@ -14930,6 +14930,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     </div>
                 </div>
 
+                ${agent.terms_acceptance_record ? (function() {
+                    var t = agent.terms_acceptance_record;
+                    return '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:14px 16px;margin-bottom:16px;">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+                        '<label style="font-size:14px;font-weight:700;color:#166534;">Platform Agreement Accepted</label>' +
+                        '<span style="font-size:11px;background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:10px;font-weight:600;">' + (t.terms_version || 'v1.0') + '</span></div>' +
+                        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12px;color:#334155;">' +
+                        '<div><strong>Accepted:</strong> ' + (t.accepted_at ? new Date(t.accepted_at).toLocaleString() : 'N/A') + '</div>' +
+                        '<div><strong>By:</strong> ' + (t.accepted_by_name || 'N/A') + ' (' + (t.accepted_by_email || '') + ')</div>' +
+                        '<div><strong>IP Address:</strong> ' + (t.ip_address || 'Not captured') + '</div>' +
+                        '<div><strong>Method:</strong> ' + (t.method === 'checkbox_and_click' ? 'Checkbox + Click to Accept' : (t.method || 'N/A')) + '</div>' +
+                        '<div style="grid-column:1/-1;"><strong>Browser:</strong> <span style="font-size:11px;color:#64748B;word-break:break-all;">' + (t.user_agent || 'N/A') + '</span></div>' +
+                        '</div></div>';
+                })() : agent.terms_accepted_at ? '<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#92400E;"><strong>Terms Accepted:</strong> ' + formatDate(agent.terms_accepted_at) + ' <span style="color:#B45309;">(legacy — no detailed record)</span></div>' : ''}
+
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Send Application</label>
                     <button class="btn btn-gold btn-sm" onclick="openSendApplicationModalWithRef('${agent.referral_slug || 'agent-' + agentId}')">Generate Tracked Link</button>
