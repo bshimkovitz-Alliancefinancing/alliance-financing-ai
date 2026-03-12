@@ -14850,7 +14850,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Referral Slug</label>
-                        <div class="modal-field-value" style="font-family: monospace;">${agent.referral_slug || 'N/A'}</div>
+                        <input type="text" value="${agent.referral_slug || ''}" placeholder="e.g. john-smith" onblur="updateAgentField('${agentId}', 'referral_slug', this.value || null); setTimeout(function(){ viewAgent('${agentId}'); }, 500);" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; font-family: monospace;">
                     </div>
                     <div class="modal-field">
                         <label>Agent Type</label>
@@ -14920,10 +14920,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         <input type="url" value="${agent.linkedin_profile || ''}" placeholder="https://linkedin.com/in/..." onblur="updateAgentField('${agentId}', 'linkedin_profile', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                     <div class="modal-field">
-                        <label>Onboarding Status</label>
+                        <label>Dashboard Access</label>
                         <div class="modal-field-value">
-                            ${agent.onboarding_status === 'invited' ? '<span style="color:#92400E;font-weight:600;">Invited</span> — ' + formatDate(agent.invite_sent_at) : agent.onboarding_status === 'pending_setup' ? '<span style="color:#3B82F6;font-weight:600;">Pending Setup</span> — Added ' + formatDate(agent.created_at) : agent.onboarding_status === 'active' ? '<span style="color:#166534;font-weight:600;">Active</span>' + (agent.invite_accepted_at ? ' — Activated ' + formatDate(agent.invite_accepted_at) : '') : (agent.onboarding_status || 'active')}
-                            ${agent.onboarding_status === 'invited' && agent.invite_token ? ' <button class="btn btn-sm" onclick="resendAgentInvite(\'' + agentId + '\', \'' + (agent.email || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.full_name || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.invite_token || '') + '\', \'' + (agent.agent_type || 'referring_agent') + '\')" style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;padding:4px 12px;font-size:12px;font-weight:600;margin-left:8px;">Resend Invite</button>' : agent.onboarding_status === 'pending_setup' && agent.invite_token ? ' <button class="btn btn-sm" onclick="resendAgentInvite(\'' + agentId + '\', \'' + (agent.email || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.full_name || '').replace(/'/g, "\\\\'") + '\', \'' + (agent.invite_token || '') + '\', \'' + (agent.agent_type || 'referring_agent') + '\')" style="background:#DBEAFE;color:#1E40AF;border:1px solid #93C5FD;padding:4px 12px;font-size:12px;font-weight:600;margin-left:8px;">Send Invite</button>' : ''}
+                            ${agent.onboarding_status === 'active' ? '<span style="color:#166534;font-weight:600;">✓ Active</span>' + (agent.invite_accepted_at ? ' — Activated ' + formatDate(agent.invite_accepted_at) : '') : agent.onboarding_status === 'invited' ? '<span style="color:#92400E;font-weight:600;">⏳ Invited</span> — ' + formatDate(agent.invite_sent_at) : agent.onboarding_status === 'pending_setup' ? '<span style="color:#3B82F6;font-weight:600;">📋 Pending Setup</span>' : '<span style="color:#64748B;font-weight:600;">Not Set Up</span>'}
+                            <button class="btn btn-sm" id="sendActivationBtn_${agentId}" onclick="sendActivationEmail('${agentId}')" style="background:#0D1E3D;color:#C9A84C;border:1px solid #C9A84C;padding:5px 14px;font-size:12px;font-weight:600;margin-left:10px;cursor:pointer;">
+                                ${agent.onboarding_status === 'active' ? '🔄 Resend Access' : agent.invite_sent_at ? '🔄 Resend Invite' : '📧 Send Dashboard Invite'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -14936,8 +14938,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Landing Page</label>
-                    <a href="partner.html?ref=${agent.referral_slug || ''}" target="_blank" class="btn btn-sm" style="background:var(--gold);color:var(--navy);padding:4px 14px;font-size:12px;font-weight:600;text-decoration:none;border-radius:4px;">View Landing Page ↗</a>
+                    ${agent.referral_slug ? '<a href="partner.html?ref=' + agent.referral_slug + '" target="_blank" class="btn btn-sm" style="background:var(--gold);color:var(--navy);padding:4px 14px;font-size:12px;font-weight:600;text-decoration:none;border-radius:4px;">View Landing Page ↗</a>' : '<button class="btn btn-sm" onclick="generateReferralSlug(\'' + agentId + '\', \'' + (agent.full_name || '').replace(/'/g, "\\\\'") + '\')" style="background:#DBEAFE;color:#1E40AF;border:1px solid #93C5FD;padding:4px 14px;font-size:12px;font-weight:600;">Generate Landing Page</button>'}
                 </div>
+                ${!agent.referral_slug ? '<p style="color:#DC6803;font-size:12px;margin-bottom:8px;background:#FEF3C7;padding:8px 12px;border-radius:6px;">⚠️ No referral slug set. Click "Generate Landing Page" above to create one, or enter a custom slug in the Referral Slug field.</p>' : ''}
                 <p style="color:var(--text-light);font-size:12px;margin-bottom:8px;">Select which financing products appear on this agent's landing page:</p>
                 <div id="landingPageProducts" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
                     ${(function() {
@@ -14962,7 +14965,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     })()}
                 </div>
                 <div id="landingPageSaveStatus" style="font-size:11px;color:var(--text-light);margin-bottom:6px;"></div>
-                <p style="font-size:11px;color:var(--text-light);margin-bottom:10px;">URL: <a href="partner.html?ref=${agent.referral_slug || ''}" target="_blank" style="color:var(--gold);font-weight:600;">alliancefinancing.ai/partner.html?ref=${agent.referral_slug || ''}</a></p>
+                ${agent.referral_slug ? '<p style="font-size:11px;color:var(--text-light);margin-bottom:10px;">URL: <a href="partner.html?ref=' + agent.referral_slug + '" target="_blank" style="color:var(--gold);font-weight:600;">alliancefinancing.ai/partner.html?ref=' + agent.referral_slug + '</a></p>' : ''}
 
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Branded Documents</label>
@@ -15029,6 +15032,88 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     function closeAgentDetailModal() {
         document.getElementById('agentDetailModal').classList.remove('active');
+    }
+
+    async function generateReferralSlug(agentId, agentName) {
+        try {
+            // Generate slug from name: "Bernie Shimkovitz" -> "bernie-shimkovitz"
+            var slug = agentName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            if (!slug) slug = 'agent-' + agentId.substring(0, 8);
+
+            // Check if slug already exists
+            const { data: existing } = await db.from('users').select('id').eq('referral_slug', slug);
+            if (existing && existing.length > 0) {
+                slug = slug + '-' + Math.random().toString(36).substring(2, 6);
+            }
+
+            await db.from('users').update({ referral_slug: slug }).eq('id', agentId);
+            alert('✅ Referral slug generated: ' + slug);
+            await viewAgent(agentId);
+        } catch (error) {
+            console.error('Generate slug error:', error);
+            alert('Error generating slug: ' + error.message);
+        }
+    }
+
+    async function sendActivationEmail(agentId) {
+        try {
+            // Fetch fresh agent data
+            const { data: agent, error: fetchErr } = await db.from('users').select('*').eq('id', agentId).single();
+            if (fetchErr || !agent) { alert('Could not load agent data.'); return; }
+
+            if (!agent.email) { alert('This agent has no email address. Please add an email first.'); return; }
+            if (!confirm('Send dashboard activation invite to ' + agent.email + '?')) return;
+
+            var btn = document.getElementById('sendActivationBtn_' + agentId);
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Sending...'; }
+
+            // Generate invite_token if missing
+            var inviteToken = agent.invite_token;
+            if (!inviteToken) {
+                inviteToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2) + Date.now().toString(36);
+                await db.from('users').update({
+                    invite_token: inviteToken,
+                    onboarding_status: agent.onboarding_status === 'active' ? 'active' : 'pending_setup'
+                }).eq('id', agentId);
+            }
+
+            const activateUrl = window.location.origin + '/agent-activate.html?token=' + inviteToken;
+            const typeLabel = getAgentTypeLabel(agent.agent_type || 'referring_agent');
+            const inviteSubject = 'Welcome to Alliance Financing Group - Activate Your Account';
+            const inviteHtml =
+                '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                '<p style="font-size:16px;color:#1E293B;">Hi ' + (agent.full_name || 'there') + ',</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">Welcome to Alliance Financing Group! You have been set up as a <strong>' + typeLabel + '</strong> on our platform.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">To activate your account and access your dashboard, please click the button below:</p>' +
+                '<div style="text-align:center;margin:25px 0;">' +
+                '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Activate My Account</a></div>' +
+                '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;word-break:break-all;">' + activateUrl + '</a></p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">This link will allow you to review our Platform Access Agreement, set up your password, and access your dashboard.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, don\'t hesitate to reach out.</p>' +
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="https://alliancefinancing.ai" style="color:#3B82F6;">alliancefinancing.ai</a></p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.ai</p></div></div>';
+
+            await sendEmailViaResend(agent.email, inviteSubject, inviteHtml);
+
+            // Update invite_sent_at
+            await db.from('users').update({ invite_sent_at: new Date().toISOString() }).eq('id', agentId);
+
+            // Copy activation link to clipboard
+            try { await navigator.clipboard.writeText(activateUrl); } catch(e) {}
+
+            alert('✅ Activation invite sent to ' + agent.email + '!\n\nActivation link also copied to clipboard.');
+            await viewAgent(agentId);
+        } catch (error) {
+            console.error('Send activation email error:', error);
+            alert('Error sending invite: ' + error.message);
+            var btn = document.getElementById('sendActivationBtn_' + agentId);
+            if (btn) { btn.disabled = false; btn.textContent = '📧 Send Dashboard Invite'; }
+        }
     }
 
     async function resendAgentInvite(agentId, agentEmail, agentName, inviteToken, agentType) {
