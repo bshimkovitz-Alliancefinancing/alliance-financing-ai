@@ -16141,12 +16141,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var senderName = currentUserName || 'Alliance Financing Group';
         var greeting = contactName ? 'Dear ' + contactName + ',' : 'Hello,';
         var companyLine = companyName ? ' for <strong>' + companyName + '</strong>' : '';
-        var vendorAppUrl = window.location.origin + '/vendor-portal.html';
 
         btn.disabled = true;
         btn.textContent = 'Sending...';
 
         try {
+            // Look up vendor ID by company name to include in application link
+            var vendorAppUrl = window.location.origin + '/vendor-application.html';
+            if (companyName) {
+                var { data: matchVendor } = await db.from('vendors').select('id').ilike('name', '%' + companyName + '%').limit(1);
+                if (matchVendor && matchVendor.length > 0) {
+                    vendorAppUrl += '?id=' + matchVendor[0].id;
+                }
+            }
+
             var subject = 'Alliance Financing Group — Vendor Program Application';
 
             var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
