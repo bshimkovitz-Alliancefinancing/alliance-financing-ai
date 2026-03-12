@@ -6673,15 +6673,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 return;
             }
 
-            // No existing user — create a new one
+            // No existing user — create a new one with invite token for activation
+            const inviteToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2) + Date.now().toString(36);
             const { error } = await db.from('users').insert({
                 full_name: name,
                 email: email,
                 phone: document.getElementById('subAgentPhone').value.trim() || null,
                 business_type: document.getElementById('subAgentBusinessType').value || null,
                 role: 'agent',
+                agent_type: 'referring_agent',
                 agent_status: 'Pending',
-                parent_agent_id: currentUserId
+                parent_agent_id: currentUserId,
+                invite_token: inviteToken,
+                onboarding_status: 'pending_setup'
             });
 
             if (error) throw error;
@@ -7130,7 +7134,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             if (['super_admin', 'admin'].includes(currentUserRole)) {
                 try {
                     const { data: pendingPartners } = await db.from('users')
-                        .select('id, full_name, email, phone, business_type, agent_status, created_at, parent_agent_id')
+                        .select('id, full_name, email, phone, business_type, agent_status, created_at, parent_agent_id, invite_token, onboarding_status')
                         .eq('role', 'agent')
                         .eq('agent_status', 'Pending')
                         .order('created_at', { ascending: false });
@@ -7164,7 +7168,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                                 <td>Referred by ${parentName}</td>
                                 <td>${statusHtml}</td>
                                 <td>${formatDate(p.created_at)}</td>
-                                <td><button class="btn btn-gold btn-sm" onclick="viewAgent('${p.id}')">View</button></td>
+                                <td style="display:flex;gap:6px;">
+                                    <button class="btn btn-gold btn-sm" onclick="viewAgent('${p.id}')">View</button>
+                                    ${p.invite_token && p.onboarding_status !== 'active' && p.email ? '<button class="btn btn-sm" onclick="resendAgentInvite(\'' + p.id + '\', \'' + (p.email || '').replace(/\'/g, "\\\\'") + '\', \'' + (p.full_name || '').replace(/\'/g, "\\\\'") + '\', \'' + (p.invite_token || '') + '\', \'referring_agent\')" style="background:#DBEAFE;color:#1E40AF;border:1px solid #93C5FD;padding:4px 10px;font-size:11px;font-weight:600;border-radius:4px;cursor:pointer;">Send Invite</button>' : ''}
+                                </td>
                             </tr>`;
                         }).join('');
 
