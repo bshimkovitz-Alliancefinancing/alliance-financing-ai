@@ -986,7 +986,7 @@
 
                 <div class="table-container">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Recent Applications (Intake)</div>
+                        <div class="table-title">Intake</div>
                     </div>
                     <table id="recentApplicationsTable">
                         <thead>
@@ -7010,6 +7010,54 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 }).join('');
             }
 
+            // Load pending referral partners into intake table (admin only)
+            if (['super_admin', 'admin'].includes(currentUserRole)) {
+                try {
+                    const { data: pendingPartners } = await db.from('users')
+                        .select('id, full_name, email, phone, business_type, agent_status, created_at, parent_agent_id')
+                        .eq('role', 'agent')
+                        .eq('agent_status', 'Pending')
+                        .order('created_at', { ascending: false });
+
+                    if (pendingPartners && pendingPartners.length > 0) {
+                        const tbody = document.getElementById('recentAppBody');
+                        // Look up parent agent names
+                        const parentIds = [...new Set(pendingPartners.filter(p => p.parent_agent_id).map(p => p.parent_agent_id))];
+                        let parentMap = {};
+                        if (parentIds.length > 0) {
+                            const { data: parents } = await db.from('users').select('id, full_name').in('id', parentIds);
+                            if (parents) parents.forEach(p => { parentMap[p.id] = p.full_name; });
+                        }
+
+                        const partnerRows = pendingPartners.map(p => {
+                            const parentName = p.parent_agent_id ? (parentMap[p.parent_agent_id] || 'Unknown') : 'Direct';
+                            const statusHtml = `<select class="status-dropdown" onchange="updatePartnerStatus('${p.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
+                                <option value="Pending" selected>Pending</option>
+                                <option value="AIA">AIA</option>
+                                <option value="MOU">MOU</option>
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>`;
+                            return `<tr style="background: #FFFBEB;">
+                                <td><span style="display:inline-block;padding:2px 8px;background:#F59E0B;color:#fff;border-radius:4px;font-size:11px;font-weight:600;">NEW PARTNER</span></td>
+                                <td><strong>${p.full_name || 'N/A'}</strong></td>
+                                <td>${p.business_type || 'N/A'}</td>
+                                <td>${p.email || 'N/A'}</td>
+                                <td>Referred by ${parentName}</td>
+                                <td>${statusHtml}</td>
+                                <td>${formatDate(p.created_at)}</td>
+                                <td><button class="btn btn-gold btn-sm" onclick="showPage('agents'); setTimeout(function(){ var s = document.getElementById('agentSearch'); if(s){s.value='${(p.full_name||'').replace(/'/g,"\\'")}'; filterAgentList();} },300);">View</button></td>
+                            </tr>`;
+                        }).join('');
+
+                        // Prepend partner rows to the top of the intake table
+                        tbody.innerHTML = partnerRows + tbody.innerHTML;
+                    }
+                } catch (err) {
+                    console.warn('Could not load pending partners for intake:', err);
+                }
+            }
+
             // Load contact submissions feed for admin dashboard
             await loadDashContactSubmissions();
 
@@ -7619,6 +7667,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         } catch (error) {
             console.error('Update app status error:', error);
             alert('Error updating status: ' + error.message);
+        }
+    }
+
+    async function updatePartnerStatus(userId, newStatus) {
+        try {
+            const { error } = await db
+                .from('users')
+                .update({ agent_status: newStatus })
+                .eq('id', userId);
+
+            if (error) throw error;
+
+            // Refresh the dashboard to update the intake table
+            await loadDashboard();
+        } catch (error) {
+            console.error('Update partner status error:', error);
+            alert('Error updating partner status: ' + error.message);
         }
     }
 
