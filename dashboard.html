@@ -1348,6 +1348,8 @@
                                 <option value="">All Active Vendors</option>
                                 <option value="Approved">Approved</option>
                                 <option value="Requires Approval">Requires Approval</option>
+                                <option value="Application Sent">Application Sent</option>
+                                <option value="Pending Review">Pending Review</option>
                                 <option value="Declined">Declined</option>
                                 <option value="Archived">Archived</option>
                             </select>
@@ -8116,7 +8118,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     ${vendor.status === 'Archived'
                         ? '<span style="background:#F1F5F9;color:#94A3B8;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">Archived</span>'
                         : `<select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
-                        ${'Approved,Requires Approval,Declined'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        ${'Approved,Requires Approval,Application Sent,Pending Review,Declined'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
                     </select>`}
                 </td>
                 <td style="white-space:nowrap;">
@@ -8183,15 +8185,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var existingBanner = document.getElementById(pendingBannerId);
         if (existingBanner) existingBanner.remove();
         if (['super_admin', 'admin'].includes(currentUserRole)) {
-            var pendingCount = allVendors.filter(function(v) { return v.status === 'Requires Approval'; }).length;
+            var pendingCount = allVendors.filter(function(v) { return v.status === 'Requires Approval' || v.status === 'Application Sent' || v.status === 'Pending Review'; }).length;
+            var needsReviewCount = allVendors.filter(function(v) { return v.status === 'Pending Review'; }).length;
             if (pendingCount > 0) {
+                var bannerMsg = pendingCount + ' Vendor' + (pendingCount > 1 ? 's' : '') + ' Need Attention';
+                var bannerDetail = '';
+                var reqApproval = allVendors.filter(function(v) { return v.status === 'Requires Approval'; }).length;
+                var appSent = allVendors.filter(function(v) { return v.status === 'Application Sent'; }).length;
+                var parts = [];
+                if (reqApproval > 0) parts.push(reqApproval + ' awaiting approval');
+                if (appSent > 0) parts.push(appSent + ' application sent');
+                if (needsReviewCount > 0) parts.push(needsReviewCount + ' completed — ready for review');
+                bannerDetail = parts.join(' · ');
                 var banner = document.createElement('div');
                 banner.id = pendingBannerId;
                 banner.style.cssText = 'background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;';
                 banner.innerHTML = '<div style="display:flex;align-items:center;gap:10px;">' +
                     '<span style="font-size:20px;">⚠️</span>' +
-                    '<div><strong style="color:#92400E;">' + pendingCount + ' Vendor' + (pendingCount > 1 ? 's' : '') + ' Pending Approval</strong>' +
-                    '<div style="font-size:12px;color:#92400E;">New vendor applications require your review.</div></div></div>' +
+                    '<div><strong style="color:#92400E;">' + bannerMsg + '</strong>' +
+                    '<div style="font-size:12px;color:#92400E;">' + bannerDetail + '</div></div></div>' +
                     '<button onclick="document.getElementById(\'vendorStatusFilter\').value=\'Requires Approval\';filterVendors();" style="padding:6px 14px;background:#F59E0B;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">View Pending</button>';
                 var vendorsSection = document.getElementById('vendors');
                 var tableContainer = vendorsSection ? vendorsSection.querySelector('.table-container') : null;
@@ -16298,11 +16310,26 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 console.warn('Could not add vendor note:', noteErr);
             }
 
+            // Update vendor status to "Application Sent" and record timestamp
+            if (companyName) {
+                try {
+                    var { data: matchV } = await db.from('vendors').select('id, status').ilike('name', '%' + companyName + '%').limit(1);
+                    if (matchV && matchV.length > 0 && matchV[0].status === 'Requires Approval') {
+                        await db.from('vendors').update({
+                            status: 'Application Sent',
+                            app_sent_at: new Date().toISOString()
+                        }).eq('id', matchV[0].id);
+                    }
+                } catch(e) { console.warn('Status update optional:', e); }
+            }
+
             btn.textContent = 'Sent!';
             btn.style.background = '#10B981';
-            setTimeout(function() {
+            setTimeout(async function() {
                 var modal = document.getElementById('sendVendorAppModal');
                 if (modal) modal.remove();
+                // Refresh vendor list to update pending count
+                await loadVendors();
             }, 1500);
         } catch (err) {
             console.error('Send vendor app error:', err);
