@@ -256,7 +256,7 @@
         try {
             var { data: user, error } = await db
                 .from('users')
-                .select('id, full_name, email, onboarding_status, invite_token')
+                .select('id, full_name, email, onboarding_status, invite_token, invite_accepted_at')
                 .eq('invite_token', token)
                 .maybeSingle();
 
@@ -267,7 +267,7 @@
                 return;
             }
 
-            if (user.onboarding_status === 'active') {
+            if (user.invite_accepted_at) {
                 document.getElementById('loadingView').classList.add('hidden');
                 document.getElementById('invalidTitle').textContent = 'Already Activated';
                 document.getElementById('invalidMessage').textContent = 'This account has already been activated. You can sign in to your dashboard.';
