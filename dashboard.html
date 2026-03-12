@@ -2011,7 +2011,7 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Support</div>
-                        <div class="stat-value" style="font-size:14px;">1-877-660-3660</div>
+                        <div class="stat-value" style="font-size:14px;">1-877-660-3660 ext. 222</div>
                     </div>
                 </div>
 
@@ -3746,8 +3746,8 @@
                 var vendorAllowed = ['Dashboard', 'Vendor Portal', 'Help & Resources'];
                 item.style.display = vendorAllowed.includes(label) ? 'flex' : 'none';
             } else if (isReferralAgent) {
-                // Referral agents get a minimal nav: Dashboard, My Referrals, Help
-                var referralAllowed = ['Dashboard', 'My Referrals', 'Help & Resources'];
+                // Referral agents get: Dashboard, Deal Pipeline, Vendor Programs, Help
+                var referralAllowed = ['Dashboard', 'Deal Pipeline', 'Vendor Programs', 'Help & Resources'];
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
             } else {
                 // ISO/other agent views
@@ -3766,10 +3766,10 @@
             }
         });
 
-        // Show "My Referrals" nav for referral agents
+        // Hide "My Referrals" nav — referral agents now use Deal Pipeline
         var myReferralsNav = document.getElementById('myReferralsNav');
         if (myReferralsNav) {
-            myReferralsNav.style.display = isReferralAgent ? 'flex' : 'none';
+            myReferralsNav.style.display = 'none';
         }
 
         // Show "Vendor Portal" nav for vendor users
@@ -3826,7 +3826,7 @@
             agentProfile = data;
             if (data && data.referral_slug) {
                 const referralUrl = window.location.origin + '/application.html?ref=' + data.referral_slug;
-                const landingPageUrl = window.location.origin + '/' + data.referral_slug;
+                const landingPageUrl = window.location.origin + '/partner.html?ref=' + data.referral_slug;
                 document.getElementById('agentReferralUrl').value = referralUrl;
                 document.getElementById('agentReferralSlug').textContent = data.referral_slug;
                 const partnerLink = document.getElementById('agentPartnerLink');
@@ -6959,51 +6959,61 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     // ============================================
     async function loadReferralDashboard() {
         try {
-            // Load this agent's sent applications for stats
-            var query = db.from('applications_sent').select('*').eq('sent_by', currentUserName || '');
-            var { data: sentApps, error } = await query;
-            var apps = sentApps || [];
+            // Load this agent's deals for pipeline stats
+            var { data: myDeals, error: dealsErr } = await db.from('deals')
+                .select('id, deal_number, company_name, deal_amount, status, is_archived, commission_amount')
+                .eq('source_agent_id', currentUserId);
+            var deals = myDeals || [];
 
-            // Update the 4 dashboard stat cards with referral-specific data
+            var activeDeals = deals.filter(function(d) {
+                return !d.is_archived && d.status !== 'Funded' && d.status !== 'Declined' && d.status !== 'Dead approval' && d.status !== 'Withdrawn';
+            });
+            var fundedDeals = deals.filter(function(d) { return d.status === 'Funded' && !d.is_archived; });
+            var pipelineValue = activeDeals.reduce(function(sum, d) { return sum + (parseFloat(d.deal_amount) || 0); }, 0);
+            var fundedValue = fundedDeals.reduce(function(sum, d) { return sum + (parseFloat(d.deal_amount) || 0); }, 0);
+
+            // Load vendor programs count
+            var { data: myVendors } = await db.from('vendors').select('id, status')
+                .eq('source_agent_id', currentUserId).neq('status', 'Archived');
+            var activeVendors = myVendors ? myVendors.filter(function(v) { return v.status === 'Approved'; }).length : 0;
+
+            // Card 1: Active Pipeline
             var card1Label = document.querySelector('#statCard1 .stat-label');
             var card1Value = document.getElementById('dealsThisMonth');
             var card1Detail = document.getElementById('dealsMonthLabel');
-            if (card1Label) card1Label.textContent = 'Applications Sent';
-            if (card1Value) card1Value.textContent = apps.length;
-            if (card1Detail) card1Detail.textContent = 'Total referrals';
+            if (card1Label) card1Label.textContent = 'Active Pipeline';
+            if (card1Value) card1Value.textContent = activeDeals.length;
+            if (card1Detail) card1Detail.textContent = pipelineValue > 0 ? formatCurrency(pipelineValue) + ' in pipeline' : 'No active deals';
 
+            // Card 2: Pipeline Value
             var card2Label = document.querySelector('#statCard2 .stat-label');
             var card2Value = document.getElementById('pipelineValue');
             var card2Detail = document.querySelector('#statCard2 .stat-detail');
-            var openedCount = apps.filter(function(a) { return a.status === 'Opened'; }).length;
-            if (card2Label) card2Label.textContent = 'Opened by Clients';
-            if (card2Value) card2Value.textContent = openedCount;
-            if (card2Detail) card2Detail.textContent = 'Emails opened';
+            var projectedFees = fundedDeals.reduce(function(sum, d) { return sum + (parseFloat(d.commission_amount) || 0); }, 0);
+            if (card2Label) card2Label.textContent = 'Projected Fees';
+            if (card2Value) card2Value.textContent = projectedFees > 0 ? formatCurrency(projectedFees) : '$0';
+            if (card2Detail) card2Detail.textContent = activeDeals.length + ' active deal' + (activeDeals.length !== 1 ? 's' : '');
 
+            // Card 3: Funded
             var card3Label = document.querySelector('#statCard3 .stat-label');
             var card3Value = document.getElementById('totalLenders');
             var card3Detail = document.querySelector('#statCard3 .stat-detail');
-            var returnedCount = apps.filter(function(a) { return a.status === 'Returned'; }).length;
-            if (card3Label) card3Label.textContent = 'Completed';
-            if (card3Value) card3Value.textContent = returnedCount;
-            if (card3Detail) card3Detail.textContent = 'Applications returned';
+            if (card3Label) card3Label.textContent = 'Funded';
+            if (card3Value) card3Value.textContent = fundedDeals.length;
+            if (card3Detail) card3Detail.textContent = fundedValue > 0 ? formatCurrency(fundedValue) + ' total' : 'No funded deals yet';
 
+            // Card 4: Vendor Programs
             var card4Label = document.querySelector('#statCard4 .stat-label');
             var card4Value = document.getElementById('totalVendors');
             var card4Detail = document.getElementById('vendorSalesPeople');
-            var overdueCount = apps.filter(function(a) {
-                return (a.status === 'Sent' || a.status === 'Follow-Up Needed') && a.follow_up_date && new Date(a.follow_up_date) < new Date();
-            }).length;
-            if (card4Label) card4Label.textContent = 'Needs Follow-Up';
-            if (card4Value) card4Value.textContent = overdueCount;
-            if (card4Detail) card4Detail.textContent = overdueCount > 0 ? 'Action needed' : 'All caught up';
+            if (card4Label) card4Label.textContent = 'Vendor Programs';
+            if (card4Value) card4Value.textContent = activeVendors;
+            if (card4Detail) card4Detail.textContent = (myVendors ? myVendors.length : 0) + ' total submitted';
 
             // Hide admin quick actions
             var adminQuickActions = document.getElementById('adminQuickActions');
             if (adminQuickActions) adminQuickActions.style.display = 'none';
 
-            // Hide the intake table (recent applications) for referral agents
-            var intakeSection = document.querySelector('#dashboard .table-container');
             // Show the referral card and marketing toolkit
             await displayAgentReferralCard();
 
@@ -8361,7 +8371,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             { icon: '📤', title: 'Upload Documents', text: 'Open a deal, scroll to Documents, and click "Upload Document" to attach files (PDF, JPEG, PNG).' },
             { icon: '📊', title: 'Track Your Deals', text: 'Click any deal in your pipeline to see full status, notes, and activity timeline.' },
             { icon: '🔗', title: 'Referral Link', text: 'Find your personal referral link in the Marketing section. Share it to get credit for new deals.' },
-            { icon: '📧', title: 'Need Help?', text: 'Email info@alliancefinancing.com or call 1-877-660-3660 for support.' },
+            { icon: '📧', title: 'Need Help?', text: 'Email info@alliancefinancing.com or call 1-877-660-3660 ext. 222 for support.' },
             { icon: '📝', title: 'Submit a Deal', text: 'Go to Applications and click "+ New Application" to submit a financing request.' }
         ];
 
@@ -8382,7 +8392,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         html += '<div style="background:linear-gradient(135deg,#0D1E3D,#1a2e5a);border-radius:10px;padding:24px;color:white;">';
         html += '<h3 style="margin-bottom:12px;font-size:16px;">Contact Alliance Financing</h3>';
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;">';
-        html += '<div><div style="font-size:12px;opacity:0.7;margin-bottom:4px;">Phone</div><div style="font-weight:600;">1-877-660-3660</div></div>';
+        html += '<div><div style="font-size:12px;opacity:0.7;margin-bottom:4px;">Phone</div><div style="font-weight:600;">1-877-660-3660 ext. 222</div></div>';
         html += '<div><div style="font-size:12px;opacity:0.7;margin-bottom:4px;">Email</div><div style="font-weight:600;">info@alliancefinancing.com</div></div>';
         html += '<div><div style="font-size:12px;opacity:0.7;margin-bottom:4px;">Website</div><div style="font-weight:600;">alliancefinancing.com</div></div>';
         html += '</div>';
@@ -14922,13 +14932,28 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     <div class="modal-field">
                         <label>Dashboard Access</label>
                         <div class="modal-field-value">
-                            ${agent.onboarding_status === 'active' ? '<span style="color:#166534;font-weight:600;">✓ Active</span>' + (agent.invite_accepted_at ? ' — Activated ' + formatDate(agent.invite_accepted_at) : '') : agent.onboarding_status === 'invited' ? '<span style="color:#92400E;font-weight:600;">⏳ Invited</span> — ' + formatDate(agent.invite_sent_at) : agent.onboarding_status === 'pending_setup' ? '<span style="color:#3B82F6;font-weight:600;">📋 Pending Setup</span>' : '<span style="color:#64748B;font-weight:600;">Not Set Up</span>'}
+                            ${agent.invite_accepted_at ? '<span style="color:#166534;font-weight:600;">✓ Set Up</span> — ' + formatDate(agent.invite_accepted_at) : agent.invite_sent_at && !agent.invite_accepted_at ? '<span style="color:#92400E;font-weight:600;">⏳ Invite Sent</span> — ' + formatDate(agent.invite_sent_at) : '<span style="color:#DC2626;font-weight:600;">✗ Not Set Up</span>'}
                             <button class="btn btn-sm" id="sendActivationBtn_${agentId}" onclick="sendActivationEmail('${agentId}')" style="background:#0D1E3D;color:#C9A84C;border:1px solid #C9A84C;padding:5px 14px;font-size:12px;font-weight:600;margin-left:10px;cursor:pointer;">
-                                ${agent.onboarding_status === 'active' ? '🔄 Resend Access' : agent.invite_sent_at ? '🔄 Resend Invite' : '📧 Send Dashboard Invite'}
+                                ${agent.invite_accepted_at ? '🔄 Resend Access' : agent.invite_sent_at ? '🔄 Resend Invite' : '📧 Send Dashboard Invite'}
                             </button>
                         </div>
                     </div>
                 </div>
+
+                ${agent.terms_acceptance_record ? (function() {
+                    var t = agent.terms_acceptance_record;
+                    return '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:14px 16px;margin-bottom:16px;">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+                        '<label style="font-size:14px;font-weight:700;color:#166534;">Platform Agreement Accepted</label>' +
+                        '<span style="font-size:11px;background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:10px;font-weight:600;">' + (t.terms_version || 'v1.0') + '</span></div>' +
+                        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12px;color:#334155;">' +
+                        '<div><strong>Accepted:</strong> ' + (t.accepted_at ? new Date(t.accepted_at).toLocaleString() : 'N/A') + '</div>' +
+                        '<div><strong>By:</strong> ' + (t.accepted_by_name || 'N/A') + ' (' + (t.accepted_by_email || '') + ')</div>' +
+                        '<div><strong>IP Address:</strong> ' + (t.ip_address || 'Not captured') + '</div>' +
+                        '<div><strong>Method:</strong> ' + (t.method === 'checkbox_and_click' ? 'Checkbox + Click to Accept' : (t.method || 'N/A')) + '</div>' +
+                        '<div style="grid-column:1/-1;"><strong>Browser:</strong> <span style="font-size:11px;color:#64748B;word-break:break-all;">' + (t.user_agent || 'N/A') + '</span></div>' +
+                        '</div></div>';
+                })() : agent.terms_accepted_at ? '<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#92400E;"><strong>Terms Accepted:</strong> ' + formatDate(agent.terms_accepted_at) + ' <span style="color:#B45309;">(legacy — no detailed record)</span></div>' : ''}
 
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Send Application</label>
