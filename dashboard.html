@@ -1507,12 +1507,17 @@
             <div id="vendorPrograms" class="page-section">
                 <div id="agentVendorProgramsSection" class="table-container">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Your Vendor Programs</div>
+                        <div class="table-title">Vendor Programs</div>
                         <div style="display: flex; gap: 10px; align-items: center;">
+                            <div id="vendorProgramTabs" style="display:flex;gap:0;border:1px solid #ccc;border-radius:6px;overflow:hidden;font-size:13px;">
+                                <button class="vendor-prog-tab active" data-vtab="yours" onclick="switchVendorProgramTab('yours')" style="padding:7px 16px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:var(--navy);color:white;transition:all .2s;">Your Vendors <span id="vendorCountYours" style="background:rgba(255,255,255,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                                <button class="vendor-prog-tab" data-vtab="partners" onclick="switchVendorProgramTab('partners')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Partner Vendors <span id="vendorCountPartners" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                            </div>
                             <button class="btn btn-gold btn-sm" onclick="openAddVendorModal()">+ Submit Vendor</button>
                         </div>
                     </div>
-                    <table>
+                    <!-- Your Vendors Table -->
+                    <table id="vendorTableYours">
                         <thead>
                             <tr>
                                 <th>Vendor Name</th>
@@ -1526,6 +1531,23 @@
                         </thead>
                         <tbody id="agentVendorsBody">
                             <tr><td colspan="7" class="empty-state">Loading vendor programs...</td></tr>
+                        </tbody>
+                    </table>
+                    <!-- Partner Vendors Table -->
+                    <table id="vendorTablePartners" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>Vendor Name</th>
+                                <th>Referred By</th>
+                                <th>Product</th>
+                                <th>Country</th>
+                                <th>Salespeople</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="partnerVendorsBody">
+                            <tr><td colspan="7" class="empty-state">Loading partner vendor programs...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -6308,8 +6330,102 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             }
 
             tbody.innerHTML = html;
+
+            // Update "Your Vendors" tab count
+            var countEl = document.getElementById('vendorCountYours');
+            if (countEl) countEl.textContent = activeVendors.length;
+
+            // Also load partner vendors
+            await loadPartnerVendorPrograms();
         } catch (err) {
             console.error('Load agent vendors error:', err);
+        }
+    }
+
+    var currentVendorProgramTab = 'yours';
+
+    function switchVendorProgramTab(tab) {
+        currentVendorProgramTab = tab;
+        document.querySelectorAll('#vendorProgramTabs .vendor-prog-tab').forEach(function(btn) {
+            if (btn.dataset.vtab === tab) {
+                btn.style.background = 'var(--navy)';
+                btn.style.color = 'white';
+                btn.style.fontWeight = '600';
+            } else {
+                btn.style.background = '#f8fafc';
+                btn.style.color = '#333';
+                btn.style.fontWeight = '500';
+            }
+        });
+        document.getElementById('vendorTableYours').style.display = tab === 'yours' ? '' : 'none';
+        document.getElementById('vendorTablePartners').style.display = tab === 'partners' ? '' : 'none';
+    }
+
+    async function loadPartnerVendorPrograms() {
+        const tbody = document.getElementById('partnerVendorsBody');
+        if (!tbody) return;
+
+        try {
+            // Get this agent's sub-agents (referral partners)
+            const { data: subAgents } = await db.from('users')
+                .select('id, full_name')
+                .eq('parent_agent_id', currentUserId)
+                .eq('role', 'agent');
+
+            if (!subAgents || subAgents.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No referral partner vendors yet. Your partners\' vendor programs will appear here.</td></tr>';
+                var countEl = document.getElementById('vendorCountPartners');
+                if (countEl) countEl.textContent = '0';
+                return;
+            }
+
+            const subAgentIds = subAgents.map(a => a.id);
+            const subAgentMap = {};
+            subAgents.forEach(a => { subAgentMap[a.id] = a.full_name || 'Unknown'; });
+
+            // Get vendors created by sub-agents
+            const { data: partnerVendors, error } = await db.from('vendors')
+                .select('id, name, product_description, country, status, source_agent_id')
+                .in('source_agent_id', subAgentIds)
+                .neq('status', 'Archived')
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            // Get salespeople counts
+            const vendorIds = (partnerVendors || []).map(v => v.id);
+            let vendorSPCounts = {};
+            if (vendorIds.length > 0) {
+                const { data: vcData } = await db.from('vendor_contacts').select('id, vendor_id, status').in('vendor_id', vendorIds);
+                (vcData || []).forEach(vc => {
+                    if (vc.status !== 'Left Company') {
+                        vendorSPCounts[vc.vendor_id] = (vendorSPCounts[vc.vendor_id] || 0) + 1;
+                    }
+                });
+            }
+
+            var countEl = document.getElementById('vendorCountPartners');
+            if (countEl) countEl.textContent = (partnerVendors || []).length;
+
+            if (!partnerVendors || partnerVendors.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No referral partner vendors yet.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = partnerVendors.map(v => `
+                <tr>
+                    <td><strong>${v.name || 'N/A'}</strong></td>
+                    <td>${subAgentMap[v.source_agent_id] || 'Unknown'}</td>
+                    <td>${v.product_description || 'N/A'}</td>
+                    <td>${v.country || 'N/A'}</td>
+                    <td style="text-align: center;"><span style="background: ${(vendorSPCounts[v.id] || 0) > 0 ? '#EFF6FF' : '#f5f5f5'}; color: ${(vendorSPCounts[v.id] || 0) > 0 ? '#3B82F6' : '#999'}; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 13px;">${vendorSPCounts[v.id] || 0}</span></td>
+                    <td>${getStatusBadge(v.status || 'Pending')}</td>
+                    <td><button class="btn btn-secondary btn-sm" onclick="viewAgentVendor('${v.id}')">View</button></td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error('Load partner vendors error:', err);
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Error loading partner vendors.</td></tr>';
         }
     }
 
