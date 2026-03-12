@@ -2205,6 +2205,23 @@
                 <label style="font-weight: 600; display: block; margin-bottom: 4px;">Estimated Annual Volume ($)</label>
                 <input type="number" id="agentVendorVolume" placeholder="500000" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
             </div>
+            <div style="border-top: 1px solid #e2e8f0; margin: 16px 0 12px; padding-top: 12px;">
+                <label style="font-weight: 700; display: block; margin-bottom: 8px; color: #0D1E3D;">Vendor Contact (for application)</label>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                <div>
+                    <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 13px;">Contact Name *</label>
+                    <input type="text" id="agentVendorContactName" placeholder="John Smith" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 13px;">Contact Email *</label>
+                    <input type="email" id="agentVendorContactEmail" placeholder="john@vendor.com" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                </div>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 13px;">Contact Phone</label>
+                <input type="tel" id="agentVendorContactPhone" placeholder="(555) 123-4567" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
             <button class="btn btn-gold" onclick="handleAgentAddVendor()" style="width: 100%; margin-top: 10px;">Submit Vendor Program</button>
         </div>
     </div>
@@ -6460,10 +6477,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     async function handleAgentAddVendor() {
         const name = document.getElementById('agentVendorName').value.trim();
         const product = document.getElementById('agentVendorProduct').value.trim();
+        const contactName = document.getElementById('agentVendorContactName').value.trim();
+        const contactEmail = document.getElementById('agentVendorContactEmail').value.trim();
+        const contactPhone = document.getElementById('agentVendorContactPhone') ? document.getElementById('agentVendorContactPhone').value.trim() : '';
         if (!name || !product) { alert('Please fill in the vendor name and product description.'); return; }
+        if (!contactName || !contactEmail) { alert('Please fill in the vendor contact name and email.'); return; }
 
         try {
-            const { error } = await db.from('vendors').insert({
+            const { data: vendorResult, error } = await db.from('vendors').insert({
                 name: name,
                 website: document.getElementById('agentVendorWebsite').value.trim() || null,
                 product_description: product,
@@ -6471,9 +6492,26 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 projected_volume: document.getElementById('agentVendorVolume').value ? parseFloat(document.getElementById('agentVendorVolume').value) : null,
                 source_agent_id: currentUserId,
                 status: 'Requires Approval'
-            });
+            }).select();
 
             if (error) throw error;
+
+            // Save vendor contact
+            var newVendorId = vendorResult && vendorResult.length > 0 ? vendorResult[0].id : null;
+            if (newVendorId && contactName) {
+                try {
+                    await db.from('vendor_contacts').insert({
+                        vendor_id: newVendorId,
+                        contact_name: contactName,
+                        email: contactEmail || null,
+                        phone: contactPhone || null,
+                        role_title: 'Admin',
+                        is_portal_user: true,
+                        is_admin: true,
+                        created_at: new Date().toISOString()
+                    });
+                } catch(ce) { console.warn('Contact insert error:', ce); }
+            }
 
             document.getElementById('agentAddVendorModal').style.display = 'none';
             // Clear form
@@ -6481,7 +6519,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             document.getElementById('agentVendorWebsite').value = '';
             document.getElementById('agentVendorProduct').value = '';
             document.getElementById('agentVendorVolume').value = '';
-            alert('Vendor program submitted successfully!');
+            document.getElementById('agentVendorContactName').value = '';
+            document.getElementById('agentVendorContactEmail').value = '';
+            if (document.getElementById('agentVendorContactPhone')) document.getElementById('agentVendorContactPhone').value = '';
+
+            // Offer to send vendor application email
+            if (newVendorId && contactEmail && confirm('Vendor program submitted successfully!\n\nWould you like to send the application form to ' + contactName + ' at ' + contactEmail + '?')) {
+                showSendVendorAppModal();
+                setTimeout(function() {
+                    if (contactName) document.getElementById('vendorAppSendName').value = contactName;
+                    if (contactEmail) document.getElementById('vendorAppSendEmail').value = contactEmail;
+                    if (name) document.getElementById('vendorAppSendCompany').value = name;
+                }, 100);
+            } else {
+                alert('Vendor program submitted successfully!');
+            }
             loadAgentVendors();
         } catch (err) {
             console.error('Add vendor error:', err);
@@ -8125,6 +8177,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         });
 
         renderVendorsTable(filtered);
+
+        // Show pending approval banner for admins
+        var pendingBannerId = 'vendorPendingBanner';
+        var existingBanner = document.getElementById(pendingBannerId);
+        if (existingBanner) existingBanner.remove();
+        if (['super_admin', 'admin'].includes(currentUserRole)) {
+            var pendingCount = allVendors.filter(function(v) { return v.status === 'Requires Approval'; }).length;
+            if (pendingCount > 0) {
+                var banner = document.createElement('div');
+                banner.id = pendingBannerId;
+                banner.style.cssText = 'background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;';
+                banner.innerHTML = '<div style="display:flex;align-items:center;gap:10px;">' +
+                    '<span style="font-size:20px;">⚠️</span>' +
+                    '<div><strong style="color:#92400E;">' + pendingCount + ' Vendor' + (pendingCount > 1 ? 's' : '') + ' Pending Approval</strong>' +
+                    '<div style="font-size:12px;color:#92400E;">New vendor applications require your review.</div></div></div>' +
+                    '<button onclick="document.getElementById(\'vendorStatusFilter\').value=\'Requires Approval\';filterVendors();" style="padding:6px 14px;background:#F59E0B;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">View Pending</button>';
+                var vendorsSection = document.getElementById('vendors');
+                var tableContainer = vendorsSection ? vendorsSection.querySelector('.table-container') : null;
+                if (tableContainer) tableContainer.parentNode.insertBefore(banner, tableContainer);
+            }
+        }
     }
 
     function generateCountryCheckboxes(currentCountry, fieldName, onChangeCallback) {
