@@ -6335,8 +6335,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             var countEl = document.getElementById('vendorCountYours');
             if (countEl) countEl.textContent = activeVendors.length;
 
-            // Also load partner vendors
-            await loadPartnerVendorPrograms();
+            // Load partner vendors (ISO agents only, not referral partners)
+            if (currentAgentType !== 'referring_agent') {
+                await loadPartnerVendorPrograms();
+            } else {
+                // Hide the tabs for referral agents — they only see their own vendors
+                var tabsEl = document.getElementById('vendorProgramTabs');
+                if (tabsEl) tabsEl.style.display = 'none';
+            }
         } catch (err) {
             console.error('Load agent vendors error:', err);
         }
@@ -7013,6 +7019,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Hide admin quick actions
             var adminQuickActions = document.getElementById('adminQuickActions');
             if (adminQuickActions) adminQuickActions.style.display = 'none';
+
+            // Hide Intake table (referral agents see deals in Deal Pipeline page, not dashboard)
+            var intakeTables = document.querySelectorAll('#dashboard .table-container');
+            intakeTables.forEach(function(t) {
+                var title = t.querySelector('.table-title');
+                if (title && (title.textContent.trim() === 'Intake' || title.textContent.trim().includes('Recent Applications'))) {
+                    t.style.display = 'none';
+                }
+            });
+
+            // Hide Applications Sent section (not relevant for referral partners)
+            var appsSentSection = document.getElementById('applicationsSentSection');
+            if (appsSentSection) appsSentSection.style.display = 'none';
 
             // Show the referral card and marketing toolkit
             await displayAgentReferralCard();
