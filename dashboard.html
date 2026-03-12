@@ -7731,9 +7731,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     function renderAgentsTable() {
+        // Hide Pending agents — they show in the Intake table until processed
+        const nonPending = allAgentsData.filter(a => a.agent_status !== 'Pending');
         const data = currentAgentTypeFilter
-            ? allAgentsData.filter(a => (a.agent_type || 'referring_agent') === currentAgentTypeFilter)
-            : allAgentsData;
+            ? nonPending.filter(a => (a.agent_type || 'referring_agent') === currentAgentTypeFilter)
+            : nonPending;
 
         const tbody = document.getElementById('agentsBody');
         if (!data || data.length === 0) {
@@ -7755,7 +7757,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 <td>${parentName}</td>
                 <td>
                     <select onchange="updateAgentStatus('${agent.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
-                        ${'Invited,AIA,MOU,Active,Inactive,Pending'.split(',').map(s => `<option value="${s}" ${(agent.agent_status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        ${'Invited,AIA,MOU,Active,Inactive,Pending,Declined'.split(',').map(s => `<option value="${s}" ${(agent.agent_status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
                     </select>
                 </td>
                 <td>${agent.referral_slug || 'N/A'}</td>
@@ -14668,7 +14670,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 `).join('')
                 : '<p style="color: var(--text-light); font-size: 14px;">No referral applications yet.</p>';
 
-            const statusOptions = 'Invited,AIA,MOU,Active,Inactive,Pending'.split(',').map(s =>
+            const statusOptions = 'Invited,AIA,MOU,Active,Inactive,Pending,Declined'.split(',').map(s =>
                 `<option value="${s}" ${(agent.agent_status || '') === s ? 'selected' : ''}>${s}</option>`
             ).join('');
 
