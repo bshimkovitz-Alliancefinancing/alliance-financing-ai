@@ -8402,6 +8402,32 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         html += '</div>';
         html += '</div>';
 
+        // MCA Marketing One-Pager section (interactive, like ISO Marketing page)
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">MCA Marketing One-Pager</h3>';
+        html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">';
+        html += '<p style="color:#64748b;font-size:13px;margin:0 0 16px 0;">Professional Merchant Cash Advance marketing piece with your contact information and trackable application link.</p>';
+        html += '<div style="display:flex;gap:12px;flex-wrap:wrap;">';
+        html += '<button onclick="openMCAOnePager()" class="btn btn-gold" style="display:flex;align-items:center;gap:8px;padding:12px 20px;">';
+        html += '<span style="font-size:20px;">💰</span>';
+        html += '<div style="text-align:left;">';
+        html += '<div style="font-weight:600;font-size:13px;">View MCA One-Pager</div>';
+        html += '<div style="font-size:11px;opacity:0.85;">Opens with your contact info</div>';
+        html += '</div></button>';
+        html += '<button onclick="openMCAOnePager(null, true)" class="btn" style="display:flex;align-items:center;gap:8px;padding:12px 20px;background:var(--navy);color:white;border:none;border-radius:4px;cursor:pointer;">';
+        html += '<span style="font-size:20px;">💾</span>';
+        html += '<div style="text-align:left;">';
+        html += '<div style="font-weight:600;font-size:13px;">Save as PDF</div>';
+        html += '<div style="font-size:11px;opacity:0.85;">Opens save dialog</div>';
+        html += '</div></button>';
+        html += '<button onclick="showSendMCAModal()" class="btn" style="display:flex;align-items:center;gap:8px;padding:12px 20px;background:#10B981;color:white;border:none;border-radius:4px;cursor:pointer;">';
+        html += '<span style="font-size:20px;">📧</span>';
+        html += '<div style="text-align:left;">';
+        html += '<div style="font-weight:600;font-size:13px;">Send to Client</div>';
+        html += '<div style="font-size:11px;opacity:0.85;">Email MCA info with your referral link</div>';
+        html += '</div></button>';
+        html += '</div></div></div>';
+
         // Quick reference section
         html += '<div style="margin-bottom:24px;">';
         html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Quick Reference</h3>';
@@ -9065,7 +9091,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 break;
             case 'deals':
                 await loadDeals();
-                await loadAgentReferralApps();
+                // Referral partners don't have referral applications — only ISO agents do
+                if (currentAgentType !== 'referring_agent') {
+                    await loadAgentReferralApps();
+                } else {
+                    var refAppsCard = document.getElementById('agentReferralAppsCard');
+                    if (refAppsCard) refAppsCard.style.display = 'none';
+                }
                 await loadApplicationsSent();
                 break;
             case 'applications':
@@ -12776,8 +12808,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Always fetch ALL records so summary stats are accurate
             let query = db.from('applications_sent').select('*').order('sent_at', { ascending: false });
             if (agentFilter) query = query.eq('sent_by', agentFilter);
-            if (!isAdmin && currentUserName) {
-                query = query.eq('sent_by', currentUserName);
+            if (!isAdmin) {
+                // Referral partners: filter by their referral_slug (admins send on their behalf)
+                if (currentAgentType === 'referring_agent') {
+                    var { data: slugData } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+                    if (slugData && slugData.referral_slug) {
+                        query = query.eq('referral_slug', slugData.referral_slug);
+                    } else {
+                        query = query.eq('sent_by', currentUserName);
+                    }
+                } else if (currentUserName) {
+                    query = query.eq('sent_by', currentUserName);
+                }
             }
             const { data, error } = await query;
             if (error) throw error;
