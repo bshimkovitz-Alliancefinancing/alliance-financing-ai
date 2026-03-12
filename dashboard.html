@@ -6525,7 +6525,39 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         if (!name || !email) { alert('Please fill in the name and email.'); return; }
 
         try {
-            // Create a user record for the sub-agent (they'll be set up in Supabase Auth separately by admin)
+            // Check if a user with this email already exists
+            const { data: existing } = await db.from('users').select('id, full_name, parent_agent_id, role').eq('email', email).maybeSingle();
+
+            if (existing) {
+                // If they already exist and are already linked to this agent, just notify
+                if (existing.parent_agent_id === currentUserId) {
+                    alert(existing.full_name + ' is already one of your referral partners.');
+                    return;
+                }
+                // If they exist but not linked to this agent, offer to link them
+                if (existing.parent_agent_id) {
+                    alert('This email is already associated with another agent. Please contact admin to reassign.');
+                    return;
+                }
+                // Exists but has no parent — link them as a referral partner
+                const { error: updateErr } = await db.from('users').update({
+                    parent_agent_id: currentUserId,
+                    agent_status: existing.agent_status || 'Pending'
+                }).eq('id', existing.id);
+
+                if (updateErr) throw updateErr;
+
+                document.getElementById('inviteSubAgentModal').style.display = 'none';
+                document.getElementById('subAgentName').value = '';
+                document.getElementById('subAgentEmail').value = '';
+                document.getElementById('subAgentPhone').value = '';
+                document.getElementById('subAgentBusinessType').value = '';
+                alert(existing.full_name + ' has been added as your referral partner.');
+                loadAgentSubAgents();
+                return;
+            }
+
+            // No existing user — create a new one
             const { error } = await db.from('users').insert({
                 full_name: name,
                 email: email,
@@ -6547,7 +6579,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             loadAgentSubAgents();
         } catch (err) {
             console.error('Invite sub-agent error:', err);
-            alert('Error inviting referral partner:' + err.message);
+            alert('Error inviting referral partner: ' + err.message);
         }
     }
 
