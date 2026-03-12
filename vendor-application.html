@@ -332,11 +332,71 @@
                         </div>
                     </div>
 
-                    <div class="section-title" style="margin-top: 1.5rem;">6. Additional Information</div>
+                    <!-- Section 6: Void Cheque Upload -->
+                    <div class="section-title" style="margin-top: 1.5rem;">6. Banking — Void Cheque</div>
+                    <div style="background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 0.5rem; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8125rem; color: #9A3412; line-height: 1.5;">
+                        <strong>Required:</strong> Please upload a copy of a void cheque for payment processing. This is used to set up direct deposits for vendor commissions.
+                    </div>
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label>Upload Void Cheque <span class="required">*</span></label>
+                            <div id="chequeDropZone" style="border: 2px dashed var(--slate-200); border-radius: 0.75rem; padding: 2rem; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s;" onclick="document.getElementById('chequeFile').click()">
+                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📄</div>
+                                <div style="font-weight: 600; color: var(--navy); margin-bottom: 0.25rem;">Click to upload or drag & drop</div>
+                                <div style="font-size: 0.75rem; color: var(--slate-400);">PDF, JPG, or PNG (max 10MB)</div>
+                                <input type="file" id="chequeFile" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" onchange="handleChequeSelect(this)">
+                            </div>
+                            <div id="chequePreview" style="display: none; margin-top: 0.75rem; padding: 0.75rem; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 0.5rem;">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="font-size: 1.25rem;">✅</span>
+                                        <div>
+                                            <div id="chequeFileName" style="font-weight: 600; font-size: 0.8125rem; color: #166534;"></div>
+                                            <div id="chequeFileSize" style="font-size: 0.75rem; color: #15803D;"></div>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="removeCheque()" style="background: none; border: none; color: #DC2626; cursor: pointer; font-size: 0.8125rem; font-weight: 600;">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 7: Additional Information -->
+                    <div class="section-title" style="margin-top: 1.5rem;">7. Additional Information</div>
                     <div class="form-row full">
                         <div class="form-group">
                             <label>Anything else you'd like us to know?</label>
                             <textarea id="additionalNotes" placeholder="Any additional details about your business, financing needs, or questions..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Section 8: Signature -->
+                    <div class="section-title" style="margin-top: 1.5rem;">8. Authorization & Signature</div>
+                    <div style="background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem;">
+                        <p style="font-size: 0.8125rem; color: var(--slate-700); line-height: 1.6; margin-bottom: 1rem;">
+                            By signing below, I certify that the information provided in this application is true and accurate to the best of my knowledge. I authorize Alliance Financing Group to verify the information provided, including business references and banking details, for the purpose of establishing a vendor financing partnership.
+                        </p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Print Name <span class="required">*</span></label>
+                                <input type="text" id="signatureName" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Title <span class="required">*</span></label>
+                                <input type="text" id="signatureTitle" required placeholder="e.g. Owner, President, VP Sales">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0.5rem;">
+                            <label>Signature <span class="required">*</span></label>
+                            <div style="position: relative;">
+                                <canvas id="signatureCanvas" width="660" height="150" style="border: 1px solid var(--slate-200); border-radius: 0.5rem; width: 100%; cursor: crosshair; background: white; touch-action: none;"></canvas>
+                                <button type="button" onclick="clearSignature()" style="position: absolute; top: 8px; right: 8px; background: var(--slate-100); border: 1px solid var(--slate-200); border-radius: 4px; padding: 4px 10px; font-size: 0.6875rem; cursor: pointer; color: var(--slate-600);">Clear</button>
+                            </div>
+                            <div style="font-size: 0.6875rem; color: var(--slate-400); margin-top: 0.25rem;">Draw your signature above using your mouse or finger.</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="text" id="signatureDate" readonly style="background: var(--slate-50);">
                         </div>
                     </div>
 
@@ -432,6 +492,35 @@
             statusEl.style.display = 'none';
 
             try {
+                // Validate signature
+                if (!hasSignature) {
+                    statusEl.className = 'status-msg error';
+                    statusEl.textContent = 'Please provide your signature before submitting.';
+                    statusEl.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Submit Application';
+                    document.getElementById('signatureCanvas').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+
+                // Validate void cheque
+                if (!chequeFileData) {
+                    statusEl.className = 'status-msg error';
+                    statusEl.textContent = 'Please upload a void cheque before submitting.';
+                    statusEl.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Submit Application';
+                    document.getElementById('chequeDropZone').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+
+                btn.textContent = 'Uploading documents...';
+
+                // Upload void cheque
+                var chequePath = await uploadCheque();
+
+                btn.textContent = 'Submitting application...';
+
                 var applicationData = {
                     submitted_at: new Date().toISOString(),
                     company: {
@@ -468,7 +557,18 @@
                         { company: document.getElementById('ref2Company').value.trim(), contact: document.getElementById('ref2Contact').value.trim(), phone: document.getElementById('ref2Phone').value.trim(), email: document.getElementById('ref2Email').value.trim() },
                         { company: document.getElementById('ref3Company').value.trim(), contact: document.getElementById('ref3Contact').value.trim(), phone: document.getElementById('ref3Phone').value.trim(), email: document.getElementById('ref3Email').value.trim() }
                     ].filter(function(r) { return r.company; }),
-                    additional_notes: document.getElementById('additionalNotes').value.trim()
+                    additional_notes: document.getElementById('additionalNotes').value.trim(),
+                    void_cheque: {
+                        uploaded: !!chequePath,
+                        storage_path: chequePath || null,
+                        original_filename: chequeFileData ? chequeFileData.name : null
+                    },
+                    signature: {
+                        name: document.getElementById('signatureName').value.trim(),
+                        title: document.getElementById('signatureTitle').value.trim(),
+                        date: document.getElementById('signatureDate').value,
+                        image_data: getSignatureDataURL()
+                    }
                 };
 
                 var updateData = {
@@ -522,6 +622,148 @@
                 statusEl.style.display = 'block';
                 btn.disabled = false;
                 btn.textContent = 'Submit Application';
+            }
+        }
+
+        // ============================================
+        // Signature Canvas
+        // ============================================
+        var canvas, ctx, isDrawing = false, hasSignature = false;
+
+        function initSignature() {
+            canvas = document.getElementById('signatureCanvas');
+            if (!canvas) return;
+            ctx = canvas.getContext('2d');
+
+            // Set date
+            document.getElementById('signatureDate').value = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+            // High DPI support
+            var rect = canvas.getBoundingClientRect();
+            var dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = 150 * dpr;
+            ctx.scale(dpr, dpr);
+            canvas.style.height = '150px';
+
+            ctx.strokeStyle = '#0F172A';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Mouse events
+            canvas.addEventListener('mousedown', function(e) { startDraw(e); });
+            canvas.addEventListener('mousemove', function(e) { draw(e); });
+            canvas.addEventListener('mouseup', function() { stopDraw(); });
+            canvas.addEventListener('mouseleave', function() { stopDraw(); });
+
+            // Touch events
+            canvas.addEventListener('touchstart', function(e) { e.preventDefault(); startDraw(e.touches[0]); });
+            canvas.addEventListener('touchmove', function(e) { e.preventDefault(); draw(e.touches[0]); });
+            canvas.addEventListener('touchend', function(e) { e.preventDefault(); stopDraw(); });
+        }
+
+        function getPos(e) {
+            var rect = canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        function startDraw(e) {
+            isDrawing = true;
+            var pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            hasSignature = true;
+            var pos = getPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+
+        function stopDraw() { isDrawing = false; }
+
+        function clearSignature() {
+            var dpr = window.devicePixelRatio || 1;
+            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+            hasSignature = false;
+        }
+
+        function getSignatureDataURL() {
+            if (!hasSignature) return null;
+            return canvas.toDataURL('image/png');
+        }
+
+        // ============================================
+        // Void Cheque Upload
+        // ============================================
+        var chequeFileData = null;
+
+        function handleChequeSelect(input) {
+            if (input.files && input.files[0]) {
+                var file = input.files[0];
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('File too large. Maximum size is 10MB.');
+                    input.value = '';
+                    return;
+                }
+                chequeFileData = file;
+                document.getElementById('chequeFileName').textContent = file.name;
+                document.getElementById('chequeFileSize').textContent = (file.size / 1024).toFixed(0) + ' KB';
+                document.getElementById('chequePreview').style.display = 'block';
+                document.getElementById('chequeDropZone').style.borderColor = 'var(--success)';
+                document.getElementById('chequeDropZone').style.background = '#F0FDF4';
+            }
+        }
+
+        function removeCheque() {
+            chequeFileData = null;
+            document.getElementById('chequeFile').value = '';
+            document.getElementById('chequePreview').style.display = 'none';
+            document.getElementById('chequeDropZone').style.borderColor = 'var(--slate-200)';
+            document.getElementById('chequeDropZone').style.background = 'transparent';
+        }
+
+        // Drag and drop
+        document.addEventListener('DOMContentLoaded', function() {
+            var dropZone = document.getElementById('chequeDropZone');
+            if (dropZone) {
+                dropZone.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    dropZone.style.borderColor = 'var(--gold)';
+                    dropZone.style.background = '#FFFBEB';
+                });
+                dropZone.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    if (!chequeFileData) {
+                        dropZone.style.borderColor = 'var(--slate-200)';
+                        dropZone.style.background = 'transparent';
+                    }
+                });
+                dropZone.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        document.getElementById('chequeFile').files = e.dataTransfer.files;
+                        handleChequeSelect(document.getElementById('chequeFile'));
+                    }
+                });
+            }
+            initSignature();
+        });
+
+        async function uploadCheque() {
+            if (!chequeFileData || !vendorId) return null;
+            var ext = chequeFileData.name.split('.').pop().toLowerCase();
+            var storagePath = 'vendor-documents/' + vendorId + '/void-cheque-' + Date.now() + '.' + ext;
+            try {
+                var { error } = await db.storage.from('deal-documents').upload(storagePath, chequeFileData);
+                if (error) throw error;
+                return storagePath;
+            } catch(err) {
+                console.error('Cheque upload error:', err);
+                return null;
             }
         }
 
