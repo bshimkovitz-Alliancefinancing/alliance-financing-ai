@@ -4002,7 +4002,7 @@
                 item.style.display = vendorAllowed.includes(label) ? 'flex' : 'none';
             } else if (isReferralAgent) {
                 // Referral agents get: Dashboard, Deal Pipeline, Vendor Programs, Help
-                var referralAllowed = ['Dashboard', 'Deal Pipeline', 'Vendor Programs', 'Help & Resources', 'Alliance Financing'];
+                var referralAllowed = ['Dashboard', 'Deal Pipeline', 'Vendor Programs', 'Help & Resources'];
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
             } else {
                 // ISO/other agent views
@@ -9201,11 +9201,34 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         // Determine agent type
         var agentType = currentAgentType || 'referring_agent';
         var guideInfo = agentTypeGuideMap[agentType] || agentTypeGuideMap['referring_agent'];
+        var isReferralAgent = (agentType === 'referring_agent' || agentType === 'sub_agent');
 
         roleLabel.textContent = guideInfo.label;
 
         // Build the help page content
         var html = '';
+
+        // Hero banner for referral partners (merged from Alliance Financing page)
+        if (isReferralAgent) {
+            html += '<div style="background:linear-gradient(135deg,#0D1E3D,#1a2e5a);border-radius:12px;padding:28px 24px;margin-bottom:24px;color:white;">';
+            html += '<h2 style="margin:0 0 6px;font-size:22px;color:#C9A84C;">Alliance Financing Resource Toolkit</h2>';
+            html += '<p style="margin:0;font-size:14px;opacity:0.85;">Everything you need to grow your referral business. Share these resources with prospects and partners.</p>';
+            html += '</div>';
+        }
+
+        // Your Referral Link (merged from Alliance Financing page — referral partners only)
+        if (isReferralAgent) {
+            var slug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : '';
+            var refLinkValue = slug ? 'https://alliancefinancing.ai/application.html?ref=' + slug : 'https://alliancefinancing.ai/application.html';
+            html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">';
+            html += '<h3 style="color:#0D1E3D;margin:0 0 8px;font-size:16px;">Your Referral Link</h3>';
+            html += '<p style="color:#64748b;font-size:13px;margin:0 0 12px 0;">Share this personalized link with clients. All applications submitted through your link are automatically tracked to you.</p>';
+            html += '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">';
+            html += '<input type="text" id="helpReferralLinkInput" readonly style="flex:1;min-width:250px;padding:10px 12px;border:1px solid #CBD5E1;border-radius:6px;font-size:13px;background:#F8FAFC;color:var(--navy);" value="' + refLinkValue + '">';
+            html += '<button onclick="copyHelpReferralLink()" class="btn btn-gold" style="padding:10px 20px;white-space:nowrap;">Copy Link</button>';
+            html += '</div>';
+            html += '</div>';
+        }
 
         // Primary guide card
         html += '<div style="margin-bottom:24px;">';
@@ -9850,6 +9873,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     function copyAllianceReferralLink() {
         var input = document.getElementById('allianceReferralLinkInput');
+        if (input && input.value) {
+            navigator.clipboard.writeText(input.value).then(function() {
+                showToast('Referral link copied!', 'success');
+            }).catch(function() {
+                input.select();
+                document.execCommand('copy');
+                showToast('Referral link copied!', 'success');
+            });
+        }
+    }
+
+    function copyHelpReferralLink() {
+        var input = document.getElementById('helpReferralLinkInput');
         if (input && input.value) {
             navigator.clipboard.writeText(input.value).then(function() {
                 showToast('Referral link copied!', 'success');
