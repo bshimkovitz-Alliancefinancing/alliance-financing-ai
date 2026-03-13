@@ -4808,29 +4808,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     // VENDOR LEASING PROGRAM PDF
     // ============================================
 
+    var VENDOR_LEASING_PDF_URL = 'marketing/Alliance-Vendor-Leasing-Program.pdf';
     var VENDOR_LEASING_STORAGE_PATH = 'company-documents/Alliance-Vendor-Leasing-Program.pdf';
-
-    async function getVendorLeasingPDFUrl() {
-        try {
-            var { data, error } = await db.storage.from('deal-documents').createSignedUrl(VENDOR_LEASING_STORAGE_PATH, 3600);
-            if (data && data.signedUrl) return data.signedUrl;
-            // Fallback: try public URL
-            var { data: pubData } = db.storage.from('deal-documents').getPublicUrl(VENDOR_LEASING_STORAGE_PATH);
-            if (pubData && pubData.publicUrl) return pubData.publicUrl;
-            throw new Error('Could not generate URL');
-        } catch(e) {
-            console.error('Get vendor leasing PDF URL error:', e);
-            // Offer admin to upload
-            if (currentUserRole === 'super_admin' || currentUserRole === 'admin') {
-                if (confirm('The Vendor Leasing Program PDF has not been uploaded to storage yet. Would you like to upload it now?')) {
-                    uploadVendorLeasingPDF();
-                }
-            } else {
-                alert('The Vendor Leasing Program PDF is not available yet. Please contact your admin.');
-            }
-            return null;
-        }
-    }
 
     function uploadVendorLeasingPDF() {
         var input = document.createElement('input');
@@ -4839,35 +4818,78 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         input.onchange = async function(e) {
             var file = e.target.files[0];
             if (!file) return;
+
+            var banner = document.getElementById('vlpStatusBanner');
+            if (banner) {
+                banner.style.display = 'block';
+                banner.style.background = '#DBEAFE';
+                banner.style.color = '#1E40AF';
+                banner.textContent = 'Uploading PDF to storage... Please wait.';
+            }
+
             try {
-                showToast('Uploading PDF...', 'info');
+                // Try upload with upsert
                 var { data, error } = await db.storage.from('deal-documents').upload(VENDOR_LEASING_STORAGE_PATH, file, { upsert: true, contentType: 'application/pdf' });
-                if (error) throw error;
-                showToast('Vendor Leasing Program PDF uploaded successfully!', 'success');
+
+                if (error) {
+                    // If bucket not found or other error, try creating via REST API
+                    if (error.message && error.message.includes('Bucket not found')) {
+                        // Try creating the bucket first
+                        try {
+                            await fetch(SUPABASE_URL + '/storage/v1/bucket', {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                                    'apikey': SUPABASE_ANON_KEY,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ id: 'deal-documents', name: 'deal-documents', public: false })
+                            });
+                            // Retry upload
+                            var retry = await db.storage.from('deal-documents').upload(VENDOR_LEASING_STORAGE_PATH, file, { upsert: true, contentType: 'application/pdf' });
+                            if (retry.error) throw retry.error;
+                        } catch(bucketErr) {
+                            throw new Error('Storage bucket "deal-documents" does not exist. Please create it in Supabase Dashboard > Storage, then try again.');
+                        }
+                    } else if (error.message && error.message.includes('already exists')) {
+                        // File exists, try update/upsert via remove then upload
+                        await db.storage.from('deal-documents').remove([VENDOR_LEASING_STORAGE_PATH]);
+                        var { data: d2, error: e2 } = await db.storage.from('deal-documents').upload(VENDOR_LEASING_STORAGE_PATH, file, { contentType: 'application/pdf' });
+                        if (e2) throw e2;
+                    } else {
+                        throw error;
+                    }
+                }
+
+                if (banner) {
+                    banner.style.background = '#DCFCE7';
+                    banner.style.color = '#166534';
+                    banner.textContent = 'Vendor Leasing Program PDF uploaded successfully! All View/Download/Send buttons are now active.';
+                }
+                showToast('PDF uploaded successfully!', 'success');
             } catch(err) {
                 console.error('Upload error:', err);
-                alert('Upload failed: ' + (err.message || 'Unknown error'));
+                if (banner) {
+                    banner.style.background = '#FEE2E2';
+                    banner.style.color = '#991B1B';
+                    banner.innerHTML = '<strong>Upload failed:</strong> ' + (err.message || 'Unknown error') + '<br><span style="font-size:12px;">Make sure the "deal-documents" storage bucket exists in your Supabase project (Dashboard → Storage → New Bucket → "deal-documents").</span>';
+                }
             }
         };
         input.click();
     }
 
-    async function viewVendorLeasingPDF() {
-        var url = await getVendorLeasingPDFUrl();
-        if (url) window.open(url, '_blank');
+    function viewVendorLeasingPDF() {
+        window.open(VENDOR_LEASING_PDF_URL, '_blank');
     }
 
-    async function downloadVendorLeasingPDF() {
-        var url = await getVendorLeasingPDFUrl();
-        if (url) {
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = 'Alliance-Vendor-Leasing-Program.pdf';
-            a.target = '_blank';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
+    function downloadVendorLeasingPDF() {
+        var a = document.createElement('a');
+        a.href = VENDOR_LEASING_PDF_URL;
+        a.download = 'Alliance-Vendor-Leasing-Program.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 
     function showSendVendorLeasingModal() {
@@ -4918,8 +4940,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             var greeting = recipientName ? 'Dear ' + recipientName + ',' : 'Hello,';
             var customNoteHtml = customMessage ? '<div style="background:#FEF3C7;padding:12px;border-radius:6px;margin:15px 0;font-size:14px;">' + customMessage.replace(/\n/g, '<br>') + '</div>' : '';
 
-            var pdfUrlData = await db.storage.from('deal-documents').createSignedUrl(VENDOR_LEASING_STORAGE_PATH, 604800);
-            var pdfLink = (pdfUrlData.data && pdfUrlData.data.signedUrl) ? pdfUrlData.data.signedUrl : 'https://alliancefinancing.ai/vendor-application.html';
+            var pdfLink = 'https://alliancefinancing.ai/' + VENDOR_LEASING_PDF_URL;
             var vendorAppLink = 'https://alliancefinancing.ai/vendor-application.html';
 
             var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1F2937;">';
