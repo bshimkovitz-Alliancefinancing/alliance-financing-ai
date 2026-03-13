@@ -386,8 +386,26 @@
                         </div>
                     </div>
 
-                    <!-- Section 8: Digital Signature -->
-                    <div class="section-title" style="margin-top: 1.5rem;">8. Authorization & Digital Signature</div>
+                    <!-- Section 8: Marketing Materials (Optional) -->
+                    <div class="section-title" style="margin-top: 1.5rem;">8. Marketing Materials (Optional)</div>
+                    <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 0.5rem; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8125rem; color: #1E40AF; line-height: 1.5;">
+                        If available, please upload any company brochures, product catalogs, or marketing materials. This helps us better understand your business and match you with the right lenders.
+                    </div>
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label>Upload Marketing Materials</label>
+                            <div id="materialsDropZone" style="border: 2px dashed var(--slate-200); border-radius: 0.75rem; padding: 1.5rem; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s;" onclick="document.getElementById('materialsFiles').click()">
+                                <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">📁</div>
+                                <div style="font-weight: 600; color: var(--navy); margin-bottom: 0.25rem; font-size: 0.875rem;">Click to upload or drag & drop</div>
+                                <div style="font-size: 0.75rem; color: var(--slate-400);">PDF, DOC, JPG, PNG (max 10MB each, up to 5 files)</div>
+                                <input type="file" id="materialsFiles" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.ppt,.pptx" style="display: none;" multiple onchange="handleMaterialsSelect(this)">
+                            </div>
+                            <div id="materialsPreview" style="margin-top: 0.75rem;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Section 9: Digital Signature -->
+                    <div class="section-title" style="margin-top: 1.5rem;">9. Authorization & Digital Signature</div>
                     <div style="background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem;">
                         <p style="font-size: 0.8125rem; color: var(--slate-700); line-height: 1.6; margin-bottom: 1rem;">
                             By typing my name below and clicking "Submit Application", I certify that the information provided in this application is true and accurate to the best of my knowledge. I authorize Alliance Financing Group to verify the information provided, including business references and banking details, for the purpose of establishing a vendor financing partnership. This electronic signature has the same legal effect as a handwritten signature.
@@ -561,6 +579,9 @@
                 // Upload void cheque
                 var chequePath = await uploadCheque();
 
+                // Upload marketing materials (optional)
+                var materialPaths = await uploadMaterials();
+
                 btn.textContent = 'Submitting application...';
 
                 var applicationData = {
@@ -606,6 +627,7 @@
                         storage_path: chequePath || null,
                         original_filename: chequeFileData ? chequeFileData.name : null
                     },
+                    marketing_materials: materialPaths.length > 0 ? materialPaths : null,
                     digital_signature: {
                         signed_by: document.getElementById('signatureName').value.trim(),
                         title: document.getElementById('signatureTitle').value.trim(),
@@ -784,6 +806,87 @@
                 console.error('Cheque upload error:', err);
                 return null;
             }
+        }
+
+        // ============================================
+        // Marketing Materials Upload (Optional)
+        // ============================================
+        var materialFiles = [];
+
+        function handleMaterialsSelect(input) {
+            if (!input.files) return;
+            for (var i = 0; i < input.files.length; i++) {
+                if (materialFiles.length >= 5) {
+                    alert('Maximum 5 files allowed.');
+                    break;
+                }
+                var file = input.files[i];
+                if (file.size > 10 * 1024 * 1024) {
+                    alert(file.name + ' is too large. Maximum 10MB per file.');
+                    continue;
+                }
+                materialFiles.push(file);
+            }
+            input.value = '';
+            renderMaterialsPreview();
+        }
+
+        function removeMaterial(index) {
+            materialFiles.splice(index, 1);
+            renderMaterialsPreview();
+        }
+
+        function renderMaterialsPreview() {
+            var preview = document.getElementById('materialsPreview');
+            if (materialFiles.length === 0) {
+                preview.innerHTML = '';
+                document.getElementById('materialsDropZone').style.borderColor = 'var(--slate-200)';
+                document.getElementById('materialsDropZone').style.background = 'transparent';
+                return;
+            }
+            document.getElementById('materialsDropZone').style.borderColor = 'var(--success)';
+            document.getElementById('materialsDropZone').style.background = '#F0FDF4';
+            var html = '';
+            materialFiles.forEach(function(f, i) {
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;margin-bottom:4px;">' +
+                    '<div style="display:flex;align-items:center;gap:6px;"><span>📎</span><span style="font-size:0.8125rem;font-weight:600;color:#166534;">' + f.name + '</span><span style="font-size:0.75rem;color:#15803D;">(' + (f.size / 1024).toFixed(0) + ' KB)</span></div>' +
+                    '<button type="button" onclick="removeMaterial(' + i + ')" style="background:none;border:none;color:#DC2626;cursor:pointer;font-size:0.75rem;font-weight:600;">Remove</button></div>';
+            });
+            preview.innerHTML = html;
+        }
+
+        // Materials drag and drop
+        document.addEventListener('DOMContentLoaded', function() {
+            var mDrop = document.getElementById('materialsDropZone');
+            if (mDrop) {
+                mDrop.addEventListener('dragover', function(e) { e.preventDefault(); mDrop.style.borderColor = 'var(--gold)'; mDrop.style.background = '#FFFBEB'; });
+                mDrop.addEventListener('dragleave', function(e) { e.preventDefault(); if (materialFiles.length === 0) { mDrop.style.borderColor = 'var(--slate-200)'; mDrop.style.background = 'transparent'; } });
+                mDrop.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    if (e.dataTransfer.files) {
+                        var fakeInput = { files: e.dataTransfer.files };
+                        handleMaterialsSelect(fakeInput);
+                    }
+                });
+            }
+        });
+
+        async function uploadMaterials() {
+            if (materialFiles.length === 0 || !vendorId) return [];
+            var paths = [];
+            for (var i = 0; i < materialFiles.length; i++) {
+                var file = materialFiles[i];
+                var ext = file.name.split('.').pop().toLowerCase();
+                var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                var storagePath = 'vendor-materials/' + vendorId + '/' + Date.now() + '-' + safeName;
+                try {
+                    var { error } = await db.storage.from('deal-documents').upload(storagePath, file);
+                    if (!error) {
+                        paths.push({ path: storagePath, name: file.name });
+                    }
+                } catch(e) { console.warn('Material upload failed:', file.name, e); }
+            }
+            return paths;
         }
 
         init();

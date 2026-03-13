@@ -16775,12 +16775,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 <div id="vendorApprovedLenders_${vendorId}">
                     <p style="color: var(--text-light); font-size: 12px; font-style: italic;">Loading approved lenders...</p>
                 </div>
-                <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
-                    <select id="addApprovedLenderSelect_${vendorId}" style="flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                        <option value="">Select a lender to add...</option>
-                    </select>
-                    <button class="btn btn-gold btn-sm" onclick="addApprovedLender('${vendorId}')" style="white-space: nowrap;">Add Lender</button>
+                <div style="margin-top: 10px; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px; max-height: 180px; overflow-y: auto;" id="addApprovedLenderCheckboxes_${vendorId}">
+                    <p style="color: var(--text-light); font-size: 12px; font-style: italic;">Loading available lenders...</p>
                 </div>
+                <button class="btn btn-gold btn-sm" onclick="addApprovedLenders('${vendorId}')" style="margin-top: 8px; white-space: nowrap;">Add Selected Lenders</button>
                 ` : ''}
 
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
@@ -17005,12 +17003,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 '</div>';
             }
 
-            // Populate dropdown with lenders not already approved
-            const select = document.getElementById('addApprovedLenderSelect_' + vendorId);
-            if (select) {
+            // Populate checkboxes with lenders not already approved
+            const cbContainer = document.getElementById('addApprovedLenderCheckboxes_' + vendorId);
+            if (cbContainer) {
                 const available = (allLenders || []).filter(l => !approvedIds.includes(l.id));
-                select.innerHTML = '<option value="">Select a lender to add...</option>' +
-                    available.map(l => '<option value="' + l.id + '">' + l.name + '</option>').join('');
+                if (available.length === 0) {
+                    cbContainer.innerHTML = '<p style="color: var(--text-light); font-size: 12px; font-style: italic;">All lenders are already approved for this vendor.</p>';
+                } else {
+                    cbContainer.innerHTML = available.map(l =>
+                        '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;">' +
+                        '<input type="checkbox" class="approvedLenderCb_' + vendorId + '" value="' + l.id + '">' +
+                        '<span style="color:var(--navy);">' + l.name + '</span></label>'
+                    ).join('');
+                }
             }
         } catch (err) {
             console.warn('Could not load approved lenders:', err);
@@ -17019,21 +17024,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         }
     }
 
-    async function addApprovedLender(vendorId) {
-        const select = document.getElementById('addApprovedLenderSelect_' + vendorId);
-        if (!select || !select.value) { alert('Please select a lender to add.'); return; }
+    async function addApprovedLenders(vendorId) {
+        const checked = document.querySelectorAll('.approvedLenderCb_' + vendorId + ':checked');
+        if (checked.length === 0) { alert('Please select at least one lender to add.'); return; }
         try {
-            const { error } = await db.from('vendor_approved_lenders').insert([{
-                vendor_id: vendorId,
-                lender_id: select.value,
-                approved_at: new Date().toISOString(),
-                approved_by: userEmail || null
-            }]);
+            const inserts = [];
+            checked.forEach(cb => {
+                inserts.push({
+                    vendor_id: vendorId,
+                    lender_id: cb.value,
+                    approved_at: new Date().toISOString(),
+                    approved_by: userEmail || null
+                });
+            });
+            const { error } = await db.from('vendor_approved_lenders').insert(inserts);
             if (error) throw error;
             await loadVendorApprovedLenders(vendorId);
         } catch (err) {
-            console.error('Add approved lender error:', err);
-            alert('Error adding approved lender: ' + err.message);
+            console.error('Add approved lenders error:', err);
+            alert('Error adding approved lenders: ' + err.message);
         }
     }
 
@@ -17450,13 +17459,32 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             if (!result) throw new Error('No application data found');
             const { vendor, appData } = result;
 
-            // Build the HTML email body with application summary
-            const appHTML = buildVendorAppHTML(vendor, appData);
-            let emailBody = '';
+            // Build the HTML email body — brief summary, not the full application
+            const appHTML = buildVendorAppHTML(vendor, appData); // used for PDF generation only
+            const co = appData.company || {};
+            const pc = appData.primary_contact || {};
+            const eq = appData.equipment || {};
+
+            let emailBody = '<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;">';
+            emailBody += '<div style="text-align:center;padding:20px 0;border-bottom:3px solid #C9A84C;margin-bottom:20px;"><h1 style="color:#0D1E3D;font-size:20px;margin:0;">Alliance Financing</h1><p style="color:#64748B;font-size:14px;margin:4px 0 0;">Vendor Application Submission</p></div>';
+
             if (message) {
-                emailBody += '<div style="font-family:Arial,sans-serif;padding:16px 0;font-size:14px;color:#333;">' + message.replace(/\n/g, '<br>') + '</div><hr style="border:none;border-top:1px solid #E2E8F0;margin:16px 0;">';
+                emailBody += '<div style="padding:12px 0 16px;font-size:14px;color:#333;line-height:1.6;">' + message.replace(/\n/g, '<br>') + '</div><hr style="border:none;border-top:1px solid #E2E8F0;margin:0 0 16px;">';
             }
-            emailBody += appHTML;
+
+            // Brief vendor summary
+            emailBody += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px;margin-bottom:16px;">';
+            emailBody += '<div style="font-weight:700;color:#0D1E3D;font-size:15px;margin-bottom:10px;">Vendor Summary</div>';
+            emailBody += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+            if (co.legal_name) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;width:160px;">Company</td><td style="color:#333;">' + co.legal_name + '</td></tr>';
+            if (pc.name) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;">Contact</td><td style="color:#333;">' + pc.name + (pc.title ? ' (' + pc.title + ')' : '') + '</td></tr>';
+            if (pc.email) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;">Email</td><td style="color:#333;">' + pc.email + '</td></tr>';
+            if (co.phone) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;">Phone</td><td style="color:#333;">' + co.phone + '</td></tr>';
+            if (eq.description) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;">Products</td><td style="color:#333;">' + eq.description + '</td></tr>';
+            if (eq.avg_transaction_size) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;">Avg Transaction</td><td style="color:#333;">$' + eq.avg_transaction_size + '</td></tr>';
+            if (eq.monthly_sales_volume) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;">Monthly Volume</td><td style="color:#333;">$' + eq.monthly_sales_volume + '</td></tr>';
+            if (eq.countries) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;">Countries</td><td style="color:#333;">' + eq.countries + '</td></tr>';
+            emailBody += '</table></div>';
 
             // Generate PDF and upload to storage for a shareable link
             let pdfSignedUrl = null;
@@ -17517,6 +17545,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 emailBody += '<div style="font-size:11px;color:#94A3B8;margin-top:8px;">Download links are valid for 7 days.</div>';
                 emailBody += '</div>';
             }
+
+            // Close email wrapper and add footer
+            emailBody += '<div style="text-align:center;padding:16px 0;border-top:2px solid #E2E8F0;margin-top:20px;font-size:11px;color:#94A3B8;">Alliance Financing Group Ltd. &bull; Confidential</div>';
+            emailBody += '</div>';
 
             // Send each email using the existing sendEmailViaResend function
             for (const email of emails) {
