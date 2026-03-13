@@ -1198,57 +1198,74 @@
 
             <!-- Agents Page -->
             <div id="agents" class="page-section">
-                <div class="table-container">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Agents & Partners</div>
-                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                            <!-- Type Filter Tabs -->
-                            <div id="agentTypeTabs" style="display:flex;gap:4px;">
-                                <button class="btn btn-sm" style="background:var(--navy);color:white;" onclick="filterAgentsByType('')" id="agentTabAll">All</button>
-                                <button class="btn btn-secondary btn-sm" onclick="filterAgentsByType('super_agent')" id="agentTab_super_agent">ISO Partners</button>
-                                <button class="btn btn-secondary btn-sm" onclick="filterAgentsByType('referring_agent')" id="agentTab_referring_agent">Referral</button>
-                                <button class="btn btn-secondary btn-sm" onclick="filterAgentsByType('syndication_desk')" id="agentTab_syndication_desk">Syndication</button>
-                                <button class="btn btn-secondary btn-sm" onclick="filterAgentsByType('vendor_program')" id="agentTab_vendor_program">Vendor Programs</button>
+                <!-- Agent Stats Bar -->
+                <div id="agentStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px;">
+                    <div onclick="filterAgentsByType('')" style="background:#F0F4F8;border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;border:2px solid transparent;" id="agentStatAll" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                        <div style="font-size:24px;font-weight:700;color:#0D1E3D;" id="countAllAgents">0</div>
+                        <div style="font-size:12px;color:#64748B;margin-top:4px;">Total Partners</div>
+                    </div>
+                    <div onclick="filterAgentsByType('super_agent')" style="background:#F0F9FF;border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;border:2px solid transparent;" id="agentStatISO" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                        <div style="font-size:24px;font-weight:700;color:#1E40AF;" id="countSuperAgents">0</div>
+                        <div style="font-size:12px;color:#64748B;margin-top:4px;">ISO Partners</div>
+                    </div>
+                    <div onclick="filterAgentsByType('referring_agent')" style="background:#F0FDF4;border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;border:2px solid transparent;" id="agentStatRef" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                        <div style="font-size:24px;font-weight:700;color:#166534;" id="countReferringAgents">0</div>
+                        <div style="font-size:12px;color:#64748B;margin-top:4px;">Referral Partners</div>
+                    </div>
+                    <div onclick="filterAgentsByType('syndication_desk')" style="background:#FFF7ED;border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;border:2px solid transparent;" id="agentStatSynd" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                        <div style="font-size:24px;font-weight:700;color:#B45309;" id="countSyndicationDesks">0</div>
+                        <div style="font-size:12px;color:#64748B;margin-top:4px;">Syndication Desks</div>
+                    </div>
+                    <div onclick="filterAgentsByType('vendor_program')" style="background:#FDF4FF;border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;border:2px solid transparent;" id="agentStatVendor" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+                        <div style="font-size:24px;font-weight:700;color:#7C3AED;" id="countVendorPrograms">0</div>
+                        <div style="font-size:12px;color:#64748B;margin-top:4px;">Vendor Programs</div>
+                    </div>
+                    <div style="background:#DCFCE7;border-radius:10px;padding:16px;text-align:center;cursor:default;border:2px solid transparent;">
+                        <div style="font-size:24px;font-weight:700;color:#166534;" id="countActiveAgents">0</div>
+                        <div style="font-size:12px;color:#64748B;margin-top:4px;">Active</div>
+                    </div>
+                </div>
+
+                <div class="table-container" style="border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                    <!-- Toolbar -->
+                    <div style="padding:16px 20px;background:white;border-bottom:1px solid #E2E8F0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <div style="position:relative;">
+                                <input type="text" id="agentSearchInput" placeholder="Search agents..."
+                                       oninput="renderAgentsTable()"
+                                       style="padding:8px 12px 8px 34px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;width:240px;background:#F8FAFC;">
+                                <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;color:#94A3B8;">🔍</span>
                             </div>
+                            <select id="agentStatusFilter" onchange="renderAgentsTable()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
+                                <option value="">All Status</option>
+                                <option value="Active">Active</option>
+                                <option value="Invited">Invited</option>
+                                <option value="Under Review">Under Review</option>
+                                <option value="AIA">AIA</option>
+                                <option value="MOU">MOU</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="Declined">Declined</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:8px;">
                             <button class="btn btn-secondary btn-sm" onclick="exportAgents()">Export CSV</button>
                             <button class="btn btn-gold btn-sm" onclick="openAddAgentModal()">+ Onboard Agent</button>
                         </div>
                     </div>
-                    <!-- Agent Type Summary Cards -->
-                    <div id="agentTypeSummary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 20px 16px;">
-                        <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:12px;text-align:center;">
-                            <div style="font-size:20px;font-weight:700;color:var(--navy);" id="countSuperAgents">0</div>
-                            <div style="font-size:12px;color:var(--text-light);">ISO Partners</div>
-                        </div>
-                        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:12px;text-align:center;">
-                            <div style="font-size:20px;font-weight:700;color:var(--navy);" id="countReferringAgents">0</div>
-                            <div style="font-size:12px;color:var(--text-light);">Referral Partners</div>
-                        </div>
-                        <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:12px;text-align:center;">
-                            <div style="font-size:20px;font-weight:700;color:var(--navy);" id="countSyndicationDesks">0</div>
-                            <div style="font-size:12px;color:var(--text-light);">Syndication Desks</div>
-                        </div>
-                        <div style="background:#FDF4FF;border:1px solid #E9D5FF;border-radius:8px;padding:12px;text-align:center;">
-                            <div style="font-size:20px;font-weight:700;color:var(--navy);" id="countVendorPrograms">0</div>
-                            <div style="font-size:12px;color:var(--text-light);">Vendor Programs</div>
-                        </div>
-                    </div>
-                    <table id="agentsTable">
+                    <table id="agentsTable" style="border-collapse:separate;border-spacing:0;">
                         <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Type</th>
-                                <th>Email</th>
-                                <th>Phone</th>
-                                <th>Parent Agent</th>
-                                <th>Status</th>
-                                <th>Referral Slug</th>
-                                <th>Actions</th>
+                            <tr style="background:#F8FAFC;">
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Partner</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Type</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Contact</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Parent Agent</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Status</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="agentsBody">
                             <tr>
-                                <td colspan="8" class="empty-state">Loading...</td>
+                                <td colspan="6" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1257,6 +1274,9 @@
 
             <!-- Lenders Page -->
             <div id="lenders" class="page-section">
+                <!-- Lender Stats Bar -->
+                <div id="lenderStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;"></div>
+
                 <!-- AI Lender Matching Weight Configuration -->
                 <div id="matchWeightsPanel" style="background:linear-gradient(135deg,#F3E8FF,#EDE9FE);border-radius:10px;padding:16px 20px;margin-bottom:16px;border:1px solid #D8B4FE;">
                     <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="document.getElementById('matchWeightsBody').style.display = document.getElementById('matchWeightsBody').style.display === 'none' ? 'block' : 'none'; this.querySelector('.toggle-icon').textContent = document.getElementById('matchWeightsBody').style.display === 'none' ? '▶' : '▼';">
@@ -1282,46 +1302,55 @@
                         </div>
                     </div>
                 </div>
-                <div class="table-container">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Lenders</div>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <input type="text" id="lenderSearch" placeholder="Search by name, type, product, region, notes..."
-                                   oninput="filterLenders()"
-                                   style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 300px;">
-                            <select id="lenderCountryFilter" onchange="filterLenders()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+
+                <div class="table-container" style="border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                    <!-- Toolbar -->
+                    <div style="padding:16px 20px;background:white;border-bottom:1px solid #E2E8F0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <div style="position:relative;">
+                                <input type="text" id="lenderSearch" placeholder="Search lenders..."
+                                       oninput="filterLenders()"
+                                       style="padding:8px 12px 8px 34px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;width:260px;background:#F8FAFC;">
+                                <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;color:#94A3B8;">🔍</span>
+                            </div>
+                            <select id="lenderTypeFilter" onchange="filterLenders()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
+                                <option value="">All Types</option>
+                                <option value="Lender">Lender</option>
+                                <option value="Broker">Broker</option>
+                            </select>
+                            <select id="lenderCountryFilter" onchange="filterLenders()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
                                 <option value="">All Countries</option>
                                 <option value="Canada">Canada</option>
                                 <option value="United States">United States</option>
                                 <option value="UK">UK</option>
                                 <option value="Germany">Germany</option>
                             </select>
-                            <select id="lenderStatusFilter" onchange="filterLenders()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                            <select id="lenderStatusFilter" onchange="filterLenders()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
                                 <option value="">All Status</option>
                                 <option value="Active">Active</option>
                                 <option value="Inactive">Inactive</option>
                             </select>
                         </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary btn-sm" onclick="exportLenders()" style="margin-left: 8px;">Export CSV</button>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="exportLenders()">Export CSV</button>
                             <button class="btn btn-gold btn-sm" onclick="openAddLenderModal()">+ New Lender</button>
                         </div>
                     </div>
-                    <table id="lendersTable">
+                    <table id="lendersTable" style="border-collapse:separate;border-spacing:0;">
                         <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Type</th>
-                                <th>Country</th>
-                                <th>Currency</th>
-                                <th>Status</th>
-                                <th>Actions</th>
+                            <tr style="background:#F8FAFC;">
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Lender</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Type</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Country</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Currency</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Products</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:left;">Status</th>
+                                <th style="padding:12px 14px;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="lendersBody">
                             <tr>
-                                <td colspan="6" class="empty-state">Loading...</td>
+                                <td colspan="7" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1878,25 +1907,6 @@
 
                 <!-- Admin Alliance View -->
                 <div id="allianceAdminView">
-                <!-- Stats Cards -->
-                <div class="stats-grid" style="margin-bottom: 24px;">
-                    <div class="stat-card">
-                        <div class="stat-label">House Deals</div>
-                        <div class="stat-value" id="allianceHouseDealCount">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Funded Volume</div>
-                        <div class="stat-value" id="allianceHouseFundedVol">$0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Active Deals</div>
-                        <div class="stat-value" id="allianceHouseActiveCount">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Avg Deal Size</div>
-                        <div class="stat-value" id="allianceHouseAvgDeal">$0</div>
-                    </div>
-                </div>
 
                 <!-- Send Application Links -->
                 <div class="table-container" style="margin-bottom: 24px;">
@@ -2028,33 +2038,6 @@
                     </div>
                 </div>
 
-                <!-- House Deals Table -->
-                <div class="table-container">
-                    <div class="table-header">
-                        <div class="table-title">House Deals Pipeline</div>
-                    </div>
-                    <div style="overflow-x: auto;">
-                        <table id="allianceDealsTable" style="min-width: 900px;">
-                            <thead>
-                                <tr>
-                                    <th>Deal #</th>
-                                    <th>Company</th>
-                                    <th>Product</th>
-                                    <th>Amount</th>
-                                    <th>Lender</th>
-                                    <th>Status</th>
-                                    <th>Date</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="allianceDealsBody">
-                                <tr>
-                                    <td colspan="8" class="empty-state">Loading...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
                 </div><!-- /allianceAdminView -->
             </div>
 
@@ -8337,42 +8320,132 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         renderAgentsTable();
     }
 
+    function getAgentCode(agent) {
+        // Generate display code based on agent type and index
+        if (agent.agent_code) return agent.agent_code;
+        var type = agent.agent_type || 'referring_agent';
+        var prefixMap = {
+            'super_agent': 'ISO',
+            'referring_agent': 'RP',
+            'syndication_desk': 'SD',
+            'vendor_program': 'VP'
+        };
+        return (prefixMap[type] || 'AG') + '-' + String(agent._displayIndex || 0).padStart(3, '0');
+    }
+
     function renderAgentsTable() {
         // Hide Pending agents — they show in the Intake table until processed
         const nonPending = allAgentsData.filter(a => a.agent_status !== 'Pending');
-        const data = currentAgentTypeFilter
+
+        // Apply search filter
+        const searchVal = document.getElementById('agentSearchInput') ? document.getElementById('agentSearchInput').value.toLowerCase() : '';
+        const statusFilter = document.getElementById('agentStatusFilter') ? document.getElementById('agentStatusFilter').value : '';
+
+        let data = currentAgentTypeFilter
             ? nonPending.filter(a => (a.agent_type || 'referring_agent') === currentAgentTypeFilter)
             : nonPending;
 
+        if (searchVal) {
+            data = data.filter(a =>
+                (a.full_name || '').toLowerCase().includes(searchVal) ||
+                (a.email || '').toLowerCase().includes(searchVal) ||
+                (a.phone || '').toLowerCase().includes(searchVal) ||
+                (a.referral_slug || '').toLowerCase().includes(searchVal) ||
+                (a.agent_code || '').toLowerCase().includes(searchVal)
+            );
+        }
+        if (statusFilter) {
+            data = data.filter(a => (a.agent_status || '') === statusFilter);
+        }
+
+        // Assign display indices per type for code generation
+        const typeCounters = {};
+        nonPending.forEach(a => {
+            const t = a.agent_type || 'referring_agent';
+            typeCounters[t] = (typeCounters[t] || 0) + 1;
+            a._displayIndex = typeCounters[t];
+        });
+
         const tbody = document.getElementById('agentsBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No agents found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px 20px;color:#94A3B8;font-size:14px;">No agents found.</td></tr>';
             return;
         }
 
         const agentLookup = {};
         allAgentsData.forEach(a => { agentLookup[a.id] = a.full_name || a.email || 'Unknown'; });
 
+        const statusStyles = {
+            'Active': { bg: '#DCFCE7', color: '#166534' },
+            'Invited': { bg: '#DBEAFE', color: '#1E40AF' },
+            'Under Review': { bg: '#FEF3C7', color: '#92400E' },
+            'AIA': { bg: '#E0E7FF', color: '#3730A3' },
+            'MOU': { bg: '#FDE68A', color: '#78350F' },
+            'Inactive': { bg: '#F1F5F9', color: '#64748B' },
+            'Pending': { bg: '#FEF3C7', color: '#92400E' },
+            'Declined': { bg: '#FEE2E2', color: '#991B1B' }
+        };
+
+        const avatarColors = {
+            'super_agent': 'linear-gradient(135deg,#1E40AF,#3B82F6)',
+            'referring_agent': 'linear-gradient(135deg,#166534,#22C55E)',
+            'syndication_desk': 'linear-gradient(135deg,#B45309,#F59E0B)',
+            'vendor_program': 'linear-gradient(135deg,#7C3AED,#A78BFA)'
+        };
+
         tbody.innerHTML = data.map(agent => {
-            const parentName = agent.parent_agent_id ? (agentLookup[agent.parent_agent_id] || 'Unknown') : '-';
-            return `
-            <tr>
-                <td><strong>${agent.full_name || 'N/A'}</strong></td>
-                <td>${getAgentTypeBadge(agent.agent_type || 'referring_agent')}</td>
-                <td>${agent.email || 'N/A'}</td>
-                <td>${agent.phone || 'N/A'}</td>
-                <td>${parentName}</td>
-                <td>
-                    <select onchange="updateAgentStatus('${agent.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
-                        ${'Invited,Under Review,AIA,MOU,Active,Inactive,Pending,Declined'.split(',').map(s => `<option value="${s}" ${(agent.agent_status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
-                    </select>
-                </td>
-                <td>${agent.referral_slug || 'N/A'}</td>
-                <td>
-                    <button class="btn btn-secondary btn-sm" onclick="viewAgent('${agent.id}')">View</button>
-                </td>
-            </tr>
-        `}).join('');
+            const parentName = agent.parent_agent_id ? (agentLookup[agent.parent_agent_id] || 'Unknown') : '<span style="color:#CBD5E1;">—</span>';
+            const st = statusStyles[agent.agent_status] || statusStyles['Active'];
+            const agentType = agent.agent_type || 'referring_agent';
+            const avatarBg = avatarColors[agentType] || 'linear-gradient(135deg,#0D1E3D,#1E3A5F)';
+            const code = getAgentCode(agent);
+            const isInactive = agent.agent_status === 'Inactive' || agent.agent_status === 'Declined';
+
+            return '<tr style="border-bottom:1px solid #F1F5F9;transition:background 0.15s;cursor:pointer;' + (isInactive ? 'opacity:0.55;' : '') + '" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'white\'" onclick="viewAgent(\'' + agent.id + '\')">' +
+                '<td style="padding:12px 14px;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;">' +
+                        '<div style="width:42px;height:42px;border-radius:10px;background:' + avatarBg + ';display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0;">' + (agent.full_name || '?').substring(0, 2).toUpperCase() + '</div>' +
+                        '<div>' +
+                            '<div style="font-weight:600;color:var(--navy);font-size:14px;">' + (agent.full_name || 'N/A') + '</div>' +
+                            '<span style="font-family:monospace;font-size:11px;color:#94A3B8;">' + code + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                '</td>' +
+                '<td style="padding:12px 14px;">' + getAgentTypeBadge(agentType) + '</td>' +
+                '<td style="padding:12px 14px;">' +
+                    '<div style="font-size:13px;color:#475569;">' + (agent.email || 'N/A') + '</div>' +
+                    '<div style="font-size:12px;color:#94A3B8;margin-top:2px;">' + (agent.phone || '') + '</div>' +
+                '</td>' +
+                '<td style="padding:12px 14px;font-size:13px;color:#475569;">' + parentName + '</td>' +
+                '<td style="padding:12px 14px;" onclick="event.stopPropagation()">' +
+                    '<select onchange="updateAgentStatus(\'' + agent.id + '\', this.value)" style="padding:5px 8px;border-radius:6px;border:1px solid ' + st.bg + ';background:' + st.bg + ';color:' + st.color + ';font-size:12px;font-weight:600;cursor:pointer;appearance:auto;-webkit-appearance:auto;">' +
+                        'Invited,Under Review,AIA,MOU,Active,Inactive,Pending,Declined'.split(',').map(function(s) { return '<option value="' + s + '"' + ((agent.agent_status || '') === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
+                    '</select>' +
+                '</td>' +
+                '<td style="padding:12px 14px;text-align:right;" onclick="event.stopPropagation()">' +
+                    '<button onclick="viewAgent(\'' + agent.id + '\')" style="padding:6px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'0.85\'" onmouseout="this.style.opacity=\'1\'">View</button>' +
+                '</td>' +
+            '</tr>';
+        }).join('');
+
+        // Update stats
+        updateAgentStats();
+    }
+
+    function updateAgentStats() {
+        const nonPending = allAgentsData.filter(a => a.agent_status !== 'Pending');
+        const el = (id) => document.getElementById(id);
+        if (el('countAllAgents')) el('countAllAgents').textContent = nonPending.length;
+        if (el('countActiveAgents')) el('countActiveAgents').textContent = nonPending.filter(a => a.agent_status === 'Active').length;
+
+        // Highlight active filter stat card
+        const statCards = { '': 'agentStatAll', 'super_agent': 'agentStatISO', 'referring_agent': 'agentStatRef', 'syndication_desk': 'agentStatSynd', 'vendor_program': 'agentStatVendor' };
+        Object.values(statCards).forEach(id => {
+            var card = document.getElementById(id);
+            if (card) card.style.borderColor = 'transparent';
+        });
+        var activeCard = document.getElementById(statCards[currentAgentTypeFilter] || 'agentStatAll');
+        if (activeCard) activeCard.style.borderColor = 'var(--gold)';
     }
 
     async function loadAgents() {
@@ -8386,9 +8459,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             if (error) throw error;
             allAgentsData = data || [];
 
-            // Update summary counts
+            // Update summary counts (exclude Pending)
+            const nonPending = allAgentsData.filter(a => a.agent_status !== 'Pending');
             const counts = { super_agent: 0, referring_agent: 0, syndication_desk: 0, vendor_program: 0 };
-            allAgentsData.forEach(a => {
+            nonPending.forEach(a => {
                 const t = a.agent_type || 'referring_agent';
                 if (counts[t] !== undefined) counts[t]++;
             });
@@ -8423,27 +8497,102 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     function renderLendersTable(data) {
         const tbody = document.getElementById('lendersBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No lenders found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px 20px;color:#94A3B8;font-size:14px;">No lenders found.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = data.map(lender => `
-            <tr>
-                <td><strong>${lender.lender_id || 'N/A'}</strong></td>
-                <td>${lender.name || 'N/A'}</td>
-                <td>${lender.lender_type || 'N/A'}</td>
-                <td>${lender.country || 'N/A'}</td>
-                <td>${lender.currency || 'N/A'}</td>
-                <td>
-                    <select onchange="updateLenderStatus('${lender.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
-                        ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(lender.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
-                    </select>
-                </td>
-                <td>
-                    <button class="btn btn-secondary btn-sm" onclick="viewLender('${lender.id}')">View</button>
-                </td>
-            </tr>
-        `).join('');
+        const statusStyles = {
+            'Active': { bg: '#DCFCE7', color: '#166534' },
+            'Inactive': { bg: '#FEE2E2', color: '#991B1B' }
+        };
+
+        const typeStyles = {
+            'Lender': { bg: '#DBEAFE', color: '#1E40AF', icon: '🏦' },
+            'Broker': { bg: '#FEF3C7', color: '#92400E', icon: '🤝' }
+        };
+
+        const avatarColors = ['#0D1E3D', '#1E40AF', '#7C3AED', '#059669', '#B45309', '#DC2626', '#0891B2', '#6D28D9'];
+
+        tbody.innerHTML = data.map((lender, idx) => {
+            const st = statusStyles[lender.status] || statusStyles['Active'];
+            const tp = typeStyles[lender.lender_type] || typeStyles['Lender'];
+            const isInactive = lender.status === 'Inactive';
+            const bgColor = avatarColors[idx % avatarColors.length];
+            const products = (lender.preferred_products || []).slice(0, 3);
+            const countries = (lender.country || '').split(',').map(c => c.trim()).filter(Boolean);
+            const countryFlags = countries.map(c => {
+                if (c.includes('Canada')) return '🇨🇦';
+                if (c.includes('United States') || c === 'US' || c === 'USA') return '🇺🇸';
+                if (c.includes('UK') || c.includes('United Kingdom')) return '🇬🇧';
+                if (c.includes('Germany')) return '🇩🇪';
+                return '🌍';
+            });
+
+            return '<tr style="border-bottom:1px solid #F1F5F9;transition:background 0.15s;cursor:pointer;' + (isInactive ? 'opacity:0.55;' : '') + '" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'white\'" onclick="viewLender(\'' + lender.id + '\')">' +
+                '<td style="padding:12px 14px;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;">' +
+                        '<div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,' + bgColor + ',' + bgColor + '99);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0;">' + (lender.name || '?').substring(0, 2).toUpperCase() + '</div>' +
+                        '<div>' +
+                            '<div style="font-weight:600;color:var(--navy);font-size:14px;">' + (lender.name || 'N/A') + '</div>' +
+                            '<span style="font-family:monospace;font-size:11px;color:#94A3B8;">' + (lender.lender_id || '') + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                '</td>' +
+                '<td style="padding:12px 14px;">' +
+                    '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:' + tp.bg + ';color:' + tp.color + ';font-size:12px;font-weight:600;">' + tp.icon + ' ' + (lender.lender_type || 'Lender') + '</span>' +
+                '</td>' +
+                '<td style="padding:12px 14px;">' +
+                    '<div style="display:flex;align-items:center;gap:4px;font-size:13px;color:#475569;">' + countryFlags.join(' ') + ' ' + (lender.country || '<span style="color:#CBD5E1;">—</span>') + '</div>' +
+                '</td>' +
+                '<td style="padding:12px 14px;">' +
+                    '<span style="padding:3px 8px;border-radius:4px;background:#F1F5F9;font-size:12px;font-weight:600;color:#475569;">' + (lender.currency || '—') + '</span>' +
+                '</td>' +
+                '<td style="padding:12px 14px;">' +
+                    (products.length > 0
+                        ? products.map(p => '<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#F0F9FF;color:#0369A1;font-size:11px;font-weight:500;margin:1px 2px;">' + p + '</span>').join('')
+                        : '<span style="color:#CBD5E1;font-size:12px;">—</span>') +
+                '</td>' +
+                '<td style="padding:12px 14px;" onclick="event.stopPropagation()">' +
+                    '<select onchange="updateLenderStatus(\'' + lender.id + '\', this.value)" style="padding:5px 8px;border-radius:6px;border:1px solid ' + st.bg + ';background:' + st.bg + ';color:' + st.color + ';font-size:12px;font-weight:600;cursor:pointer;appearance:auto;-webkit-appearance:auto;">' +
+                        'Active,Inactive'.split(',').map(function(s) { return '<option value="' + s + '"' + ((lender.status || '') === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
+                    '</select>' +
+                '</td>' +
+                '<td style="padding:12px 14px;text-align:right;" onclick="event.stopPropagation()">' +
+                    '<button onclick="viewLender(\'' + lender.id + '\')" style="padding:6px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'0.85\'" onmouseout="this.style.opacity=\'1\'">View</button>' +
+                '</td>' +
+            '</tr>';
+        }).join('');
+
+        renderLenderStats();
+    }
+
+    function renderLenderStats() {
+        const bar = document.getElementById('lenderStatsBar');
+        if (!bar) return;
+        const total = allLenders.length;
+        const active = allLenders.filter(l => l.status === 'Active').length;
+        const inactive = allLenders.filter(l => l.status === 'Inactive').length;
+        const lenders = allLenders.filter(l => l.lender_type === 'Lender').length;
+        const brokers = allLenders.filter(l => l.lender_type === 'Broker').length;
+        const canada = allLenders.filter(l => (l.country || '').includes('Canada')).length;
+        const us = allLenders.filter(l => (l.country || '').includes('United States')).length;
+
+        const cards = [
+            { label: 'Total Lenders', value: total, color: '#0D1E3D', bg: '#F0F4F8' },
+            { label: 'Active', value: active, color: '#166534', bg: '#DCFCE7' },
+            { label: 'Inactive', value: inactive, color: '#991B1B', bg: '#FEE2E2' },
+            { label: 'Lenders', value: lenders, color: '#1E40AF', bg: '#DBEAFE' },
+            { label: 'Brokers', value: brokers, color: '#92400E', bg: '#FEF3C7' },
+            { label: '🇨🇦 Canada', value: canada, color: '#0D1E3D', bg: '#F0F9FF' },
+            { label: '🇺🇸 United States', value: us, color: '#0D1E3D', bg: '#FFF7ED' }
+        ];
+
+        bar.innerHTML = cards.map(c =>
+            '<div style="background:' + c.bg + ';border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;border:1px solid transparent;" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
+                '<div style="font-size:24px;font-weight:700;color:' + c.color + ';">' + c.value + '</div>' +
+                '<div style="font-size:12px;color:#64748B;margin-top:4px;">' + c.label + '</div>' +
+            '</div>'
+        ).join('');
     }
 
     async function checkDuplicateVendor(vendor) {
@@ -8510,6 +8659,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             return 'VND-001';
         } catch(e) {
             return 'VND-' + String(Date.now()).slice(-3);
+        }
+    }
+
+    async function generateAgentCode(agentType) {
+        try {
+            var prefixMap = {
+                'super_agent': 'ISO',
+                'referring_agent': 'RP',
+                'syndication_desk': 'SD',
+                'vendor_program': 'VP'
+            };
+            var prefix = prefixMap[agentType] || 'AG';
+            var { data } = await db.from('users').select('agent_code').not('agent_code', 'is', null).like('agent_code', prefix + '-%').order('agent_code', { ascending: false }).limit(1);
+            if (data && data.length > 0 && data[0].agent_code) {
+                var num = parseInt(data[0].agent_code.replace(prefix + '-', ''), 10);
+                return prefix + '-' + String((num || 0) + 1).padStart(3, '0');
+            }
+            return prefix + '-001';
+        } catch(e) {
+            var prefixMap2 = { 'super_agent': 'ISO', 'referring_agent': 'RP', 'syndication_desk': 'SD', 'vendor_program': 'VP' };
+            return (prefixMap2[agentType] || 'AG') + '-' + String(Date.now()).slice(-3);
         }
     }
 
@@ -8626,6 +8796,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     function filterLenders() {
         const search = document.getElementById('lenderSearch').value.toLowerCase();
+        const typeFilter = document.getElementById('lenderTypeFilter') ? document.getElementById('lenderTypeFilter').value : '';
         const countryFilter = document.getElementById('lenderCountryFilter').value;
         const statusFilter = document.getElementById('lenderStatusFilter').value;
 
@@ -8644,9 +8815,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 (lender.covered_regions || '').toLowerCase().includes(search) ||
                 (lender.rate_range || '').toLowerCase().includes(search) ||
                 (lender.special_notes || '').toLowerCase().includes(search);
+            const matchesType = !typeFilter || (lender.lender_type || '') === typeFilter;
             const matchesCountry = !countryFilter || (lender.country || '').includes(countryFilter);
             const matchesStatus = !statusFilter || lender.status === statusFilter;
-            return matchesSearch && matchesCountry && matchesStatus;
+            return matchesSearch && matchesType && matchesCountry && matchesStatus;
         });
 
         renderLendersTable(filtered);
@@ -9639,51 +9811,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         document.getElementById('allianceAdminView').style.display = 'block';
 
         try {
-            // Fetch house deals (source = 'Alliance Financing Group')
-            const { data: deals, error } = await db
-                .from('deals')
-                .select('*')
-                .eq('source', 'Alliance Financing Group')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            const allDeals = deals || [];
-            const fundedDeals = allDeals.filter(d => d.status === 'Funded' || d.status === 'Closed');
-            const activeDeals = allDeals.filter(d => !['Funded', 'Closed', 'Dead', 'Declined'].includes(d.status));
-            const totalFundedVol = fundedDeals.reduce((s, d) => s + (d.deal_amount || 0), 0);
-            const avgDeal = allDeals.length > 0 ? allDeals.reduce((s, d) => s + (d.deal_amount || 0), 0) / allDeals.length : 0;
-
-            // Update stat cards
-            document.getElementById('allianceHouseDealCount').textContent = allDeals.length;
-            document.getElementById('allianceHouseFundedVol').textContent = formatCurrency(totalFundedVol);
-            document.getElementById('allianceHouseActiveCount').textContent = activeDeals.length;
-            document.getElementById('allianceHouseAvgDeal').textContent = formatCurrency(avgDeal);
-
             // Populate pre-built app links
             populateAllianceAppLinks();
-
-            // Populate deals table
-            const tbody = document.getElementById('allianceDealsBody');
-            if (allDeals.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No house deals found. Deals with source "Alliance Financing Group" will appear here.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = allDeals.map(d => `
-                <tr>
-                    <td><strong>${d.deal_number || 'N/A'}</strong></td>
-                    <td>${d.company_name || 'N/A'}</td>
-                    <td>${d.product_type || 'N/A'}</td>
-                    <td>${d.deal_amount ? formatCurrency(d.deal_amount) : 'N/A'}</td>
-                    <td>${d.lender_name || 'N/A'}</td>
-                    <td>${getStatusBadge(d.status)}</td>
-                    <td>${formatDate(d.created_at)}</td>
-                    <td><button class="btn btn-secondary btn-sm" onclick="viewDeal('${d.id}')">View</button></td>
-                </tr>
-            `).join('');
         } catch (error) {
-            console.error('Load Alliance house deals error:', error);
+            console.error('Load Alliance page error:', error);
         }
     }
 
@@ -15375,6 +15506,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Generate invite token
             const inviteToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 
+            // Generate unique agent code
+            const agentCode = await generateAgentCode(selectedAgentType);
+
             // Check if invite will be sent
             const sendInviteEl = document.getElementById('sendInviteEmail');
             const willSendInvite = sendInviteEl ? sendInviteEl.checked : false;
@@ -15386,6 +15520,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 phone: document.getElementById('agentPhone').value || null,
                 role: 'agent',
                 agent_type: selectedAgentType,
+                agent_code: agentCode,
                 business_type: document.getElementById('agentBusinessType').value || null,
                 commission_type: document.getElementById('agentCommissionType').value || 'referral_fee',
                 company_name: document.getElementById('agentCompanyName').value || null,
