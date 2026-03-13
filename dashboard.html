@@ -9423,16 +9423,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     async function downloadPartnerGuide(filename) {
+        // Try Supabase storage first (for guides uploaded by admin)
         try {
-            // Try to get from Supabase storage first
             var { data, error } = await db.storage.from('deal-documents').createSignedUrl('partner-guides/' + filename, 3600);
             if (data && data.signedUrl) {
                 window.open(data.signedUrl, '_blank');
                 return;
             }
         } catch(e) {}
-        // Fallback: try direct file path
-        alert('Guide not yet uploaded. Please ask your administrator to upload the partner guides to the system.');
+        // Fallback: serve directly from repo root as static file
+        window.open(filename, '_blank');
     }
 
     async function loadResourcesPage() {
