@@ -17458,26 +17458,36 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             }
             emailBody += appHTML;
 
-            // Generate PDF blob
-            let pdfBlob = null;
+            // Generate PDF and upload to storage for a shareable link
+            let pdfSignedUrl = null;
             if (document.getElementById('attachVendorAppPDF').checked) {
                 const container = document.createElement('div');
                 container.innerHTML = appHTML;
                 document.body.appendChild(container);
-                pdfBlob = await html2pdf().set({
+                const pdfBlob = await html2pdf().set({
                     margin: [10, 10, 10, 10],
                     image: { type: 'jpeg', quality: 0.98 },
                     html2canvas: { scale: 2, useCORS: true },
                     jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
                 }).from(container).outputPdf('blob');
                 document.body.removeChild(container);
+
+                // Upload PDF to Supabase storage for a download link
+                const pdfFileName = 'vendor-documents/' + vendorId + '/application-' + Date.now() + '.pdf';
+                try {
+                    const { error: uploadErr } = await db.storage.from('deal-documents').upload(pdfFileName, pdfBlob, { contentType: 'application/pdf' });
+                    if (!uploadErr) {
+                        const { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(pdfFileName, 604800); // 7 days
+                        if (urlData && urlData.signedUrl) pdfSignedUrl = urlData.signedUrl;
+                    }
+                } catch(e) { console.warn('PDF upload failed:', e); }
             }
 
             // Collect attachment storage paths for void cheque and materials
             let attachmentPaths = [];
             const chequeOpt = document.getElementById('forwardVoidChequeOption');
             if (chequeOpt.style.display !== 'none' && document.getElementById('attachVoidCheque').checked && chequeOpt.dataset.path) {
-                attachmentPaths.push({ path: chequeOpt.dataset.path, name: 'void_cheque' });
+                attachmentPaths.push({ path: chequeOpt.dataset.path, name: 'Void Cheque' });
             }
             document.querySelectorAll('.forwardMaterialCheck:checked').forEach(cb => {
                 attachmentPaths.push({ path: cb.value, name: cb.dataset.filename });
@@ -17487,42 +17497,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             let attachmentInfo = [];
             for (const att of attachmentPaths) {
                 try {
-                    const { data } = await db.storage.from('deal-documents').createSignedUrl(att.path, 86400);
+                    const { data } = await db.storage.from('deal-documents').createSignedUrl(att.path, 604800); // 7 days
                     if (data && data.signedUrl) {
                         attachmentInfo.push({ name: att.name, url: data.signedUrl });
                     }
                 } catch(e) { console.warn('Could not get URL for', att.path); }
             }
 
-            // Add attachment links to email body
-            if (attachmentInfo.length > 0 || pdfBlob) {
+            // Add attachment download links to email body
+            if (pdfSignedUrl || attachmentInfo.length > 0) {
                 emailBody += '<div style="margin-top:20px;padding:16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;">';
-                emailBody += '<div style="font-weight:600;color:#0D1E3D;font-size:14px;margin-bottom:8px;">Attachments</div>';
-                if (pdfBlob) {
-                    emailBody += '<div style="font-size:13px;padding:4px 0;">📄 Vendor Application PDF (attached)</div>';
+                emailBody += '<div style="font-weight:600;color:#0D1E3D;font-size:14px;margin-bottom:10px;">Documents</div>';
+                if (pdfSignedUrl) {
+                    emailBody += '<div style="padding:6px 0;"><a href="' + pdfSignedUrl + '" style="color:#2563EB;font-size:13px;text-decoration:underline;font-weight:600;">Download Vendor Application (PDF)</a></div>';
                 }
                 attachmentInfo.forEach(att => {
-                    emailBody += '<div style="font-size:13px;padding:4px 0;"><a href="' + att.url + '" style="color:#2563EB;">' + att.name + '</a> (link valid 24 hours)</div>';
+                    emailBody += '<div style="padding:6px 0;"><a href="' + att.url + '" style="color:#2563EB;font-size:13px;text-decoration:underline;">' + att.name + '</a></div>';
                 });
+                emailBody += '<div style="font-size:11px;color:#94A3B8;margin-top:8px;">Download links are valid for 7 days.</div>';
                 emailBody += '</div>';
             }
 
-            // Send via Supabase edge function or Resend
-            const { data: sendResult, error: sendError } = await db.functions.invoke('send-email', {
-                body: {
-                    to: emails,
-                    subject: subject,
-                    html: emailBody,
-                    from_name: 'Alliance Financing',
-                    attachments: pdfBlob ? [{
-                        filename: (vendor.name || 'vendor').replace(/[^a-zA-Z0-9]/g, '_') + '_application.pdf',
-                        content: await blobToBase64(pdfBlob),
-                        type: 'application/pdf'
-                    }] : []
-                }
-            });
-
-            if (sendError) throw sendError;
+            // Send each email using the existing sendEmailViaResend function
+            for (const email of emails) {
+                await sendEmailViaResend(email, subject, emailBody);
+            }
 
             // Log the send in admin notes
             try {
@@ -17549,15 +17548,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             sendBtn.disabled = false;
             sendBtn.textContent = 'Send to Lender';
         }
-    }
-
-    function blobToBase64(blob) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result.split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
     }
 
     async function updateVendorField(vendorId, field, value) {
