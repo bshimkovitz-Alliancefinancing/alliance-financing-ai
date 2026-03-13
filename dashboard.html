@@ -1350,8 +1350,10 @@
                                 <option value="Requires Approval">Requires Approval</option>
                                 <option value="Application Sent">Application Sent</option>
                                 <option value="Pending Review">Pending Review</option>
-                                <option value="Declined">Declined</option>
-                                <option value="Archived">Archived</option>
+                                <option value="__declined_archived">Declined & Archived</option>
+                                <option value="Declined">Declined Only</option>
+                                <option value="Archived">Archived Only</option>
+                                <option value="__all">All Vendors (incl. Declined/Archived)</option>
                             </select>
                         </div>
                         <div style="display: flex; gap: 8px;">
@@ -1363,6 +1365,7 @@
                     <table id="vendorsTable">
                         <thead>
                             <tr>
+                                <th>ID</th>
                                 <th>Name</th>
                                 <th>Website</th>
                                 <th>Product</th>
@@ -1376,7 +1379,7 @@
                         </thead>
                         <tbody id="vendorsBody">
                             <tr>
-                                <td colspan="9" class="empty-state">Loading...</td>
+                                <td colspan="10" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -6536,6 +6539,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         if (!contactName || !contactEmail) { alert('Please fill in the vendor contact name and email.'); return; }
 
         try {
+            const agentVendorCode = await generateVendorCode();
             const { data: vendorResult, error } = await db.from('vendors').insert({
                 name: name,
                 website: document.getElementById('agentVendorWebsite').value.trim() || null,
@@ -6543,7 +6547,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 country: document.getElementById('agentVendorCountry').value,
                 projected_volume: document.getElementById('agentVendorVolume').value ? parseFloat(document.getElementById('agentVendorVolume').value) : null,
                 source_agent_id: currentUserId,
-                status: 'Requires Approval'
+                status: 'Requires Approval',
+                vendor_code: agentVendorCode
             }).select();
 
             if (error) throw error;
@@ -8112,6 +8117,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         `).join('');
     }
 
+    async function generateVendorCode() {
+        try {
+            const { data } = await db.from('vendors').select('vendor_code').not('vendor_code', 'is', null).order('vendor_code', { ascending: false }).limit(1);
+            if (data && data.length > 0 && data[0].vendor_code) {
+                const num = parseInt(data[0].vendor_code.replace('VND-', ''), 10);
+                return 'VND-' + String((num || 0) + 1).padStart(3, '0');
+            }
+            return 'VND-001';
+        } catch(e) {
+            return 'VND-' + String(Date.now()).slice(-3);
+        }
+    }
+
     async function loadVendors() {
         try {
             // Ensure agents are cached for source agent lookup
@@ -8140,7 +8158,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     function renderVendorsTable(data) {
         const tbody = document.getElementById('vendorsBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No vendors found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No vendors found.</td></tr>';
             return;
         }
 
@@ -8157,6 +8175,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
             return `
             <tr>
+                <td><span style="font-family:monospace;font-size:12px;color:#64748B;background:#F1F5F9;padding:2px 6px;border-radius:4px;">${vendor.vendor_code || '—'}</span></td>
                 <td><strong>${vendor.name || 'N/A'}</strong></td>
                 <td><a href="${websiteUrl}" target="_blank">${vendor.website ? 'Visit' : 'N/A'}</a></td>
                 <td>${vendor.product_description || 'N/A'}</td>
@@ -8221,10 +8240,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 (vendor.product_description || '').toLowerCase().includes(search) ||
                 (vendor.country || '').toLowerCase().includes(search);
             const matchesCountry = !countryFilter || (vendor.country || '').includes(countryFilter);
-            // Default view hides archived; specific filter shows only that status
-            const matchesStatus = statusFilter
-                ? vendor.status === statusFilter
-                : vendor.status !== 'Archived';
+            // Default view hides Declined & Archived
+            let matchesStatus = true;
+            if (statusFilter === '__all') {
+                matchesStatus = true;
+            } else if (statusFilter === '__declined_archived') {
+                matchesStatus = vendor.status === 'Declined' || vendor.status === 'Archived';
+            } else if (statusFilter) {
+                matchesStatus = vendor.status === statusFilter;
+            } else {
+                // Default: hide Declined and Archived
+                matchesStatus = vendor.status !== 'Archived' && vendor.status !== 'Declined';
+            }
             return matchesSearch && matchesCountry && matchesStatus;
         });
 
@@ -16403,6 +16430,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             var sendCompanyName = document.getElementById('vendorName').value.trim();
 
             // Insert vendor with basic info — status defaults to "Requires Approval"
+            const vendorCode = await generateVendorCode();
             const { data: vendorData, error: vendorError } = await db
                 .from('vendors')
                 .insert([{
@@ -16411,6 +16439,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     country: countries || null,
                     status: 'Requires Approval',
                     source_agent_id: currentUserId || null,
+                    vendor_code: vendorCode,
                     created_at: new Date().toISOString()
                 }])
                 .select();
@@ -16608,7 +16637,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 : '<p style="color: var(--text-light); font-size: 14px;">No contacts yet.</p>';
 
             const modalBody = document.getElementById('vendorModalBody');
-            document.getElementById('vendorDetailTitle').textContent = vendor.name || 'Vendor Details';
+            document.getElementById('vendorDetailTitle').textContent = (vendor.vendor_code ? vendor.vendor_code + ' — ' : '') + (vendor.name || 'Vendor Details');
 
             modalBody.innerHTML = `
                 <div class="modal-row">
@@ -17270,7 +17299,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             <div style="text-align:center;margin-bottom:24px;border-bottom:3px solid #C9A84C;padding-bottom:16px;">
                 <h1 style="color:#0D1E3D;font-size:22px;margin:0 0 4px;">Alliance Financing</h1>
                 <h2 style="color:#64748B;font-size:16px;font-weight:400;margin:0;">Vendor Program Application</h2>
-                <p style="color:#94A3B8;font-size:12px;margin-top:8px;">Submitted: ${vendor.application_completed_at ? new Date(vendor.application_completed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
+                ${vendor.vendor_code ? '<p style="color:#0D1E3D;font-size:13px;font-weight:600;margin-top:6px;">' + vendor.vendor_code + '</p>' : ''}
+                <p style="color:#94A3B8;font-size:12px;margin-top:4px;">Submitted: ${vendor.application_completed_at ? new Date(vendor.application_completed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
             </div>
             <table style="width:100%;border-collapse:collapse;">
             ${sectionHead('Company Information')}
@@ -17476,6 +17506,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             emailBody += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px;margin-bottom:16px;">';
             emailBody += '<div style="font-weight:700;color:#0D1E3D;font-size:15px;margin-bottom:10px;">Vendor Summary</div>';
             emailBody += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+            if (vendor.vendor_code) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;width:160px;">Vendor ID</td><td style="color:#333;font-family:monospace;">' + vendor.vendor_code + '</td></tr>';
             if (co.legal_name) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;width:160px;">Company</td><td style="color:#333;">' + co.legal_name + '</td></tr>';
             if (pc.name) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;">Contact</td><td style="color:#333;">' + pc.name + (pc.title ? ' (' + pc.title + ')' : '') + '</td></tr>';
             if (pc.email) emailBody += '<tr><td style="font-weight:600;color:#0D1E3D;padding:4px 0;">Email</td><td style="color:#333;">' + pc.email + '</td></tr>';
