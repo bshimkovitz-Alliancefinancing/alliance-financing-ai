@@ -1330,21 +1330,27 @@
 
             <!-- Vendors Page -->
             <div id="vendors" class="page-section">
-                <div class="table-container">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Vendors</div>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <input type="text" id="vendorSearch" placeholder="Search by name, type, country, product..."
-                                   oninput="filterVendors()"
-                                   style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 300px;">
-                            <select id="vendorCountryFilter" onchange="filterVendors()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                <!-- Vendor Stats Bar -->
+                <div id="vendorStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;"></div>
+
+                <div class="table-container" style="border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                    <!-- Toolbar -->
+                    <div style="padding:16px 20px;background:white;border-bottom:1px solid #E2E8F0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:1;">
+                            <div style="position:relative;flex:1;max-width:320px;">
+                                <input type="text" id="vendorSearch" placeholder="Search vendors..."
+                                       oninput="filterVendors()"
+                                       style="width:100%;padding:8px 12px 8px 34px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;transition:border-color 0.2s;">
+                                <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94A3B8;font-size:14px;">🔍</span>
+                            </div>
+                            <select id="vendorCountryFilter" onchange="filterVendors()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
                                 <option value="">All Countries</option>
                                 <option value="Canada">Canada</option>
                                 <option value="United States">United States</option>
                                 <option value="UK">UK</option>
                                 <option value="Germany">Germany</option>
                             </select>
-                            <select id="vendorStatusFilter" onchange="filterVendors()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                            <select id="vendorStatusFilter" onchange="filterVendors()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
                                 <option value="">All Active Vendors</option>
                                 <option value="Approved">Approved</option>
                                 <option value="Requires Approval">Requires Approval</option>
@@ -1353,33 +1359,30 @@
                                 <option value="__declined_archived">Declined & Archived</option>
                                 <option value="Declined">Declined Only</option>
                                 <option value="Archived">Archived Only</option>
-                                <option value="__all">All Vendors (incl. Declined/Archived)</option>
+                                <option value="__all">All Vendors</option>
                             </select>
                         </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary btn-sm" onclick="exportVendors()" style="margin-left: 8px;">Export CSV</button>
-                            <button class="btn btn-sm" onclick="showSendVendorAppModal()" style="background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; padding: 6px 14px;">Send Vendor App</button>
-                            <button class="btn btn-gold btn-sm" onclick="openAddVendorModal()">+ New Vendor</button>
+                        <div style="display:flex;gap:8px;">
+                            <button onclick="exportVendors()" style="padding:8px 14px;background:white;color:var(--navy);border:1px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;">Export CSV</button>
+                            <button onclick="showSendVendorAppModal()" style="padding:8px 14px;background:#10B981;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;">Send Vendor App</button>
+                            <button onclick="openAddVendorModal()" style="padding:8px 14px;background:var(--gold);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;">+ New Vendor</button>
                         </div>
                     </div>
-                    <table id="vendorsTable">
+                    <table id="vendorsTable" style="border-collapse:separate;border-spacing:0;">
                         <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Website</th>
-                                <th>Product</th>
-                                <th>Country</th>
-                                <th>Source Agent</th>
-                                <th>Salespeople</th>
-                                <th>Projected Vol.</th>
-                                <th>Status</th>
-                                <th>Actions</th>
+                            <tr style="background:#F8FAFC;">
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Vendor</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Product</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Country</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Source</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:center;">Contacts</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Status</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="vendorsBody">
                             <tr>
-                                <td colspan="10" class="empty-state">Loading...</td>
+                                <td colspan="7" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -8117,6 +8120,60 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         `).join('');
     }
 
+    async function checkDuplicateVendor(vendor) {
+        try {
+            const vendorName = (vendor.name || '').toLowerCase().trim();
+            if (!vendorName || vendorName.length < 3) return;
+
+            // Search for vendors with similar names (excluding self)
+            const { data: allV } = await db.from('vendors').select('id, name, vendor_code, status').neq('id', vendor.id);
+            if (!allV || allV.length === 0) return;
+
+            const matches = allV.filter(v => {
+                const n = (v.name || '').toLowerCase().trim();
+                // Exact match
+                if (n === vendorName) return true;
+                // Contains check (one contains the other)
+                if (n.includes(vendorName) || vendorName.includes(n)) return true;
+                // First word match (for things like "Alliance Financing" vs "Alliance Financing Inc")
+                const words1 = vendorName.split(/\s+/);
+                const words2 = n.split(/\s+/);
+                if (words1[0].length >= 4 && words1[0] === words2[0]) return true;
+                return false;
+            });
+
+            if (matches.length === 0) return;
+
+            // Show duplicate warning banner at top of modal
+            const modalBody = document.getElementById('vendorModalBody');
+            if (!modalBody) return;
+
+            const banner = document.createElement('div');
+            banner.id = 'duplicateVendorBanner';
+            banner.style.cssText = 'background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:14px 16px;margin-bottom:16px;';
+            banner.innerHTML = '<div style="display:flex;align-items:flex-start;gap:10px;">' +
+                '<span style="font-size:20px;flex-shrink:0;">⚠️</span>' +
+                '<div style="flex:1;">' +
+                '<div style="font-weight:700;color:#991B1B;font-size:14px;margin-bottom:6px;">Possible Duplicate Detected</div>' +
+                '<div style="font-size:13px;color:#7F1D1D;line-height:1.5;">A vendor with a similar name already exists in the system:</div>' +
+                '<div style="margin-top:8px;">' +
+                matches.map(m => {
+                    const stColor = m.status === 'Approved' ? '#166534' : m.status === 'Declined' ? '#991B1B' : m.status === 'Archived' ? '#64748B' : '#92400E';
+                    const stBg = m.status === 'Approved' ? '#DCFCE7' : m.status === 'Declined' ? '#FEE2E2' : m.status === 'Archived' ? '#F1F5F9' : '#FEF3C7';
+                    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:white;border-radius:6px;margin-bottom:4px;border:1px solid #E2E8F0;">' +
+                        '<span style="font-weight:600;color:#0D1E3D;">' + (m.name || '') + '</span>' +
+                        (m.vendor_code ? '<span style="font-family:monospace;font-size:11px;color:#94A3B8;">' + m.vendor_code + '</span>' : '') +
+                        '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:' + stBg + ';color:' + stColor + ';font-weight:600;">' + (m.status || '') + '</span>' +
+                        '<button onclick="viewVendor(\'' + m.id + '\')" style="margin-left:auto;font-size:11px;color:#3B82F6;background:none;border:none;cursor:pointer;text-decoration:underline;">View</button>' +
+                        '</div>';
+                }).join('') +
+                '</div></div></div>';
+            modalBody.insertBefore(banner, modalBody.firstChild);
+        } catch(e) {
+            console.warn('Duplicate check error:', e);
+        }
+    }
+
     async function generateVendorCode() {
         try {
             const { data } = await db.from('vendors').select('vendor_code').not('vendor_code', 'is', null).order('vendor_code', { ascending: false }).limit(1);
@@ -8158,9 +8215,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     function renderVendorsTable(data) {
         const tbody = document.getElementById('vendorsBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No vendors found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px 20px;color:#94A3B8;font-size:14px;">No vendors found.</td></tr>';
             return;
         }
+
+        const statusStyles = {
+            'Approved': { bg: '#DCFCE7', color: '#166534', icon: '●' },
+            'Requires Approval': { bg: '#FEF3C7', color: '#92400E', icon: '●' },
+            'Application Sent': { bg: '#DBEAFE', color: '#1E40AF', icon: '●' },
+            'Pending Review': { bg: '#FDE68A', color: '#78350F', icon: '●' },
+            'Declined': { bg: '#FEE2E2', color: '#991B1B', icon: '●' },
+            'Archived': { bg: '#F1F5F9', color: '#64748B', icon: '●' }
+        };
 
         tbody.innerHTML = data.map(vendor => {
             let websiteUrl = vendor.website || '#';
@@ -8168,37 +8234,68 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 websiteUrl = 'https://' + websiteUrl;
             }
             const agentName = vendor.source_agent_id && cachedAgents.length > 0
-                ? (cachedAgents.find(a => a.id === vendor.source_agent_id) || {}).full_name || 'Unknown'
-                : '-';
-            // Count salespeople (active vendor contacts) for this vendor
+                ? (cachedAgents.find(a => a.id === vendor.source_agent_id) || {}).full_name || ''
+                : '';
             const spCount = cachedVendorContacts.filter(vc => vc.vendor_id === vendor.id && vc.status !== 'Left Company').length;
+            const st = statusStyles[vendor.status] || statusStyles['Approved'];
+            const isInactive = vendor.status === 'Declined' || vendor.status === 'Archived';
 
             return `
-            <tr>
-                <td><span style="font-family:monospace;font-size:12px;color:#64748B;background:#F1F5F9;padding:2px 6px;border-radius:4px;">${vendor.vendor_code || '—'}</span></td>
-                <td><strong>${vendor.name || 'N/A'}</strong></td>
-                <td><a href="${websiteUrl}" target="_blank">${vendor.website ? 'Visit' : 'N/A'}</a></td>
-                <td>${vendor.product_description || 'N/A'}</td>
-                <td>${vendor.country || 'N/A'}</td>
-                <td>${agentName}</td>
-                <td style="text-align: center;"><span style="background: ${spCount > 0 ? '#EFF6FF' : '#f5f5f5'}; color: ${spCount > 0 ? '#3B82F6' : '#999'}; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 13px;">${spCount}</span></td>
-                <td>${vendor.projected_volume ? formatCurrency(vendor.projected_volume) : 'N/A'}</td>
-                <td>
-                    ${vendor.status === 'Archived'
-                        ? '<span style="background:#F1F5F9;color:#94A3B8;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">Archived</span>'
-                        : `<select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
-                        ${'Approved,Requires Approval,Application Sent,Pending Review,Declined'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
-                    </select>`}
+            <tr style="border-bottom:1px solid #F1F5F9;transition:background 0.15s;cursor:pointer;${isInactive ? 'opacity:0.6;' : ''}" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='white'" onclick="viewVendor('${vendor.id}')">
+                <td style="padding:12px 14px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#0D1E3D,#1E3A5F);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0;">${(vendor.name || '?').substring(0, 2).toUpperCase()}</div>
+                        <div>
+                            <div style="font-weight:600;color:var(--navy);font-size:14px;">${vendor.name || 'N/A'}</div>
+                            <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+                                <span style="font-family:monospace;font-size:11px;color:#94A3B8;">${vendor.vendor_code || ''}</span>
+                                ${vendor.website ? '<a href="' + websiteUrl + '" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:#3B82F6;text-decoration:none;">↗ Website</a>' : ''}
+                            </div>
+                        </div>
+                    </div>
                 </td>
-                <td style="white-space:nowrap;">
-                    <button class="btn btn-secondary btn-sm" onclick="viewVendor('${vendor.id}')">View</button>
-                    ${vendor.status === 'Archived'
-                        ? `<button class="btn btn-sm" onclick="updateVendorStatus('${vendor.id}', 'Approved')" style="margin-left:4px;padding:4px 8px;background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;border-radius:4px;font-size:11px;cursor:pointer;">Restore</button>`
-                        : `<button class="btn btn-sm" onclick="if(confirm('Archive ${(vendor.name || '').replace(/'/g, "\\'")}?')) updateVendorStatus('${vendor.id}', 'Archived')" style="margin-left:4px;padding:4px 8px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;border-radius:4px;font-size:11px;cursor:pointer;">Archive</button>`}
+                <td style="padding:12px 14px;font-size:13px;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${vendor.product_description || '<span style="color:#CBD5E1;">—</span>'}</td>
+                <td style="padding:12px 14px;font-size:13px;color:#475569;">${vendor.country || '<span style="color:#CBD5E1;">—</span>'}</td>
+                <td style="padding:12px 14px;font-size:13px;color:#475569;">${agentName || '<span style="color:#CBD5E1;">—</span>'}</td>
+                <td style="padding:12px 14px;text-align:center;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:${spCount > 0 ? '#EFF6FF' : '#F8FAFC'};color:${spCount > 0 ? '#3B82F6' : '#CBD5E1'};font-weight:700;font-size:13px;">${spCount}</span>
+                </td>
+                <td style="padding:12px 14px;" onclick="event.stopPropagation()">
+                    <select onchange="updateVendorStatus('${vendor.id}', this.value)" style="padding:5px 8px;border-radius:6px;border:1px solid ${st.bg};background:${st.bg};color:${st.color};font-size:12px;font-weight:600;cursor:pointer;appearance:auto;-webkit-appearance:auto;">
+                        ${'Approved,Requires Approval,Application Sent,Pending Review,Declined,Archived'.split(',').map(s => '<option value="' + s + '"' + ((vendor.status || '') === s ? ' selected' : '') + '>' + s + '</option>').join('')}
+                    </select>
+                </td>
+                <td style="padding:12px 14px;text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
+                    <button onclick="viewVendor('${vendor.id}')" style="padding:6px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">View</button>
                 </td>
             </tr>
         `;
         }).join('');
+
+        // Render stats bar
+        renderVendorStats();
+    }
+
+    function renderVendorStats() {
+        const bar = document.getElementById('vendorStatsBar');
+        if (!bar) return;
+        const total = allVendors.length;
+        const approved = allVendors.filter(v => v.status === 'Approved').length;
+        const pending = allVendors.filter(v => v.status === 'Requires Approval' || v.status === 'Application Sent' || v.status === 'Pending Review').length;
+        const declined = allVendors.filter(v => v.status === 'Declined').length;
+        const archived = allVendors.filter(v => v.status === 'Archived').length;
+
+        const statCard = (label, count, color, bgColor, filterVal) =>
+            '<div onclick="document.getElementById(\'vendorStatusFilter\').value=\'' + filterVal + '\';filterVendors();" style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;cursor:pointer;transition:box-shadow 0.2s,border-color 0.2s;" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\';this.style.borderColor=\'' + color + '\'" onmouseout="this.style.boxShadow=\'none\';this.style.borderColor=\'#E2E8F0\'">' +
+            '<div style="font-size:24px;font-weight:700;color:' + color + ';">' + count + '</div>' +
+            '<div style="font-size:12px;color:#64748B;font-weight:500;margin-top:2px;">' + label + '</div></div>';
+
+        bar.innerHTML =
+            statCard('Total Active', approved + pending, 'var(--navy)', '', '') +
+            statCard('Approved', approved, '#16A34A', '#F0FDF4', 'Approved') +
+            statCard('Pending', pending, '#D97706', '#FFFBEB', 'Requires Approval') +
+            statCard('Declined', declined, '#DC2626', '#FEF2F2', 'Declined') +
+            statCard('Archived', archived, '#64748B', '#F8FAFC', 'Archived');
     }
 
     function filterLenders() {
@@ -16947,6 +17044,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Load approved lenders (admin only)
             if (['super_admin', 'admin'].includes(currentUserRole)) {
                 loadVendorApprovedLenders(vendorId);
+            }
+            // Duplicate detection for new vendor requests
+            if (vendor.status === 'Requires Approval' || vendor.status === 'Application Sent' || vendor.status === 'Pending Review') {
+                checkDuplicateVendor(vendor);
             }
         } catch (error) {
             console.error('View vendor error:', error);
