@@ -16573,7 +16573,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         <label>Status</label>
                         <div class="modal-field-value">
                             <select id="vendorDetailStatus" onchange="updateVendorStatus(${vendorId}, this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
-                                ${'Approved,Requires Approval,Declined,Archived'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                ${'Approved,Requires Approval,Application Sent,Pending Review,Declined,Archived'.split(',').map(s => `<option value="${s}" ${(vendor.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
                             </select>
                         </div>
                     </div>
@@ -16632,6 +16632,80 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 <div id="vendorSetupFormHistory_${vendorId}" style="margin-bottom: 10px;">
                     <p style="color: var(--text-light); font-size: 12px; font-style: italic;">Loading send history...</p>
                 </div>
+
+                ${vendor.vendor_application ? (() => {
+                    let appData;
+                    try { appData = typeof vendor.vendor_application === 'string' ? JSON.parse(vendor.vendor_application) : vendor.vendor_application; } catch(e) { appData = null; }
+                    if (!appData) return '';
+
+                    const fieldRow = (label, value) => value ? '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #F1F5F9;"><span style="font-weight:600;color:var(--navy);min-width:180px;font-size:13px;">' + label + '</span><span style="font-size:13px;color:var(--text-dark);">' + value + '</span></div>' : '';
+
+                    const sig = appData.digital_signature || appData.signature || {};
+                    const sigHtml = sig.signed_by ? '<div style="background:#F0FDF4;padding:12px;border-radius:6px;border:1px solid #BBF7D0;margin-top:10px;">' +
+                        '<div style="font-size:13px;font-weight:600;color:#166534;margin-bottom:6px;">Digital Signature Verified</div>' +
+                        '<div style="font-family:cursive;font-size:20px;color:#166534;margin-bottom:4px;">' + (sig.signed_by || '') + '</div>' +
+                        (sig.title ? '<div style="font-size:12px;color:#64748B;">Title: ' + sig.title + '</div>' : '') +
+                        '<div style="font-size:12px;color:#64748B;">Signed: ' + (sig.display_date || sig.signed_at || 'N/A') + '</div>' +
+                        (sig.ip_address ? '<div style="font-size:12px;color:#64748B;">IP: ' + sig.ip_address + '</div>' : '') +
+                        '<div style="font-size:12px;color:#64748B;">Consent: ' + (sig.consent_given ? 'Yes' : 'No') + '</div>' +
+                        '</div>' : '';
+
+                    const voidCheque = appData.void_cheque_url || appData.void_cheque;
+                    const chequeHtml = voidCheque ? '<div style="margin-top:10px;"><a href="' + voidCheque + '" target="_blank" style="color:#2563EB;font-size:13px;text-decoration:underline;">View Void Cheque</a></div>' : '';
+
+                    const refs = appData.trade_references || [];
+                    const refsHtml = refs.length > 0 ? '<div style="margin-top:10px;"><div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:6px;">Trade References</div>' +
+                        refs.map((r, i) => '<div style="background:#F8FAFC;padding:8px 12px;border-radius:4px;margin-bottom:6px;font-size:13px;">' +
+                            '<strong>Ref ' + (i+1) + ':</strong> ' + (r.company || r.name || 'N/A') +
+                            (r.contact ? ' | Contact: ' + r.contact : '') +
+                            (r.phone ? ' | Phone: ' + r.phone : '') +
+                            (r.email ? ' | Email: ' + r.email : '') +
+                        '</div>').join('') + '</div>' : '';
+
+                    const bankRef = appData.bank_reference || {};
+                    const bankHtml = bankRef.bank_name ? '<div style="margin-top:10px;"><div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:6px;">Bank Reference</div>' +
+                        '<div style="background:#F8FAFC;padding:8px 12px;border-radius:4px;font-size:13px;">' +
+                        (bankRef.bank_name ? 'Bank: ' + bankRef.bank_name + '<br>' : '') +
+                        (bankRef.branch ? 'Branch: ' + bankRef.branch + '<br>' : '') +
+                        (bankRef.account_manager ? 'Account Manager: ' + bankRef.account_manager + '<br>' : '') +
+                        (bankRef.phone ? 'Phone: ' + bankRef.phone : '') +
+                        '</div></div>' : '';
+
+                    return '<div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">' +
+                        '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">' +
+                        '<label style="font-size: 15px; font-weight: 600; color: var(--navy);">Completed Vendor Application</label>' +
+                        '<span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#DCFCE7;color:#166534;font-weight:600;">Received ' + (vendor.application_completed_at ? new Date(vendor.application_completed_at).toLocaleDateString() : '') + '</span>' +
+                        '</div>' +
+                        '<div style="background: #FAFBFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px;">' +
+                        '<div style="font-weight:600;color:var(--navy);font-size:14px;margin-bottom:8px;border-bottom:2px solid var(--gold);padding-bottom:6px;">Company Information</div>' +
+                        fieldRow('Legal Business Name', appData.legal_business_name) +
+                        fieldRow('Operating Name', appData.operating_name || appData.dba_name) +
+                        fieldRow('Business Number', appData.business_number || appData.gst_hst_number) +
+                        fieldRow('Year Established', appData.year_established) +
+                        fieldRow('Address', [appData.address, appData.city, appData.province, appData.postal_code].filter(Boolean).join(', ')) +
+                        fieldRow('Phone', appData.company_phone || appData.phone) +
+                        fieldRow('Website', appData.company_website || appData.website) +
+
+                        '<div style="font-weight:600;color:var(--navy);font-size:14px;margin:16px 0 8px;border-bottom:2px solid var(--gold);padding-bottom:6px;">Primary Contact</div>' +
+                        fieldRow('Contact Name', appData.contact_name || appData.primary_contact_name) +
+                        fieldRow('Email', appData.contact_email || appData.primary_contact_email) +
+                        fieldRow('Phone', appData.contact_phone || appData.primary_contact_phone) +
+                        fieldRow('Title', appData.contact_title || appData.primary_contact_title) +
+
+                        '<div style="font-weight:600;color:var(--navy);font-size:14px;margin:16px 0 8px;border-bottom:2px solid var(--gold);padding-bottom:6px;">Equipment / Products</div>' +
+                        fieldRow('Types of Equipment', appData.equipment_types) +
+                        fieldRow('Average Transaction', appData.average_transaction_size || appData.avg_transaction) +
+                        fieldRow('Est. Monthly Volume', appData.estimated_monthly_volume || appData.monthly_volume) +
+                        fieldRow('Provinces Served', appData.provinces_served) +
+
+                        (appData.additional_info ? '<div style="font-weight:600;color:var(--navy);font-size:14px;margin:16px 0 8px;border-bottom:2px solid var(--gold);padding-bottom:6px;">Additional Information</div><div style="font-size:13px;color:var(--text-dark);padding:6px 0;">' + appData.additional_info + '</div>' : '') +
+
+                        bankHtml +
+                        refsHtml +
+                        chequeHtml +
+                        sigHtml +
+                        '</div></div>';
+                })() : (vendor.status === 'Application Sent' ? '<div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;"><label style="font-size: 15px; font-weight: 600; color: var(--navy);">Vendor Application</label><p style="color: var(--text-light); font-size: 13px; margin-top: 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warning);margin-right:6px;"></span>Application sent — awaiting vendor response.</p></div>' : '')}
 
                 ${['super_admin', 'admin'].includes(currentUserRole) ? `
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">

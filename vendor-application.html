@@ -370,33 +370,44 @@
                         </div>
                     </div>
 
-                    <!-- Section 8: Signature -->
-                    <div class="section-title" style="margin-top: 1.5rem;">8. Authorization & Signature</div>
+                    <!-- Section 8: Digital Signature -->
+                    <div class="section-title" style="margin-top: 1.5rem;">8. Authorization & Digital Signature</div>
                     <div style="background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem;">
                         <p style="font-size: 0.8125rem; color: var(--slate-700); line-height: 1.6; margin-bottom: 1rem;">
-                            By signing below, I certify that the information provided in this application is true and accurate to the best of my knowledge. I authorize Alliance Financing Group to verify the information provided, including business references and banking details, for the purpose of establishing a vendor financing partnership.
+                            By typing my name below and clicking "Submit Application", I certify that the information provided in this application is true and accurate to the best of my knowledge. I authorize Alliance Financing Group to verify the information provided, including business references and banking details, for the purpose of establishing a vendor financing partnership. This electronic signature has the same legal effect as a handwritten signature.
                         </p>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Print Name <span class="required">*</span></label>
-                                <input type="text" id="signatureName" required>
+                                <label>Full Legal Name <span class="required">*</span></label>
+                                <input type="text" id="signatureName" required placeholder="Type your full legal name" oninput="updateDigitalSig(this.value)">
                             </div>
                             <div class="form-group">
                                 <label>Title <span class="required">*</span></label>
                                 <input type="text" id="signatureTitle" required placeholder="e.g. Owner, President, VP Sales">
                             </div>
                         </div>
-                        <div class="form-group" style="margin-bottom: 0.5rem;">
-                            <label>Signature <span class="required">*</span></label>
-                            <div style="position: relative;">
-                                <canvas id="signatureCanvas" width="660" height="150" style="border: 1px solid var(--slate-200); border-radius: 0.5rem; width: 100%; cursor: crosshair; background: white; touch-action: none;"></canvas>
-                                <button type="button" onclick="clearSignature()" style="position: absolute; top: 8px; right: 8px; background: var(--slate-100); border: 1px solid var(--slate-200); border-radius: 4px; padding: 4px 10px; font-size: 0.6875rem; cursor: pointer; color: var(--slate-600);">Clear</button>
+                        <div class="form-group" style="margin-bottom: 0.75rem;">
+                            <label>Digital Signature</label>
+                            <div style="border: 1px solid var(--slate-200); border-radius: 0.5rem; padding: 1.25rem; background: white; min-height: 60px; display: flex; align-items: center; justify-content: center;">
+                                <span id="digitalSigText" style="font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 2rem; color: var(--navy); opacity: 0.3;">Type your name above</span>
                             </div>
-                            <div style="font-size: 0.6875rem; color: var(--slate-400); margin-top: 0.25rem;">Draw your signature above using your mouse or finger.</div>
+                            <div style="font-size: 0.6875rem; color: var(--slate-400); margin-top: 0.25rem;">Your typed name serves as your legally binding electronic signature.</div>
                         </div>
-                        <div class="form-group">
-                            <label>Date</label>
-                            <input type="text" id="signatureDate" readonly style="background: var(--slate-50);">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Date & Time</label>
+                                <input type="text" id="signatureDate" readonly style="background: var(--slate-50);">
+                            </div>
+                            <div class="form-group">
+                                <label>IP Address</label>
+                                <input type="text" id="signatureIP" readonly style="background: var(--slate-50);" value="Detecting...">
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: flex-start; gap: 0.75rem; margin-top: 0.75rem; padding: 0.75rem 1rem; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 0.5rem;">
+                            <input type="checkbox" id="signatureConsent" required style="margin-top: 3px; min-width: 18px; min-height: 18px;">
+                            <label for="signatureConsent" style="font-size: 0.8125rem; color: var(--slate-700); line-height: 1.5; cursor: pointer; font-weight: 400;">
+                                I agree that typing my name above constitutes my electronic signature, and I consent to conducting this transaction electronically.
+                            </label>
                         </div>
                     </div>
 
@@ -470,6 +481,9 @@
                 document.getElementById('loadingScreen').style.display = 'none';
                 document.getElementById('applicationForm').style.display = 'block';
 
+                // Initialize digital signature (date/time updater + IP detection)
+                initSignature();
+
             } catch (err) {
                 console.error('Init error:', err);
                 showError('Something went wrong. Please try again or contact support.');
@@ -492,14 +506,24 @@
             statusEl.style.display = 'none';
 
             try {
-                // Validate signature
-                if (!hasSignature) {
+                // Validate digital signature
+                var sigName = document.getElementById('signatureName').value.trim();
+                if (!sigName) {
                     statusEl.className = 'status-msg error';
-                    statusEl.textContent = 'Please provide your signature before submitting.';
+                    statusEl.textContent = 'Please type your full legal name to sign the application.';
                     statusEl.style.display = 'block';
                     btn.disabled = false;
                     btn.textContent = 'Submit Application';
-                    document.getElementById('signatureCanvas').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    document.getElementById('signatureName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+                if (!document.getElementById('signatureConsent').checked) {
+                    statusEl.className = 'status-msg error';
+                    statusEl.textContent = 'Please check the electronic signature consent box.';
+                    statusEl.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Submit Application';
+                    document.getElementById('signatureConsent').scrollIntoView({ behavior: 'smooth', block: 'center' });
                     return;
                 }
 
@@ -563,11 +587,15 @@
                         storage_path: chequePath || null,
                         original_filename: chequeFileData ? chequeFileData.name : null
                     },
-                    signature: {
-                        name: document.getElementById('signatureName').value.trim(),
+                    digital_signature: {
+                        signed_by: document.getElementById('signatureName').value.trim(),
                         title: document.getElementById('signatureTitle').value.trim(),
-                        date: document.getElementById('signatureDate').value,
-                        image_data: getSignatureDataURL()
+                        signed_at: new Date().toISOString(),
+                        display_date: document.getElementById('signatureDate').value,
+                        ip_address: signerIP || 'Not captured',
+                        user_agent: navigator.userAgent || 'Unknown',
+                        consent_given: true,
+                        method: 'typed_electronic_signature'
                     }
                 };
 
@@ -626,74 +654,47 @@
         }
 
         // ============================================
-        // Signature Canvas
+        // Digital Signature
         // ============================================
-        var canvas, ctx, isDrawing = false, hasSignature = false;
+        var signerIP = null;
 
         function initSignature() {
-            canvas = document.getElementById('signatureCanvas');
-            if (!canvas) return;
-            ctx = canvas.getContext('2d');
+            // Set date/time - updates every second
+            function updateDateTime() {
+                document.getElementById('signatureDate').value = new Date().toLocaleString('en-US', {
+                    year: 'numeric', month: 'long', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+                });
+            }
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
 
-            // Set date
-            document.getElementById('signatureDate').value = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
-            // High DPI support
-            var rect = canvas.getBoundingClientRect();
-            var dpr = window.devicePixelRatio || 1;
-            canvas.width = rect.width * dpr;
-            canvas.height = 150 * dpr;
-            ctx.scale(dpr, dpr);
-            canvas.style.height = '150px';
-
-            ctx.strokeStyle = '#0F172A';
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-
-            // Mouse events
-            canvas.addEventListener('mousedown', function(e) { startDraw(e); });
-            canvas.addEventListener('mousemove', function(e) { draw(e); });
-            canvas.addEventListener('mouseup', function() { stopDraw(); });
-            canvas.addEventListener('mouseleave', function() { stopDraw(); });
-
-            // Touch events
-            canvas.addEventListener('touchstart', function(e) { e.preventDefault(); startDraw(e.touches[0]); });
-            canvas.addEventListener('touchmove', function(e) { e.preventDefault(); draw(e.touches[0]); });
-            canvas.addEventListener('touchend', function(e) { e.preventDefault(); stopDraw(); });
+            // Detect IP address
+            try {
+                fetch('https://api.ipify.org?format=json')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        signerIP = data.ip;
+                        document.getElementById('signatureIP').value = data.ip;
+                    })
+                    .catch(function() {
+                        document.getElementById('signatureIP').value = 'Could not detect';
+                    });
+            } catch(e) {
+                document.getElementById('signatureIP').value = 'Could not detect';
+            }
         }
 
-        function getPos(e) {
-            var rect = canvas.getBoundingClientRect();
-            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        }
-
-        function startDraw(e) {
-            isDrawing = true;
-            var pos = getPos(e);
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y);
-        }
-
-        function draw(e) {
-            if (!isDrawing) return;
-            hasSignature = true;
-            var pos = getPos(e);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-        }
-
-        function stopDraw() { isDrawing = false; }
-
-        function clearSignature() {
-            var dpr = window.devicePixelRatio || 1;
-            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-            hasSignature = false;
-        }
-
-        function getSignatureDataURL() {
-            if (!hasSignature) return null;
-            return canvas.toDataURL('image/png');
+        function updateDigitalSig(name) {
+            var sigText = document.getElementById('digitalSigText');
+            if (name.trim()) {
+                sigText.textContent = name;
+                sigText.style.opacity = '1';
+                sigText.style.fontSize = '2rem';
+            } else {
+                sigText.textContent = 'Type your name above';
+                sigText.style.opacity = '0.3';
+            }
         }
 
         // ============================================
@@ -750,7 +751,6 @@
                     }
                 });
             }
-            initSignature();
         });
 
         async function uploadCheque() {
