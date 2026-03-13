@@ -3303,6 +3303,56 @@
     </div>
 </div>
 
+<!-- Forward Vendor App to Lender Modal -->
+<div id="forwardToLenderModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2>Forward Vendor Application to Lender</h2>
+            <button class="modal-close" onclick="document.getElementById('forwardToLenderModal').classList.remove('active')">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <input type="hidden" id="forwardVendorId">
+            <div style="margin-bottom: 16px;">
+                <label style="font-weight: 600; color: var(--navy); font-size: 14px; display: block; margin-bottom: 6px;">Select Approved Lender(s)</label>
+                <div id="forwardLenderCheckboxes" style="max-height: 150px; overflow-y: auto; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px;"></div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="font-weight: 600; color: var(--navy); font-size: 14px; display: block; margin-bottom: 6px;">Or Enter Email Address(es)</label>
+                <input type="text" id="forwardCustomEmails" placeholder="email@lender.com, email2@lender.com" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
+                <div style="font-size: 12px; color: #64748B; margin-top: 4px;">Separate multiple emails with commas</div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="font-weight: 600; color: var(--navy); font-size: 14px; display: block; margin-bottom: 6px;">Subject</label>
+                <input type="text" id="forwardEmailSubject" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="font-weight: 600; color: var(--navy); font-size: 14px; display: block; margin-bottom: 6px;">Message (optional)</label>
+                <textarea id="forwardEmailMessage" rows="3" placeholder="Add a personal note to the lender..." style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="font-weight: 600; color: var(--navy); font-size: 14px; display: block; margin-bottom: 8px;">Attachments</label>
+                <div id="forwardAttachmentsList" style="border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0;">
+                        <input type="checkbox" id="attachVendorAppPDF" checked>
+                        <label for="attachVendorAppPDF" style="font-size: 13px; cursor: pointer;">Vendor Application (PDF with signature)</label>
+                    </div>
+                    <div id="forwardVoidChequeOption" style="display: none; padding: 6px 0;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="attachVoidCheque" checked>
+                            <label for="attachVoidCheque" style="font-size: 13px; cursor: pointer;">Void Cheque</label>
+                        </div>
+                    </div>
+                    <div id="forwardMaterialsOptions"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 15px 20px; border-top: 1px solid #e2e8f0;">
+            <button class="btn btn-secondary" onclick="document.getElementById('forwardToLenderModal').classList.remove('active')" style="padding: 8px 20px;">Cancel</button>
+            <button class="btn btn-gold" id="forwardSendBtn" onclick="sendForwardToLender()" style="padding: 8px 24px; font-weight: 600;">Send to Lender</button>
+        </div>
+    </div>
+</div>
+
 <!-- Lender Detail Modal -->
 <div id="lenderDetailModal" class="modal">
     <div class="modal-content">
@@ -16677,8 +16727,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
                     return '<div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">' +
                         '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">' +
-                        '<label style="font-size: 15px; font-weight: 600; color: var(--navy);">Completed Vendor Application</label>' +
-                        '<span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#DCFCE7;color:#166534;font-weight:600;">Received ' + (vendor.application_completed_at ? new Date(vendor.application_completed_at).toLocaleDateString() : '') + '</span>' +
+                        '<div style="display:flex;align-items:center;gap:10px;"><label style="font-size: 15px; font-weight: 600; color: var(--navy);">Completed Vendor Application</label>' +
+                        '<span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#DCFCE7;color:#166534;font-weight:600;">Received ' + (vendor.application_completed_at ? new Date(vendor.application_completed_at).toLocaleDateString() : '') + '</span></div>' +
+                        '<div style="display:flex;gap:8px;">' +
+                        '<button class="btn btn-sm" onclick="downloadVendorAppPDF(\'' + vendorId + '\')" style="background:var(--navy);color:white;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:600;">Download PDF</button>' +
+                        '<button class="btn btn-sm" onclick="openForwardToLenderModal(\'' + vendorId + '\')" style="background:var(--gold);color:white;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:600;">Forward to Lender</button>' +
+                        '</div>' +
                         '</div>' +
                         '<div style="background: #FAFBFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px;">' +
                         '<div style="font-weight:600;color:var(--navy);font-size:14px;margin-bottom:8px;border-bottom:2px solid var(--gold);padding-bottom:6px;">Company Information</div>' +
@@ -16694,6 +16748,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         '<div style="font-weight:600;color:var(--navy);font-size:14px;margin:16px 0 8px;border-bottom:2px solid var(--gold);padding-bottom:6px;">Primary Contact</div>' +
                         fieldRow('Name', pc.name) +
                         fieldRow('Title', pc.title) +
+                        fieldRow('Role', pc.role) +
                         fieldRow('Email', pc.email) +
                         fieldRow('Phone', pc.phone) +
 
@@ -17180,6 +17235,329 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             console.error('Cheque view error:', err);
             alert('Error loading void cheque: ' + err.message);
         }
+    }
+
+    // --- Vendor Application PDF & Forward to Lender ---
+
+    async function getVendorAppData(vendorId) {
+        const { data: vendor } = await db.from('vendors').select('*').eq('id', vendorId).single();
+        if (!vendor || !vendor.vendor_application) return null;
+        let appData = typeof vendor.vendor_application === 'string' ? JSON.parse(vendor.vendor_application) : vendor.vendor_application;
+        return { vendor, appData };
+    }
+
+    function buildVendorAppHTML(vendor, appData) {
+        const co = appData.company || {};
+        const pc = appData.primary_contact || {};
+        const eq = appData.equipment || {};
+        const bank = appData.bank_reference || {};
+        const sig = appData.digital_signature || {};
+        const refs = appData.trade_references || [];
+
+        const row = (label, val) => val ? `<tr><td style="font-weight:600;color:#0D1E3D;padding:6px 12px;border-bottom:1px solid #EEF2F6;width:200px;font-size:13px;">${label}</td><td style="padding:6px 12px;border-bottom:1px solid #EEF2F6;font-size:13px;color:#333;">${val}</td></tr>` : '';
+        const sectionHead = (title) => `<tr><td colspan="2" style="padding:14px 12px 6px;font-size:15px;font-weight:700;color:#0D1E3D;border-bottom:2px solid #C9A84C;">${title}</td></tr>`;
+
+        let html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:700px;margin:0 auto;padding:20px;">
+            <div style="text-align:center;margin-bottom:24px;border-bottom:3px solid #C9A84C;padding-bottom:16px;">
+                <h1 style="color:#0D1E3D;font-size:22px;margin:0 0 4px;">Alliance Financing</h1>
+                <h2 style="color:#64748B;font-size:16px;font-weight:400;margin:0;">Vendor Program Application</h2>
+                <p style="color:#94A3B8;font-size:12px;margin-top:8px;">Submitted: ${vendor.application_completed_at ? new Date(vendor.application_completed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
+            </div>
+            <table style="width:100%;border-collapse:collapse;">
+            ${sectionHead('Company Information')}
+            ${row('Legal Business Name', co.legal_name)}
+            ${row('Operating / DBA Name', co.dba)}
+            ${row('Address', co.address)}
+            ${row('City / Province / Postal', co.city_state_zip)}
+            ${row('Phone', co.phone)}
+            ${row('Website', co.website)}
+            ${row('Years in Business', co.years_in_business)}
+            ${row('Number of Employees', co.num_employees)}
+            ${sectionHead('Primary Contact')}
+            ${row('Name', pc.name)}
+            ${row('Title', pc.title)}
+            ${row('Role', pc.role)}
+            ${row('Email', pc.email)}
+            ${row('Phone', pc.phone)}
+            ${sectionHead('Equipment / Products')}
+            ${row('Description', eq.description)}
+            ${row('Avg Transaction Size', eq.avg_transaction_size)}
+            ${row('Monthly Sales Volume', eq.monthly_sales_volume)}
+            ${row('Customer Type', eq.customer_type)}
+            ${row('Countries of Operation', eq.countries)}
+            ${bank.bank_name ? sectionHead('Bank Reference') + row('Bank', bank.bank_name) + row('Contact', bank.contact_name) + row('Phone', bank.phone) + row('Account Type', bank.account_type) : ''}
+            </table>`;
+
+        if (refs.length > 0) {
+            html += `<div style="margin-top:16px;"><h3 style="font-size:15px;font-weight:700;color:#0D1E3D;border-bottom:2px solid #C9A84C;padding-bottom:6px;">Trade References</h3>`;
+            refs.forEach((r, i) => {
+                html += `<div style="background:#F8FAFC;padding:8px 12px;border-radius:4px;margin:6px 0;font-size:13px;"><strong>Ref ${i+1}:</strong> ${r.company || 'N/A'}${r.contact ? ' | Contact: ' + r.contact : ''}${r.phone ? ' | Phone: ' + r.phone : ''}${r.email ? ' | Email: ' + r.email : ''}</div>`;
+            });
+            html += `</div>`;
+        }
+
+        if (appData.additional_notes) {
+            html += `<div style="margin-top:16px;"><h3 style="font-size:15px;font-weight:700;color:#0D1E3D;border-bottom:2px solid #C9A84C;padding-bottom:6px;">Additional Notes</h3><p style="font-size:13px;color:#333;padding:8px 0;">${appData.additional_notes}</p></div>`;
+        }
+
+        if (sig.signed_by) {
+            html += `<div style="margin-top:20px;padding:16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;">
+                <div style="font-size:14px;font-weight:600;color:#166534;margin-bottom:6px;">Digital Signature</div>
+                <div style="font-family:cursive;font-size:22px;color:#166534;margin-bottom:4px;">${sig.signed_by}</div>
+                ${sig.title ? '<div style="font-size:12px;color:#64748B;">Title: ' + sig.title + '</div>' : ''}
+                <div style="font-size:12px;color:#64748B;">Signed: ${sig.display_date || sig.signed_at || 'N/A'}</div>
+                ${sig.ip_address ? '<div style="font-size:12px;color:#64748B;">IP: ' + sig.ip_address + '</div>' : ''}
+                <div style="font-size:12px;color:#64748B;">Consent: ${sig.consent_given ? 'Yes' : 'No'} | Method: ${sig.method || 'Electronic'}</div>
+            </div>`;
+        }
+
+        html += `<div style="text-align:center;margin-top:24px;padding-top:16px;border-top:2px solid #E2E8F0;font-size:11px;color:#94A3B8;">Alliance Financing &bull; Confidential &bull; Generated ${new Date().toLocaleDateString()}</div></div>`;
+        return html;
+    }
+
+    async function downloadVendorAppPDF(vendorId) {
+        try {
+            const result = await getVendorAppData(vendorId);
+            if (!result) { alert('No application data found.'); return; }
+            const { vendor, appData } = result;
+            const html = buildVendorAppHTML(vendor, appData);
+
+            const container = document.createElement('div');
+            container.innerHTML = html;
+            document.body.appendChild(container);
+
+            const opt = {
+                margin: [10, 10, 10, 10],
+                filename: (vendor.name || 'vendor').replace(/[^a-zA-Z0-9]/g, '_') + '_application.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
+            };
+
+            await html2pdf().set(opt).from(container).save();
+            document.body.removeChild(container);
+        } catch(err) {
+            console.error('PDF generation error:', err);
+            alert('Error generating PDF: ' + err.message);
+        }
+    }
+
+    async function openForwardToLenderModal(vendorId) {
+        document.getElementById('forwardVendorId').value = vendorId;
+        document.getElementById('forwardCustomEmails').value = '';
+        document.getElementById('forwardEmailMessage').value = '';
+
+        // Load vendor name for subject
+        try {
+            const { data: v } = await db.from('vendors').select('name, vendor_application').eq('id', vendorId).single();
+            document.getElementById('forwardEmailSubject').value = 'Vendor Application - ' + (v.name || 'Vendor') + ' - Alliance Financing';
+
+            // Check if void cheque exists
+            let appData = v.vendor_application;
+            if (typeof appData === 'string') appData = JSON.parse(appData);
+            const vc = (appData || {}).void_cheque || {};
+            const chequeOpt = document.getElementById('forwardVoidChequeOption');
+            if (vc.uploaded && vc.storage_path) {
+                chequeOpt.style.display = 'block';
+                chequeOpt.dataset.path = vc.storage_path;
+            } else {
+                chequeOpt.style.display = 'none';
+            }
+
+            // Load approved lenders for checkboxes
+            const checkboxDiv = document.getElementById('forwardLenderCheckboxes');
+            try {
+                const { data: approvedIds } = await db.from('vendor_approved_lenders').select('lender_id').eq('vendor_id', vendorId);
+                if (approvedIds && approvedIds.length > 0) {
+                    const lenderIds = approvedIds.map(a => a.lender_id);
+                    const { data: lenders } = await db.from('lenders').select('id, name, email').in('id', lenderIds);
+                    if (lenders && lenders.length > 0) {
+                        checkboxDiv.innerHTML = lenders.map(l => `
+                            <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+                                <input type="checkbox" class="forwardLenderCheck" value="${l.email || ''}" data-name="${(l.name || '').replace(/"/g, '&quot;')}" id="fwdLender_${l.id}">
+                                <label for="fwdLender_${l.id}" style="font-size:13px;cursor:pointer;">${l.name || 'Unknown'}${l.email ? ' (' + l.email + ')' : ' (no email)'}</label>
+                            </div>
+                        `).join('');
+                    } else {
+                        checkboxDiv.innerHTML = '<p style="font-size:13px;color:#94A3B8;">No approved lenders found.</p>';
+                    }
+                } else {
+                    checkboxDiv.innerHTML = '<p style="font-size:13px;color:#94A3B8;">No approved lenders for this vendor yet.</p>';
+                }
+            } catch(e) {
+                checkboxDiv.innerHTML = '<p style="font-size:13px;color:#94A3B8;">Could not load lenders.</p>';
+            }
+
+            // Load marketing materials
+            const materialsDiv = document.getElementById('forwardMaterialsOptions');
+            try {
+                const { data: files } = await db.storage.from('deal-documents').list('vendor-materials/' + vendorId);
+                if (files && files.length > 0) {
+                    materialsDiv.innerHTML = files.map(f => `
+                        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;">
+                            <input type="checkbox" class="forwardMaterialCheck" value="vendor-materials/${vendorId}/${f.name}" data-filename="${f.name}">
+                            <label style="font-size:13px;cursor:pointer;">${f.name}</label>
+                        </div>
+                    `).join('');
+                } else {
+                    materialsDiv.innerHTML = '';
+                }
+            } catch(e) {
+                materialsDiv.innerHTML = '';
+            }
+
+        } catch(err) {
+            console.error('Error opening forward modal:', err);
+        }
+
+        document.getElementById('forwardToLenderModal').classList.add('active');
+    }
+
+    async function sendForwardToLender() {
+        const vendorId = document.getElementById('forwardVendorId').value;
+        const subject = document.getElementById('forwardEmailSubject').value.trim();
+        const message = document.getElementById('forwardEmailMessage').value.trim();
+        const sendBtn = document.getElementById('forwardSendBtn');
+
+        // Collect recipient emails
+        let emails = [];
+        document.querySelectorAll('.forwardLenderCheck:checked').forEach(cb => {
+            if (cb.value) emails.push(cb.value);
+        });
+        const customEmails = document.getElementById('forwardCustomEmails').value.trim();
+        if (customEmails) {
+            customEmails.split(',').forEach(e => {
+                const em = e.trim();
+                if (em && em.includes('@')) emails.push(em);
+            });
+        }
+        emails = [...new Set(emails)]; // dedupe
+
+        if (emails.length === 0) {
+            alert('Please select at least one lender or enter an email address.');
+            return;
+        }
+        if (!subject) {
+            alert('Please enter a subject line.');
+            return;
+        }
+
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+
+        try {
+            const result = await getVendorAppData(vendorId);
+            if (!result) throw new Error('No application data found');
+            const { vendor, appData } = result;
+
+            // Build the HTML email body with application summary
+            const appHTML = buildVendorAppHTML(vendor, appData);
+            let emailBody = '';
+            if (message) {
+                emailBody += '<div style="font-family:Arial,sans-serif;padding:16px 0;font-size:14px;color:#333;">' + message.replace(/\n/g, '<br>') + '</div><hr style="border:none;border-top:1px solid #E2E8F0;margin:16px 0;">';
+            }
+            emailBody += appHTML;
+
+            // Generate PDF blob
+            let pdfBlob = null;
+            if (document.getElementById('attachVendorAppPDF').checked) {
+                const container = document.createElement('div');
+                container.innerHTML = appHTML;
+                document.body.appendChild(container);
+                pdfBlob = await html2pdf().set({
+                    margin: [10, 10, 10, 10],
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true },
+                    jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
+                }).from(container).outputPdf('blob');
+                document.body.removeChild(container);
+            }
+
+            // Collect attachment storage paths for void cheque and materials
+            let attachmentPaths = [];
+            const chequeOpt = document.getElementById('forwardVoidChequeOption');
+            if (chequeOpt.style.display !== 'none' && document.getElementById('attachVoidCheque').checked && chequeOpt.dataset.path) {
+                attachmentPaths.push({ path: chequeOpt.dataset.path, name: 'void_cheque' });
+            }
+            document.querySelectorAll('.forwardMaterialCheck:checked').forEach(cb => {
+                attachmentPaths.push({ path: cb.value, name: cb.dataset.filename });
+            });
+
+            // Get signed URLs for storage attachments
+            let attachmentInfo = [];
+            for (const att of attachmentPaths) {
+                try {
+                    const { data } = await db.storage.from('deal-documents').createSignedUrl(att.path, 86400);
+                    if (data && data.signedUrl) {
+                        attachmentInfo.push({ name: att.name, url: data.signedUrl });
+                    }
+                } catch(e) { console.warn('Could not get URL for', att.path); }
+            }
+
+            // Add attachment links to email body
+            if (attachmentInfo.length > 0 || pdfBlob) {
+                emailBody += '<div style="margin-top:20px;padding:16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;">';
+                emailBody += '<div style="font-weight:600;color:#0D1E3D;font-size:14px;margin-bottom:8px;">Attachments</div>';
+                if (pdfBlob) {
+                    emailBody += '<div style="font-size:13px;padding:4px 0;">📄 Vendor Application PDF (attached)</div>';
+                }
+                attachmentInfo.forEach(att => {
+                    emailBody += '<div style="font-size:13px;padding:4px 0;"><a href="' + att.url + '" style="color:#2563EB;">' + att.name + '</a> (link valid 24 hours)</div>';
+                });
+                emailBody += '</div>';
+            }
+
+            // Send via Supabase edge function or Resend
+            const { data: sendResult, error: sendError } = await db.functions.invoke('send-email', {
+                body: {
+                    to: emails,
+                    subject: subject,
+                    html: emailBody,
+                    from_name: 'Alliance Financing',
+                    attachments: pdfBlob ? [{
+                        filename: (vendor.name || 'vendor').replace(/[^a-zA-Z0-9]/g, '_') + '_application.pdf',
+                        content: await blobToBase64(pdfBlob),
+                        type: 'application/pdf'
+                    }] : []
+                }
+            });
+
+            if (sendError) throw sendError;
+
+            // Log the send in admin notes
+            try {
+                let notes = [];
+                try { notes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { notes = []; }
+                notes.unshift({
+                    text: 'Vendor application forwarded to: ' + emails.join(', '),
+                    author: currentUserName || 'Admin',
+                    date: new Date().toLocaleDateString('en-CA') + ' ' + new Date().toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
+                });
+                await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
+            } catch(e) {}
+
+            document.getElementById('forwardToLenderModal').classList.remove('active');
+            alert('Application sent successfully to ' + emails.length + ' recipient(s)!');
+
+            // Refresh vendor detail
+            viewVendor(vendorId);
+
+        } catch(err) {
+            console.error('Forward error:', err);
+            alert('Error sending: ' + err.message);
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send to Lender';
+        }
+    }
+
+    function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
     }
 
     async function updateVendorField(vendorId, field, value) {
@@ -18942,7 +19320,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     // ============================================
 
     window.onclick = function(event) {
-        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'lenderDetailModal', 'agentDetailModal', 'documentUploadModal', 'sendApplicationModal'];
+        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'forwardToLenderModal', 'lenderDetailModal', 'agentDetailModal', 'documentUploadModal', 'sendApplicationModal'];
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (event.target === modal) {

@@ -218,8 +218,8 @@
                             <input type="text" id="contactName" required>
                         </div>
                         <div class="form-group">
-                            <label>Title / Role</label>
-                            <input type="text" id="contactTitle">
+                            <label>Title</label>
+                            <input type="text" id="contactTitle" placeholder="e.g. President, VP Sales">
                         </div>
                     </div>
                     <div class="form-row">
@@ -231,6 +231,22 @@
                             <label>Direct Phone</label>
                             <input type="tel" id="contactPhone">
                         </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Role <span class="required">*</span></label>
+                            <select id="contactRole" required style="width:100%;padding:0.625rem 0.75rem;border:1px solid #CBD5E1;border-radius:0.5rem;font-size:0.875rem;background:white;">
+                                <option value="">Select Role...</option>
+                                <option value="Admin">Admin (Full Dashboard Access)</option>
+                                <option value="Sales">Sales</option>
+                                <option value="Accounting">Accounting</option>
+                                <option value="Shipping">Shipping</option>
+                                <option value="Owner">Owner</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <div style="font-size:0.75rem;color:#64748B;margin-top:4px;">Admin role grants full vendor dashboard access to manage salespeople and deals.</div>
+                        </div>
+                        <div class="form-group"></div>
                     </div>
 
                     <div class="section-title" style="margin-top: 1.5rem;">3. Equipment / Products</div>
@@ -468,7 +484,9 @@
                         if (c.contact_name) document.getElementById('contactName').value = c.contact_name;
                         if (c.email) document.getElementById('contactEmail').value = c.email;
                         if (c.phone) document.getElementById('contactPhone').value = c.phone;
-                        if (c.role_title) document.getElementById('contactTitle').value = c.role_title;
+                        if (c.role_title) {
+                            document.getElementById('contactRole').value = c.role_title;
+                        }
                     }
                 } catch(e) {}
 
@@ -560,6 +578,7 @@
                     primary_contact: {
                         name: document.getElementById('contactName').value.trim(),
                         title: document.getElementById('contactTitle').value.trim(),
+                        role: document.getElementById('contactRole').value,
                         email: document.getElementById('contactEmail').value.trim(),
                         phone: document.getElementById('contactPhone').value.trim()
                     },
@@ -620,7 +639,7 @@
                             contact_name: applicationData.primary_contact.name,
                             email: applicationData.primary_contact.email,
                             phone: applicationData.primary_contact.phone,
-                            role_title: applicationData.primary_contact.title || 'Admin'
+                            role_title: applicationData.primary_contact.role || applicationData.primary_contact.title || 'Admin'
                         }).eq('id', existingContacts[0].id);
                     }
                 } catch(e) {}
