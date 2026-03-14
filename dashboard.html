@@ -1416,6 +1416,22 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Vendor Inquiry Leads -->
+                <div id="vendorLeadsSection" style="margin-top:24px;">
+                    <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                        <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <h3 style="margin:0;font-size:15px;font-weight:700;color:#0D1E3D;">Vendor Inquiry Leads</h3>
+                                <p style="color:#64748b;font-size:12px;margin:4px 0 0;">Vendors who expressed interest via the leasing program one-pager.</p>
+                            </div>
+                            <button onclick="loadVendorInquiryLeads()" style="padding:6px 14px;font-size:12px;background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-weight:600;">↻ Refresh</button>
+                        </div>
+                        <div id="vendorLeadsTable" style="padding:12px 20px;">
+                            <p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">Loading leads...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Contact Submissions Page -->
@@ -5078,13 +5094,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 tableHtml += '<td style="padding:10px 8px;color:#94a3b8;font-size:12px;">' + dateStr + '</td>';
 
                 if (isAdmin) {
-                    tableHtml += '<td style="padding:10px 8px;text-align:center;">';
-                    tableHtml += '<select onchange="updateVendorLeadStatus(\'' + lead.id + '\', this.value)" style="padding:4px 8px;font-size:11px;border:1px solid #d4d9e2;border-radius:4px;background:white;cursor:pointer;">';
+                    tableHtml += '<td style="padding:10px 8px;text-align:center;white-space:nowrap;">';
+                    tableHtml += '<select onchange="updateVendorLeadStatus(\'' + lead.id + '\', this.value)" style="padding:4px 8px;font-size:11px;border:1px solid #d4d9e2;border-radius:4px;background:white;cursor:pointer;margin-bottom:4px;">';
                     var statuses = ['New', 'Contacted', 'In Progress', 'Converted', 'Closed'];
                     for (var s = 0; s < statuses.length; s++) {
                         tableHtml += '<option value="' + statuses[s] + '"' + (lead.status === statuses[s] ? ' selected' : '') + '>' + statuses[s] + '</option>';
                     }
                     tableHtml += '</select>';
+                    if (lead.status !== 'Converted') {
+                        tableHtml += '<br><button onclick="promoteToVendor(\'' + lead.id + '\')" style="padding:3px 8px;font-size:10px;background:#10B981;color:white;border:none;border-radius:3px;cursor:pointer;font-weight:600;margin-top:2px;" title="Create vendor record and send application form">→ Set Up Vendor</button>';
+                    }
                     tableHtml += '</td>';
                 }
                 tableHtml += '</tr>';
@@ -5115,6 +5134,137 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         } catch(err) {
             console.error('Update lead status error:', err);
             showToast('Failed to update lead status', 'error');
+        }
+    }
+
+    // ============================================
+    // PROMOTE VENDOR INQUIRY → VENDOR RECORD
+    // ============================================
+
+    async function promoteToVendor(leadId) {
+        if (!confirm('This will create a new vendor record and mark this inquiry as Converted. The vendor will then need to complete the full application.\n\nProceed?')) return;
+
+        try {
+            // 1. Fetch the inquiry data
+            var { data: lead, error: fetchErr } = await db.from('vendor_inquiries')
+                .select('*')
+                .eq('id', leadId)
+                .single();
+
+            if (fetchErr || !lead) throw fetchErr || new Error('Inquiry not found');
+
+            if (lead.status === 'Converted') {
+                showToast('This inquiry has already been converted to a vendor.', 'warning');
+                return;
+            }
+
+            // 2. Look up source agent ID from referral slug (if any)
+            var sourceAgentId = null;
+            if (lead.referral_slug) {
+                var { data: agent } = await db.from('users')
+                    .select('id')
+                    .eq('referral_slug', lead.referral_slug)
+                    .single();
+                if (agent) sourceAgentId = agent.id;
+            }
+
+            // 3. Generate a vendor code (VND-XXXX)
+            var vendorCode = 'VND-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+
+            // 4. Create the vendor record
+            var vendorData = {
+                name: lead.company_name,
+                product_description: lead.equipment_type || '',
+                projected_volume: lead.avg_deal_size || '',
+                source_agent_id: sourceAgentId,
+                status: 'Application Sent',
+                vendor_code: vendorCode,
+                admin_notes: JSON.stringify([{
+                    date: new Date().toISOString(),
+                    author: currentUserName || 'System',
+                    note: 'Created from vendor inquiry. Contact: ' + (lead.contact_name || '') + ' (' + (lead.contact_email || '') + ', ' + (lead.contact_phone || '') + '). Message: ' + (lead.message || 'N/A')
+                }]),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            var { data: newVendor, error: insertErr } = await db.from('vendors')
+                .insert(vendorData)
+                .select('id')
+                .single();
+
+            if (insertErr) throw insertErr;
+
+            // 5. Update the inquiry status to Converted
+            await db.from('vendor_inquiries').update({
+                status: 'Converted',
+                assigned_to: currentUserName || null,
+                updated_at: new Date().toISOString()
+            }).eq('id', leadId);
+
+            // 6. Ask if admin wants to send the vendor application now
+            showToast('Vendor record created! Code: ' + vendorCode, 'success');
+
+            var sendApp = confirm('Vendor record created successfully (' + vendorCode + ').\n\nWould you like to send the vendor application form to ' + (lead.contact_email || 'the vendor') + ' now?');
+
+            if (sendApp && lead.contact_email) {
+                await sendVendorApplicationEmail(newVendor.id, lead.contact_name, lead.contact_email, lead.company_name, vendorCode);
+            }
+
+            // 7. Refresh the leads table and vendors table
+            loadVendorInquiryLeads();
+            loadVendors();
+
+        } catch(err) {
+            console.error('Promote to vendor error:', err);
+            showToast('Failed to create vendor record: ' + (err.message || err), 'error');
+        }
+    }
+
+    // Send vendor application form link via email
+    async function sendVendorApplicationEmail(vendorId, contactName, contactEmail, companyName, vendorCode) {
+        try {
+            var appLink = 'https://alliancefinancing.ai/vendor-application.html?id=' + vendorId;
+            var subject = 'Alliance Financing — Vendor Application for ' + companyName;
+
+            var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">';
+            htmlBody += '<div style="background:#0D1E3D;padding:24px;text-align:center;">';
+            htmlBody += '<h1 style="color:#C9A84C;font-size:20px;margin:0;">Alliance Financing Group</h1>';
+            htmlBody += '<p style="color:#8A9BB0;font-size:13px;margin:8px 0 0;">Vendor Equipment Leasing Program</p>';
+            htmlBody += '</div>';
+            htmlBody += '<div style="padding:30px 24px;">';
+            htmlBody += '<p>Hi ' + (contactName || 'there') + ',</p>';
+            htmlBody += '<p>Thank you for your interest in partnering with Alliance Financing Group! We\'re excited to explore how our vendor leasing program can help grow your business.</p>';
+            htmlBody += '<p>To get started, please complete your vendor application using the secure link below:</p>';
+            htmlBody += '<div style="text-align:center;margin:28px 0;">';
+            htmlBody += '<a href="' + appLink + '" style="display:inline-block;padding:14px 36px;background:#C9A84C;color:#0D1E3D;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">Complete Vendor Application →</a>';
+            htmlBody += '</div>';
+            htmlBody += '<p style="font-size:14px;color:#666;">Your vendor code is <strong>' + vendorCode + '</strong>. The application covers your company details, equipment information, and references. It typically takes 10–15 minutes to complete.</p>';
+            htmlBody += '<p style="font-size:14px;color:#666;">Once submitted, our team will review your application and follow up within 1–2 business days.</p>';
+            htmlBody += '<p style="margin-top:24px;">Best regards,<br><strong>' + (currentUserName || 'Alliance Financing Team') + '</strong></p>';
+            htmlBody += '</div>';
+            htmlBody += '<div style="background:#f5f7fa;padding:16px 24px;font-size:12px;color:#8A9BB0;text-align:center;border-top:1px solid #e2e8f0;">';
+            htmlBody += 'Alliance Financing Group Ltd. | 1-877-660-3660 | <a href="https://alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a>';
+            htmlBody += '</div>';
+            htmlBody += '</body></html>';
+
+            await sendEmailViaResend(contactEmail, subject, htmlBody);
+
+            // Track in applications_sent
+            await db.from('applications_sent').insert({
+                recipient_email: contactEmail,
+                recipient_name: contactName || companyName,
+                application_type: 'Vendor Application',
+                sent_by: currentUserId || null,
+                sent_by_name: currentUserName || 'System',
+                created_at: new Date().toISOString()
+            });
+
+            showToast('Vendor application sent to ' + contactEmail, 'success');
+
+        } catch(err) {
+            console.error('Send vendor application email error:', err);
+            showToast('Vendor created but email failed to send. You can manually share the application link.', 'warning');
         }
     }
 
@@ -9688,17 +9838,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         html += '</div></button>';
         html += '</div></div></div>';
 
-        // Vendor Inquiry Leads section
-        html += '<div style="margin-bottom:24px;">';
-        html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Vendor Inquiry Leads</h3>';
-        html += '<div id="vendorLeadsContainer" style="background:white;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">';
-        html += '<div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">';
-        html += '<p style="color:#64748b;font-size:13px;margin:0;">Vendors who expressed interest via the leasing program one-pager.</p>';
-        html += '<button onclick="loadVendorInquiryLeads()" class="btn" style="padding:6px 12px;font-size:12px;background:#e2e8f0;color:#334155;border:none;border-radius:4px;cursor:pointer;">↻ Refresh</button>';
-        html += '</div>';
-        html += '<div id="vendorLeadsTable" style="padding:12px 20px;"><p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">Loading leads...</p></div>';
-        html += '</div></div>';
-
         // Quick reference section
         html += '<div style="margin-bottom:24px;">';
         html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Quick Reference</h3>';
@@ -9799,9 +9938,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
         guideCount.textContent = 1 + filteredResources.length;
         container.innerHTML = html;
-
-        // Load vendor inquiry leads after HTML is rendered
-        loadVendorInquiryLeads();
     }
 
     async function downloadPartnerGuide(filename) {
@@ -10389,6 +10525,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 break;
             case 'vendors':
                 await loadVendors();
+                loadVendorInquiryLeads();
                 break;
             case 'contacts':
                 await loadContacts();
