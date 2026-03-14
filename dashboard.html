@@ -1604,6 +1604,22 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Vendor Inquiry Leads (Agent View) -->
+                <div id="vendorLeadsSectionAgent" style="margin-top:24px;">
+                    <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                        <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <h3 style="margin:0;font-size:15px;font-weight:700;color:#0D1E3D;">Vendor Inquiry Leads</h3>
+                                <p style="color:#64748b;font-size:12px;margin:4px 0 0;">Vendors who expressed interest via your leasing program one-pager.</p>
+                            </div>
+                            <button onclick="loadVendorInquiryLeads()" style="padding:6px 14px;font-size:12px;background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-weight:600;">↻ Refresh</button>
+                        </div>
+                        <div id="vendorLeadsTableAgent" style="padding:12px 20px;">
+                            <p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">Loading leads...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Referral Partners Page (agents only) -->
@@ -5042,22 +5058,49 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     // ============================================
 
     async function loadVendorInquiryLeads() {
-        var container = document.getElementById('vendorLeadsTable');
+        var container = document.getElementById('vendorLeadsTable') || document.getElementById('vendorLeadsTableAgent');
         if (!container) return;
 
         try {
             var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+            var isISO = (currentAgentType === 'super_agent');
+            var canManage = isAdmin || isISO;
             var mySlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : null;
 
-            var query = db.from('vendor_inquiries').select('*').order('created_at', { ascending: false }).limit(50);
+            var leads = [];
 
-            // Agents only see leads they referred; admins/ISOs see all
-            if (!isAdmin && mySlug) {
-                query = query.eq('referral_slug', mySlug);
+            if (isAdmin) {
+                // Admin sees ALL leads
+                var { data, error } = await db.from('vendor_inquiries').select('*').order('created_at', { ascending: false }).limit(50);
+                if (error) throw error;
+                leads = data || [];
+            } else if (isISO) {
+                // ISO sees their own leads + their referral agents' leads
+                // First get own leads
+                var slugsToQuery = [];
+                if (mySlug) slugsToQuery.push(mySlug);
+
+                // Get referral agents under this ISO
+                var { data: subAgents } = await db.from('users').select('referral_slug').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                if (subAgents) {
+                    for (var i = 0; i < subAgents.length; i++) {
+                        if (subAgents[i].referral_slug) slugsToQuery.push(subAgents[i].referral_slug);
+                    }
+                }
+
+                if (slugsToQuery.length > 0) {
+                    var { data, error } = await db.from('vendor_inquiries').select('*').in('referral_slug', slugsToQuery).order('created_at', { ascending: false }).limit(50);
+                    if (error) throw error;
+                    leads = data || [];
+                }
+            } else {
+                // Referral agent sees only their own leads
+                if (mySlug) {
+                    var { data, error } = await db.from('vendor_inquiries').select('*').eq('referral_slug', mySlug).order('created_at', { ascending: false }).limit(50);
+                    if (error) throw error;
+                    leads = data || [];
+                }
             }
-
-            var { data: leads, error } = await query;
-            if (error) throw error;
 
             if (!leads || leads.length === 0) {
                 container.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No vendor inquiries yet. Send the leasing one-pager to potential vendors to generate leads.</p>';
@@ -5070,10 +5113,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Company</th>';
             tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Contact</th>';
             tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Equipment</th>';
-            if (isAdmin) tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Referred By</th>';
+            if (canManage) tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Referred By</th>';
             tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Status</th>';
             tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Date</th>';
-            if (isAdmin) tableHtml += '<th style="text-align:center;padding:10px 8px;font-weight:600;color:#334155;">Actions</th>';
+            if (canManage) tableHtml += '<th style="text-align:center;padding:10px 8px;font-weight:600;color:#334155;">Actions</th>';
             tableHtml += '</tr></thead><tbody>';
 
             for (var i = 0; i < leads.length; i++) {
@@ -5089,11 +5132,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 if (lead.contact_phone) tableHtml += '<div style="font-size:11px;color:#64748b;">' + lead.contact_phone + '</div>';
                 tableHtml += '</td>';
                 tableHtml += '<td style="padding:10px 8px;color:#475569;">' + (lead.equipment_type || '') + '<br><span style="font-size:11px;color:#94a3b8;">' + (lead.avg_deal_size || '') + '</span></td>';
-                if (isAdmin) tableHtml += '<td style="padding:10px 8px;color:#475569;">' + (lead.referred_by || 'Direct') + '</td>';
+                if (canManage) tableHtml += '<td style="padding:10px 8px;color:#475569;">' + (lead.referred_by || 'Direct') + '</td>';
                 tableHtml += '<td style="padding:10px 8px;"><span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + statusColor + '20;color:' + statusColor + ';">' + (lead.status || 'New') + '</span></td>';
                 tableHtml += '<td style="padding:10px 8px;color:#94a3b8;font-size:12px;">' + dateStr + '</td>';
 
-                if (isAdmin) {
+                if (canManage) {
                     tableHtml += '<td style="padding:10px 8px;text-align:center;white-space:nowrap;">';
                     tableHtml += '<select onchange="updateVendorLeadStatus(\'' + lead.id + '\', this.value)" style="padding:4px 8px;font-size:11px;border:1px solid #d4d9e2;border-radius:4px;background:white;cursor:pointer;margin-bottom:4px;">';
                     var statuses = ['New', 'Contacted', 'In Progress', 'Converted', 'Closed'];
@@ -10538,6 +10581,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 break;
             case 'vendorPrograms':
                 await loadAgentVendors();
+                loadVendorInquiryLeads();
                 break;
             case 'subAgents':
                 await loadAgentSubAgents();
