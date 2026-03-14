@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partner With Alliance — Vendor Equipment Leasing Program</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --navy: #0D1E3D; --navy-mid: #1A3160; --gold: #C9A84C; --gold-hover: #b8923e;
+            --white: #FFFFFF; --off-wh: #F5F7FA; --gray: #8A9BB0; --dark: #2C3E55;
+            --success: #10B981; --danger: #EF4444;
+        }
+        body {
+            font-family: 'Source Sans 3', -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0D1E3D 0%, #1A3160 50%, #0D1E3D 100%);
+            min-height: 100vh; display: flex; flex-direction: column;
+            align-items: center; padding: 2rem 1rem; color: var(--dark);
+        }
+        .container { width: 100%; max-width: 640px; }
+
+        /* Header */
+        .logo-section { text-align: center; margin-bottom: 1.5rem; }
+        .logo-section img { height: 60px; width: auto; margin-bottom: 0.5rem; filter: brightness(0) invert(1); }
+        .logo-section p { color: var(--gray); font-size: 0.9375rem; font-weight: 600; letter-spacing: 0.5px; }
+
+        /* Hero stats */
+        .stats-bar {
+            display: flex; justify-content: center; gap: 2rem;
+            margin-bottom: 1.5rem; padding: 12px 0;
+        }
+        .stat { text-align: center; }
+        .stat-num { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; color: var(--gold); }
+        .stat-lbl { font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gray); }
+
+        /* Card */
+        .card {
+            background: var(--white); border-radius: 1rem; padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 1.5rem;
+        }
+        .card h2 {
+            font-family: 'Playfair Display', serif; font-size: 1.5rem;
+            font-weight: 700; color: var(--navy); margin-bottom: 0.25rem;
+        }
+        .card .subtitle {
+            color: #5a6a7e; font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.6;
+        }
+
+        /* Form */
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+        .form-row.full { grid-template-columns: 1fr; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label {
+            font-size: 0.8125rem; font-weight: 600; color: var(--navy);
+            margin-bottom: 0.375rem;
+        }
+        .form-group label .req { color: var(--danger); }
+        .form-group input, .form-group select, .form-group textarea {
+            padding: 0.65rem 0.8rem; border: 1px solid #d4d9e2; border-radius: 0.5rem;
+            font-size: 0.875rem; font-family: inherit; color: var(--navy);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,0.15);
+        }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .form-group select { background: white; }
+
+        /* Benefits banner */
+        .benefits-bar {
+            background: linear-gradient(135deg, var(--navy), var(--navy-mid));
+            border-radius: 0.75rem; padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+        }
+        .benefit-item { text-align: center; }
+        .benefit-item .icon { font-size: 1.25rem; margin-bottom: 4px; }
+        .benefit-item .text { font-size: 11px; font-weight: 600; color: var(--gold); line-height: 1.3; }
+
+        /* Submit */
+        .btn-submit {
+            width: 100%; padding: 0.9rem; background: var(--gold); color: var(--navy);
+            border: none; border-radius: 0.5rem; font-size: 1rem; font-weight: 700;
+            cursor: pointer; transition: background 0.2s; font-family: inherit;
+            letter-spacing: 0.3px;
+        }
+        .btn-submit:hover { background: var(--gold-hover); }
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .status-msg {
+            text-align: center; padding: 1rem; border-radius: 0.5rem; font-size: 0.875rem;
+            margin-bottom: 1rem; display: none;
+        }
+        .status-msg.error { display: block; background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
+        .status-msg.success { display: block; background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; }
+
+        .privacy-note {
+            text-align: center; font-size: 0.75rem; color: var(--gray); margin-top: 0.5rem; line-height: 1.5;
+        }
+
+        /* Success screen */
+        .success-screen { text-align: center; padding: 2rem 1rem; }
+        .success-screen .checkmark { font-size: 3.5rem; margin-bottom: 1rem; }
+        .success-screen h2 { font-family: 'Playfair Display', serif; margin-bottom: 0.5rem; }
+        .success-screen p { color: #5a6a7e; font-size: 0.9rem; line-height: 1.6; }
+
+        /* Referred by */
+        .referred-by {
+            background: var(--off-wh); border: 1px solid #e4e9f0; border-radius: 0.5rem;
+            padding: 10px 14px; margin-bottom: 1rem; font-size: 0.8125rem; color: var(--navy);
+        }
+        .referred-by strong { color: var(--gold); }
+
+        .footer { text-align: center; margin-top: 1rem; }
+        .footer p { color: var(--gray); font-size: 0.75rem; }
+        .footer a { color: var(--gold); text-decoration: none; }
+
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+            .card { padding: 1.5rem; }
+            .stats-bar { gap: 1rem; }
+            .benefits-bar { grid-template-columns: 1fr; gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-section">
+            <img src="alliance-logo-transparent.png" alt="Alliance Financing Group">
+            <p>Vendor Equipment Leasing Program</p>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat"><div class="stat-num">70+</div><div class="stat-lbl">Lenders</div></div>
+            <div class="stat"><div class="stat-num">85%+</div><div class="stat-lbl">Approval</div></div>
+            <div class="stat"><div class="stat-num">$10M+</div><div class="stat-lbl">Per Deal</div></div>
+            <div class="stat"><div class="stat-num">24hr</div><div class="stat-lbl">Decisions</div></div>
+        </div>
+
+        <!-- INQUIRY FORM -->
+        <div id="formCard" class="card">
+            <h2>Interested in Partnering?</h2>
+            <p class="subtitle">Tell us a bit about your business and we'll reach out with next steps. No commitment — just a conversation to see if our vendor leasing program is a fit.</p>
+
+            <div id="referredBySection" class="referred-by" style="display:none;">
+                Referred by: <strong id="referredByName"></strong>
+            </div>
+
+            <div id="formStatus" class="status-msg"></div>
+
+            <form id="inquiryForm" onsubmit="submitInquiry(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Company Name <span class="req">*</span></label>
+                        <input type="text" id="companyName" required placeholder="Your company name">
+                    </div>
+                    <div class="form-group">
+                        <label>Your Name <span class="req">*</span></label>
+                        <input type="text" id="contactName" required placeholder="Full name">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email <span class="req">*</span></label>
+                        <input type="email" id="contactEmail" required placeholder="you@company.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone <span class="req">*</span></label>
+                        <input type="tel" id="contactPhone" required placeholder="(555) 123-4567">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Type of Equipment You Sell <span class="req">*</span></label>
+                        <select id="equipmentType" required>
+                            <option value="">Select category...</option>
+                            <option value="Technology & IT">Technology & IT</option>
+                            <option value="Data Centre">Data Centre</option>
+                            <option value="Construction & Heavy Equipment">Construction & Heavy Equipment</option>
+                            <option value="Medical & Dental">Medical & Dental</option>
+                            <option value="Manufacturing & Industrial">Manufacturing & Industrial</option>
+                            <option value="Restaurant & Food Service">Restaurant & Food Service</option>
+                            <option value="EV Fleet / Transportation">EV Fleet / Transportation</option>
+                            <option value="Robotics & Automation">Robotics & Automation</option>
+                            <option value="Software / SaaS">Software / SaaS</option>
+                            <option value="GPU / AI Infrastructure">GPU / AI Infrastructure</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Avg. Transaction Size</label>
+                        <select id="avgDealSize">
+                            <option value="">Select range...</option>
+                            <option value="Under $25K">Under $25,000</option>
+                            <option value="$25K - $100K">$25,000 – $100,000</option>
+                            <option value="$100K - $500K">$100,000 – $500,000</option>
+                            <option value="$500K - $1M">$500,000 – $1M</option>
+                            <option value="Over $1M">Over $1M</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row full">
+                    <div class="form-group">
+                        <label>Anything else you'd like us to know?</label>
+                        <textarea id="message" placeholder="Tell us about your business, your customers, or any questions you have..."></textarea>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submitBtn">Get Started — Request a Call</button>
+                <p class="privacy-note">We'll review your info and have someone reach out within 1 business day. No spam, no obligations.</p>
+            </form>
+        </div>
+
+        <div class="benefits-bar">
+            <div class="benefit-item"><div class="icon">💰</div><div class="text">No Cost<br>to You</div></div>
+            <div class="benefit-item"><div class="icon">⚡</div><div class="text">Same-Day<br>Decisions</div></div>
+            <div class="benefit-item"><div class="icon">🌍</div><div class="text">Canada, US<br>& Europe</div></div>
+        </div>
+
+        <!-- SUCCESS SCREEN -->
+        <div id="successCard" class="card" style="display:none;">
+            <div class="success-screen">
+                <div class="checkmark">🎉</div>
+                <h2>Thanks for Your Interest!</h2>
+                <p>We've received your inquiry and a member of our team will reach out within <strong>1 business day</strong> to discuss how the vendor leasing program can work for your business.</p>
+                <p style="margin-top:1rem; font-size:0.8125rem;">Questions in the meantime? <a href="mailto:info@alliancefinancing.com" style="color:var(--gold);">info@alliancefinancing.com</a> or 1-877-660-3660 ext. 222</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2025 Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai">alliancefinancing.ai</a></p>
+        </div>
+    </div>
+
+    <script>
+        var SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+        var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        var refSlug = null;
+        var referrerName = null;
+
+        // On load: check for ref slug and look up referring agent
+        async function init() {
+            var params = new URLSearchParams(window.location.search);
+            refSlug = params.get('ref') || null;
+
+            if (refSlug && refSlug !== 'alliance-house') {
+                try {
+                    var { data: agent } = await db.from('users').select('full_name').eq('referral_slug', refSlug).single();
+                    if (agent && agent.full_name) {
+                        referrerName = agent.full_name;
+                        document.getElementById('referredByName').textContent = agent.full_name;
+                        document.getElementById('referredBySection').style.display = 'block';
+                    }
+                } catch(e) { /* slug not found, that's fine */ }
+            }
+        }
+
+        async function submitInquiry(event) {
+            event.preventDefault();
+            var btn = document.getElementById('submitBtn');
+            var statusEl = document.getElementById('formStatus');
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+            statusEl.className = 'status-msg';
+            statusEl.style.display = 'none';
+
+            try {
+                var inquiryData = {
+                    company_name: document.getElementById('companyName').value.trim(),
+                    contact_name: document.getElementById('contactName').value.trim(),
+                    contact_email: document.getElementById('contactEmail').value.trim(),
+                    contact_phone: document.getElementById('contactPhone').value.trim(),
+                    equipment_type: document.getElementById('equipmentType').value,
+                    avg_deal_size: document.getElementById('avgDealSize').value || null,
+                    message: document.getElementById('message').value.trim() || null,
+                    referral_slug: refSlug || null,
+                    referred_by: referrerName || null,
+                    status: 'New',
+                    created_at: new Date().toISOString()
+                };
+
+                var { error } = await db.from('vendor_inquiries').insert(inquiryData);
+                if (error) throw error;
+
+                // Show success
+                document.getElementById('formCard').style.display = 'none';
+                document.getElementById('successCard').style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            } catch (err) {
+                console.error('Submit error:', err);
+                statusEl.className = 'status-msg error';
+                statusEl.textContent = 'Something went wrong. Please try again or email info@alliancefinancing.com directly.';
+                statusEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Get Started — Request a Call';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

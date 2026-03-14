@@ -4933,7 +4933,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
         var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
-        var vendorContactLink = 'https://alliancefinancing.ai/vendor-program.html?ref=' + agentSlug;
+        var vendorContactLink = 'https://alliancefinancing.ai/vendor-inquiry.html?ref=' + agentSlug;
 
         btn.disabled = true;
         btn.textContent = '⏳ Sending...';
@@ -5022,6 +5022,103 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     // ============================================
+    // VENDOR INQUIRY LEADS (Dashboard)
+    // ============================================
+
+    async function loadVendorInquiryLeads() {
+        var container = document.getElementById('vendorLeadsTable');
+        if (!container) return;
+
+        try {
+            var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+            var mySlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : null;
+
+            var query = db.from('vendor_inquiries').select('*').order('created_at', { ascending: false }).limit(50);
+
+            // Agents only see leads they referred; admins/ISOs see all
+            if (!isAdmin && mySlug) {
+                query = query.eq('referral_slug', mySlug);
+            }
+
+            var { data: leads, error } = await query;
+            if (error) throw error;
+
+            if (!leads || leads.length === 0) {
+                container.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No vendor inquiries yet. Send the leasing one-pager to potential vendors to generate leads.</p>';
+                return;
+            }
+
+            var statusColors = { 'New': '#3B82F6', 'Contacted': '#F59E0B', 'In Progress': '#8B5CF6', 'Converted': '#10B981', 'Closed': '#94A3B8' };
+            var tableHtml = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+            tableHtml += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">';
+            tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Company</th>';
+            tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Contact</th>';
+            tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Equipment</th>';
+            if (isAdmin) tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Referred By</th>';
+            tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Status</th>';
+            tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Date</th>';
+            if (isAdmin) tableHtml += '<th style="text-align:center;padding:10px 8px;font-weight:600;color:#334155;">Actions</th>';
+            tableHtml += '</tr></thead><tbody>';
+
+            for (var i = 0; i < leads.length; i++) {
+                var lead = leads[i];
+                var statusColor = statusColors[lead.status] || '#94A3B8';
+                var dateStr = lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '';
+
+                tableHtml += '<tr style="border-bottom:1px solid #f1f5f9;">';
+                tableHtml += '<td style="padding:10px 8px;font-weight:600;color:#0D1E3D;">' + (lead.company_name || '') + '</td>';
+                tableHtml += '<td style="padding:10px 8px;">';
+                tableHtml += '<div>' + (lead.contact_name || '') + '</div>';
+                tableHtml += '<div style="font-size:11px;color:#64748b;">' + (lead.contact_email || '') + '</div>';
+                if (lead.contact_phone) tableHtml += '<div style="font-size:11px;color:#64748b;">' + lead.contact_phone + '</div>';
+                tableHtml += '</td>';
+                tableHtml += '<td style="padding:10px 8px;color:#475569;">' + (lead.equipment_type || '') + '<br><span style="font-size:11px;color:#94a3b8;">' + (lead.avg_deal_size || '') + '</span></td>';
+                if (isAdmin) tableHtml += '<td style="padding:10px 8px;color:#475569;">' + (lead.referred_by || 'Direct') + '</td>';
+                tableHtml += '<td style="padding:10px 8px;"><span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + statusColor + '20;color:' + statusColor + ';">' + (lead.status || 'New') + '</span></td>';
+                tableHtml += '<td style="padding:10px 8px;color:#94a3b8;font-size:12px;">' + dateStr + '</td>';
+
+                if (isAdmin) {
+                    tableHtml += '<td style="padding:10px 8px;text-align:center;">';
+                    tableHtml += '<select onchange="updateVendorLeadStatus(\'' + lead.id + '\', this.value)" style="padding:4px 8px;font-size:11px;border:1px solid #d4d9e2;border-radius:4px;background:white;cursor:pointer;">';
+                    var statuses = ['New', 'Contacted', 'In Progress', 'Converted', 'Closed'];
+                    for (var s = 0; s < statuses.length; s++) {
+                        tableHtml += '<option value="' + statuses[s] + '"' + (lead.status === statuses[s] ? ' selected' : '') + '>' + statuses[s] + '</option>';
+                    }
+                    tableHtml += '</select>';
+                    tableHtml += '</td>';
+                }
+                tableHtml += '</tr>';
+            }
+            tableHtml += '</tbody></table>';
+            container.innerHTML = tableHtml;
+
+        } catch(err) {
+            console.error('Load vendor leads error:', err);
+            container.innerHTML = '<p style="color:#ef4444;font-size:13px;text-align:center;padding:20px 0;">Could not load vendor leads. The table may not exist yet — run the vendor_inquiries_migration.sql script.</p>';
+        }
+    }
+
+    async function updateVendorLeadStatus(leadId, newStatus) {
+        try {
+            var { error } = await db.from('vendor_inquiries').update({
+                status: newStatus,
+                assigned_to: currentUserName || null,
+                updated_at: new Date().toISOString()
+            }).eq('id', leadId);
+
+            if (error) throw error;
+            showToast('Lead status updated to ' + newStatus, 'success');
+
+            // If status changed to Contacted or In Progress, notify the referring agent
+            // (future: could send email notification)
+
+        } catch(err) {
+            console.error('Update lead status error:', err);
+            showToast('Failed to update lead status', 'error');
+        }
+    }
+
+    // ============================================
     // VENDOR LEASING ONE-PAGER (Dynamic HTML)
     // ============================================
 
@@ -5055,7 +5152,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             return h;
         }).join('');
 
-        var vendorApplyLink = 'https://alliancefinancing.ai';
+        var agentSlugForVLP = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+        if (mode === 'alliance') agentSlugForVLP = 'alliance-house';
+        var vendorApplyLink = 'https://alliancefinancing.ai/vendor-inquiry.html?ref=' + agentSlugForVLP;
 
         var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Vendor Equipment Leasing Program — Alliance Financing Group</title>';
         html += '<style>';
@@ -9589,6 +9688,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         html += '</div></button>';
         html += '</div></div></div>';
 
+        // Vendor Inquiry Leads section
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Vendor Inquiry Leads</h3>';
+        html += '<div id="vendorLeadsContainer" style="background:white;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">';
+        html += '<div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<p style="color:#64748b;font-size:13px;margin:0;">Vendors who expressed interest via the leasing program one-pager.</p>';
+        html += '<button onclick="loadVendorInquiryLeads()" class="btn" style="padding:6px 12px;font-size:12px;background:#e2e8f0;color:#334155;border:none;border-radius:4px;cursor:pointer;">↻ Refresh</button>';
+        html += '</div>';
+        html += '<div id="vendorLeadsTable" style="padding:12px 20px;"><p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">Loading leads...</p></div>';
+        html += '</div></div>';
+
         // Quick reference section
         html += '<div style="margin-bottom:24px;">';
         html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Quick Reference</h3>';
@@ -9689,6 +9799,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
         guideCount.textContent = 1 + filteredResources.length;
         container.innerHTML = html;
+
+        // Load vendor inquiry leads after HTML is rendered
+        loadVendorInquiryLeads();
     }
 
     async function downloadPartnerGuide(filename) {
