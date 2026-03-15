@@ -776,7 +776,7 @@
                 <span class="nav-icon">📣</span>
                 <span>Marketing</span>
             </div>
-            <div class="nav-item" id="allianceNav" onclick="showPage('alliance')" style="display: none;">
+            <div class="nav-item" id="allianceNav" onclick="showPage('alliance')" style="display: none;position:relative;">
                 <span class="nav-icon">🏢</span>
                 <span>Alliance Financing</span>
             </div>
@@ -2067,7 +2067,7 @@
                                     <div style="font-weight: 600; font-size: 13px; color: var(--navy);">Company Overview</div>
                                     <div style="font-size: 11px; color: var(--text-light);">Alliance Financing Group overview</div>
                                 </div>
-                                <span style="font-size: 11px; color: var(--text-light); background: #E2E8F0; padding: 3px 8px; border-radius: 4px;">PPTX</span>
+                                <span style="font-size: 11px; color: var(--text-light); background: #E2E8F0; padding: 3px 8px; border-radius: 4px;">PDF</span>
                             </a>
                             <a href="marketing/alliance-accountants-cfos.pdf" target="_blank" style="text-decoration: none; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; display: flex; align-items: center; gap: 10px; cursor: pointer;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='#E2E8F0'">
                                 <span style="font-size: 24px;">📊</span>
@@ -5538,6 +5538,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 return;
             }
 
+            // Track reply count for nav badge
+            var replyCount = 0;
+
             var html = '';
             for (var i = 0; i < outreachData.length; i++) {
                 var row = outreachData[i];
@@ -5548,14 +5551,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 }
 
                 var dateStr = '';
+                var daysAgo = 999;
                 if (row.created_at) {
                     var dt = new Date(row.created_at);
                     dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    var daysAgo = Math.floor((Date.now() - dt.getTime()) / 86400000);
+                    daysAgo = Math.floor((Date.now() - dt.getTime()) / 86400000);
                     if (daysAgo === 0) dateStr = 'Today';
                     else if (daysAgo === 1) dateStr = 'Yesterday';
                     else if (daysAgo < 7) dateStr = daysAgo + 'd ago';
                 }
+
+                // Follow-up alert: flag records 3+ days old with status sent or replied
+                var needsFollowUp = daysAgo >= 3 && ['sent', 'replied'].indexOf(row.status) >= 0;
+
+                // Count replies for badge
+                if (row.status === 'replied') replyCount++;
 
                 var statusColors = {
                     'sent': { bg: '#DBEAFE', color: '#1E40AF', label: 'Sent' },
@@ -5571,8 +5581,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 if (row.prospect_company) prospectDisplay += '<div style="font-size:11px;color:var(--text-light);">' + row.prospect_company + '</div>';
                 prospectDisplay += '<div style="font-size:11px;color:#94A3B8;">' + (row.prospect_email || '') + '</div>';
 
-                html += '<tr style="border-bottom:1px solid #F1F5F9;" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'white\'">';
-                html += '<td style="padding:12px 16px;">' + prospectDisplay + '</td>';
+                // Follow-up alert indicator
+                var followUpFlag = needsFollowUp ? '<span style="display:inline-block;background:#FEE2E2;color:#DC2626;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;margin-left:6px;">FOLLOW UP</span>' : '';
+
+                html += '<tr style="border-bottom:1px solid #F1F5F9;' + (needsFollowUp ? 'border-left:3px solid #F59E0B;' : '') + '" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'' + (needsFollowUp ? '#FFFBEB' : 'white') + '\'" style="background:' + (needsFollowUp ? '#FFFBEB' : 'white') + ';">';
+                html += '<td style="padding:12px 16px;">' + prospectDisplay + followUpFlag + '</td>';
                 html += '<td style="padding:12px 16px;">' + materialsHtml + '</td>';
                 html += '<td style="padding:12px 16px;font-size:12px;color:#64748B;">' + (row.sent_by_name || 'Unknown') + '</td>';
                 html += '<td style="padding:12px 16px;font-size:12px;color:#64748B;">' + dateStr + '</td>';
@@ -5585,6 +5598,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 }
                 html += '</select></td>';
                 html += '<td style="padding:12px 16px;text-align:center;white-space:nowrap;">';
+                html += '<button onclick="openProspectDetail(\'' + row.id + '\')" style="padding:4px 10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:4px;cursor:pointer;font-size:11px;color:#1E40AF;margin-right:4px;" title="View Details">📋 Details</button>';
                 if (row.notes) {
                     html += '<button onclick="toggleOutreachNotes(\'' + row.id + '\')" style="padding:4px 10px;background:#FEF3C7;border:1px solid #F59E0B;border-radius:4px;cursor:pointer;font-size:11px;color:#92400E;margin-right:4px;" title="View Notes">💬 Notes</button>';
                 }
@@ -5601,6 +5615,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             }
             tbody.innerHTML = html;
 
+            // Update nav badge for replies
+            updateOutreachBadge(replyCount);
+
         } catch (err) {
             console.error('Error loading outreach:', err);
             tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#EF4444;font-size:13px;">Error loading outreach history.</td></tr>';
@@ -5610,6 +5627,197 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     function toggleOutreachNotes(id) {
         var row = document.getElementById('outreachNotes_' + id);
         if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+    }
+
+    // Nav badge for replies/follow-ups
+    function updateOutreachBadge(count) {
+        var nav = document.getElementById('allianceNav');
+        if (!nav) return;
+        var existingBadge = document.getElementById('outreachBadge');
+        if (existingBadge) existingBadge.remove();
+        if (count > 0) {
+            var badge = document.createElement('span');
+            badge.id = 'outreachBadge';
+            badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;background:#EF4444;color:white;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;padding:0 5px;margin-left:6px;';
+            badge.textContent = count;
+            nav.appendChild(badge);
+        }
+    }
+
+    // ============================================
+    // PROSPECT DETAIL PANEL
+    // ============================================
+
+    async function openProspectDetail(id) {
+        try {
+            var { data: row, error } = await db.from('prospect_outreach').select('*').eq('id', id).single();
+            if (error || !row) { showToast('Could not load prospect details', 'error'); return; }
+
+            var materials = row.materials_sent || [];
+            var materialsHtml = '';
+            for (var j = 0; j < materials.length; j++) {
+                materialsHtml += '<span style="display:inline-block;background:#EFF6FF;color:#1E40AF;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;margin:2px 3px;">' + materials[j] + '</span>';
+            }
+
+            var createdDate = row.created_at ? new Date(row.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown';
+            var updatedDate = row.updated_at ? new Date(row.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+
+            var typeLabels = { insurance_broker: 'Insurance Broker', accountant_cfo: 'Accountant / CFO', equipment_vendor: 'Equipment Vendor', business_owner: 'Business Owner', referral_partner: 'Referral Partner', iso_partner: 'ISO Partner', partnership: 'Partnership', financing: 'Financing', equipment: 'Equipment Leasing', mca: 'MCA', info: 'General Info' };
+
+            var html = '';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;background:var(--navy);padding:18px 24px;border-radius:12px 12px 0 0;margin:-30px -30px 20px;">';
+            html += '<div><h2 style="color:white;font-size:18px;margin:0;">' + (row.prospect_name || 'Unknown Prospect') + '</h2>';
+            if (row.prospect_company) html += '<p style="color:#8A9BB0;font-size:13px;margin:4px 0 0;">' + row.prospect_company + '</p>';
+            html += '</div>';
+            html += '<button onclick="document.getElementById(\'prospectDetailModal\').classList.remove(\'active\')" style="background:none;border:none;color:white;font-size:22px;cursor:pointer;opacity:0.7;">✕</button>';
+            html += '</div>';
+
+            // Contact info row
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">';
+            html += '<div style="background:#F8FAFC;padding:12px;border-radius:8px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Email</div><div style="font-size:13px;color:var(--navy);"><a href="mailto:' + (row.prospect_email || '') + '" style="color:#C9A84C;text-decoration:none;">' + (row.prospect_email || 'N/A') + '</a></div></div>';
+            html += '<div style="background:#F8FAFC;padding:12px;border-radius:8px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Type</div><div style="font-size:13px;color:var(--navy);">' + (typeLabels[row.prospect_type] || row.prospect_type || 'N/A') + '</div></div>';
+            html += '<div style="background:#F8FAFC;padding:12px;border-radius:8px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Sent By</div><div style="font-size:13px;color:var(--navy);">' + (row.sent_by_name || 'Unknown') + '</div></div>';
+            html += '</div>';
+
+            // Timeline
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">';
+            html += '<div style="background:#F8FAFC;padding:12px;border-radius:8px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Sent</div><div style="font-size:12px;color:var(--navy);">' + createdDate + '</div></div>';
+            html += '<div style="background:#F8FAFC;padding:12px;border-radius:8px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Last Updated</div><div style="font-size:12px;color:var(--navy);">' + (updatedDate || 'N/A') + '</div></div>';
+            html += '</div>';
+
+            // Materials sent
+            html += '<div style="margin-bottom:20px;"><div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">Materials Sent</div>' + (materialsHtml || '<span style="color:#94A3B8;font-size:12px;">None</span>') + '</div>';
+
+            // Notes section — shows all notes with ability to add internal notes
+            html += '<div style="margin-bottom:20px;">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:var(--navy);">Notes & Activity</div></div>';
+            if (row.notes) {
+                html += '<div style="background:#FFFBEB;border:1px solid #F59E0B;border-radius:8px;padding:14px;margin-bottom:12px;">';
+                html += '<pre style="font-size:12px;color:#374151;line-height:1.6;white-space:pre-wrap;margin:0;font-family:inherit;">' + row.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+                html += '</div>';
+            } else {
+                html += '<div style="color:#94A3B8;font-size:12px;margin-bottom:12px;">No notes yet.</div>';
+            }
+
+            // Add internal note form
+            html += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:14px;">';
+            html += '<textarea id="internalNoteInput" placeholder="Add internal note (call notes, follow-up details...)" style="width:100%;min-height:70px;border:1px solid #D1D5DB;border-radius:6px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;"></textarea>';
+            html += '<div style="display:flex;justify-content:flex-end;margin-top:8px;">';
+            html += '<button onclick="addInternalNote(\'' + row.id + '\')" style="padding:6px 16px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Add Note</button>';
+            html += '</div></div>';
+            html += '</div>';
+
+            // Action buttons row
+            html += '<div style="display:flex;gap:8px;padding-top:16px;border-top:1px solid #E2E8F0;">';
+            html += '<button onclick="convertToAgent(\'' + row.id + '\')" style="flex:1;padding:10px;background:#10B981;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🤝 Convert to Agent</button>';
+            html += '<button onclick="resendMarketingPackage(\'' + row.id + '\')" style="flex:1;padding:10px;background:#F3F4F6;color:#374151;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">↻ Resend Package</button>';
+            html += '</div>';
+
+            // Create or show modal
+            var modal = document.getElementById('prospectDetailModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'prospectDetailModal';
+                modal.className = 'modal';
+                modal.innerHTML = '<div class="modal-content" style="max-width:640px;border-radius:12px;max-height:90vh;overflow-y:auto;"></div>';
+                modal.onclick = function(e) { if (e.target === modal) modal.classList.remove('active'); };
+                document.body.appendChild(modal);
+            }
+            modal.querySelector('.modal-content').innerHTML = html;
+            modal.classList.add('active');
+        } catch (err) {
+            console.error('Prospect detail error:', err);
+            showToast('Error loading prospect details', 'error');
+        }
+    }
+
+    // ============================================
+    // INTERNAL NOTES
+    // ============================================
+
+    async function addInternalNote(id) {
+        var textarea = document.getElementById('internalNoteInput');
+        var noteText = textarea ? textarea.value.trim() : '';
+        if (!noteText) { showToast('Please enter a note', 'warning'); return; }
+
+        try {
+            // Get existing notes
+            var { data: existing } = await db.from('prospect_outreach').select('notes').eq('id', id).single();
+            var timestamp = new Date().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var authorName = currentUserName || 'Admin';
+            var newNote = '[' + timestamp + '] INTERNAL NOTE by ' + authorName + '\n' + noteText;
+            var updatedNotes = existing && existing.notes ? existing.notes + '\n\n---\n\n' + newNote : newNote;
+
+            var { error } = await db.from('prospect_outreach').update({
+                notes: updatedNotes,
+                updated_at: new Date().toISOString()
+            }).eq('id', id);
+
+            if (error) throw error;
+
+            showToast('Note added', 'success');
+            // Refresh the detail panel and outreach table
+            openProspectDetail(id);
+            loadOutreachHistory();
+        } catch (err) {
+            console.error('Add note error:', err);
+            showToast('Failed to add note', 'error');
+        }
+    }
+
+    // ============================================
+    // CONVERT PROSPECT TO AGENT
+    // ============================================
+
+    async function convertToAgent(id) {
+        try {
+            var { data: row, error } = await db.from('prospect_outreach').select('*').eq('id', id).single();
+            if (error || !row) { showToast('Could not load prospect', 'error'); return; }
+
+            // Close prospect detail modal
+            var detailModal = document.getElementById('prospectDetailModal');
+            if (detailModal) detailModal.classList.remove('active');
+
+            // Open the Onboard New Agent modal
+            openAddAgentModal();
+
+            // Pre-fill the fields after a brief delay for the modal to render
+            setTimeout(function() {
+                // Map prospect type to agent type
+                var typeMap = {
+                    'iso_partner': 'super_agent',
+                    'referral_partner': 'referring_agent',
+                    'insurance_broker': 'referring_agent',
+                    'accountant_cfo': 'referring_agent',
+                    'equipment_vendor': 'vendor_program',
+                    'partnership': 'super_agent'
+                };
+                var agentType = typeMap[row.prospect_type] || 'referring_agent';
+
+                // Select the agent type card
+                selectAgentType(agentType);
+
+                // Move to step 2 and fill in details
+                setTimeout(function() {
+                    onboardNextStep(2);
+                    setTimeout(function() {
+                        var nameEl = document.getElementById('agentName');
+                        var emailEl = document.getElementById('agentEmail');
+                        var companyEl = document.getElementById('agentCompany');
+                        if (nameEl) nameEl.value = row.prospect_name || '';
+                        if (emailEl) emailEl.value = row.prospect_email || '';
+                        if (companyEl) companyEl.value = row.prospect_company || '';
+                    }, 100);
+                }, 200);
+            }, 100);
+
+            // Update outreach status to converted
+            await db.from('prospect_outreach').update({ status: 'converted', updated_at: new Date().toISOString() }).eq('id', id);
+
+        } catch (err) {
+            console.error('Convert to agent error:', err);
+            showToast('Error converting prospect', 'error');
+        }
     }
 
     async function updateOutreachStatus(id, newStatus) {
