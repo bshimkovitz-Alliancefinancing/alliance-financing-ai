@@ -2061,11 +2061,11 @@
                     </div>
                     <div style="padding: 20px;">
                         <div id="alliancePDFs" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;">
-                            <a href="marketing/Alliance_Overview.pptx" download style="text-decoration: none; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; display: flex; align-items: center; gap: 10px; cursor: pointer;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='#E2E8F0'">
+                            <a href="marketing/alliance-company-overview.pdf" target="_blank" style="text-decoration: none; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; display: flex; align-items: center; gap: 10px; cursor: pointer;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='#E2E8F0'">
                                 <span style="font-size: 24px;">📄</span>
                                 <div style="flex: 1;">
                                     <div style="font-weight: 600; font-size: 13px; color: var(--navy);">Company Overview</div>
-                                    <div style="font-size: 11px; color: var(--text-light);">Alliance Financing Group presentation</div>
+                                    <div style="font-size: 11px; color: var(--text-light);">Alliance Financing Group overview</div>
                                 </div>
                                 <span style="font-size: 11px; color: var(--text-light); background: #E2E8F0; padding: 3px 8px; border-radius: 4px;">PPTX</span>
                             </a>
@@ -4307,7 +4307,7 @@
 
         // Generic marketing materials (Carrie Rotman / company-level)
         const genericPDFs = [
-            { file: 'marketing/Alliance_Overview.pptx', label: 'Alliance Overview' },
+            { file: 'marketing/alliance-company-overview.pdf', label: 'Alliance Overview' },
             { file: 'marketing/alliance-insurance-brokers.pdf', label: 'Insurance Brokers One-Pager' },
             { file: 'marketing/alliance-accountants-cfos.pdf', label: 'Accountants & CFOs One-Pager' },
             { file: 'marketing/alliance-product-guide.pdf', label: 'Product Guide' },
@@ -4456,7 +4456,7 @@
             container.innerHTML = '<p style="color:var(--text-light);font-size:13px;">Loading branded materials...</p>';
 
             const genericPDFs = [
-                { file: 'marketing/Alliance_Overview.pptx', label: 'Alliance Overview', icon: '📄' },
+                { file: 'marketing/alliance-company-overview.pdf', label: 'Alliance Overview', icon: '📄' },
                 { file: 'marketing/alliance-insurance-brokers.pdf', label: 'Insurance Brokers One-Pager', icon: '🛡️' },
                 { file: 'marketing/alliance-accountants-cfos.pdf', label: 'Accountants & CFOs One-Pager', icon: '📊' }
             ];
@@ -5187,7 +5187,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     // ============================================
 
     var MARKETING_MATERIALS = [
-        { id: 'company_overview', label: 'Company Overview', desc: 'Alliance Financing Group overview', file: 'marketing/Alliance_Overview.pptx', icon: '📄', type: 'PPTX' },
+        { id: 'company_overview', label: 'Company Overview', desc: 'Alliance Financing Group overview', file: 'marketing/alliance-company-overview.pdf', icon: '📄', type: 'PDF' },
         { id: 'accountants_cfos', label: 'Accountants & CFOs One-Pager', desc: 'One-pager for accountants & fractional CFOs', file: 'marketing/alliance-accountants-cfos.pdf', icon: '📊', type: 'PDF' },
         { id: 'insurance_brokers', label: 'Insurance Brokers One-Pager', desc: 'One-pager for insurance agents & brokers', file: 'marketing/alliance-insurance-brokers.pdf', icon: '🛡️', type: 'PDF' },
         { id: 'mca_one_pager', label: 'MCA Marketing One-Pager', desc: 'Merchant Cash Advance program overview', file: 'marketing/MCA-One-Pager.pdf', icon: '💰', type: 'PDF' },
@@ -5351,15 +5351,66 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
         var baseUrl = 'https://www.alliancefinancing.ai/';
 
-        // CTA always goes to the sender's email — keeps everything in our system
-        var ctaUrl = 'mailto:' + (senderEmail || 'info@alliancefinancing.com') + '?subject=Re: Alliance Financing — ' + encodeURIComponent(name);
+        // CTA goes to prospect response form — captures reply into database notes
         var isPartnerProspect = ['insurance_broker', 'accountant_cfo', 'equipment_vendor', 'referral_partner', 'iso_partner'].indexOf(prospectType) >= 0;
         var ctaLabel = isPartnerProspect ? 'Get in Touch →' : 'Reply to This Email →';
         var ctaSubtext = 'We typically respond within one business day.';
         var ctaIntro = isPartnerProspect ? 'Interested in learning more?' : 'Have questions? We\'re here to help.';
+        // ctaUrl will be set after insert so we have the outreach record ID
 
         try {
-            // Build professional email
+            var materialNames = selectedMaterials.map(function(m) { return m.label; });
+            var subject = 'Information from Alliance Financing Group — ' + senderName;
+
+            // Step 1: Insert outreach record FIRST to get the ID for the response form URL
+            var outreachId = '';
+            try {
+                var insertResult = await db.from('prospect_outreach').insert({
+                    prospect_name: name,
+                    prospect_email: email,
+                    prospect_company: company || null,
+                    prospect_type: prospectType || null,
+                    materials_sent: materialNames,
+                    custom_message: customMessage || null,
+                    sent_by_id: currentUserId || null,
+                    sent_by_name: senderName || currentUserName || 'Unknown',
+                    sent_by_role: currentUserRole || null,
+                    agent_slug: agentSlug !== 'alliance-house' ? agentSlug : null,
+                    status: 'sent',
+                    follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+                }).select('id').single();
+                if (insertResult.data && insertResult.data.id) {
+                    outreachId = insertResult.data.id;
+                }
+                if (insertResult.error) {
+                    console.error('Outreach insert error:', insertResult.error);
+                }
+            } catch(trackErr) {
+                console.error('Track outreach error:', trackErr);
+                try {
+                    await db.from('applications_sent').insert({
+                        applicant_name: name,
+                        applicant_email: email,
+                        application_type: 'Marketing Package',
+                        subject: subject,
+                        status: 'Sent',
+                        follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+                        sent_by: senderName || currentUserName || 'Unknown',
+                        referral_agent: senderName,
+                        referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null
+                    });
+                } catch(e2) { console.error('Fallback track error:', e2); }
+            }
+
+            // Step 2: Build CTA URL pointing to the prospect response form
+            var ctaUrl = baseUrl + 'prospect-response.html?oid=' + encodeURIComponent(outreachId) +
+                '&from=' + encodeURIComponent(senderName) +
+                '&email=' + encodeURIComponent(senderEmail || 'info@alliancefinancing.com') +
+                '&name=' + encodeURIComponent(name) +
+                '&pemail=' + encodeURIComponent(email) +
+                '&company=' + encodeURIComponent(company || '');
+
+            // Step 3: Build professional email
             var greeting = 'Hi ' + name + ',';
             var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
             var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
@@ -5407,7 +5458,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             }
             htmlBody += '</td></tr>';
 
-            // CTA — context-aware based on prospect type
+            // CTA — links to prospect response form (captures reply into database)
             htmlBody += '<tr><td style="background:white;padding:8px 48px 20px;text-align:center;">';
             htmlBody += '<p style="font-size:15px;color:#374151;margin:0 0 16px;">' + ctaIntro + '</p>';
             htmlBody += '<a href="' + ctaUrl + '" style="display:inline-block;background:#0D1E3D;color:#ffffff;text-decoration:none;padding:14px 44px;border-radius:8px;font-weight:600;font-size:14px;">' + ctaLabel + '</a>';
@@ -5431,47 +5482,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
             htmlBody += '</table></td></tr></table></body></html>';
 
-            var materialNames = selectedMaterials.map(function(m) { return m.label; });
-            var subject = 'Information from Alliance Financing Group — ' + senderName;
-
+            // Step 4: Send the email
             await sendEmailViaResend(email, subject, htmlBody, null, senderEmail || 'info@alliancefinancing.com');
-
-            // Track in prospect_outreach table
-            try {
-                var insertResult = await db.from('prospect_outreach').insert({
-                    prospect_name: name,
-                    prospect_email: email,
-                    prospect_company: company || null,
-                    prospect_type: prospectType || null,
-                    materials_sent: materialNames,
-                    custom_message: customMessage || null,
-                    sent_by_id: currentUserId || null,
-                    sent_by_name: senderName || currentUserName || 'Unknown',
-                    sent_by_role: currentUserRole || null,
-                    agent_slug: agentSlug !== 'alliance-house' ? agentSlug : null,
-                    status: 'sent',
-                    follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
-                });
-                if (insertResult.error) {
-                    console.error('Outreach insert error:', insertResult.error);
-                }
-            } catch(trackErr) {
-                console.error('Track outreach error:', trackErr);
-                // Fallback: also log to applications_sent for redundancy
-                try {
-                    await db.from('applications_sent').insert({
-                        applicant_name: name,
-                        applicant_email: email,
-                        application_type: 'Marketing Package',
-                        subject: subject,
-                        status: 'Sent',
-                        follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-                        sent_by: senderName || currentUserName || 'Unknown',
-                        referral_agent: senderName,
-                        referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null
-                    });
-                } catch(e2) { console.error('Fallback track error:', e2); }
-            }
 
             showToast('Marketing package sent to ' + email + '!', 'success');
             document.getElementById('mktPkgModal').style.display = 'none';
@@ -5572,10 +5584,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     html += '<option value="' + sKey + '"' + (row.status === sKey ? ' selected' : '') + '>' + statusColors[sKey].label + '</option>';
                 }
                 html += '</select></td>';
-                html += '<td style="padding:12px 16px;text-align:center;">';
+                html += '<td style="padding:12px 16px;text-align:center;white-space:nowrap;">';
+                if (row.notes) {
+                    html += '<button onclick="toggleOutreachNotes(\'' + row.id + '\')" style="padding:4px 10px;background:#FEF3C7;border:1px solid #F59E0B;border-radius:4px;cursor:pointer;font-size:11px;color:#92400E;margin-right:4px;" title="View Notes">💬 Notes</button>';
+                }
                 html += '<button onclick="resendMarketingPackage(\'' + row.id + '\')" style="padding:4px 10px;background:#F3F4F6;border:1px solid #E2E8F0;border-radius:4px;cursor:pointer;font-size:11px;color:#374151;" title="Resend">↻ Resend</button>';
                 html += '</td>';
                 html += '</tr>';
+                // Expandable notes row (hidden by default)
+                if (row.notes) {
+                    html += '<tr id="outreachNotes_' + row.id + '" style="display:none;"><td colspan="6" style="padding:12px 24px;background:#FFFBEB;border-bottom:1px solid #F59E0B;">';
+                    html += '<div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:6px;">📝 Prospect Notes</div>';
+                    html += '<pre style="font-size:12px;color:#374151;line-height:1.6;white-space:pre-wrap;margin:0;font-family:inherit;">' + row.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+                    html += '</td></tr>';
+                }
             }
             tbody.innerHTML = html;
 
@@ -5583,6 +5605,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             console.error('Error loading outreach:', err);
             tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#EF4444;font-size:13px;">Error loading outreach history.</td></tr>';
         }
+    }
+
+    function toggleOutreachNotes(id) {
+        var row = document.getElementById('outreachNotes_' + id);
+        if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
     }
 
     async function updateOutreachStatus(id, newStatus) {
