@@ -5187,7 +5187,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     // ============================================
 
     var MARKETING_MATERIALS = [
-        { id: 'company_overview', label: 'Company Overview', desc: 'Alliance Financing Group overview', file: 'marketing/alliance-company-overview.pdf', icon: '📄', type: 'PDF' },
+        { id: 'company_overview', label: 'Company Overview', desc: 'Alliance Financing Group overview', file: 'marketing/Alliance_Overview.pptx', icon: '📄', type: 'PPTX' },
         { id: 'accountants_cfos', label: 'Accountants & CFOs One-Pager', desc: 'One-pager for accountants & fractional CFOs', file: 'marketing/alliance-accountants-cfos.pdf', icon: '📊', type: 'PDF' },
         { id: 'insurance_brokers', label: 'Insurance Brokers One-Pager', desc: 'One-pager for insurance agents & brokers', file: 'marketing/alliance-insurance-brokers.pdf', icon: '🛡️', type: 'PDF' },
         { id: 'mca_one_pager', label: 'MCA Marketing One-Pager', desc: 'Merchant Cash Advance program overview', file: 'marketing/MCA-One-Pager.pdf', icon: '💰', type: 'PDF' },
@@ -5351,34 +5351,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
         var baseUrl = 'https://www.alliancefinancing.ai/';
 
-        // Determine CTA based on prospect type
+        // CTA always goes to the sender's email — keeps everything in our system
+        var ctaUrl = 'mailto:' + (senderEmail || 'info@alliancefinancing.com') + '?subject=Re: Alliance Financing — ' + encodeURIComponent(name);
         var isPartnerProspect = ['insurance_broker', 'accountant_cfo', 'equipment_vendor', 'referral_partner', 'iso_partner'].indexOf(prospectType) >= 0;
-        var ctaUrl = isPartnerProspect
-            ? 'https://www.alliancefinancing.com/contact'
-            : 'https://www.alliancefinancing.ai/application.html?ref=' + agentSlug;
-        var ctaLabel = isPartnerProspect ? 'Get in Touch →' : 'Start an Application →';
-        var ctaSubtext = isPartnerProspect
-            ? 'Learn more about partnering with Alliance Financing.'
-            : 'No fees. No impact to your credit score. Takes 5 minutes.';
-        var ctaIntro = isPartnerProspect
-            ? 'Interested in learning more?'
-            : 'Ready to explore financing options?';
+        var ctaLabel = isPartnerProspect ? 'Get in Touch →' : 'Reply to This Email →';
+        var ctaSubtext = 'We typically respond within one business day.';
+        var ctaIntro = isPartnerProspect ? 'Interested in learning more?' : 'Have questions? We\'re here to help.';
 
         try {
             // Build professional email
             var greeting = 'Hi ' + name + ',';
             var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
-            var logoUrl = 'https://alliancefinancing.ai/alliance-gold-logo.png';
-
             var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
             htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
             htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
             htmlBody += '<tr><td align="center">';
             htmlBody += '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">';
 
-            // Header — gold logo on navy, no tagline
+            // Header — text-based logo on navy, clean and reliable
             htmlBody += '<tr><td style="background:#0D1E3D;padding:36px 48px;text-align:center;">';
-            htmlBody += '<img src="' + logoUrl + '" alt="Alliance Financing Group" width="240" style="display:block;margin:0 auto;max-width:240px;height:auto;">';
+            htmlBody += '<h1 style="margin:0;font-size:28px;letter-spacing:2px;font-weight:800;color:#C9A84C;font-family:Georgia,serif;">ALLIANCE</h1>';
+            htmlBody += '<p style="margin:4px 0 0;font-size:12px;letter-spacing:3px;color:#8A9BB0;text-transform:uppercase;">Financing Group</p>';
             htmlBody += '</td></tr>';
 
             // Greeting
@@ -5445,7 +5438,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
             // Track in prospect_outreach table
             try {
-                await db.from('prospect_outreach').insert({
+                var insertResult = await db.from('prospect_outreach').insert({
                     prospect_name: name,
                     prospect_email: email,
                     prospect_company: company || null,
@@ -5453,12 +5446,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     materials_sent: materialNames,
                     custom_message: customMessage || null,
                     sent_by_id: currentUserId || null,
-                    sent_by_name: currentUserName || 'Unknown',
+                    sent_by_name: senderName || currentUserName || 'Unknown',
                     sent_by_role: currentUserRole || null,
                     agent_slug: agentSlug !== 'alliance-house' ? agentSlug : null,
                     status: 'sent',
                     follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
                 });
+                if (insertResult.error) {
+                    console.error('Outreach insert error:', insertResult.error);
+                }
             } catch(trackErr) {
                 console.error('Track outreach error:', trackErr);
                 // Fallback: also log to applications_sent for redundancy
@@ -5470,8 +5466,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         subject: subject,
                         status: 'Sent',
                         follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-                        sent_by: currentUserName || 'Unknown',
-                        referral_agent: agentName,
+                        sent_by: senderName || currentUserName || 'Unknown',
+                        referral_agent: senderName,
                         referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null
                     });
                 } catch(e2) { console.error('Fallback track error:', e2); }
