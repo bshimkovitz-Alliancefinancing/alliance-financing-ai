@@ -858,20 +858,27 @@
                     </div>
                 </div>
 
-                <!-- Admin Quick Actions (super_admin only) -->
-                <div id="adminQuickActions" class="table-container" style="display: none;">
-                    <div style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title" style="margin: 0;">Quick Actions</div>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <button class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ Add Application</button>
-                            <button class="btn btn-gold btn-sm" onclick="openAddVendorModal()">+ Submit Vendor</button>
-                            <button class="btn btn-gold btn-sm" onclick="openInviteSubAgentModal()">+ Invite Agent</button>
-                            <button class="btn btn-secondary btn-sm" onclick="openSendApplicationModal()" style="padding: 4px 12px; font-size: 12px;">Send Application Form</button>
-                        </div>
+                <!-- Attention Alerts (admin only) -->
+                <div id="dashAttentionAlerts" style="display:none;margin-bottom:20px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <svg width="18" height="18" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span style="font-size:15px;font-weight:700;color:var(--navy);">Needs Your Attention</span>
+                        <span id="alertBadgeCount" style="background:#EF4444;color:white;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;display:none;">0</span>
                     </div>
+                    <div id="alertCardsContainer" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;"></div>
                 </div>
 
-                <!-- Quick Links removed — functionality accessible via other sections -->
+                <!-- Recent Activity Feed (admin only) -->
+                <div id="dashActivityFeed" class="table-container" style="display:none;margin-bottom:20px;">
+                    <div style="padding:14px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #E8ECF1;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <svg width="16" height="16" fill="none" stroke="#64748B" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            <span style="font-size:14px;font-weight:700;color:var(--navy);">Recent Activity</span>
+                        </div>
+                        <span id="activityTimeRange" style="font-size:11px;color:#94A3B8;font-weight:500;">Last 7 days</span>
+                    </div>
+                    <div id="activityFeedBody" style="max-height:320px;overflow-y:auto;padding:4px 0;"></div>
+                </div>
 
                 <!-- Application Hub (agents only) -->
                 <div id="agentReferralCard" class="table-container" style="display: none;">
@@ -1948,6 +1955,22 @@
 
                 <!-- Admin Alliance View -->
                 <div id="allianceAdminView">
+
+                <!-- Quick Actions -->
+                <div class="table-container" style="margin-bottom:24px;border:1px solid #E8ECF1;border-radius:12px;overflow:hidden;">
+                    <div style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;background:linear-gradient(135deg,#0D1E3D 0%,#1A3A5C 100%);border-radius:12px 12px 0 0;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <svg width="18" height="18" fill="none" stroke="#D4A853" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                            <span style="font-size:14px;font-weight:700;color:white;">Quick Actions</span>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <button class="btn btn-gold btn-sm" onclick="openAddDealModal()" style="border-radius:8px;padding:7px 14px;font-size:12px;">+ Add Application</button>
+                            <button class="btn btn-gold btn-sm" onclick="openAddVendorModal()" style="border-radius:8px;padding:7px 14px;font-size:12px;">+ Submit Vendor</button>
+                            <button class="btn btn-gold btn-sm" onclick="openAddAgentModal()" style="border-radius:8px;padding:7px 14px;font-size:12px;">+ Onboard Agent</button>
+                            <button class="btn" onclick="openSendApplicationModal()" style="border-radius:8px;padding:7px 14px;font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.25);cursor:pointer;">Send Application Form</button>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Send Application Links -->
                 <div class="table-container" style="margin-bottom: 24px;">
@@ -8474,10 +8497,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 }
             }
 
-            // Show admin quick actions bar
-            const adminQuickActions = document.getElementById('adminQuickActions');
-            if (adminQuickActions && ['super_admin', 'admin'].includes(currentUserRole)) {
-                adminQuickActions.style.display = 'block';
+            // Load attention alerts and activity feed for admins
+            if (['super_admin', 'admin'].includes(currentUserRole)) {
+                await loadDashboardAlerts(applications, lenders, vendors);
+                await loadDashboardActivityFeed();
             }
 
             // Show/hide agent referral card
@@ -8496,6 +8519,165 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
         } catch (error) {
             console.error('Dashboard load error:', error);
+        }
+    }
+
+    async function loadDashboardAlerts(applications, lenders, vendors) {
+        try {
+            var container = document.getElementById('alertCardsContainer');
+            var wrapper = document.getElementById('dashAttentionAlerts');
+            if (!container || !wrapper) return;
+
+            var alerts = [];
+
+            // 1. Stale deals (no activity in 7+ days, still active)
+            var { data: staleDeals } = await db.from('deals').select('id, contact_name, status, updated_at')
+                .not('status', 'in', '("Funded","Declined","Withdrawn","Closed","Lost")')
+                .order('updated_at', { ascending: true }).limit(50);
+            if (staleDeals) {
+                var sevenDaysAgo = Date.now() - 7 * 86400000;
+                var stale = staleDeals.filter(function(d) { return d.updated_at && new Date(d.updated_at).getTime() < sevenDaysAgo; });
+                if (stale.length > 0) {
+                    alerts.push({ icon: '⏰', color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A', label: 'Stale Deals', count: stale.length, detail: 'No activity in 7+ days', onclick: "showPage('deals')" });
+                }
+            }
+
+            // 2. Unanswered contact submissions
+            var { data: contacts } = await db.from('contact_submissions').select('id, status').eq('status', 'New').limit(50);
+            if (contacts && contacts.length > 0) {
+                alerts.push({ icon: '✉️', color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE', label: 'New Contacts', count: contacts.length, detail: 'Awaiting response', onclick: "showPage('contacts')" });
+            }
+
+            // 3. Applications awaiting review
+            var pendingApps = (applications || []).filter(function(a) { return a.status === 'Application Received'; });
+            if (pendingApps.length > 0) {
+                alerts.push({ icon: '📋', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', label: 'New Applications', count: pendingApps.length, detail: 'Not yet reviewed', onclick: "showPage('applications')" });
+            }
+
+            // 4. Agents with Invited status (not yet active)
+            var { data: invitedAgents } = await db.from('users').select('id').eq('role', 'agent').eq('agent_status', 'Invited');
+            if (invitedAgents && invitedAgents.length > 0) {
+                alerts.push({ icon: '👥', color: '#0D9488', bg: '#F0FDFA', border: '#99F6E4', label: 'Pending Agents', count: invitedAgents.length, detail: 'Invited, not yet active', onclick: "showPage('agents')" });
+            }
+
+            // 5. Vendor inquiry leads (new/unprocessed)
+            var { data: vendorLeads } = await db.from('vendor_inquiries').select('id').eq('status', 'New').limit(50);
+            if (vendorLeads && vendorLeads.length > 0) {
+                alerts.push({ icon: '🏭', color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA', label: 'Vendor Inquiries', count: vendorLeads.length, detail: 'New leads to review', onclick: "showPage('vendors')" });
+            }
+
+            if (alerts.length === 0) {
+                wrapper.style.display = 'none';
+                return;
+            }
+
+            wrapper.style.display = 'block';
+            var badge = document.getElementById('alertBadgeCount');
+            var totalAlerts = alerts.reduce(function(s, a) { return s + a.count; }, 0);
+            if (badge) { badge.textContent = totalAlerts; badge.style.display = 'inline-block'; }
+
+            container.innerHTML = alerts.map(function(a) {
+                return '<div onclick="' + a.onclick + '" style="background:' + a.bg + ';border:1px solid ' + a.border + ';border-radius:10px;padding:14px 16px;cursor:pointer;transition:all 0.2s ease;display:flex;align-items:flex-start;gap:12px;" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'none\'">' +
+                    '<div style="font-size:22px;line-height:1;">' + a.icon + '</div>' +
+                    '<div style="flex:1;">' +
+                        '<div style="display:flex;align-items:baseline;gap:6px;">' +
+                            '<span style="font-size:22px;font-weight:800;color:' + a.color + ';line-height:1;">' + a.count + '</span>' +
+                            '<span style="font-size:13px;font-weight:600;color:' + a.color + ';">' + a.label + '</span>' +
+                        '</div>' +
+                        '<div style="font-size:11px;color:#64748B;margin-top:3px;">' + a.detail + '</div>' +
+                    '</div>' +
+                    '<svg width="16" height="16" fill="none" stroke="' + a.color + '" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:4px;opacity:0.5;"><path d="M9 18l6-6-6-6"/></svg>' +
+                '</div>';
+            }).join('');
+        } catch (e) {
+            console.error('Dashboard alerts error:', e);
+        }
+    }
+
+    async function loadDashboardActivityFeed() {
+        try {
+            var feedBody = document.getElementById('activityFeedBody');
+            var feedWrapper = document.getElementById('dashActivityFeed');
+            if (!feedBody || !feedWrapper) return;
+
+            feedWrapper.style.display = 'block';
+
+            var activities = [];
+            var sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+
+            // Recent applications
+            var { data: recentApps } = await db.from('applications').select('id, full_name, business_name, submitted_at, status, application_id')
+                .gte('submitted_at', sevenDaysAgo).order('submitted_at', { ascending: false }).limit(10);
+            if (recentApps) {
+                recentApps.forEach(function(a) {
+                    activities.push({ time: a.submitted_at, icon: '📋', color: '#8B5CF6', text: '<strong>' + (a.full_name || 'Unknown') + '</strong> submitted an application' + (a.business_name ? ' for <strong>' + a.business_name + '</strong>' : ''), badge: a.application_id || 'New', badgeBg: '#F5F3FF', badgeColor: '#8B5CF6' });
+                });
+            }
+
+            // Recent deal status changes
+            var { data: recentDeals } = await db.from('deals').select('id, contact_name, company_name, status, updated_at, created_at')
+                .gte('updated_at', sevenDaysAgo).order('updated_at', { ascending: false }).limit(10);
+            if (recentDeals) {
+                recentDeals.forEach(function(d) {
+                    var isNew = d.created_at && new Date(d.created_at).getTime() > Date.now() - 7 * 86400000;
+                    var statusColors = { 'Funded': '#166534', 'Approved': '#0D9488', 'Declined': '#DC2626', 'In Credit': '#1E40AF' };
+                    var sc = statusColors[d.status] || '#64748B';
+                    activities.push({ time: d.updated_at, icon: isNew ? '🆕' : '📊', color: sc,
+                        text: '<strong>' + (d.contact_name || d.company_name || 'Deal') + '</strong> ' + (isNew ? 'entered pipeline' : 'moved to <strong>' + d.status + '</strong>'),
+                        badge: d.status, badgeBg: sc + '15', badgeColor: sc });
+                });
+            }
+
+            // Recent agent signups
+            var { data: recentAgents } = await db.from('users').select('id, full_name, agent_type, agent_status, created_at')
+                .eq('role', 'agent').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(5);
+            if (recentAgents) {
+                recentAgents.forEach(function(ag) {
+                    var typeLabels = { 'super_agent': 'ISO Partner', 'referring_agent': 'Referral Partner', 'vendor_program': 'Vendor Program', 'syndication_desk': 'Syndication Desk' };
+                    activities.push({ time: ag.created_at, icon: '👤', color: '#0D9488',
+                        text: '<strong>' + (ag.full_name || 'New Agent') + '</strong> onboarded as ' + (typeLabels[ag.agent_type] || 'Agent'),
+                        badge: ag.agent_status || 'Invited', badgeBg: '#F0FDFA', badgeColor: '#0D9488' });
+                });
+            }
+
+            // Recent contact submissions
+            var { data: recentContacts } = await db.from('contact_submissions').select('id, name, email, created_at, status')
+                .gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(5);
+            if (recentContacts) {
+                recentContacts.forEach(function(c) {
+                    activities.push({ time: c.created_at, icon: '✉️', color: '#3B82F6',
+                        text: '<strong>' + (c.name || c.email || 'Someone') + '</strong> submitted a contact form',
+                        badge: c.status || 'New', badgeBg: '#EFF6FF', badgeColor: '#3B82F6' });
+                });
+            }
+
+            // Sort by time descending
+            activities.sort(function(a, b) { return new Date(b.time) - new Date(a.time); });
+            activities = activities.slice(0, 20);
+
+            if (activities.length === 0) {
+                feedBody.innerHTML = '<div style="padding:24px;text-align:center;color:#94A3B8;font-size:13px;">No recent activity in the last 7 days.</div>';
+                return;
+            }
+
+            feedBody.innerHTML = activities.map(function(a) {
+                var timeAgo = '';
+                if (a.time) {
+                    var diff = Date.now() - new Date(a.time).getTime();
+                    var mins = Math.floor(diff / 60000);
+                    if (mins < 60) timeAgo = mins + 'm ago';
+                    else if (mins < 1440) timeAgo = Math.floor(mins / 60) + 'h ago';
+                    else timeAgo = Math.floor(mins / 1440) + 'd ago';
+                }
+                return '<div style="padding:10px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #F1F5F9;transition:background 0.15s;" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'white\'">' +
+                    '<div style="font-size:18px;width:28px;text-align:center;flex-shrink:0;">' + a.icon + '</div>' +
+                    '<div style="flex:1;font-size:12.5px;color:#475569;line-height:1.4;">' + a.text + '</div>' +
+                    '<span style="font-size:10px;padding:3px 8px;border-radius:4px;background:' + a.badgeBg + ';color:' + a.badgeColor + ';font-weight:600;white-space:nowrap;">' + a.badge + '</span>' +
+                    '<span style="font-size:11px;color:#94A3B8;white-space:nowrap;min-width:50px;text-align:right;">' + timeAgo + '</span>' +
+                '</div>';
+            }).join('');
+        } catch (e) {
+            console.error('Activity feed error:', e);
         }
     }
 
