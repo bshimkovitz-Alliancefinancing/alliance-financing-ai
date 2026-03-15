@@ -5187,7 +5187,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     // ============================================
 
     var MARKETING_MATERIALS = [
-        { id: 'company_overview', label: 'Company Overview', desc: 'Alliance Financing Group presentation', file: 'marketing/Alliance_Overview.pptx', icon: '📄', type: 'PPTX' },
+        { id: 'company_overview', label: 'Company Overview', desc: 'Alliance Financing Group overview', file: 'marketing/alliance-company-overview.pdf', icon: '📄', type: 'PDF' },
         { id: 'accountants_cfos', label: 'Accountants & CFOs One-Pager', desc: 'One-pager for accountants & fractional CFOs', file: 'marketing/alliance-accountants-cfos.pdf', icon: '📊', type: 'PDF' },
         { id: 'insurance_brokers', label: 'Insurance Brokers One-Pager', desc: 'One-pager for insurance agents & brokers', file: 'marketing/alliance-insurance-brokers.pdf', icon: '🛡️', type: 'PDF' },
         { id: 'mca_one_pager', label: 'MCA Marketing One-Pager', desc: 'Merchant Cash Advance program overview', file: 'marketing/MCA-One-Pager.pdf', icon: '💰', type: 'PDF' },
@@ -5195,8 +5195,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         { id: 'product_guide', label: 'Product Guide', desc: 'Full product & service brochure (21 pages)', file: 'marketing/alliance-product-guide.pdf', icon: '📘', type: 'PDF' }
     ];
 
-    function openSendMarketingPackageModal() {
-        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+    async function openSendMarketingPackageModal() {
+        var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
+        // Load team members for "Send From" dropdown (admins only)
+        var teamOptions = '';
+        if (isAdmin) {
+            try {
+                var { data: team } = await db.from('team_members').select('id, full_name, email, phone').eq('is_active', true).order('full_name');
+                if (team && team.length > 0) {
+                    for (var t = 0; t < team.length; t++) {
+                        var selected = (team[t].email === (currentUser?.email || '')) ? ' selected' : '';
+                        teamOptions += '<option value="' + t + '" data-name="' + (team[t].full_name || '') + '" data-email="' + (team[t].email || '') + '" data-phone="' + (team[t].phone || '') + '"' + selected + '>' + team[t].full_name + ' (' + team[t].email + ')</option>';
+                    }
+                }
+            } catch(e) {}
+        }
 
         var modalHtml = '<div style="background:linear-gradient(135deg,#0D1E3D 0%,#1A3A5C 100%);padding:20px 24px;border-radius:10px 10px 0 0;">';
         modalHtml += '<h3 style="color:white;margin:0;font-size:17px;display:flex;align-items:center;gap:8px;">';
@@ -5206,6 +5220,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         modalHtml += '</div>';
 
         modalHtml += '<div style="padding:24px;">';
+
+        // Send From dropdown (admins only)
+        if (isAdmin && teamOptions) {
+            modalHtml += '<div style="margin-bottom:16px;">';
+            modalHtml += '<label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Send From</label>';
+            modalHtml += '<select id="mktPkgSendFrom" style="width:100%;padding:9px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;background:white;">';
+            modalHtml += teamOptions;
+            modalHtml += '</select></div>';
+        }
 
         // Recipient fields
         modalHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
@@ -5308,18 +5331,44 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         btn.disabled = true;
         btn.innerHTML = '⏳ Sending...';
 
-        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
-        var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
-        var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
+        // Determine sender — from "Send From" dropdown if admin, else from agent profile
+        var senderName = '';
+        var senderEmail = '';
+        var senderPhone = '';
+        var sendFromEl = document.getElementById('mktPkgSendFrom');
+        if (sendFromEl) {
+            var opt = sendFromEl.options[sendFromEl.selectedIndex];
+            senderName = opt.getAttribute('data-name') || '';
+            senderEmail = opt.getAttribute('data-email') || '';
+            senderPhone = opt.getAttribute('data-phone') || '';
+        }
+        if (!senderName) {
+            senderName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+            senderEmail = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
+            senderPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
+        }
+
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
         var baseUrl = 'https://www.alliancefinancing.ai/';
-        var generalAppLink = 'https://www.alliancefinancing.ai/application.html?ref=' + agentSlug;
+
+        // Determine CTA based on prospect type
+        var isPartnerProspect = ['insurance_broker', 'accountant_cfo', 'equipment_vendor', 'referral_partner', 'iso_partner'].indexOf(prospectType) >= 0;
+        var ctaUrl = isPartnerProspect
+            ? 'https://www.alliancefinancing.com/contact'
+            : 'https://www.alliancefinancing.ai/application.html?ref=' + agentSlug;
+        var ctaLabel = isPartnerProspect ? 'Get in Touch →' : 'Start an Application →';
+        var ctaSubtext = isPartnerProspect
+            ? 'Learn more about partnering with Alliance Financing.'
+            : 'No fees. No impact to your credit score. Takes 5 minutes.';
+        var ctaIntro = isPartnerProspect
+            ? 'Interested in learning more?'
+            : 'Ready to explore financing options?';
 
         try {
             // Build professional email
             var greeting = 'Hi ' + name + ',';
             var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
-            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+            var logoUrl = 'https://alliancefinancing.ai/alliance-gold-logo.png';
 
             var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
             htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
@@ -5327,10 +5376,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             htmlBody += '<tr><td align="center">';
             htmlBody += '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">';
 
-            // Header
+            // Header — gold logo on navy, no tagline
             htmlBody += '<tr><td style="background:#0D1E3D;padding:36px 48px;text-align:center;">';
-            htmlBody += '<img src="' + logoUrl + '" alt="Alliance Financing Group" width="220" style="display:block;margin:0 auto 16px;max-width:220px;height:auto;filter:brightness(0) invert(1);">';
-            htmlBody += '<p style="margin:0;color:#8A9BB0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">Your Financing Resource Package</p>';
+            htmlBody += '<img src="' + logoUrl + '" alt="Alliance Financing Group" width="240" style="display:block;margin:0 auto;max-width:240px;height:auto;">';
             htmlBody += '</td></tr>';
 
             // Greeting
@@ -5341,12 +5389,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Custom note
             htmlBody += customNoteHtml;
 
-            // Body
+            // Body — updated copy
             htmlBody += '<tr><td style="background:white;padding:0 48px 20px;">';
-            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">Great connecting with you! I\'ve put together some resources from Alliance Financing Group that I think you\'ll find valuable. Please find the materials below:</p>';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">I have put together some information for your review. Please find the materials below:</p>';
             htmlBody += '</td></tr>';
 
-            // Materials cards
+            // Materials cards — all open in browser as "View"
             htmlBody += '<tr><td style="background:white;padding:0 48px 28px;">';
             for (var s = 0; s < selectedMaterials.length; s++) {
                 var mat = selectedMaterials[s];
@@ -5360,40 +5408,40 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 htmlBody += '<div style="color:#64748B;font-size:12px;margin-top:2px;">' + mat.desc + '</div>';
                 htmlBody += '</td>';
                 htmlBody += '<td style="text-align:right;vertical-align:middle;">';
-                htmlBody += '<a href="' + materialUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;text-decoration:none;padding:8px 18px;border-radius:6px;font-weight:700;font-size:12px;">View ' + mat.type + '</a>';
+                htmlBody += '<a href="' + materialUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;text-decoration:none;padding:8px 18px;border-radius:6px;font-weight:700;font-size:12px;">View</a>';
                 htmlBody += '</td></tr></table>';
                 htmlBody += '</td></tr></table>';
             }
             htmlBody += '</td></tr>';
 
-            // CTA
+            // CTA — context-aware based on prospect type
             htmlBody += '<tr><td style="background:white;padding:8px 48px 20px;text-align:center;">';
-            htmlBody += '<p style="font-size:15px;color:#374151;margin:0 0 16px;">Ready to explore financing options?</p>';
-            htmlBody += '<a href="' + generalAppLink + '" style="display:inline-block;background:#0D1E3D;color:#ffffff;text-decoration:none;padding:14px 44px;border-radius:8px;font-weight:600;font-size:14px;">Start an Application →</a>';
-            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:10px 0 0;">No fees. No impact to your credit score. Takes 5 minutes.</p>';
+            htmlBody += '<p style="font-size:15px;color:#374151;margin:0 0 16px;">' + ctaIntro + '</p>';
+            htmlBody += '<a href="' + ctaUrl + '" style="display:inline-block;background:#0D1E3D;color:#ffffff;text-decoration:none;padding:14px 44px;border-radius:8px;font-weight:600;font-size:14px;">' + ctaLabel + '</a>';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:10px 0 0;">' + ctaSubtext + '</p>';
             htmlBody += '</td></tr>';
 
-            // Signature
+            // Signature — uses selected sender
             htmlBody += '<tr><td style="background:white;padding:0 48px 36px;">';
             htmlBody += '<div style="border-top:1px solid #E2E8F0;padding-top:28px;">';
             htmlBody += '<p style="font-size:15px;color:#1F2937;margin:0 0 4px;">Looking forward to connecting,</p>';
-            htmlBody += '<p style="font-size:16px;color:#0D1E3D;margin:0;font-weight:700;">' + agentName + '</p>';
-            if (agentEmailAddr) htmlBody += '<p style="font-size:13px;color:#64748B;margin:6px 0 0;"><a href="mailto:' + agentEmailAddr + '" style="color:#C9A84C;text-decoration:none;">' + agentEmailAddr + '</a></p>';
-            if (agentPhone) htmlBody += '<p style="font-size:13px;color:#64748B;margin:3px 0 0;">' + agentPhone + '</p>';
+            htmlBody += '<p style="font-size:16px;color:#0D1E3D;margin:0;font-weight:700;">' + senderName + '</p>';
+            if (senderEmail) htmlBody += '<p style="font-size:13px;color:#64748B;margin:6px 0 0;"><a href="mailto:' + senderEmail + '" style="color:#C9A84C;text-decoration:none;">' + senderEmail + '</a></p>';
+            if (senderPhone) htmlBody += '<p style="font-size:13px;color:#64748B;margin:3px 0 0;">' + senderPhone + '</p>';
             htmlBody += '</div></td></tr>';
 
-            // Footer
+            // Footer — fixed phone ext and URL
             htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
-            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
-            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660 ext. 222</p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.com" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.com</a></p>';
             htmlBody += '</td></tr>';
 
             htmlBody += '</table></td></tr></table></body></html>';
 
             var materialNames = selectedMaterials.map(function(m) { return m.label; });
-            var subject = 'Financing Resources from Alliance Financing Group — ' + agentName;
+            var subject = 'Information from Alliance Financing Group — ' + senderName;
 
-            await sendEmailViaResend(email, subject, htmlBody);
+            await sendEmailViaResend(email, subject, htmlBody, null, senderEmail || 'info@alliancefinancing.com');
 
             // Track in prospect_outreach table
             try {
