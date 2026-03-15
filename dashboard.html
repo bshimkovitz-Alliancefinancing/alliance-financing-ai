@@ -2054,6 +2054,10 @@
                 <div class="table-container" style="margin-bottom: 24px;">
                     <div class="table-header">
                         <div class="table-title">Marketing Materials</div>
+                        <button class="btn btn-gold btn-sm" onclick="openSendMarketingPackageModal()" style="display:flex;align-items:center;gap:6px;">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+                            Send Marketing Package
+                        </button>
                     </div>
                     <div style="padding: 20px;">
                         <div id="alliancePDFs" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;">
@@ -2082,6 +2086,34 @@
                                 <span style="font-size: 11px; color: var(--text-light); background: #E2E8F0; padding: 3px 8px; border-radius: 4px;">PDF</span>
                             </a>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Prospect Outreach History -->
+                <div class="table-container" style="margin-bottom: 24px;">
+                    <div class="table-header">
+                        <div class="table-title">Prospect Outreach</div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span id="outreachCount" style="font-size:12px;color:var(--text-light);"></span>
+                            <button class="btn btn-secondary btn-sm" onclick="loadOutreachHistory()" style="font-size:12px;">Refresh</button>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr style="background:#F8FAFC;border-bottom:2px solid #E2E8F0;">
+                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Prospect</th>
+                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Materials Sent</th>
+                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Sent By</th>
+                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Date</th>
+                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Status</th>
+                                    <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="outreachTableBody">
+                                <tr><td colspan="6" style="padding:40px;text-align:center;color:var(--text-light);font-size:13px;">Loading outreach history...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -5147,6 +5179,457 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             alert('Error sending email: ' + err.message);
             btn.disabled = false;
             btn.textContent = '📧 Send Email';
+        }
+    }
+
+    // ============================================
+    // PROSPECT OUTREACH / SEND MARKETING PACKAGE
+    // ============================================
+
+    var MARKETING_MATERIALS = [
+        { id: 'company_overview', label: 'Company Overview', desc: 'Alliance Financing Group presentation', file: 'marketing/Alliance_Overview.pptx', icon: '📄', type: 'PPTX' },
+        { id: 'accountants_cfos', label: 'Accountants & CFOs One-Pager', desc: 'One-pager for accountants & fractional CFOs', file: 'marketing/alliance-accountants-cfos.pdf', icon: '📊', type: 'PDF' },
+        { id: 'insurance_brokers', label: 'Insurance Brokers One-Pager', desc: 'One-pager for insurance agents & brokers', file: 'marketing/alliance-insurance-brokers.pdf', icon: '🛡️', type: 'PDF' },
+        { id: 'mca_one_pager', label: 'MCA Marketing One-Pager', desc: 'Merchant Cash Advance program overview', file: 'marketing/MCA-One-Pager.pdf', icon: '💰', type: 'PDF' },
+        { id: 'vendor_leasing', label: 'Vendor Equipment Leasing Program', desc: 'Equipment leasing & vendor financing program', file: 'Alliance-Vendor-Leasing-Program.pdf', icon: '🏗️', type: 'PDF' },
+        { id: 'product_guide', label: 'Product Guide', desc: 'Full product & service brochure (21 pages)', file: 'marketing/alliance-product-guide.pdf', icon: '📘', type: 'PDF' }
+    ];
+
+    function openSendMarketingPackageModal() {
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+
+        var modalHtml = '<div style="background:linear-gradient(135deg,#0D1E3D 0%,#1A3A5C 100%);padding:20px 24px;border-radius:10px 10px 0 0;">';
+        modalHtml += '<h3 style="color:white;margin:0;font-size:17px;display:flex;align-items:center;gap:8px;">';
+        modalHtml += '<svg width="18" height="18" fill="none" stroke="#C9A84C" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>';
+        modalHtml += 'Send Marketing Package</h3>';
+        modalHtml += '<p style="color:#94A3B8;font-size:12px;margin:6px 0 0;">Select materials to include and send to your prospect.</p>';
+        modalHtml += '</div>';
+
+        modalHtml += '<div style="padding:24px;">';
+
+        // Recipient fields
+        modalHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
+        modalHtml += '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Prospect Name *</label>';
+        modalHtml += '<input type="text" id="mktPkgName" placeholder="Contact name" style="width:100%;padding:9px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;"></div>';
+        modalHtml += '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Email Address *</label>';
+        modalHtml += '<input type="email" id="mktPkgEmail" placeholder="prospect@company.com" style="width:100%;padding:9px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;"></div>';
+        modalHtml += '</div>';
+
+        modalHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">';
+        modalHtml += '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Company</label>';
+        modalHtml += '<input type="text" id="mktPkgCompany" placeholder="Company name" style="width:100%;padding:9px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;"></div>';
+        modalHtml += '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Prospect Type</label>';
+        modalHtml += '<select id="mktPkgType" style="width:100%;padding:9px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;background:white;">';
+        modalHtml += '<option value="">Select type...</option>';
+        modalHtml += '<option value="insurance_broker">Insurance Broker</option>';
+        modalHtml += '<option value="accountant_cfo">Accountant / CFO</option>';
+        modalHtml += '<option value="equipment_vendor">Equipment Vendor</option>';
+        modalHtml += '<option value="business_owner">Business Owner</option>';
+        modalHtml += '<option value="referral_partner">Potential Referral Partner</option>';
+        modalHtml += '<option value="iso_partner">Potential ISO Partner</option>';
+        modalHtml += '<option value="other">Other</option>';
+        modalHtml += '</select></div>';
+        modalHtml += '</div>';
+
+        // Material checkboxes
+        modalHtml += '<div style="margin-bottom:16px;">';
+        modalHtml += '<label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:8px;">Select Materials to Include *</label>';
+        modalHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+        for (var m = 0; m < MARKETING_MATERIALS.length; m++) {
+            var mat = MARKETING_MATERIALS[m];
+            modalHtml += '<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:8px;cursor:pointer;transition:all 0.15s;" ';
+            modalHtml += 'onmouseover="this.style.borderColor=\'#C9A84C\';this.style.background=\'#FFFBEB\'" ';
+            modalHtml += 'onmouseout="if(!this.querySelector(\'input\').checked){this.style.borderColor=\'#E2E8F0\';this.style.background=\'white\'}">';
+            modalHtml += '<input type="checkbox" id="mktPkgMat_' + mat.id + '" value="' + mat.id + '" style="accent-color:#C9A84C;width:16px;height:16px;" ';
+            modalHtml += 'onchange="toggleMktCheckboxStyle(this)">';
+            modalHtml += '<span style="font-size:18px;">' + mat.icon + '</span>';
+            modalHtml += '<div style="flex:1;min-width:0;">';
+            modalHtml += '<div style="font-size:12px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + mat.label + '</div>';
+            modalHtml += '<div style="font-size:10px;color:#94A3B8;">' + mat.type + '</div>';
+            modalHtml += '</div></label>';
+        }
+        modalHtml += '</div></div>';
+
+        // Custom message
+        modalHtml += '<div style="margin-bottom:16px;">';
+        modalHtml += '<label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Personal Message (optional)</label>';
+        modalHtml += '<textarea id="mktPkgMessage" rows="3" placeholder="Add a personal note to your prospect..." style="width:100%;padding:9px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;resize:vertical;font-family:inherit;"></textarea>';
+        modalHtml += '</div>';
+
+        // Buttons
+        modalHtml += '<div style="display:flex;gap:10px;justify-content:flex-end;">';
+        modalHtml += '<button onclick="document.getElementById(\'mktPkgModal\').style.display=\'none\'" style="padding:10px 20px;background:#F3F4F6;color:#374151;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Cancel</button>';
+        modalHtml += '<button id="mktPkgSendBtn" onclick="sendMarketingPackage()" style="padding:10px 24px;background:#10B981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;">';
+        modalHtml += '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>';
+        modalHtml += 'Send Package</button>';
+        modalHtml += '</div></div>';
+
+        var existingModal = document.getElementById('mktPkgModal');
+        if (existingModal) existingModal.remove();
+
+        var modal = document.createElement('div');
+        modal.id = 'mktPkgModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = '<div style="background:white;border-radius:10px;max-width:600px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' + modalHtml + '</div>';
+        modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+        document.body.appendChild(modal);
+    }
+
+    function toggleMktCheckboxStyle(cb) {
+        var lbl = cb.closest('label');
+        if (cb.checked) {
+            lbl.style.borderColor = '#C9A84C';
+            lbl.style.background = '#FFFBEB';
+        } else {
+            lbl.style.borderColor = '#E2E8F0';
+            lbl.style.background = 'white';
+        }
+    }
+
+    async function sendMarketingPackage() {
+        var name = document.getElementById('mktPkgName').value.trim();
+        var email = document.getElementById('mktPkgEmail').value.trim();
+        var company = document.getElementById('mktPkgCompany').value.trim();
+        var prospectType = document.getElementById('mktPkgType').value;
+        var customMessage = document.getElementById('mktPkgMessage').value.trim();
+        var btn = document.getElementById('mktPkgSendBtn');
+
+        if (!name) { alert('Please enter the prospect name.'); return; }
+        if (!email) { alert('Please enter the prospect email.'); return; }
+
+        // Collect selected materials
+        var selectedMaterials = [];
+        for (var m = 0; m < MARKETING_MATERIALS.length; m++) {
+            var cb = document.getElementById('mktPkgMat_' + MARKETING_MATERIALS[m].id);
+            if (cb && cb.checked) selectedMaterials.push(MARKETING_MATERIALS[m]);
+        }
+        if (selectedMaterials.length === 0) { alert('Please select at least one material to send.'); return; }
+
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Sending...';
+
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
+        var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
+        var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+        var baseUrl = 'https://www.alliancefinancing.ai/';
+        var generalAppLink = 'https://www.alliancefinancing.ai/application.html?ref=' + agentSlug;
+
+        try {
+            // Build professional email
+            var greeting = 'Hi ' + name + ',';
+            var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
+            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+
+            var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
+            htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
+            htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
+            htmlBody += '<tr><td align="center">';
+            htmlBody += '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">';
+
+            // Header
+            htmlBody += '<tr><td style="background:#0D1E3D;padding:36px 48px;text-align:center;">';
+            htmlBody += '<img src="' + logoUrl + '" alt="Alliance Financing Group" width="220" style="display:block;margin:0 auto 16px;max-width:220px;height:auto;filter:brightness(0) invert(1);">';
+            htmlBody += '<p style="margin:0;color:#8A9BB0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">Your Financing Resource Package</p>';
+            htmlBody += '</td></tr>';
+
+            // Greeting
+            htmlBody += '<tr><td style="background:white;padding:40px 48px 12px;">';
+            htmlBody += '<p style="font-size:16px;color:#1F2937;line-height:1.7;margin:0;">' + greeting + '</p>';
+            htmlBody += '</td></tr>';
+
+            // Custom note
+            htmlBody += customNoteHtml;
+
+            // Body
+            htmlBody += '<tr><td style="background:white;padding:0 48px 20px;">';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">Great connecting with you! I\'ve put together some resources from Alliance Financing Group that I think you\'ll find valuable. Please find the materials below:</p>';
+            htmlBody += '</td></tr>';
+
+            // Materials cards
+            htmlBody += '<tr><td style="background:white;padding:0 48px 28px;">';
+            for (var s = 0; s < selectedMaterials.length; s++) {
+                var mat = selectedMaterials[s];
+                var materialUrl = baseUrl + mat.file;
+                htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">';
+                htmlBody += '<tr><td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px 20px;">';
+                htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>';
+                htmlBody += '<td style="width:36px;vertical-align:middle;font-size:24px;">' + mat.icon + '</td>';
+                htmlBody += '<td style="vertical-align:middle;padding-left:12px;">';
+                htmlBody += '<div style="font-weight:700;color:#0D1E3D;font-size:14px;">' + mat.label + '</div>';
+                htmlBody += '<div style="color:#64748B;font-size:12px;margin-top:2px;">' + mat.desc + '</div>';
+                htmlBody += '</td>';
+                htmlBody += '<td style="text-align:right;vertical-align:middle;">';
+                htmlBody += '<a href="' + materialUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;text-decoration:none;padding:8px 18px;border-radius:6px;font-weight:700;font-size:12px;">View ' + mat.type + '</a>';
+                htmlBody += '</td></tr></table>';
+                htmlBody += '</td></tr></table>';
+            }
+            htmlBody += '</td></tr>';
+
+            // CTA
+            htmlBody += '<tr><td style="background:white;padding:8px 48px 20px;text-align:center;">';
+            htmlBody += '<p style="font-size:15px;color:#374151;margin:0 0 16px;">Ready to explore financing options?</p>';
+            htmlBody += '<a href="' + generalAppLink + '" style="display:inline-block;background:#0D1E3D;color:#ffffff;text-decoration:none;padding:14px 44px;border-radius:8px;font-weight:600;font-size:14px;">Start an Application →</a>';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:10px 0 0;">No fees. No impact to your credit score. Takes 5 minutes.</p>';
+            htmlBody += '</td></tr>';
+
+            // Signature
+            htmlBody += '<tr><td style="background:white;padding:0 48px 36px;">';
+            htmlBody += '<div style="border-top:1px solid #E2E8F0;padding-top:28px;">';
+            htmlBody += '<p style="font-size:15px;color:#1F2937;margin:0 0 4px;">Looking forward to connecting,</p>';
+            htmlBody += '<p style="font-size:16px;color:#0D1E3D;margin:0;font-weight:700;">' + agentName + '</p>';
+            if (agentEmailAddr) htmlBody += '<p style="font-size:13px;color:#64748B;margin:6px 0 0;"><a href="mailto:' + agentEmailAddr + '" style="color:#C9A84C;text-decoration:none;">' + agentEmailAddr + '</a></p>';
+            if (agentPhone) htmlBody += '<p style="font-size:13px;color:#64748B;margin:3px 0 0;">' + agentPhone + '</p>';
+            htmlBody += '</div></td></tr>';
+
+            // Footer
+            htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '</td></tr>';
+
+            htmlBody += '</table></td></tr></table></body></html>';
+
+            var materialNames = selectedMaterials.map(function(m) { return m.label; });
+            var subject = 'Financing Resources from Alliance Financing Group — ' + agentName;
+
+            await sendEmailViaResend(email, subject, htmlBody);
+
+            // Track in prospect_outreach table
+            try {
+                await db.from('prospect_outreach').insert({
+                    prospect_name: name,
+                    prospect_email: email,
+                    prospect_company: company || null,
+                    prospect_type: prospectType || null,
+                    materials_sent: materialNames,
+                    custom_message: customMessage || null,
+                    sent_by_id: currentUserId || null,
+                    sent_by_name: currentUserName || 'Unknown',
+                    sent_by_role: currentUserRole || null,
+                    agent_slug: agentSlug !== 'alliance-house' ? agentSlug : null,
+                    status: 'sent',
+                    follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+                });
+            } catch(trackErr) {
+                console.error('Track outreach error:', trackErr);
+                // Fallback: also log to applications_sent for redundancy
+                try {
+                    await db.from('applications_sent').insert({
+                        applicant_name: name,
+                        applicant_email: email,
+                        application_type: 'Marketing Package',
+                        subject: subject,
+                        status: 'Sent',
+                        follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+                        sent_by: currentUserName || 'Unknown',
+                        referral_agent: agentName,
+                        referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null
+                    });
+                } catch(e2) { console.error('Fallback track error:', e2); }
+            }
+
+            showToast('Marketing package sent to ' + email + '!', 'success');
+            document.getElementById('mktPkgModal').style.display = 'none';
+            loadOutreachHistory();
+        } catch (err) {
+            alert('Error sending email: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg> Send Package';
+        }
+    }
+
+    // ============================================
+    // OUTREACH HISTORY
+    // ============================================
+
+    async function loadOutreachHistory() {
+        var tbody = document.getElementById('outreachTableBody');
+        if (!tbody) return;
+
+        try {
+            // Try loading from prospect_outreach first
+            var query = db.from('prospect_outreach').select('*').order('created_at', { ascending: false }).limit(50);
+
+            // Super admins see all, agents see only their own
+            if (!['super_admin', 'admin'].includes(currentUserRole)) {
+                query = query.eq('sent_by_id', currentUserId);
+            }
+
+            var { data, error } = await query;
+
+            if (error) {
+                // Table might not exist yet — show empty state with create prompt
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:30px;text-align:center;">' +
+                    '<div style="font-size:36px;margin-bottom:8px;">📨</div>' +
+                    '<div style="font-weight:600;color:var(--navy);margin-bottom:4px;">No outreach history yet</div>' +
+                    '<div style="color:var(--text-light);font-size:13px;margin-bottom:12px;">Send your first marketing package to start tracking prospects.</div>' +
+                    '<button class="btn btn-gold btn-sm" onclick="createOutreachTable()" style="font-size:12px;">Initialize Outreach Tracking</button>' +
+                    '</td></tr>';
+                document.getElementById('outreachCount').textContent = '';
+                return;
+            }
+
+            var outreachData = data || [];
+            document.getElementById('outreachCount').textContent = outreachData.length + ' total sends';
+
+            if (outreachData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:30px;text-align:center;">' +
+                    '<div style="font-size:36px;margin-bottom:8px;">📨</div>' +
+                    '<div style="font-weight:600;color:var(--navy);margin-bottom:4px;">No outreach history yet</div>' +
+                    '<div style="color:var(--text-light);font-size:13px;">Send your first marketing package to start tracking prospects.</div>' +
+                    '</td></tr>';
+                return;
+            }
+
+            var html = '';
+            for (var i = 0; i < outreachData.length; i++) {
+                var row = outreachData[i];
+                var materials = row.materials_sent || [];
+                var materialsHtml = '';
+                for (var j = 0; j < materials.length; j++) {
+                    materialsHtml += '<span style="display:inline-block;background:#EFF6FF;color:#1E40AF;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;margin:1px 2px;">' + materials[j] + '</span>';
+                }
+
+                var dateStr = '';
+                if (row.created_at) {
+                    var dt = new Date(row.created_at);
+                    dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    var daysAgo = Math.floor((Date.now() - dt.getTime()) / 86400000);
+                    if (daysAgo === 0) dateStr = 'Today';
+                    else if (daysAgo === 1) dateStr = 'Yesterday';
+                    else if (daysAgo < 7) dateStr = daysAgo + 'd ago';
+                }
+
+                var statusColors = {
+                    'sent': { bg: '#DBEAFE', color: '#1E40AF', label: 'Sent' },
+                    'opened': { bg: '#D1FAE5', color: '#065F46', label: 'Opened' },
+                    'replied': { bg: '#FEF3C7', color: '#92400E', label: 'Replied' },
+                    'meeting_booked': { bg: '#E0E7FF', color: '#3730A3', label: 'Meeting Booked' },
+                    'converted': { bg: '#DCFCE7', color: '#166534', label: 'Converted' },
+                    'no_response': { bg: '#F3F4F6', color: '#6B7280', label: 'No Response' }
+                };
+                var st = statusColors[row.status] || statusColors['sent'];
+
+                var prospectDisplay = '<div style="font-weight:600;color:var(--navy);font-size:13px;">' + (row.prospect_name || 'Unknown') + '</div>';
+                if (row.prospect_company) prospectDisplay += '<div style="font-size:11px;color:var(--text-light);">' + row.prospect_company + '</div>';
+                prospectDisplay += '<div style="font-size:11px;color:#94A3B8;">' + (row.prospect_email || '') + '</div>';
+
+                html += '<tr style="border-bottom:1px solid #F1F5F9;" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'white\'">';
+                html += '<td style="padding:12px 16px;">' + prospectDisplay + '</td>';
+                html += '<td style="padding:12px 16px;">' + materialsHtml + '</td>';
+                html += '<td style="padding:12px 16px;font-size:12px;color:#64748B;">' + (row.sent_by_name || 'Unknown') + '</td>';
+                html += '<td style="padding:12px 16px;font-size:12px;color:#64748B;">' + dateStr + '</td>';
+                html += '<td style="padding:12px 16px;">';
+                html += '<select onchange="updateOutreachStatus(\'' + row.id + '\', this.value)" style="padding:4px 8px;border:1px solid #E2E8F0;border-radius:4px;font-size:11px;font-weight:600;background:' + st.bg + ';color:' + st.color + ';cursor:pointer;">';
+                var statusKeys = Object.keys(statusColors);
+                for (var sk = 0; sk < statusKeys.length; sk++) {
+                    var sKey = statusKeys[sk];
+                    html += '<option value="' + sKey + '"' + (row.status === sKey ? ' selected' : '') + '>' + statusColors[sKey].label + '</option>';
+                }
+                html += '</select></td>';
+                html += '<td style="padding:12px 16px;text-align:center;">';
+                html += '<button onclick="resendMarketingPackage(\'' + row.id + '\')" style="padding:4px 10px;background:#F3F4F6;border:1px solid #E2E8F0;border-radius:4px;cursor:pointer;font-size:11px;color:#374151;" title="Resend">↻ Resend</button>';
+                html += '</td>';
+                html += '</tr>';
+            }
+            tbody.innerHTML = html;
+
+        } catch (err) {
+            console.error('Error loading outreach:', err);
+            tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#EF4444;font-size:13px;">Error loading outreach history.</td></tr>';
+        }
+    }
+
+    async function updateOutreachStatus(id, newStatus) {
+        try {
+            await db.from('prospect_outreach').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', id);
+            showToast('Status updated to ' + newStatus.replace(/_/g, ' '), 'success');
+        } catch (err) {
+            console.error('Update status error:', err);
+            showToast('Failed to update status', 'error');
+        }
+    }
+
+    async function resendMarketingPackage(id) {
+        try {
+            var { data, error } = await db.from('prospect_outreach').select('*').eq('id', id).single();
+            if (error || !data) { alert('Could not find outreach record.'); return; }
+
+            // Pre-populate modal with existing data
+            openSendMarketingPackageModal();
+
+            // Wait a tick for modal to render, then fill in fields
+            setTimeout(function() {
+                document.getElementById('mktPkgName').value = data.prospect_name || '';
+                document.getElementById('mktPkgEmail').value = data.prospect_email || '';
+                if (data.prospect_company) document.getElementById('mktPkgCompany').value = data.prospect_company;
+                if (data.prospect_type) document.getElementById('mktPkgType').value = data.prospect_type;
+
+                // Check the previously sent materials
+                var prevMats = data.materials_sent || [];
+                for (var m = 0; m < MARKETING_MATERIALS.length; m++) {
+                    var cb = document.getElementById('mktPkgMat_' + MARKETING_MATERIALS[m].id);
+                    if (cb) {
+                        var wasIncluded = prevMats.indexOf(MARKETING_MATERIALS[m].label) >= 0;
+                        cb.checked = wasIncluded;
+                        toggleMktCheckboxStyle(cb);
+                    }
+                }
+            }, 100);
+        } catch (err) {
+            console.error('Resend error:', err);
+            alert('Error loading outreach record.');
+        }
+    }
+
+    async function createOutreachTable() {
+        try {
+            // Attempt to create the table via RPC or direct insert test
+            var { error } = await db.from('prospect_outreach').insert({
+                prospect_name: '_table_init_test_',
+                prospect_email: 'test@init.com',
+                materials_sent: [],
+                sent_by_name: 'System',
+                status: 'sent'
+            });
+
+            if (!error) {
+                // Clean up test row
+                await db.from('prospect_outreach').delete().eq('prospect_name', '_table_init_test_');
+                showToast('Outreach tracking initialized!', 'success');
+                loadOutreachHistory();
+            } else {
+                // Table doesn't exist — show SQL instructions
+                alert('The prospect_outreach table needs to be created in Supabase. Go to SQL Editor and run the CREATE TABLE command. Check the console for the SQL.');
+                console.log('-- Create prospect_outreach table:\n' +
+                    'CREATE TABLE IF NOT EXISTS prospect_outreach (\n' +
+                    '  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n' +
+                    '  prospect_name TEXT NOT NULL,\n' +
+                    '  prospect_email TEXT NOT NULL,\n' +
+                    '  prospect_company TEXT,\n' +
+                    '  prospect_type TEXT,\n' +
+                    '  materials_sent JSONB DEFAULT \'[]\'::jsonb,\n' +
+                    '  custom_message TEXT,\n' +
+                    '  sent_by_id UUID,\n' +
+                    '  sent_by_name TEXT,\n' +
+                    '  sent_by_role TEXT,\n' +
+                    '  agent_slug TEXT,\n' +
+                    '  status TEXT DEFAULT \'sent\',\n' +
+                    '  follow_up_date TIMESTAMPTZ,\n' +
+                    '  notes TEXT,\n' +
+                    '  created_at TIMESTAMPTZ DEFAULT now(),\n' +
+                    '  updated_at TIMESTAMPTZ DEFAULT now()\n' +
+                    ');\n\n' +
+                    '-- Enable RLS\n' +
+                    'ALTER TABLE prospect_outreach ENABLE ROW LEVEL SECURITY;\n\n' +
+                    '-- Policy: admins can see all, agents see their own\n' +
+                    'CREATE POLICY "Allow all for authenticated" ON prospect_outreach\n' +
+                    '  FOR ALL USING (true) WITH CHECK (true);\n'
+                );
+            }
+        } catch (err) {
+            console.error('Create table error:', err);
         }
     }
 
@@ -10162,6 +10645,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         html += '</div></button>';
         html += '</div></div></div>';
 
+        // Send Marketing Package section (for ISOs/agents to prospect)
+        if (currentAgentType === 'super_agent' || ['super_admin', 'admin'].includes(currentUserRole)) {
+            html += '<div style="margin-bottom:24px;">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
+            html += '<h3 style="color:#0D1E3D;margin:0;font-size:16px;">Prospect Outreach</h3>';
+            html += '<button onclick="openSendMarketingPackageModal()" class="btn btn-gold btn-sm" style="display:flex;align-items:center;gap:6px;font-size:12px;">';
+            html += '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>';
+            html += 'Send Marketing Package</button></div>';
+            html += '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">';
+            html += '<table style="width:100%;border-collapse:collapse;">';
+            html += '<thead><tr style="background:#F8FAFC;border-bottom:2px solid #E2E8F0;">';
+            html += '<th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Prospect</th>';
+            html += '<th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Materials</th>';
+            html += '<th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Date</th>';
+            html += '<th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Status</th>';
+            html += '</tr></thead>';
+            html += '<tbody id="helpOutreachTableBody">';
+            html += '<tr><td colspan="4" style="padding:30px;text-align:center;color:var(--text-light);font-size:13px;">Loading outreach history...</td></tr>';
+            html += '</tbody></table></div></div>';
+        }
+
         // Quick reference section
         html += '<div style="margin-bottom:24px;">';
         html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Quick Reference</h3>';
@@ -10262,6 +10766,46 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
         guideCount.textContent = 1 + filteredResources.length;
         container.innerHTML = html;
+
+        // Load outreach history into help page table (for ISOs)
+        if (currentAgentType === 'super_agent' || ['super_admin', 'admin'].includes(currentUserRole)) {
+            loadHelpOutreachHistory();
+        }
+    }
+
+    async function loadHelpOutreachHistory() {
+        var tbody = document.getElementById('helpOutreachTableBody');
+        if (!tbody) return;
+        try {
+            var query = db.from('prospect_outreach').select('*').order('created_at', { ascending: false }).limit(20);
+            if (!['super_admin', 'admin'].includes(currentUserRole)) {
+                query = query.eq('sent_by_id', currentUserId);
+            }
+            var { data, error } = await query;
+            if (error || !data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="padding:24px;text-align:center;color:var(--text-light);font-size:13px;">No outreach yet. Send your first marketing package!</td></tr>';
+                return;
+            }
+            var html = '';
+            var statusColors = { sent:'#1E40AF', opened:'#065F46', replied:'#92400E', meeting_booked:'#3730A3', converted:'#166534', no_response:'#6B7280' };
+            var statusLabels = { sent:'Sent', opened:'Opened', replied:'Replied', meeting_booked:'Meeting', converted:'Converted', no_response:'No Response' };
+            for (var i = 0; i < data.length; i++) {
+                var r = data[i];
+                var mats = (r.materials_sent || []).map(function(m) { return '<span style="display:inline-block;background:#EFF6FF;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;margin:1px;">' + m + '</span>'; }).join('');
+                var dStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+                var sc = statusColors[r.status] || '#6B7280';
+                var sl = statusLabels[r.status] || r.status;
+                html += '<tr style="border-bottom:1px solid #F1F5F9;">';
+                html += '<td style="padding:10px 16px;"><div style="font-weight:600;font-size:12px;color:var(--navy);">' + (r.prospect_name||'') + '</div><div style="font-size:10px;color:#94A3B8;">' + (r.prospect_email||'') + '</div></td>';
+                html += '<td style="padding:10px 16px;">' + mats + '</td>';
+                html += '<td style="padding:10px 16px;font-size:11px;color:#64748B;">' + dStr + '</td>';
+                html += '<td style="padding:10px 16px;"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;color:' + sc + ';background:' + sc + '15;">' + sl + '</span></td>';
+                html += '</tr>';
+            }
+            tbody.innerHTML = html;
+        } catch(e) {
+            tbody.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--text-light);font-size:12px;">Outreach tracking not yet set up.</td></tr>';
+        }
     }
 
     async function downloadPartnerGuide(filename) {
@@ -10760,6 +11304,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         try {
             // Populate pre-built app links
             populateAllianceAppLinks();
+            // Load outreach history
+            loadOutreachHistory();
         } catch (error) {
             console.error('Load Alliance page error:', error);
         }
