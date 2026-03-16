@@ -9808,7 +9808,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Check if a deal already exists for this application
             var { data: existingDeal } = await db.from('deals').select('id, company_name').eq('application_id', applicationId).maybeSingle();
             if (existingDeal) {
-                alert('This application is already in the Deal Pipeline as "' + (existingDeal.company_name || 'Unknown') + '". Opening the deal instead.');
+                // Update the application status so it disappears from Intake
+                await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', applicationId);
+                await loadDashboard();
+                alert('This application is already in the Deal Pipeline as "' + (existingDeal.company_name || 'Unknown') + '". Opening the deal now.');
                 viewDeal(existingDeal.id);
                 return;
             }
