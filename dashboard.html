@@ -19416,13 +19416,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 .eq('vendor_id', vendorId);
 
             // Load all active lenders for the dropdown
-            const { data: allLenders } = await db.from('lenders').select('id, name').eq('status', 'Active').order('name');
+            const { data: allLenders } = await db.from('lenders').select('id, name, status').order('name');
+            console.log('All lenders returned:', (allLenders || []).length, (allLenders || []).map(l => l.name + ' [' + l.status + ']'));
 
             const container = document.getElementById('vendorApprovedLenders_' + vendorId);
             if (!container) return;
 
-            const approved = (approvedLenders || []).filter(al => al.lender);
-            const approvedIds = approved.map(al => al.lender.id);
+            // Include all approved lender IDs, even orphaned records where lender join failed
+            const allApprovedRaw = (approvedLenders || []);
+            const approved = allApprovedRaw.filter(al => al.lender);
+            const approvedIds = allApprovedRaw.map(al => al.lender_id || (al.lender && al.lender.id)).filter(Boolean);
+            console.log('Approved lender IDs for this vendor:', approvedIds, 'Raw records:', allApprovedRaw.length, 'With valid join:', approved.length);
 
             if (approved.length === 0) {
                 container.innerHTML = '<p style="color: var(--text-light); font-size: 13px; font-style: italic;">No approved lenders yet. Add lenders this vendor is approved with.</p>';
@@ -19441,11 +19445,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Populate checkboxes with lenders not already approved
             const cbContainer = document.getElementById('addApprovedLenderCheckboxes_' + vendorId);
             if (cbContainer) {
-                const available = (allLenders || []).filter(l => !approvedIds.includes(l.id));
+                const activeLenders = (allLenders || []).filter(l => l.status === 'Active');
+                const available = activeLenders.filter(l => !approvedIds.includes(l.id));
+                console.log('Active lenders:', activeLenders.length, 'Available (not yet approved):', available.length);
                 if (available.length === 0) {
-                    cbContainer.innerHTML = '<p style="color: var(--text-light); font-size: 12px; font-style: italic;">All lenders are already approved for this vendor.</p>';
+                    cbContainer.innerHTML = '<p style="color: var(--text-light); font-size: 12px; font-style: italic;">All active lenders are already approved for this vendor.</p>';
                 } else {
-                    cbContainer.innerHTML = available.map(l =>
+                    cbContainer.innerHTML = '<p style="color:#64748B;font-size:11px;margin-bottom:4px;">Showing ' + available.length + ' of ' + activeLenders.length + ' active lenders</p>' +
+                    available.map(l =>
                         '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;">' +
                         '<input type="checkbox" class="approvedLenderCb_' + vendorId + '" value="' + l.id + '">' +
                         '<span style="color:var(--navy);">' + l.name + '</span></label>'
