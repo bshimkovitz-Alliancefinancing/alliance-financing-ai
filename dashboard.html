@@ -9323,7 +9323,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // 3. Applications awaiting review
             var pendingApps = (applications || []).filter(function(a) { return a.status === 'Application Received'; });
             if (pendingApps.length > 0) {
-                alerts.push({ icon: '📋', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', label: 'New Applications', count: pendingApps.length, detail: 'Not yet reviewed', onclick: "showPage('deals')" });
+                alerts.push({ icon: '📋', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', label: 'New Applications', count: pendingApps.length, detail: 'Not yet reviewed', onclick: "document.getElementById('recentApplicationsTable').scrollIntoView({behavior:'smooth',block:'start'})" });
             }
 
             // 4. Agents with Invited status (not yet active)
@@ -9805,6 +9805,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
     async function moveToPipeline(applicationId) {
         try {
+            // Check if a deal already exists for this application
+            var { data: existingDeal } = await db.from('deals').select('id, company_name').eq('application_id', applicationId).maybeSingle();
+            if (existingDeal) {
+                alert('This application is already in the Deal Pipeline as "' + (existingDeal.company_name || 'Unknown') + '". Opening the deal instead.');
+                viewDeal(existingDeal.id);
+                return;
+            }
+
             // Fetch the application
             const { data: application, error: appError } = await db
                 .from('applications')
