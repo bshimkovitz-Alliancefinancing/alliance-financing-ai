@@ -10238,7 +10238,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 '</td>' +
                 '<td style="padding:12px 14px;" onclick="event.stopPropagation()">' +
                     '<select onchange="updateLenderStatus(\'' + lender.id + '\', this.value)" style="padding:5px 8px;border-radius:6px;border:1px solid ' + st.bg + ';background:' + st.bg + ';color:' + st.color + ';font-size:12px;font-weight:600;cursor:pointer;appearance:auto;-webkit-appearance:auto;">' +
-                        'Active,Inactive'.split(',').map(function(s) { return '<option value="' + s + '"' + ((lender.status || '') === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
+                        'Active,Agreement Signed,Onboarding,Inactive'.split(',').map(function(s) { return '<option value="' + s + '"' + ((lender.status || '') === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
                     '</select>' +
                 '</td>' +
                 '<td style="padding:12px 14px;text-align:right;" onclick="event.stopPropagation()">' +
@@ -18281,8 +18281,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             const { data: deal, error: dealErr } = await db.from('deals').select('*').eq('id', dealId).single();
             if (dealErr) throw dealErr;
 
-            // Fetch all active lenders with criteria
-            const { data: lenders, error: lenderErr } = await db.from('lenders').select('*').eq('status', 'Active');
+            // Fetch all active and agreement-signed lenders with criteria
+            const { data: lenders, error: lenderErr } = await db.from('lenders').select('*').in('status', ['Active', 'Agreement Signed']);
             if (lenderErr) throw lenderErr;
 
             if (!lenders || lenders.length === 0) {
@@ -19464,13 +19464,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             // Populate checkboxes with lenders not already approved
             const cbContainer = document.getElementById('addApprovedLenderCheckboxes_' + vendorId);
             if (cbContainer) {
-                const activeLenders = (allLenders || []).filter(l => l.status === 'Active');
-                const available = activeLenders.filter(l => !approvedIds.includes(l.id));
-                console.log('Active lenders:', activeLenders.length, 'Available (not yet approved):', available.length);
+                const eligibleLenders = (allLenders || []).filter(l => l.status === 'Active' || l.status === 'Agreement Signed');
+                const available = eligibleLenders.filter(l => !approvedIds.includes(l.id));
+                console.log('Eligible lenders (Active + Agreement Signed):', eligibleLenders.length, 'Available (not yet approved):', available.length);
                 if (available.length === 0) {
-                    cbContainer.innerHTML = '<p style="color: var(--text-light); font-size: 12px; font-style: italic;">All active lenders are already approved for this vendor.</p>';
+                    cbContainer.innerHTML = '<p style="color: var(--text-light); font-size: 12px; font-style: italic;">All eligible lenders are already approved for this vendor.</p>';
                 } else {
-                    cbContainer.innerHTML = '<p style="color:#64748B;font-size:11px;margin-bottom:4px;">Showing ' + available.length + ' of ' + activeLenders.length + ' active lenders</p>' +
+                    cbContainer.innerHTML = '<p style="color:#64748B;font-size:11px;margin-bottom:4px;">Showing ' + available.length + ' of ' + eligibleLenders.length + ' eligible lenders</p>' +
                     available.map(l =>
                         '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;">' +
                         '<input type="checkbox" class="approvedLenderCb_' + vendorId + '" value="' + l.id + '">' +
@@ -20549,7 +20549,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         <label>Status</label>
                         <div class="modal-field-value">
                             <select id="lenderDetailStatus" onchange="updateLenderStatus('${lenderId}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
-                                ${'Active,Inactive'.split(',').map(s => `<option value="${s}" ${(lender.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                ${'Active,Agreement Signed,Onboarding,Inactive'.split(',').map(s => `<option value="${s}" ${(lender.status || '') === s ? 'selected' : ''}>${s}</option>`).join('')}
                             </select>
                         </div>
                     </div>
