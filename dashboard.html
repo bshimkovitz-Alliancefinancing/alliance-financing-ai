@@ -17417,6 +17417,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             if (error) throw error;
             if (!agent) { alert('Agent not found'); return; }
 
+            // Auto-detect agents who have dashboard access but missing invite tracking fields
+            // This handles agents set up manually outside the normal invite flow
+            if (agent.status === 'Active' && agent.onboarding_status !== 'active' && !agent.invite_accepted_at) {
+                // Check if this agent has a Supabase Auth account (can actually log in)
+                // We check by looking for invite_token or any sign they were given access
+                if (agent.invite_token || agent.email) {
+                    // Try to detect if they have auth by checking if onboarding was ever started
+                    // For now, if status is Active and they have an invite_token, mark them as active
+                    if (agent.invite_token) {
+                        await db.from('users').update({
+                            onboarding_status: 'active',
+                            invite_accepted_at: agent.invite_accepted_at || new Date().toISOString()
+                        }).eq('id', agentId);
+                        agent.onboarding_status = 'active';
+                        agent.invite_accepted_at = agent.invite_accepted_at || new Date().toISOString();
+                    }
+                }
+            }
+
             // Get agent's deals
             const { data: deals } = await db
                 .from('deals')
@@ -17596,9 +17615,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     <div class="modal-field">
                         <label>Dashboard Access</label>
                         <div class="modal-field-value">
-                            ${agent.invite_accepted_at ? '<span style="color:#166534;font-weight:600;">✓ Set Up</span> — ' + formatDate(agent.invite_accepted_at) : agent.invite_sent_at && !agent.invite_accepted_at ? '<span style="color:#92400E;font-weight:600;">⏳ Invite Sent</span> — ' + formatDate(agent.invite_sent_at) : '<span style="color:#DC2626;font-weight:600;">✗ Not Set Up</span>'}
+                            ${agent.invite_accepted_at || agent.onboarding_status === 'active' ? '<span style="color:#166534;font-weight:600;">✓ Set Up</span>' + (agent.invite_accepted_at ? ' — ' + formatDate(agent.invite_accepted_at) : '') : agent.invite_sent_at && !agent.invite_accepted_at ? '<span style="color:#92400E;font-weight:600;">⏳ Invite Sent</span> — ' + formatDate(agent.invite_sent_at) : '<span style="color:#DC2626;font-weight:600;">✗ Not Set Up</span>'}
                             <button class="btn btn-sm" id="sendActivationBtn_${agentId}" onclick="sendActivationEmail('${agentId}')" style="background:#0D1E3D;color:#C9A84C;border:1px solid #C9A84C;padding:5px 14px;font-size:12px;font-weight:600;margin-left:10px;cursor:pointer;">
-                                ${agent.invite_accepted_at ? '🔄 Resend Access' : agent.invite_sent_at ? '🔄 Resend Invite' : '📧 Send Dashboard Invite'}
+                                ${agent.invite_accepted_at || agent.onboarding_status === 'active' ? '🔄 Resend Access' : agent.invite_sent_at ? '🔄 Resend Invite' : '📧 Send Dashboard Invite'}
                             </button>
                         </div>
                     </div>
