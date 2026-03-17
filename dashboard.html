@@ -5770,7 +5770,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     // Quick add note from the inline outreach notes row
-    async function addQuickOutreachNote(id) {
+    window.addQuickOutreachNote = async function(id) {
         var inputEl = document.getElementById('outreachNoteInput_' + id);
         if (!inputEl) return;
         var noteText = inputEl.value.trim();
@@ -5797,7 +5797,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             console.error('Quick note error:', err);
             showToast('Failed to add note', 'error');
         }
-    }
+    };
 
     // ============================================
     // CONVERT PROSPECT TO AGENT
@@ -6156,7 +6156,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
     }
 
     // Toggle expandable vendor lead detail row
-    function toggleVendorLeadDetail(leadId) {
+    window.toggleVendorLeadDetail = function(leadId) {
         var detailRow = document.getElementById('vendorLeadDetail_' + leadId);
         var arrow = document.getElementById('vendorLeadArrow_' + leadId);
         if (!detailRow) return;
@@ -6167,10 +6167,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             detailRow.style.display = 'none';
             if (arrow) arrow.textContent = '▸';
         }
-    }
+    };
 
     // Add an internal note to a vendor inquiry lead
-    async function addVendorLeadNote(leadId) {
+    window.addVendorLeadNote = async function(leadId) {
         var inputEl = document.getElementById('vendorLeadNote_' + leadId);
         if (!inputEl) return;
         var noteText = inputEl.value.trim();
@@ -6210,7 +6210,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             console.error('Add vendor lead note error:', err);
             showToast('Failed to add note: ' + (err.message || err), 'error');
         }
-    }
+    };
 
     // ============================================
     // PROMOTE VENDOR INQUIRY → VENDOR RECORD
@@ -19668,6 +19668,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         const checked = document.querySelectorAll('.approvedLenderCb_' + vendorId + ':checked');
         if (checked.length === 0) { alert('Please select at least one lender to add.'); return; }
         try {
+            const userEmail = document.getElementById('userEmailDisplay') ? document.getElementById('userEmailDisplay').textContent : 'System';
             const inserts = [];
             checked.forEach(cb => {
                 inserts.push({
@@ -19711,6 +19712,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
 
         try {
+            const userEmail = document.getElementById('userEmailDisplay') ? document.getElementById('userEmailDisplay').textContent : 'System';
+
             // Get vendor info for the email
             const { data: vendor } = await db.from('vendors').select('name').eq('id', vendorId).single();
             const vendorName = vendor ? vendor.name : 'Vendor Program';
