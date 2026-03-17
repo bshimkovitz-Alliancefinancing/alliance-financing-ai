@@ -3797,7 +3797,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-17-v3';
+    const DASHBOARD_VERSION = '2026-03-17-v4';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -3923,6 +3923,16 @@
                     currentUserId = userData.id;
                     currentUserName = userData.full_name || email;
                     if (userData.agent_type) currentAgentType = userData.agent_type;
+
+                    // Auto-fix: if super_admin or admin has an agent_type set, clear it
+                    if (['super_admin', 'admin'].includes(userData.role) && userData.agent_type) {
+                        console.log('Auto-fix: clearing agent_type for admin user', userData.id);
+                        currentAgentType = 'referring_agent'; // reset to default
+                        db.from('users').update({ agent_type: null }).eq('id', userData.id).then(function(res) {
+                            if (res.error) console.error('Failed to clear agent_type:', res.error);
+                            else console.log('Successfully cleared agent_type for admin user');
+                        });
+                    }
                 }
             } catch (e) {
                 console.log('User lookup optional, continuing...', e);
@@ -22001,6 +22011,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         currentUserRole = displayRole;
                         currentUserName = displayName;
                         if (userData.agent_type) currentAgentType = userData.agent_type;
+
+                        // Auto-fix: if super_admin or admin has an agent_type set, clear it
+                        if (['super_admin', 'admin'].includes(userData.role) && userData.agent_type) {
+                            console.log('Auto-fix: clearing agent_type for admin user', userData.id);
+                            currentAgentType = 'referring_agent';
+                            db.from('users').update({ agent_type: null }).eq('id', userData.id).then(function(res) {
+                                if (res.error) console.error('Failed to clear agent_type:', res.error);
+                                else console.log('Successfully cleared agent_type for admin user');
+                            });
+                        }
                     }
                 } catch(e) {}
                 document.getElementById('loginScreen').style.display = 'none';
