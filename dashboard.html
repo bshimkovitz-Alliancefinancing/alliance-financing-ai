@@ -8656,6 +8656,26 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     </div>
                     <button class="btn btn-gold btn-sm" onclick="agentAddVendorContact('${vendorId}')" style="margin-top: 10px;">Add Salesperson</button>
                 </div>
+                ${(() => {
+                    // Show admin notes that are visible to agent
+                    let agentNotes = [];
+                    try { agentNotes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { agentNotes = []; }
+                    const visibleNotes = agentNotes.filter(n => n.visible_to_agent === true);
+                    if (visibleNotes.length === 0) return '';
+                    let notesHtml = '<div style="border-top: 2px solid var(--border-gray); padding-top: 15px; margin-top: 15px;">';
+                    notesHtml += '<label style="font-size: 15px; font-weight: 600; color: var(--navy); display: block; margin-bottom: 10px;">Notes from Admin</label>';
+                    visibleNotes.reverse().forEach(n => {
+                        const noteDate = n.date || '';
+                        notesHtml += '<div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;">';
+                        notesHtml += '<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">';
+                        notesHtml += '<span style="font-weight: 600; color: #92400E; font-size: 12px;">' + (n.author || 'Admin') + '</span>';
+                        notesHtml += '<span style="color: #94A3B8; font-size: 11px;">' + noteDate + '</span></div>';
+                        notesHtml += '<div style="font-size: 13px; color: #334155; white-space: pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                        notesHtml += '</div>';
+                    });
+                    notesHtml += '</div>';
+                    return notesHtml;
+                })()}
             `;
 
             document.getElementById('agentVendorDetailModal').style.display = 'flex';
@@ -15339,7 +15359,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     notes: null,
                     uploaded_by: currentUserId,
                     uploaded_by_name: currentUserName || document.getElementById('userEmailDisplay').textContent || 'Unknown',
-                    visible_to_agent: false,
+                    visible_to_agent: true,
                     deal_id: dealId
                 };
                 var { error: docError } = await db.from('documents').insert([docRecord]);
@@ -19148,9 +19168,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
             const notesHtml = notes.length > 0
                 ? notes.map(n => `
-                    <div style="background: #F8FAFC; border-left: 3px solid var(--gold); padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
+                    <div style="background: ${n.visible_to_agent ? '#FFFBEB' : '#F8FAFC'}; border-left: 3px solid ${n.visible_to_agent ? '#F59E0B' : 'var(--gold)'}; padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
                         <div style="font-size: 12px; color: var(--text-light); margin-bottom: 4px;">
                             <strong>${n.author || 'Admin'}</strong> — ${n.date || 'N/A'}
+                            ${n.visible_to_agent ? '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>' : '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>'}
                         </div>
                         <div style="font-size: 14px; color: var(--text-dark);">${n.text}</div>
                     </div>
@@ -19533,6 +19554,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                         </div>
                         <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                             <button class="btn btn-gold btn-sm" onclick="addVendorNote('${vendorId}')">Add Note</button>
+                            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--navy);cursor:pointer;margin-left:8px;"><input type="checkbox" id="vendorNoteVisibleToAgent" checked> Visible to Agent</label>
                             ${vendor.source_agent_id ? (() => {
                                 const agentMatch = cachedAgents.find(a => a.id === vendor.source_agent_id);
                                 const agentDisplayName = agentMatch ? (agentMatch.full_name || agentMatch.email) : 'Agent';
@@ -20328,10 +20350,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             const userEmail = document.getElementById('userEmailDisplay').textContent;
 
+            // Check if note should be visible to agent
+            const visibleCheckbox = document.getElementById('vendorNoteVisibleToAgent');
+            const visibleToAgent = visibleCheckbox ? visibleCheckbox.checked : false;
+
             let noteEntry = {
                 text: noteText,
                 author: userEmail,
-                date: dateStr
+                date: dateStr,
+                visible_to_agent: visibleToAgent
             };
 
             // If CC agent, send email and mark note
@@ -20604,9 +20631,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
             const notesHtml = notes.length > 0
                 ? notes.map(n => `
-                    <div style="background: #F8FAFC; border-left: 3px solid var(--gold); padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
+                    <div style="background: ${n.visible_to_agent ? '#FFFBEB' : '#F8FAFC'}; border-left: 3px solid ${n.visible_to_agent ? '#F59E0B' : 'var(--gold)'}; padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
                         <div style="font-size: 12px; color: var(--text-light); margin-bottom: 4px;">
                             <strong>${n.author || 'Admin'}</strong> — ${n.date || 'N/A'}
+                            ${n.visible_to_agent ? '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>' : '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>'}
                         </div>
                         <div style="font-size: 14px; color: var(--text-dark);">${n.text}</div>
                     </div>
