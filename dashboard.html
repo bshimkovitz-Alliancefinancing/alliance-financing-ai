@@ -3797,7 +3797,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-17-v6';
+    const DASHBOARD_VERSION = '2026-03-17-v8';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -12697,9 +12697,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     <div style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px; border: 1px solid var(--border-gray);">
                         <div style="font-weight: 600; margin-bottom: 12px; color: var(--navy);">Add Note</div>
                         <textarea id="newDealNoteText" placeholder="Enter note text..." style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; min-height: 80px; font-family: Arial, sans-serif; margin-bottom: 10px;"></textarea>
-                        ${!isAgentView ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                            <input type="checkbox" id="newDealNoteVisibleToAgent" style="cursor:pointer;width:16px;height:16px;">
-                            <label for="newDealNoteVisibleToAgent" style="margin:0;font-weight:500;cursor:pointer;font-size:13px;color:var(--navy);">Visible to Agent</label>
+                        ${!isAgentView ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="checkbox" id="newDealNoteVisibleToAgent" style="cursor:pointer;width:16px;height:16px;">
+                                <span style="font-weight:500;font-size:13px;color:var(--navy);">Visible to Agent</span>
+                            </label>
+                            ${deal.source_agent_id ? (() => {
+                                const agentMatch = cachedAgents.find(a => a.id === deal.source_agent_id);
+                                const agentName = agentMatch ? (agentMatch.full_name || agentMatch.email) : 'Agent';
+                                return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:12px;"><input type="checkbox" id="ccDealAgentOnNote" data-agent-id="' + deal.source_agent_id + '" data-deal-name="' + (deal.company_name || 'Deal').replace(/"/g, '&quot;') + '" style="cursor:pointer;width:16px;height:16px;"><span style="font-weight:500;font-size:13px;color:var(--navy);">CC ' + agentName + ' via email</span></label>';
+                            })() : ''}
                         </div>` : ''}
                         <button onclick="addDealNote('${dealId}')" style="padding: 8px 16px; background: var(--gold); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Add Note</button>
                     </div>
@@ -13463,7 +13470,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         const noteText = document.getElementById('newDealNoteText').value.trim();
         if (!noteText) return;
         try {
-            const { data: deal } = await db.from('deals').select('notes').eq('id', dealId).single();
+            const { data: deal } = await db.from('deals').select('notes, company_name').eq('id', dealId).single();
             let notes = [];
             try { notes = deal.notes ? JSON.parse(deal.notes) : []; } catch(e) { notes = deal.notes ? [{ text: deal.notes, author: 'System', date: 'Previously' }] : []; }
             const now = new Date();
@@ -13472,9 +13479,56 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             const isAgent = !['super_admin', 'admin'].includes(currentUserRole);
             const visibleCheckbox = document.getElementById('newDealNoteVisibleToAgent');
             const visibleToAgent = isAgent ? true : (visibleCheckbox ? visibleCheckbox.checked : false);
-            notes.push({ text: noteText, author: userEmail, date: dateStr, visible_to_agent: visibleToAgent });
+
+            let noteEntry = { text: noteText, author: userEmail, date: dateStr, visible_to_agent: visibleToAgent };
+
+            // Check if CC Agent via email is checked
+            const ccCheckbox = document.getElementById('ccDealAgentOnNote');
+            const shouldCCAgent = ccCheckbox && ccCheckbox.checked;
+            const ccAgentId = ccCheckbox ? ccCheckbox.getAttribute('data-agent-id') : null;
+            const dealName = ccCheckbox ? ccCheckbox.getAttribute('data-deal-name') : (deal.company_name || 'a deal');
+
+            if (shouldCCAgent && ccAgentId) {
+                const { data: agent } = await db.from('users').select('full_name, email').eq('id', ccAgentId).single();
+                if (agent && agent.email) {
+                    const agentFirst = (agent.full_name || '').split(' ')[0] || '';
+                    const htmlBody = `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="background: #0D1E3D; padding: 20px; text-align: center;">
+                                <h2 style="color: #C9A84C; margin: 0; font-size: 20px;">Alliance Financing Group</h2>
+                            </div>
+                            <div style="padding: 25px; background: #ffffff; border: 1px solid #e2e8f0;">
+                                <p style="font-size: 15px; color: #333; margin-bottom: 8px;">Hi ${agentFirst},</p>
+                                <p style="font-size: 14px; color: #555; margin-bottom: 15px;">A new note was added to deal <strong>${dealName}</strong>:</p>
+                                <div style="background: #f8f9fa; border-left: 4px solid #C9A84C; padding: 15px; margin: 15px 0; border-radius: 0 4px 4px 0;">
+                                    <p style="font-size: 14px; color: #333; line-height: 1.6; margin: 0; white-space: pre-wrap;">${noteText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                                </div>
+                                <p style="font-size: 13px; color: #999;">— ${userEmail}</p>
+                            </div>
+                            <div style="background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999;">
+                                Internal communication from Alliance Financing Group
+                            </div>
+                        </div>
+                    `;
+                    await sendEmailViaResend(
+                        agent.email,
+                        'Note re: ' + dealName,
+                        htmlBody,
+                        'Hi ' + agentFirst + ',\n\nNew note on deal ' + dealName + ':\n\n' + noteText + '\n\n— ' + userEmail,
+                        'info@alliancefinancing.com'
+                    );
+                    noteEntry.text = noteText + '\n📧 CC\'d to ' + (agent.full_name || agent.email);
+                }
+            }
+
+            notes.push(noteEntry);
             const { error } = await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
             if (error) throw error;
+
+            if (shouldCCAgent) {
+                showToast('Note added and emailed to agent!', 'success');
+            }
+
             await viewDeal(dealId);
         } catch (error) {
             alert('Error adding note: ' + error.message);
@@ -14901,9 +14955,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
         var agentDealIds = new Set(deals.map(function(d) { return d.id; }));
 
-        // For agents, only count docs they can actually see
+        // For agents, only count docs from their own deals or uploaded by them
         var visibleDocs = isAdmin ? docs : docs.filter(function(d) {
-            return d.visible_to_agent === true || d.uploaded_by === currentUserId || (d.deal_id && agentDealIds.has(d.deal_id));
+            return d.uploaded_by === currentUserId || (d.deal_id && agentDealIds.has(d.deal_id));
         });
 
         // Exclude archived from stats
@@ -14947,20 +15001,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
         allDocumentsPage.forEach(function(doc) {
             if (doc.archived && !showArchived) return;
-            // Agent visibility: show if visible_to_agent is true, OR doc belongs to agent's deal, OR uploaded by agent
-            if (!isAdmin && doc.visible_to_agent !== true && doc.uploaded_by !== currentUserId && !(doc.deal_id && agentDealIds.has(doc.deal_id))) return;
+            // Agent visibility: only show docs from agent's own deals or uploaded by agent
+            if (!isAdmin) {
+                var isAgentsDeal = doc.deal_id && agentDealIds.has(doc.deal_id);
+                var isAgentsUpload = doc.uploaded_by === currentUserId;
+                if (!isAgentsDeal && !isAgentsUpload) return;
+            }
             if (typeFilter && doc.document_type !== typeFilter) return;
 
-            if (doc.deal_id && agentDealIds.has(doc.deal_id)) {
-                // Doc belongs to a deal in the agent's list — group under that deal
-                if (!docsByDeal[doc.deal_id]) docsByDeal[doc.deal_id] = [];
-                docsByDeal[doc.deal_id].push(doc);
-            } else if (doc.deal_id && isAdmin) {
-                // Admin can see all deals
+            if (doc.deal_id && (isAdmin || agentDealIds.has(doc.deal_id))) {
                 if (!docsByDeal[doc.deal_id]) docsByDeal[doc.deal_id] = [];
                 docsByDeal[doc.deal_id].push(doc);
             } else {
-                // No deal or deal not in agent's list — show as unlinked/shared
                 unlinkedDocs.push(doc);
             }
         });
