@@ -5973,8 +5973,30 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 return;
             }
 
-            var statusColors = { 'New': '#3B82F6', 'Contacted': '#F59E0B', 'In Progress': '#8B5CF6', 'Converted': '#10B981', 'Closed': '#94A3B8' };
-            var tableHtml = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+            // Filter out Archived and Converted leads by default
+            var activeLeads = leads.filter(function(l) { return l.status !== 'Archived' && l.status !== 'Converted'; });
+            var hiddenCount = leads.length - activeLeads.length;
+            var showAll = window._showAllVendorLeads || false;
+            var displayLeads = showAll ? leads : activeLeads;
+
+            if (displayLeads.length === 0 && hiddenCount > 0) {
+                var emptyMsg = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">All leads are archived or converted. <a href="javascript:void(0)" onclick="window._showAllVendorLeads=true;loadVendorInquiryLeads()" style="color:#3B82F6;text-decoration:underline;">Show all ' + leads.length + ' leads</a></p>';
+                for (var ci = 0; ci < containers.length; ci++) containers[ci].innerHTML = emptyMsg;
+                return;
+            }
+
+            var statusColors = { 'New': '#3B82F6', 'Contacted': '#F59E0B', 'In Progress': '#8B5CF6', 'Converted': '#10B981', 'Closed': '#94A3B8', 'Archived': '#CBD5E1' };
+            var tableHtml = '';
+            if (hiddenCount > 0) {
+                tableHtml += '<div style="text-align:right;padding:0 8px 8px;font-size:11px;color:#94a3b8;">';
+                if (showAll) {
+                    tableHtml += 'Showing all ' + leads.length + ' leads. <a href="javascript:void(0)" onclick="window._showAllVendorLeads=false;loadVendorInquiryLeads()" style="color:#3B82F6;text-decoration:underline;">Hide archived/converted</a>';
+                } else {
+                    tableHtml += hiddenCount + ' archived/converted lead' + (hiddenCount !== 1 ? 's' : '') + ' hidden. <a href="javascript:void(0)" onclick="window._showAllVendorLeads=true;loadVendorInquiryLeads()" style="color:#3B82F6;text-decoration:underline;">Show all</a>';
+                }
+                tableHtml += '</div>';
+            }
+            tableHtml += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
             tableHtml += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">';
             tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Company</th>';
             tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Contact</th>';
@@ -5985,8 +6007,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             if (canManage) tableHtml += '<th style="text-align:center;padding:10px 8px;font-weight:600;color:#334155;">Actions</th>';
             tableHtml += '</tr></thead><tbody>';
 
-            for (var i = 0; i < leads.length; i++) {
-                var lead = leads[i];
+            for (var i = 0; i < displayLeads.length; i++) {
+                var lead = displayLeads[i];
                 var statusColor = statusColors[lead.status] || '#94A3B8';
                 var dateStr = lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '';
 
@@ -6005,12 +6027,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 if (canManage) {
                     tableHtml += '<td style="padding:10px 8px;text-align:center;white-space:nowrap;">';
                     tableHtml += '<select onchange="updateVendorLeadStatus(\'' + lead.id + '\', this.value)" style="padding:4px 8px;font-size:11px;border:1px solid #d4d9e2;border-radius:4px;background:white;cursor:pointer;margin-bottom:4px;">';
-                    var statuses = ['New', 'Contacted', 'In Progress', 'Converted', 'Closed'];
+                    var statuses = ['New', 'Contacted', 'In Progress', 'Converted', 'Closed', 'Archived'];
                     for (var s = 0; s < statuses.length; s++) {
                         tableHtml += '<option value="' + statuses[s] + '"' + (lead.status === statuses[s] ? ' selected' : '') + '>' + statuses[s] + '</option>';
                     }
                     tableHtml += '</select>';
-                    if (lead.status !== 'Converted') {
+                    if (lead.status !== 'Converted' && lead.status !== 'Archived') {
                         tableHtml += '<br><button onclick="promoteToVendor(\'' + lead.id + '\')" style="padding:3px 8px;font-size:10px;background:#10B981;color:white;border:none;border-radius:3px;cursor:pointer;font-weight:600;margin-top:2px;" title="Create vendor record and send application form">→ Set Up Vendor</button>';
                     }
                     tableHtml += '</td>';
@@ -6082,17 +6104,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             var vendorCode = 'VND-' + Math.random().toString(36).substring(2, 6).toUpperCase();
 
             // 4. Create the vendor record
+            // Parse avg_deal_size to a number (e.g., "$25K - $100K" → 100000, "Under $25K" → 25000)
+            var parsedVolume = null;
+            if (lead.avg_deal_size) {
+                var sizeStr = lead.avg_deal_size.replace(/[^0-9KkMm\-\.]/g, '');
+                var matches = sizeStr.match(/(\d+)\s*[Kk]/g);
+                if (matches && matches.length > 0) {
+                    // Take the higher number in a range (e.g., "25K - 100K" → 100000)
+                    var lastMatch = matches[matches.length - 1];
+                    parsedVolume = parseInt(lastMatch) * 1000;
+                } else {
+                    var numMatch = lead.avg_deal_size.match(/(\d+)/);
+                    if (numMatch) parsedVolume = parseInt(numMatch[1]);
+                }
+            }
             var vendorData = {
                 name: lead.company_name,
-                product_description: lead.equipment_type || '',
-                projected_volume: lead.avg_deal_size || '',
+                product_description: (lead.equipment_type || '') + (lead.avg_deal_size ? ' | Avg deal size: ' + lead.avg_deal_size : ''),
+                projected_volume: parsedVolume,
                 source_agent_id: sourceAgentId,
                 status: 'Application Sent',
                 vendor_code: vendorCode,
                 admin_notes: JSON.stringify([{
                     date: new Date().toISOString(),
                     author: currentUserName || 'System',
-                    note: 'Created from vendor inquiry. Contact: ' + (lead.contact_name || '') + ' (' + (lead.contact_email || '') + ', ' + (lead.contact_phone || '') + '). Message: ' + (lead.message || 'N/A')
+                    note: 'Created from vendor inquiry. Contact: ' + (lead.contact_name || '') + ' (' + (lead.contact_email || '') + ', ' + (lead.contact_phone || '') + '). Avg deal size: ' + (lead.avg_deal_size || 'N/A') + '. Message: ' + (lead.message || 'N/A')
                 }]),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
