@@ -3797,7 +3797,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-17-v5';
+    const DASHBOARD_VERSION = '2026-03-17-v6';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -8611,16 +8611,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
             const { data: contacts, error: cErr } = await db.from('vendor_contacts').select('*').eq('vendor_id', vendorId).order('contact_name');
 
-            // Fetch documents visible to this agent (linked to their deals or marked visible)
-            var vendorDocs = [];
+            // Fetch vendor materials from Supabase Storage
+            var vendorMaterials = [];
             try {
-                var { data: agentDeals } = await db.from('deals').select('id').eq('source_agent_id', currentUserId);
-                if (agentDeals && agentDeals.length > 0) {
-                    var dealIds = agentDeals.map(function(d) { return d.id; });
-                    var { data: docs } = await db.from('documents').select('*').in('deal_id', dealIds).eq('archived', false).order('uploaded_at', { ascending: false });
-                    vendorDocs = docs || [];
+                var { data: files, error: filesErr } = await db.storage.from('deal-documents').list('vendor-materials/' + vendorId);
+                if (!filesErr && files && files.length > 0) {
+                    for (var fi = 0; fi < files.length; fi++) {
+                        var filePath = 'vendor-materials/' + vendorId + '/' + files[fi].name;
+                        var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(filePath, 3600);
+                        vendorMaterials.push({
+                            name: files[fi].name,
+                            displayName: files[fi].name.replace(/^\d+_/, '').replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+                            ext: files[fi].name.split('.').pop().toLowerCase(),
+                            size: files[fi].metadata && files[fi].metadata.size ? files[fi].metadata.size : 0,
+                            url: urlData ? urlData.signedUrl : '#'
+                        });
+                    }
                 }
-            } catch(docErr) { console.log('Doc fetch optional:', docErr); }
+            } catch(docErr) { console.log('Vendor materials fetch optional:', docErr); }
 
             document.getElementById('agentVendorDetailTitle').textContent = vendor.name || 'Vendor Details';
 
@@ -8698,31 +8706,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     return notesHtml;
                 })()}
                 ${(() => {
-                    // Show documents from agent's deals
-                    if (!vendorDocs || vendorDocs.length === 0) return '';
-                    const docTypeLabels = {
-                        bank_statement: 'Bank Statement', processing_statement: 'Processing Statement',
-                        photo_id: 'Photo ID', void_cheque: 'Void Cheque', business_license: 'Business License',
-                        tax_return: 'Tax Return', financial_statements: 'Financial Statements',
-                        credit_report: 'Credit Report', equipment_quote: 'Equipment Quote / Invoice',
-                        ap_ar_aging: 'AP / AR Aging Report', supporting_document: 'Supporting Document',
-                        credit_application: 'Completed Credit Application', approval_letter: 'Approval Letter',
-                        personal_net_worth: 'Personal Net Worth', other: 'Other'
-                    };
+                    // Show vendor materials from Supabase Storage
+                    if (!vendorMaterials || vendorMaterials.length === 0) return '';
                     let docsHtml = '<div style="border-top: 2px solid var(--border-gray); padding-top: 15px; margin-top: 15px;">';
-                    docsHtml += '<label style="font-size: 15px; font-weight: 600; color: var(--navy); display: block; margin-bottom: 10px;">Documents (' + vendorDocs.length + ')</label>';
-                    vendorDocs.forEach(doc => {
-                        const typeName = docTypeLabels[doc.document_type] || doc.document_type || 'Document';
-                        const uploadDate = doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-                        const fileSize = doc.file_size_bytes ? (doc.file_size_bytes > 1048576 ? (doc.file_size_bytes / 1048576).toFixed(1) + ' MB' : (doc.file_size_bytes / 1024).toFixed(0) + ' KB') : '';
+                    docsHtml += '<label style="font-size: 15px; font-weight: 600; color: var(--navy); display: block; margin-bottom: 10px;">Documents (' + vendorMaterials.length + ')</label>';
+                    vendorMaterials.forEach(mat => {
+                        const icon = ['pdf'].includes(mat.ext) ? '📄' : ['doc','docx'].includes(mat.ext) ? '📝' : ['xls','xlsx'].includes(mat.ext) ? '📊' : ['ppt','pptx'].includes(mat.ext) ? '📽️' : ['png','jpg','jpeg','gif'].includes(mat.ext) ? '🖼️' : '📎';
+                        const fileSize = mat.size ? (mat.size > 1048576 ? (mat.size / 1048576).toFixed(1) + ' MB' : Math.round(mat.size / 1024) + ' KB') : '';
                         docsHtml += '<div style="background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">';
+                        docsHtml += '<div style="display: flex; align-items: center; gap: 10px;">';
+                        docsHtml += '<span style="font-size: 20px;">' + icon + '</span>';
                         docsHtml += '<div>';
-                        docsHtml += '<div style="font-weight: 600; color: #0369A1; font-size: 13px;">' + (doc.file_name || typeName) + '</div>';
-                        docsHtml += '<div style="font-size: 11px; color: #64748B; margin-top: 2px;">' + typeName + (fileSize ? ' &middot; ' + fileSize : '') + (uploadDate ? ' &middot; ' + uploadDate : '') + '</div>';
-                        docsHtml += '</div>';
-                        if (doc.file_url) {
-                            docsHtml += '<a href="' + doc.file_url + '" target="_blank" style="padding: 4px 10px; background: #0284C7; color: white; border-radius: 4px; font-size: 11px; text-decoration: none; white-space: nowrap;">View</a>';
-                        }
+                        docsHtml += '<div style="font-weight: 600; color: #0369A1; font-size: 13px;">' + mat.displayName + '</div>';
+                        docsHtml += '<div style="font-size: 11px; color: #64748B; margin-top: 2px;">' + mat.ext.toUpperCase() + (fileSize ? ' &middot; ' + fileSize : '') + '</div>';
+                        docsHtml += '</div></div>';
+                        docsHtml += '<a href="' + mat.url + '" target="_blank" style="padding: 5px 12px; background: #0284C7; color: white; border-radius: 4px; font-size: 12px; text-decoration: none; white-space: nowrap; font-weight: 600;">Download</a>';
                         docsHtml += '</div>';
                     });
                     docsHtml += '</div>';
@@ -14953,10 +14951,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
             if (!isAdmin && doc.visible_to_agent !== true && doc.uploaded_by !== currentUserId && !(doc.deal_id && agentDealIds.has(doc.deal_id))) return;
             if (typeFilter && doc.document_type !== typeFilter) return;
 
-            if (doc.deal_id) {
+            if (doc.deal_id && agentDealIds.has(doc.deal_id)) {
+                // Doc belongs to a deal in the agent's list — group under that deal
+                if (!docsByDeal[doc.deal_id]) docsByDeal[doc.deal_id] = [];
+                docsByDeal[doc.deal_id].push(doc);
+            } else if (doc.deal_id && isAdmin) {
+                // Admin can see all deals
                 if (!docsByDeal[doc.deal_id]) docsByDeal[doc.deal_id] = [];
                 docsByDeal[doc.deal_id].push(doc);
             } else {
+                // No deal or deal not in agent's list — show as unlinked/shared
                 unlinkedDocs.push(doc);
             }
         });
@@ -15207,10 +15211,44 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
         // Unlinked documents (not attached to any deal)
         if (unlinkedDocs.length > 0) {
-            html += '<div style="border:1px solid #FCD34D;border-radius:10px;margin-bottom:12px;overflow:hidden;background:#FFFBEB;">';
-            html += '<div style="padding:14px 18px;"><div style="font-weight:700;font-size:15px;color:#92400E;">⚠️ Unlinked Documents (' + unlinkedDocs.length + ')</div>';
-            html += '<div style="font-size:12px;color:#B45309;margin-top:2px;">These documents are not attached to any deal.</div></div>';
-            html += '</div>';
+            var unlinkedLabel = isAdmin ? '⚠️ Unlinked Documents' : '📋 Shared Documents';
+            var unlinkedDesc = isAdmin ? 'These documents are not attached to any deal.' : 'Documents shared with you by admin.';
+            var unlinkedBorder = isAdmin ? '#FCD34D' : '#BAE6FD';
+            var unlinkedBg = isAdmin ? '#FFFBEB' : '#F0F9FF';
+            var unlinkedColor = isAdmin ? '#92400E' : '#0369A1';
+            var unlinkedDescColor = isAdmin ? '#B45309' : '#64748B';
+
+            html += '<div style="border:1px solid ' + unlinkedBorder + ';border-radius:10px;margin-bottom:12px;overflow:hidden;background:' + unlinkedBg + ';">';
+            html += '<div style="padding:14px 18px;">';
+            html += '<div style="font-weight:700;font-size:15px;color:' + unlinkedColor + ';">' + unlinkedLabel + ' (' + unlinkedDocs.length + ')</div>';
+            html += '<div style="font-size:12px;color:' + unlinkedDescColor + ';margin-top:2px;">' + unlinkedDesc + '</div>';
+            html += '<div style="margin-top:10px;">';
+            unlinkedDocs.forEach(function(doc) {
+                var ext = (doc.file_name || '').split('.').pop().toLowerCase();
+                var icon = '📄';
+                if (['pdf'].includes(ext)) icon = '📕';
+                else if (['png','jpg','jpeg','gif'].includes(ext)) icon = '🖼️';
+                else if (['doc','docx'].includes(ext)) icon = '📘';
+                else if (['xls','xlsx','csv'].includes(ext)) icon = '📊';
+                var sizeMB = doc.file_size_bytes ? (doc.file_size_bytes / 1024 < 1024 ? Math.round(doc.file_size_bytes / 1024) + ' KB' : (doc.file_size_bytes / 1048576).toFixed(1) + ' MB') : '';
+                var uploaded = doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                var typeName = docTypeLabelsGlobal[doc.document_type] || doc.document_type || 'Document';
+
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#fff;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:6px;">';
+                html += '<div style="display:flex;align-items:center;gap:8px;">';
+                html += '<span style="font-size:16px;">' + icon + '</span>';
+                html += '<div>';
+                html += '<div style="font-size:13px;font-weight:600;color:var(--navy);">' + (doc.file_name || typeName) + '</div>';
+                html += '<div style="font-size:11px;color:#64748B;">' + typeName + (sizeMB ? ' · ' + sizeMB : '') + (uploaded ? ' · ' + uploaded : '') + '</div>';
+                html += '</div></div>';
+                html += '<div style="display:flex;gap:4px;">';
+                if (['pdf','png','jpg','jpeg','gif'].includes(ext)) {
+                    html += '<button onclick="previewDocument(\'' + doc.file_path + '\', \'' + (doc.file_name || '').replace(/'/g, "\\'") + '\')" style="padding:3px 8px;background:#8B5CF6;color:white;border:none;border-radius:3px;cursor:pointer;font-size:10px;">👁️</button> ';
+                }
+                html += '<button onclick="downloadDocument(\'' + doc.file_path + '\', \'' + (doc.file_name || '').replace(/'/g, "\\'") + '\')" style="padding:3px 8px;background:#3B82F6;color:white;border:none;border-radius:3px;cursor:pointer;font-size:10px;">⬇️ Download</button>';
+                html += '</div></div>';
+            });
+            html += '</div></div></div>';
         }
 
         // Bottom pagination
