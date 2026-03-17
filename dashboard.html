@@ -3941,8 +3941,8 @@
             // Apply role-based access
             applyRoleAccess();
 
-            // Route vendor users to vendor portal
-            if (currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') {
+            // Route vendor users to vendor portal (but not admin users)
+            if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !['super_admin', 'admin'].includes(currentUserRole)) {
                 showPage('vendorPortal');
                 loadPageData('vendorPortal');
             }
@@ -4137,10 +4137,10 @@
             myReferralsNav.style.display = 'none';
         }
 
-        // Show "Vendor Portal" nav for vendor users
+        // Show "Vendor Portal" nav ONLY for vendor users (never for admin)
         var vendorPortalNav = document.getElementById('vendorPortalNav');
         if (vendorPortalNav) {
-            vendorPortalNav.style.display = isVendor ? 'flex' : 'none';
+            vendorPortalNav.style.display = (isVendor && !isAdmin) ? 'flex' : 'none';
         }
 
         // Hide lender column from agents in pipeline table
@@ -21984,8 +21984,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 }
                 document.getElementById('currentUser').textContent = displayName + ' (' + roleLabel + ')';
                 applyRoleAccess();
-                // Route vendor users to vendor portal
-                if (currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') {
+                // Route vendor users to vendor portal (but not admin users)
+                if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !['super_admin', 'admin'].includes(currentUserRole)) {
                     showPage('vendorPortal');
                     loadPageData('vendorPortal');
                 } else {
