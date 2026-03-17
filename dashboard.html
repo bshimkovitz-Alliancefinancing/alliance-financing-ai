@@ -6011,9 +6011,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 var lead = displayLeads[i];
                 var statusColor = statusColors[lead.status] || '#94A3B8';
                 var dateStr = lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '';
+                var colSpan = canManage ? 7 : 5;
 
-                tableHtml += '<tr style="border-bottom:1px solid #f1f5f9;">';
-                tableHtml += '<td style="padding:10px 8px;font-weight:600;color:#0D1E3D;">' + (lead.company_name || '') + '</td>';
+                // Parse existing notes
+                var existingNotes = [];
+                try { existingNotes = lead.notes ? JSON.parse(lead.notes) : []; } catch(e) { if (lead.notes) existingNotes = [{ text: lead.notes, author: 'System', date: 'Previously' }]; }
+
+                tableHtml += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;" onclick="toggleVendorLeadDetail(\'' + lead.id + '\')" title="Click to expand details">';
+                tableHtml += '<td style="padding:10px 8px;font-weight:600;color:#0D1E3D;">' + (lead.company_name || '') + ' <span id="vendorLeadArrow_' + lead.id + '" style="font-size:10px;color:#94a3b8;">▸</span></td>';
                 tableHtml += '<td style="padding:10px 8px;">';
                 tableHtml += '<div>' + (lead.contact_name || '') + '</div>';
                 tableHtml += '<div style="font-size:11px;color:#64748b;">' + (lead.contact_email || '') + '</div>';
@@ -6025,7 +6030,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                 tableHtml += '<td style="padding:10px 8px;color:#94a3b8;font-size:12px;">' + dateStr + '</td>';
 
                 if (canManage) {
-                    tableHtml += '<td style="padding:10px 8px;text-align:center;white-space:nowrap;">';
+                    tableHtml += '<td style="padding:10px 8px;text-align:center;white-space:nowrap;" onclick="event.stopPropagation()">';
                     tableHtml += '<select onchange="updateVendorLeadStatus(\'' + lead.id + '\', this.value)" style="padding:4px 8px;font-size:11px;border:1px solid #d4d9e2;border-radius:4px;background:white;cursor:pointer;margin-bottom:4px;">';
                     var statuses = ['New', 'Contacted', 'In Progress', 'Converted', 'Closed', 'Archived'];
                     for (var s = 0; s < statuses.length; s++) {
@@ -6033,11 +6038,58 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     }
                     tableHtml += '</select>';
                     if (lead.status !== 'Converted' && lead.status !== 'Archived') {
-                        tableHtml += '<br><button onclick="promoteToVendor(\'' + lead.id + '\')" style="padding:3px 8px;font-size:10px;background:#10B981;color:white;border:none;border-radius:3px;cursor:pointer;font-weight:600;margin-top:2px;" title="Create vendor record and send application form">→ Set Up Vendor</button>';
+                        tableHtml += '<br><button onclick="event.stopPropagation();promoteToVendor(\'' + lead.id + '\')" style="padding:3px 8px;font-size:10px;background:#10B981;color:white;border:none;border-radius:3px;cursor:pointer;font-weight:600;margin-top:2px;" title="Create vendor record and send application form">→ Set Up Vendor</button>';
                     }
                     tableHtml += '</td>';
                 }
                 tableHtml += '</tr>';
+
+                // Expandable detail row (hidden by default)
+                tableHtml += '<tr id="vendorLeadDetail_' + lead.id + '" style="display:none;background:#F8FAFC;">';
+                tableHtml += '<td colspan="' + colSpan + '" style="padding:0 8px 16px 8px;">';
+                tableHtml += '<div style="background:white;border:1px solid #E2E8F0;border-radius:8px;padding:16px;margin-top:4px;">';
+
+                // Vendor message
+                tableHtml += '<div style="margin-bottom:14px;">';
+                tableHtml += '<label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;display:block;margin-bottom:4px;">Vendor Message</label>';
+                tableHtml += '<div style="font-size:13px;color:#334155;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:10px;min-height:30px;">' + (lead.message || '<span style="color:#94a3b8;font-style:italic;">No message provided</span>') + '</div>';
+                tableHtml += '</div>';
+
+                // Full contact details in a row
+                tableHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">';
+                tableHtml += '<div><label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;display:block;margin-bottom:2px;">Email</label><div style="font-size:13px;color:#334155;">' + (lead.contact_email || '—') + '</div></div>';
+                tableHtml += '<div><label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;display:block;margin-bottom:2px;">Phone</label><div style="font-size:13px;color:#334155;">' + (lead.contact_phone || '—') + '</div></div>';
+                tableHtml += '<div><label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;display:block;margin-bottom:2px;">Avg Deal Size</label><div style="font-size:13px;color:#334155;">' + (lead.avg_deal_size || '—') + '</div></div>';
+                tableHtml += '</div>';
+
+                // Internal Notes section
+                tableHtml += '<div style="border-top:1px solid #E2E8F0;padding-top:12px;">';
+                tableHtml += '<label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;display:block;margin-bottom:8px;">Internal Notes</label>';
+
+                // Existing notes
+                if (existingNotes.length > 0) {
+                    tableHtml += '<div style="margin-bottom:10px;">';
+                    for (var n = existingNotes.length - 1; n >= 0; n--) {
+                        var note = existingNotes[n];
+                        var noteDate = note.date ? (note.date === 'Previously' ? 'Previously' : new Date(note.date).toLocaleString()) : '';
+                        tableHtml += '<div style="background:#FEFCE8;border:1px solid #FDE68A;border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:12px;">';
+                        tableHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-weight:600;color:#92400E;">' + (note.author || 'Unknown') + '</span><span style="color:#94a3b8;font-size:10px;">' + noteDate + '</span></div>';
+                        tableHtml += '<div style="color:#334155;">' + (note.text || note.note || '') + '</div>';
+                        tableHtml += '</div>';
+                    }
+                    tableHtml += '</div>';
+                }
+
+                // Add note input
+                if (canManage) {
+                    tableHtml += '<div style="display:flex;gap:8px;">';
+                    tableHtml += '<input type="text" id="vendorLeadNote_' + lead.id + '" placeholder="Add internal note..." style="flex:1;padding:8px 10px;border:1px solid #D4D9E2;border-radius:6px;font-size:12px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addVendorLeadNote(\'' + lead.id + '\')}">';
+                    tableHtml += '<button onclick="addVendorLeadNote(\'' + lead.id + '\')" style="padding:8px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Add Note</button>';
+                    tableHtml += '</div>';
+                }
+                tableHtml += '</div>';
+
+                tableHtml += '</div></td></tr>';
             }
             tableHtml += '</tbody></table>';
             for (var ci = 0; ci < containers.length; ci++) containers[ci].innerHTML = tableHtml;
@@ -6066,6 +6118,63 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         } catch(err) {
             console.error('Update lead status error:', err);
             showToast('Failed to update lead status', 'error');
+        }
+    }
+
+    // Toggle expandable vendor lead detail row
+    function toggleVendorLeadDetail(leadId) {
+        var detailRow = document.getElementById('vendorLeadDetail_' + leadId);
+        var arrow = document.getElementById('vendorLeadArrow_' + leadId);
+        if (!detailRow) return;
+        if (detailRow.style.display === 'none') {
+            detailRow.style.display = 'table-row';
+            if (arrow) arrow.textContent = '▾';
+        } else {
+            detailRow.style.display = 'none';
+            if (arrow) arrow.textContent = '▸';
+        }
+    }
+
+    // Add an internal note to a vendor inquiry lead
+    async function addVendorLeadNote(leadId) {
+        var inputEl = document.getElementById('vendorLeadNote_' + leadId);
+        if (!inputEl) return;
+        var noteText = inputEl.value.trim();
+        if (!noteText) { showToast('Please enter a note first', 'warning'); return; }
+
+        try {
+            // Fetch current notes
+            var { data: lead, error: fetchErr } = await db.from('vendor_inquiries')
+                .select('notes')
+                .eq('id', leadId)
+                .single();
+            if (fetchErr) throw fetchErr;
+
+            var existingNotes = [];
+            try { existingNotes = lead.notes ? JSON.parse(lead.notes) : []; } catch(e) {
+                if (lead.notes) existingNotes = [{ text: lead.notes, author: 'System', date: 'Previously' }];
+            }
+
+            // Add new note
+            existingNotes.push({
+                text: noteText,
+                author: currentUserName || 'Admin',
+                date: new Date().toISOString()
+            });
+
+            // Save
+            var { error: updateErr } = await db.from('vendor_inquiries')
+                .update({ notes: JSON.stringify(existingNotes), updated_at: new Date().toISOString() })
+                .eq('id', leadId);
+            if (updateErr) throw updateErr;
+
+            showToast('Note added', 'success');
+            inputEl.value = '';
+            // Reload the leads to show updated notes
+            await loadVendorInquiryLeads();
+        } catch(err) {
+            console.error('Add vendor lead note error:', err);
+            showToast('Failed to add note: ' + (err.message || err), 'error');
         }
     }
 
