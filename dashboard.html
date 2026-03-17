@@ -3797,7 +3797,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-17-v8';
+    const DASHBOARD_VERSION = '2026-03-17-v9';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -8686,43 +8686,73 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
                     <button class="btn btn-gold btn-sm" onclick="agentAddVendorContact('${vendorId}')" style="margin-top: 10px;">Add Salesperson</button>
                 </div>
                 ${(() => {
-                    // Show admin notes that are visible to agent
-                    let agentNotes = [];
-                    try { agentNotes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { agentNotes = []; }
-                    const visibleNotes = agentNotes.filter(n => n.visible_to_agent === true);
-                    if (visibleNotes.length === 0) return '';
+                    // Show notes (admin visible + agent's own) and add reply input
+                    let allNotes = [];
+                    try { allNotes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { allNotes = []; }
+                    const visibleNotes = allNotes.filter(n => n.visible_to_agent === true || n.from_agent === true);
+
                     let notesHtml = '<div style="border-top: 2px solid var(--border-gray); padding-top: 15px; margin-top: 15px;">';
-                    notesHtml += '<label style="font-size: 15px; font-weight: 600; color: var(--navy); display: block; margin-bottom: 10px;">Notes from Admin</label>';
-                    visibleNotes.reverse().forEach(n => {
-                        const noteDate = n.date || '';
-                        notesHtml += '<div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;">';
-                        notesHtml += '<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">';
-                        notesHtml += '<span style="font-weight: 600; color: #92400E; font-size: 12px;">' + (n.author || 'Admin') + '</span>';
-                        notesHtml += '<span style="color: #94A3B8; font-size: 11px;">' + noteDate + '</span></div>';
-                        notesHtml += '<div style="font-size: 13px; color: #334155; white-space: pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
-                        notesHtml += '</div>';
-                    });
+                    notesHtml += '<label style="font-size: 15px; font-weight: 600; color: var(--navy); display: block; margin-bottom: 10px;">Notes' + (visibleNotes.length > 0 ? ' (' + visibleNotes.length + ')' : '') + '</label>';
+
+                    if (visibleNotes.length > 0) {
+                        visibleNotes.slice().reverse().forEach(n => {
+                            const noteDate = n.date || '';
+                            const isAgentNote = n.from_agent === true;
+                            const bg = isAgentNote ? '#EFF6FF' : '#FFFBEB';
+                            const border = isAgentNote ? '#BFDBFE' : '#FDE68A';
+                            const authorColor = isAgentNote ? '#1D4ED8' : '#92400E';
+                            const badge = isAgentNote ? '<span style="background:#DBEAFE;color:#1E40AF;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">You</span>' : '<span style="background:#FEF3C7;color:#92400E;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">Admin</span>';
+                            notesHtml += '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;padding:10px 12px;margin-bottom:8px;">';
+                            notesHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
+                            notesHtml += '<span style="font-weight:600;color:' + authorColor + ';font-size:12px;">' + (n.author || 'Unknown') + badge + '</span>';
+                            notesHtml += '<span style="color:#94A3B8;font-size:11px;">' + noteDate + '</span></div>';
+                            notesHtml += '<div style="font-size:13px;color:#334155;white-space:pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                            notesHtml += '</div>';
+                        });
+                    } else {
+                        notesHtml += '<div style="color:#94A3B8;font-size:13px;padding:8px 0;">No notes yet.</div>';
+                    }
+
+                    // Add reply input
+                    notesHtml += '<div style="margin-top:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px;">';
+                    notesHtml += '<textarea id="agentVendorNoteText" placeholder="Write a note to admin..." style="width:100%;min-height:60px;padding:8px;border:1px solid #CBD5E1;border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;margin-bottom:8px;"></textarea>';
+                    notesHtml += '<button onclick="agentAddVendorNote(\'' + vendorId + '\')" style="padding:6px 14px;background:var(--gold);color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;">Send Note</button>';
+                    notesHtml += '</div>';
                     notesHtml += '</div>';
                     return notesHtml;
                 })()}
                 ${(() => {
                     // Show vendor materials from Supabase Storage
-                    if (!vendorMaterials || vendorMaterials.length === 0) return '';
                     let docsHtml = '<div style="border-top: 2px solid var(--border-gray); padding-top: 15px; margin-top: 15px;">';
-                    docsHtml += '<label style="font-size: 15px; font-weight: 600; color: var(--navy); display: block; margin-bottom: 10px;">Documents (' + vendorMaterials.length + ')</label>';
-                    vendorMaterials.forEach(mat => {
-                        const icon = ['pdf'].includes(mat.ext) ? '📄' : ['doc','docx'].includes(mat.ext) ? '📝' : ['xls','xlsx'].includes(mat.ext) ? '📊' : ['ppt','pptx'].includes(mat.ext) ? '📽️' : ['png','jpg','jpeg','gif'].includes(mat.ext) ? '🖼️' : '📎';
-                        const fileSize = mat.size ? (mat.size > 1048576 ? (mat.size / 1048576).toFixed(1) + ' MB' : Math.round(mat.size / 1024) + ' KB') : '';
-                        docsHtml += '<div style="background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">';
-                        docsHtml += '<div style="display: flex; align-items: center; gap: 10px;">';
-                        docsHtml += '<span style="font-size: 20px;">' + icon + '</span>';
-                        docsHtml += '<div>';
-                        docsHtml += '<div style="font-weight: 600; color: #0369A1; font-size: 13px;">' + mat.displayName + '</div>';
-                        docsHtml += '<div style="font-size: 11px; color: #64748B; margin-top: 2px;">' + mat.ext.toUpperCase() + (fileSize ? ' &middot; ' + fileSize : '') + '</div>';
-                        docsHtml += '</div></div>';
-                        docsHtml += '<a href="' + mat.url + '" target="_blank" style="padding: 5px 12px; background: #0284C7; color: white; border-radius: 4px; font-size: 12px; text-decoration: none; white-space: nowrap; font-weight: 600;">Download</a>';
-                        docsHtml += '</div>';
-                    });
+                    docsHtml += '<label style="font-size: 15px; font-weight: 600; color: var(--navy); display: block; margin-bottom: 10px;">Documents' + (vendorMaterials && vendorMaterials.length > 0 ? ' (' + vendorMaterials.length + ')' : '') + '</label>';
+
+                    if (vendorMaterials && vendorMaterials.length > 0) {
+                        vendorMaterials.forEach(mat => {
+                            const icon = ['pdf'].includes(mat.ext) ? '📄' : ['doc','docx'].includes(mat.ext) ? '📝' : ['xls','xlsx'].includes(mat.ext) ? '📊' : ['ppt','pptx'].includes(mat.ext) ? '📽️' : ['png','jpg','jpeg','gif'].includes(mat.ext) ? '🖼️' : '📎';
+                            const fileSize = mat.size ? (mat.size > 1048576 ? (mat.size / 1048576).toFixed(1) + ' MB' : Math.round(mat.size / 1024) + ' KB') : '';
+                            docsHtml += '<div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:6px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">';
+                            docsHtml += '<div style="display:flex;align-items:center;gap:10px;">';
+                            docsHtml += '<span style="font-size:20px;">' + icon + '</span>';
+                            docsHtml += '<div>';
+                            docsHtml += '<div style="font-weight:600;color:#0369A1;font-size:13px;">' + mat.displayName + '</div>';
+                            docsHtml += '<div style="font-size:11px;color:#64748B;margin-top:2px;">' + mat.ext.toUpperCase() + (fileSize ? ' &middot; ' + fileSize : '') + '</div>';
+                            docsHtml += '</div></div>';
+                            docsHtml += '<a href="' + mat.url + '" target="_blank" style="padding:5px 12px;background:#0284C7;color:white;border-radius:4px;font-size:12px;text-decoration:none;white-space:nowrap;font-weight:600;">Download</a>';
+                            docsHtml += '</div>';
+                        });
+                    } else {
+                        docsHtml += '<div style="color:#94A3B8;font-size:13px;padding:8px 0;">No documents yet.</div>';
+                    }
+
+                    // Upload file section for agent
+                    docsHtml += '<div style="margin-top:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px;">';
+                    docsHtml += '<div style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:8px;">Upload Document</div>';
+                    docsHtml += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+                    docsHtml += '<input type="text" id="agentVendorDocLabel" placeholder="Document label" style="flex:1;min-width:150px;padding:6px 8px;border:1px solid #CBD5E1;border-radius:4px;font-size:13px;">';
+                    docsHtml += '<input type="file" id="agentVendorDocFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.csv" style="font-size:12px;">';
+                    docsHtml += '</div>';
+                    docsHtml += '<button onclick="agentUploadVendorDoc(\'' + vendorId + '\')" style="margin-top:8px;padding:6px 14px;background:var(--gold);color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;">Upload</button>';
+                    docsHtml += '</div>';
                     docsHtml += '</div>';
                     return docsHtml;
                 })()}
@@ -8766,6 +8796,100 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
         } catch (err) {
             console.error('Update contact status error:', err);
             alert('Error updating status: ' + err.message);
+        }
+    }
+
+    // Agent: Add note to vendor (visible to admin)
+    async function agentAddVendorNote(vendorId) {
+        const noteText = document.getElementById('agentVendorNoteText').value.trim();
+        if (!noteText) { showToast('Please enter a note first', 'warning'); return; }
+        try {
+            const { data: vendor, error: fetchErr } = await db.from('vendors').select('admin_notes, name').eq('id', vendorId).single();
+            if (fetchErr) throw fetchErr;
+            let notes = [];
+            try { notes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { notes = []; }
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            notes.push({
+                text: noteText,
+                author: currentUserName || 'Agent',
+                date: dateStr,
+                visible_to_agent: true,
+                from_agent: true
+            });
+            const { error: updateErr } = await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
+            if (updateErr) throw updateErr;
+
+            // Send email notification to admin
+            try {
+                const vendorName = vendor.name || 'a vendor';
+                const agentName = currentUserName || 'An agent';
+                const htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                    '<div style="background:#0D1E3D;padding:20px;text-align:center;"><h2 style="color:#C9A84C;margin:0;font-size:20px;">Alliance Financing Group</h2></div>' +
+                    '<div style="padding:25px;background:#fff;border:1px solid #e2e8f0;">' +
+                    '<p style="font-size:15px;color:#333;margin-bottom:8px;">New note from agent:</p>' +
+                    '<p style="font-size:14px;color:#555;margin-bottom:15px;"><strong>' + agentName + '</strong> added a note on vendor <strong>' + vendorName + '</strong>:</p>' +
+                    '<div style="background:#f8f9fa;border-left:4px solid #3B82F6;padding:15px;margin:15px 0;border-radius:0 4px 4px 0;">' +
+                    '<p style="font-size:14px;color:#333;line-height:1.6;margin:0;white-space:pre-wrap;">' + noteText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p></div>' +
+                    '</div><div style="background:#f8f9fa;padding:15px;text-align:center;font-size:12px;color:#999;">Internal communication from Alliance Financing Group</div></div>';
+                await sendEmailViaResend('bernie@alliancefinancing.com', 'Agent note re: ' + vendorName + ' — from ' + agentName, htmlBody, null, 'info@alliancefinancing.com');
+            } catch(emailErr) { console.log('Admin notification email failed (non-critical):', emailErr); }
+
+            showToast('Note sent!', 'success');
+            await viewAgentVendor(vendorId);
+        } catch(err) {
+            console.error('Agent add vendor note error:', err);
+            showToast('Failed to add note: ' + (err.message || err), 'error');
+        }
+    }
+
+    // Agent: Upload document to vendor materials
+    async function agentUploadVendorDoc(vendorId) {
+        const fileInput = document.getElementById('agentVendorDocFile');
+        const labelInput = document.getElementById('agentVendorDocLabel');
+        const file = fileInput ? fileInput.files[0] : null;
+        if (!file) { showToast('Please select a file to upload', 'warning'); return; }
+
+        const label = (labelInput ? labelInput.value.trim() : '') || file.name.replace(/\.[^/.]+$/, '');
+        const ext = file.name.split('.').pop();
+        const safeName = Date.now() + '_' + label.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '_') + '.' + ext;
+        const storagePath = 'vendor-materials/' + vendorId + '/' + safeName;
+
+        try {
+            showToast('Uploading...', 'info');
+            const { error: uploadError } = await db.storage.from('deal-documents').upload(storagePath, file);
+            if (uploadError) throw uploadError;
+
+            // Also add a note about the upload
+            const { data: vendor } = await db.from('vendors').select('admin_notes, name').eq('id', vendorId).single();
+            let notes = [];
+            try { notes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { notes = []; }
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            notes.push({
+                text: '📎 Uploaded document: ' + label + '.' + ext,
+                author: currentUserName || 'Agent',
+                date: dateStr,
+                visible_to_agent: true,
+                from_agent: true
+            });
+            await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
+
+            // Notify admin
+            try {
+                const vendorName = vendor.name || 'a vendor';
+                const agentName = currentUserName || 'An agent';
+                await sendEmailViaResend('bernie@alliancefinancing.com',
+                    'Agent uploaded doc to ' + vendorName + ' — ' + agentName,
+                    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;"><div style="background:#0D1E3D;padding:20px;text-align:center;"><h2 style="color:#C9A84C;margin:0;font-size:20px;">Alliance Financing Group</h2></div><div style="padding:25px;background:#fff;border:1px solid #e2e8f0;"><p><strong>' + agentName + '</strong> uploaded a document to vendor <strong>' + vendorName + '</strong>:</p><p style="font-size:15px;font-weight:600;color:#0369A1;">' + label + '.' + ext + '</p></div></div>',
+                    null, 'info@alliancefinancing.com');
+            } catch(emailErr) { console.log('Admin notification email failed (non-critical):', emailErr); }
+
+            showToast('Document uploaded!', 'success');
+            await viewAgentVendor(vendorId);
+        } catch(err) {
+            console.error('Agent upload vendor doc error:', err);
+            showToast('Upload failed: ' + (err.message || err), 'error');
         }
     }
 
@@ -19322,10 +19446,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
             const notesHtml = notes.length > 0
                 ? notes.map(n => `
-                    <div style="background: ${n.visible_to_agent ? '#FFFBEB' : '#F8FAFC'}; border-left: 3px solid ${n.visible_to_agent ? '#F59E0B' : 'var(--gold)'}; padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
+                    <div style="background: ${n.from_agent ? '#EFF6FF' : n.visible_to_agent ? '#FFFBEB' : '#F8FAFC'}; border-left: 3px solid ${n.from_agent ? '#3B82F6' : n.visible_to_agent ? '#F59E0B' : 'var(--gold)'}; padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
                         <div style="font-size: 12px; color: var(--text-light); margin-bottom: 4px;">
                             <strong>${n.author || 'Admin'}</strong> — ${n.date || 'N/A'}
-                            ${n.visible_to_agent ? '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>' : '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>'}
+                            ${n.from_agent ? '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Agent Note</span>' : n.visible_to_agent ? '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>' : '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>'}
                         </div>
                         <div style="font-size: 14px; color: var(--text-dark);">${n.text}</div>
                     </div>
@@ -20785,10 +20909,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){window.print();}<\/scr' + '
 
             const notesHtml = notes.length > 0
                 ? notes.map(n => `
-                    <div style="background: ${n.visible_to_agent ? '#FFFBEB' : '#F8FAFC'}; border-left: 3px solid ${n.visible_to_agent ? '#F59E0B' : 'var(--gold)'}; padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
+                    <div style="background: ${n.from_agent ? '#EFF6FF' : n.visible_to_agent ? '#FFFBEB' : '#F8FAFC'}; border-left: 3px solid ${n.from_agent ? '#3B82F6' : n.visible_to_agent ? '#F59E0B' : 'var(--gold)'}; padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
                         <div style="font-size: 12px; color: var(--text-light); margin-bottom: 4px;">
                             <strong>${n.author || 'Admin'}</strong> — ${n.date || 'N/A'}
-                            ${n.visible_to_agent ? '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>' : '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>'}
+                            ${n.from_agent ? '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Agent Note</span>' : n.visible_to_agent ? '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>' : '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>'}
                         </div>
                         <div style="font-size: 14px; color: var(--text-dark);">${n.text}</div>
                     </div>
