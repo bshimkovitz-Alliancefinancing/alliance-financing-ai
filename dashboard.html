@@ -772,6 +772,10 @@
                 <span class="nav-icon">👥</span>
                 <span>Referral Partners</span>
             </div>
+            <div class="nav-item" id="applicationHubNav" onclick="showPage('applicationHub')" style="display: none;">
+                <span class="nav-icon">📋</span>
+                <span>Application Hub</span>
+            </div>
             <div class="nav-item" id="marketingNav" onclick="showPage('marketing')" style="display: none;">
                 <span class="nav-icon">📣</span>
                 <span>Marketing</span>
@@ -880,71 +884,7 @@
                     <div id="activityFeedBody" style="max-height:320px;overflow-y:auto;padding:4px 0;"></div>
                 </div>
 
-                <!-- Application Hub (agents only) -->
-                <div id="agentReferralCard" class="table-container" style="display: none;">
-                    <div style="padding: 28px 24px 24px; background: linear-gradient(135deg, #0D1E3D 0%, #1A3A5C 100%); border-radius: 10px 10px 0 0; position: relative; overflow: hidden;">
-                        <div style="position: absolute; top: -40px; right: -40px; width: 180px; height: 180px; background: rgba(255,255,255,0.03); border-radius: 50%;"></div>
-                        <div style="position: absolute; bottom: -60px; right: 60px; width: 120px; height: 120px; background: rgba(255,255,255,0.02); border-radius: 50%;"></div>
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; position: relative; z-index: 1;">
-                            <div>
-                                <h2 style="margin: 0 0 6px; font-size: 20px; font-weight: 700; color: #FFFFFF; letter-spacing: -0.3px;">Application Hub</h2>
-                                <p style="margin: 0; font-size: 13px; color: rgba(255,255,255,0.6);">Send applications, share your landing page, and manage client outreach.</p>
-                            </div>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <a id="agentPartnerLink" href="#" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; font-weight: 500; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                                    Your Landing Page
-                                </a>
-                                <button class="btn btn-sm" onclick="openSendApplicationModalWithRef(agentProfile && agentProfile.referral_slug ? agentProfile.referral_slug : 'alliance-house')" style="padding: 8px 16px; background: var(--gold); color: #0D1E3D; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
-                                    Credit Applications
-                                </button>
-                            </div>
-                        </div>
-                        <input type="hidden" id="agentReferralUrl">
-                        <span id="agentReferralSlug" style="display: none;"></span>
-                    </div>
-                    <div style="padding: 20px 24px 24px; background: #FFFFFF; border-radius: 0 0 10px 10px; border: 1px solid #E2E8F0; border-top: none;">
-                        <!-- Email Landing Page to Client -->
-                        <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">Email Landing Page to a Client</label>
-                            <div style="display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap;">
-                                <div style="flex: 1; min-width: 200px;">
-                                    <input type="email" id="landingPageClientEmail" placeholder="client@company.com" style="width: 100%; padding: 10px 12px; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 14px; color: #334155; background: #F8FAFC; transition: border-color 0.2s;" onfocus="this.style.borderColor='#94A3B8'; this.style.background='#fff'" onblur="this.style.borderColor='#E2E8F0'; this.style.background='#F8FAFC'">
-                                </div>
-                                <div style="flex: 1; min-width: 150px;">
-                                    <input type="text" id="landingPageClientName" placeholder="Client name (optional)" style="width: 100%; padding: 10px 12px; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 14px; color: #334155; background: #F8FAFC; transition: border-color 0.2s;" onfocus="this.style.borderColor='#94A3B8'; this.style.background='#fff'" onblur="this.style.borderColor='#E2E8F0'; this.style.background='#F8FAFC'">
-                                </div>
-                                <button class="btn btn-gold btn-sm" onclick="emailLandingPage()" id="landingPageSendBtn" style="padding: 10px 20px; font-weight: 600; border-radius: 6px; white-space: nowrap;">Send Landing Page</button>
-                            </div>
-                            <div id="landingPageEmailStatus" style="display:none;margin-top:8px;padding:8px 12px;border-radius:6px;font-size:13px;text-align:center;"></div>
-                        </div>
-                        <!-- Application Form Links -->
-                        <div style="border-top: 1px solid #F1F5F9; padding-top: 20px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Client Application Forms</label>
-                            <span style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 14px;">Send directly via email or copy the link. Your referral tracking is included automatically.</span>
-                            <div id="agentAppFormLinks" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px;">
-                            </div>
-                        </div>
-                        <!-- MCA Marketing One-Pager -->
-                        <div style="border-top: 1px solid #F1F5F9; padding-top: 20px; margin-top: 20px;">
-                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">MCA Marketing One-Pager</label>
-                            <span style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 14px;">Professional MCA marketing piece branded with your contact info and trackable application link.</span>
-                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                <button onclick="openMCAOnePager()" class="btn btn-gold btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px;">
-                                    <span style="font-size: 16px;">💰</span> View One-Pager
-                                </button>
-                                <button onclick="openMCAOnePager(null, true)" class="btn btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--navy); color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                    <span style="font-size: 16px;">💾</span> Download PDF
-                                </button>
-                                <button onclick="showSendMCAModal()" class="btn btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                    <span style="font-size: 16px;">📧</span> Send to Client
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Partner Development Resources removed from agent dashboard — available in Marketing page only -->
+                <!-- Application Hub moved to its own page -->
 
                 <!-- Vendor Programs and Referral Partners moved to their own pages -->
 
@@ -1679,6 +1619,69 @@
                             <tr><td colspan="7" class="empty-state">Loading referral partners...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Application Hub Page -->
+            <div id="applicationHub" class="page-section">
+                <div id="agentReferralCard" class="table-container">
+                    <div style="padding: 28px 24px 24px; background: linear-gradient(135deg, #0D1E3D 0%, #1A3A5C 100%); border-radius: 10px 10px 0 0; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -40px; right: -40px; width: 180px; height: 180px; background: rgba(255,255,255,0.03); border-radius: 50%;"></div>
+                        <div style="position: absolute; bottom: -60px; right: 60px; width: 120px; height: 120px; background: rgba(255,255,255,0.02); border-radius: 50%;"></div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; position: relative; z-index: 1;">
+                            <div>
+                                <h2 style="margin: 0 0 6px; font-size: 20px; font-weight: 700; color: #FFFFFF; letter-spacing: -0.3px;">Application Hub</h2>
+                                <p style="margin: 0; font-size: 13px; color: rgba(255,255,255,0.6);">Send applications, share your landing page, and manage client outreach.</p>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <a id="agentPartnerLink" href="#" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 13px; font-weight: 500; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                    Your Landing Page
+                                </a>
+                                <button class="btn btn-sm" onclick="openSendApplicationModalWithRef(agentProfile && agentProfile.referral_slug ? agentProfile.referral_slug : 'alliance-house')" style="padding: 8px 16px; background: var(--gold); color: #0D1E3D; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                                    Credit Applications
+                                </button>
+                            </div>
+                        </div>
+                        <input type="hidden" id="agentReferralUrl">
+                        <span id="agentReferralSlug" style="display: none;"></span>
+                    </div>
+                    <div style="padding: 20px 24px 24px; background: #FFFFFF; border-radius: 0 0 10px 10px; border: 1px solid #E2E8F0; border-top: none;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">Email Landing Page to a Client</label>
+                            <div style="display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 200px;">
+                                    <input type="email" id="landingPageClientEmail" placeholder="client@company.com" style="width: 100%; padding: 10px 12px; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 14px; color: #334155; background: #F8FAFC;">
+                                </div>
+                                <div style="flex: 1; min-width: 150px;">
+                                    <input type="text" id="landingPageClientName" placeholder="Client name (optional)" style="width: 100%; padding: 10px 12px; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 14px; color: #334155; background: #F8FAFC;">
+                                </div>
+                                <button class="btn btn-gold btn-sm" onclick="emailLandingPage()" id="landingPageSendBtn" style="padding: 10px 20px; font-weight: 600; border-radius: 6px; white-space: nowrap;">Send Landing Page</button>
+                            </div>
+                            <div id="landingPageEmailStatus" style="display:none;margin-top:8px;padding:8px 12px;border-radius:6px;font-size:13px;text-align:center;"></div>
+                        </div>
+                        <div style="border-top: 1px solid #F1F5F9; padding-top: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Client Application Forms</label>
+                            <span style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 14px;">Send directly via email or copy the link. Your referral tracking is included automatically.</span>
+                            <div id="agentAppFormLinks" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px;">
+                            </div>
+                        </div>
+                        <div style="border-top: 1px solid #F1F5F9; padding-top: 20px; margin-top: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">MCA Marketing One-Pager</label>
+                            <span style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 14px;">Professional MCA marketing piece branded with your contact info and trackable application link.</span>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <button onclick="openMCAOnePager()" class="btn btn-gold btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px;">
+                                    <span style="font-size: 16px;">💰</span> View One-Pager
+                                </button>
+                                <button onclick="openMCAOnePager(null, true)" class="btn btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--navy); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                    <span style="font-size: 16px;">💾</span> Download PDF
+                                </button>
+                                <button onclick="showSendMCAModal()" class="btn btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                    <span style="font-size: 16px;">📧</span> Send to Client
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -3819,7 +3822,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-18-v27';
+    const DASHBOARD_VERSION = '2026-03-18-v28';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -4143,8 +4146,8 @@
                 var vendorAllowed = ['Dashboard', 'Vendor Portal', 'Help & Resources'];
                 item.style.display = vendorAllowed.includes(label) ? 'flex' : 'none';
             } else if (isReferralAgent) {
-                // Referral agents get: Dashboard, Deal Pipeline, Vendor Programs, Help
-                var referralAllowed = ['Dashboard', 'Deal Pipeline', 'Vendor Programs', 'Help & Resources'];
+                // Referral agents get: Dashboard, Deal Pipeline, Application Hub, Vendor Programs, Help
+                var referralAllowed = ['Dashboard', 'Deal Pipeline', 'Application Hub', 'Vendor Programs', 'Help & Resources'];
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
             } else {
                 // ISO/other agent views
@@ -4152,7 +4155,7 @@
 
                 if (adminOnly.includes(label)) {
                     item.style.display = 'none';
-                } else if (label === 'Help & Resources' || label === 'Vendor Programs' || label === 'Referral Partners') {
+                } else if (label === 'Application Hub' || label === 'Help & Resources' || label === 'Vendor Programs' || label === 'Referral Partners') {
                     item.style.display = 'flex';
                 } else if (label === 'Marketing') {
                     // Syndication desks don't get marketing
@@ -10108,6 +10111,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'vendorPrograms': 'Vendor Programs',
             'subAgents': 'Referral Partners',
             'myReferrals': 'My Referrals',
+            'applicationHub': 'Application Hub',
             'marketing': 'Marketing',
             'team': 'Team Members',
             'vendorPortal': 'Vendor Portal',
@@ -10201,8 +10205,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Applications Sent section is inside Deal Pipeline page — keep it visible there
 
-            // Show the referral card and marketing toolkit
-            await displayAgentReferralCard();
+            // Application Hub is now on its own page — loaded when user navigates there
 
         } catch (err) {
             console.error('Referral dashboard load error:', err);
@@ -10509,8 +10512,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await loadDashboardActivityFeed();
             }
 
-            // Show/hide agent referral card
-            await displayAgentReferralCard();
+            // Application Hub is now on its own page
 
             // Load email replies for everyone (agents see their own, admins see all)
             await loadEmailReplies();
@@ -12883,6 +12885,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 break;
             case 'myReferrals':
                 await loadMyReferrals();
+                break;
+            case 'applicationHub':
+                await displayAgentReferralCard();
                 break;
             case 'marketing':
                 await loadMarketingPage();
