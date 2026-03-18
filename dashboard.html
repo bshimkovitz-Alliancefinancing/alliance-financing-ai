@@ -3823,7 +3823,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-18-v31';
+    const DASHBOARD_VERSION = '2026-03-18-v33';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -9515,6 +9515,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 <select onchange="agentUpdateContactStatus('${c.id}', '${vendorId}', this.value)" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 11px; cursor: pointer;">
                                     ${'Active,Inactive,Left Company'.split(',').map(s => '<option value="' + s + '"' + (contactStatus === s ? ' selected' : '') + '>' + s + '</option>').join('')}
                                 </select>
+                                ${c.email ? '<button onclick="openVendorContactEmail(\'' + vendorId + '\', \'' + c.id + '\', \'' + (c.contact_name || '').replace(/'/g, "\\'") + '\', \'' + (c.email || '').replace(/'/g, "\\'") + '\')" style="padding:3px 8px;font-size:11px;background:#2563EB;color:white;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;" title="Send email">📧 Email</button>' : ''}
                             </div>
                         </div>
                     </div>`;
@@ -10983,16 +10984,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         const productFilter = document.getElementById('dealProductFilter')?.value || '';
 
         const filtered = allDeals.filter(deal => {
-            // Tab filter first
+            // Tab filter — skip if a specific status is selected (search across all tabs)
             var isArchived = deal.is_archived;
-            if (currentDealTab === 'archived') {
-                if (!isArchived) return false;
-            } else if (currentDealTab === 'booked') {
-                if (isArchived || !bookedDealStatuses.includes(deal.status)) return false;
-            } else if (currentDealTab === 'dead') {
-                if (isArchived || !deadDealStatuses.includes(deal.status)) return false;
-            } else { // active
-                if (isArchived || bookedDealStatuses.includes(deal.status) || deadDealStatuses.includes(deal.status)) return false;
+            if (!statusFilter) {
+                // No specific status selected — apply tab filter
+                if (currentDealTab === 'archived') {
+                    if (!isArchived) return false;
+                } else if (currentDealTab === 'booked') {
+                    if (isArchived || !bookedDealStatuses.includes(deal.status)) return false;
+                } else if (currentDealTab === 'dead') {
+                    if (isArchived || !deadDealStatuses.includes(deal.status)) return false;
+                } else { // active
+                    if (isArchived || bookedDealStatuses.includes(deal.status) || deadDealStatuses.includes(deal.status)) return false;
+                }
+            } else {
+                // Specific status selected — only exclude archived (unless on archived tab)
+                if (isArchived && currentDealTab !== 'archived') return false;
             }
 
             const afNumber = (deal.applications?.application_id || deal.deal_number || '').toLowerCase();
@@ -20424,6 +20431,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                     ${'Active,Inactive,Left Company'.split(',').map(s => `<option value="${s}" ${contactStatus === s ? 'selected' : ''}>${s}</option>`).join('')}
                                 </select>
                                 ${c.email && !c.portal_activated_at ? `<button class="btn btn-sm" id="portalInviteBtn_${c.id}" onclick="sendPortalInvite('${c.id}', '${vendorId}', '${(c.contact_name || '').replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}', '${(c.role_title || 'Sales').replace(/'/g, "\\'")}')" style="padding: 3px 8px; font-size: 11px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="Send portal login invite">${c.portal_invited_at ? '↻ Resend Invite' : '✉ Invite to Portal'}</button>` : ''}
+                                ${c.email ? `<button class="btn btn-sm" onclick="openVendorContactEmail('${vendorId}', '${c.id}', '${(c.contact_name || '').replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}')" style="padding: 3px 8px; font-size: 11px; background: #2563EB; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="Send email">📧 Email</button>` : ''}
                                 <button class="btn btn-secondary btn-sm" onclick="toggleEditVendorContact('${c.id}')" style="padding: 3px 8px; font-size: 11px;" title="Edit">Edit</button>
                                 <button class="btn btn-sm" onclick="deleteVendorContact('${c.id}', '${vendorId}', '${(c.contact_name || '').replace(/'/g, "\\'")}')" style="padding: 3px 8px; font-size: 11px; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer;" title="Delete">Del</button>
                                 <button class="btn btn-secondary btn-sm" onclick="this.closest('.vendor-contact-card').querySelector('.contact-notes-section').style.display = this.closest('.vendor-contact-card').querySelector('.contact-notes-section').style.display === 'none' ? 'block' : 'none'" style="padding: 3px 8px; font-size: 11px; white-space: nowrap;">Notes (${cNotes.length})</button>
@@ -21621,6 +21629,104 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (error) {
             console.error('Add vendor note error:', error);
             alert('Error adding note: ' + error.message);
+        }
+    }
+
+    // ============================================
+    // Vendor Contact Email (Free-Form, Logged in Notes)
+    // ============================================
+
+    function openVendorContactEmail(vendorId, contactId, contactName, contactEmail) {
+        var senderName = currentUserName || 'Alliance Financing';
+        var senderEmail = (document.getElementById('userEmailDisplay') || {}).textContent || 'info@alliancefinancing.com';
+
+        var modalHtml = '<div style="padding:24px;max-width:560px;">' +
+            '<h3 style="margin:0 0 4px;color:var(--navy);font-size:18px;">Send Email</h3>' +
+            '<p style="color:#64748B;font-size:13px;margin:0 0 18px;">To: <strong>' + contactName + '</strong> &lt;' + contactEmail + '&gt;</p>' +
+            '<div style="margin-bottom:12px;">' +
+            '<label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px;">Subject</label>' +
+            '<input type="text" id="vendorEmailSubject" placeholder="Email subject..." style="width:100%;padding:10px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:14px;">' +
+            '</div>' +
+            '<div style="margin-bottom:12px;">' +
+            '<label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px;">Message</label>' +
+            '<textarea id="vendorEmailBody" placeholder="Write your message..." style="width:100%;min-height:150px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>' +
+            '</div>' +
+            '<div style="font-size:12px;color:#94A3B8;margin-bottom:16px;padding:8px 10px;background:#F8FAFC;border-radius:4px;">' +
+            'From: ' + senderName + ' &lt;' + senderEmail + '&gt; — This email will be logged in the vendor notes.' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;">' +
+            '<button onclick="sendVendorContactEmail(\'' + vendorId + '\', \'' + contactId + '\', \'' + contactName.replace(/'/g, "\\'") + '\', \'' + contactEmail.replace(/'/g, "\\'") + '\')" class="btn btn-gold" style="padding:10px 24px;font-size:14px;">Send Email</button>' +
+            '<button onclick="closeModal(\'vendorEmailModal\')" class="btn btn-secondary" style="padding:10px 24px;font-size:14px;">Cancel</button>' +
+            '</div></div>';
+
+        var modal = document.getElementById('vendorEmailModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'vendorEmailModal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
+            document.body.appendChild(modal);
+        }
+        modal.innerHTML = '<div style="background:white;border-radius:10px;width:90%;max-width:580px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' + modalHtml + '</div>';
+        modal.style.display = 'flex';
+        // Focus subject field
+        setTimeout(function() { var s = document.getElementById('vendorEmailSubject'); if (s) s.focus(); }, 100);
+    }
+
+    async function sendVendorContactEmail(vendorId, contactId, contactName, contactEmail) {
+        var subject = document.getElementById('vendorEmailSubject').value.trim();
+        var body = document.getElementById('vendorEmailBody').value.trim();
+        if (!subject) { showToast('Please enter a subject', 'warning'); return; }
+        if (!body) { showToast('Please enter a message', 'warning'); return; }
+
+        var senderName = currentUserName || 'Alliance Financing';
+        var senderEmail = (document.getElementById('userEmailDisplay') || {}).textContent || 'info@alliancefinancing.com';
+
+        try {
+            // Build branded HTML email
+            var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:20px;text-align:center;"><h2 style="color:#C9A84C;margin:0;font-size:20px;">Alliance Financing Group</h2></div>' +
+                '<div style="padding:25px;background:#fff;border:1px solid #e2e8f0;">' +
+                '<p style="font-size:15px;color:#333;margin-bottom:8px;">Hi ' + (contactName.split(' ')[0] || contactName) + ',</p>' +
+                '<div style="font-size:14px;color:#555;line-height:1.7;white-space:pre-wrap;">' + body.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+                '<div style="margin-top:24px;padding-top:16px;border-top:1px solid #E2E8F0;">' +
+                '<p style="font-size:14px;color:#333;margin:0;">Best regards,</p>' +
+                '<p style="font-size:14px;color:#333;font-weight:600;margin:4px 0 0;">' + senderName + '</p>' +
+                '<p style="font-size:13px;color:#64748B;margin:2px 0 0;">' + senderEmail + '</p>' +
+                '<p style="font-size:13px;color:#64748B;margin:2px 0 0;">Alliance Financing Group Ltd.</p>' +
+                '<p style="font-size:13px;color:#64748B;margin:2px 0 0;">1-877-660-3660</p>' +
+                '</div></div>' +
+                '<div style="background:#f8f9fa;padding:12px;text-align:center;font-size:11px;color:#999;">Alliance Financing Group | alliancefinancing.com</div></div>';
+
+            // Send the email
+            await sendEmailViaResend(contactEmail, subject, htmlBody, null, senderEmail || 'info@alliancefinancing.com');
+
+            // Log in vendor notes
+            var { data: vendor } = await db.from('vendors').select('admin_notes, name').eq('id', vendorId).single();
+            var notes = [];
+            try { notes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            notes.push({
+                text: '📧 Email sent to ' + contactName + ' (' + contactEmail + ')\nSubject: ' + subject + '\n\n' + body,
+                author: senderEmail,
+                date: dateStr,
+                visible_to_agent: true,
+                is_email: true
+            });
+            await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
+
+            closeModal('vendorEmailModal');
+            showToast('Email sent to ' + contactName + '!', 'success');
+
+            // Refresh the vendor view if admin
+            if (['super_admin', 'admin'].includes(currentUserRole)) {
+                await viewVendor(vendorId);
+            } else {
+                await viewAgentVendor(vendorId);
+            }
+        } catch(err) {
+            console.error('Send vendor contact email error:', err);
+            showToast('Failed to send email: ' + (err.message || err), 'error');
         }
     }
 
