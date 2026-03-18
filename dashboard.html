@@ -767,6 +767,7 @@
             <div class="nav-item" id="vendorProgramsNav" onclick="showPage('vendorPrograms')" style="display: none;">
                 <span class="nav-icon">🤝</span>
                 <span>Vendor Programs</span>
+                <span id="vendorNotesBadge" style="display:none;background:#EF4444;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;"></span>
             </div>
             <div class="nav-item" id="subAgentsNav" onclick="showPage('subAgents')" style="display: none;">
                 <span class="nav-icon">👥</span>
@@ -3822,7 +3823,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-18-v30';
+    const DASHBOARD_VERSION = '2026-03-18-v31';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -9619,6 +9620,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             `;
 
             document.getElementById('agentVendorDetailModal').style.display = 'flex';
+            markVendorNotesRead(vendorId);
         } catch (error) {
             console.error('View agent vendor error:', error);
             alert('Error loading vendor details: ' + error.message);
@@ -9754,6 +9756,58 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // ============================================
+    // Check for unread vendor notes (for agent badge)
+    async function checkUnreadVendorNotes() {
+        if (['super_admin', 'admin'].includes(currentUserRole) || !currentUserId) return;
+        try {
+            var { data: vendors } = await db.from('vendors')
+                .select('id, admin_notes')
+                .eq('source_agent_id', currentUserId);
+            if (!vendors || vendors.length === 0) return;
+
+            // Check localStorage for last-read timestamps per vendor
+            var readTimestamps = {};
+            try { readTimestamps = JSON.parse(localStorage.getItem('vendorNotesRead_' + currentUserId) || '{}'); } catch(e) {}
+
+            var unreadCount = 0;
+            vendors.forEach(function(v) {
+                var notes = [];
+                try { notes = v.admin_notes ? JSON.parse(v.admin_notes) : []; } catch(e) {}
+                var visibleNotes = notes.filter(function(n) { return n.visible_to_agent === true && !n.from_agent; });
+                if (visibleNotes.length === 0) return;
+
+                var lastRead = readTimestamps[v.id] || '2000-01-01';
+                var hasUnread = visibleNotes.some(function(n) {
+                    if (!n.date) return true;
+                    // Parse the date string for comparison
+                    try { return new Date(n.date).toISOString() > lastRead; } catch(e) { return true; }
+                });
+                if (hasUnread) unreadCount++;
+            });
+
+            var badge = document.getElementById('vendorNotesBadge');
+            if (badge) {
+                if (unreadCount > 0) {
+                    badge.textContent = unreadCount;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        } catch(err) { console.log('Check unread vendor notes error:', err); }
+    }
+
+    // Mark vendor notes as read when agent views the vendor
+    function markVendorNotesRead(vendorId) {
+        if (!currentUserId) return;
+        try {
+            var readTimestamps = JSON.parse(localStorage.getItem('vendorNotesRead_' + currentUserId) || '{}');
+            readTimestamps[vendorId] = new Date().toISOString();
+            localStorage.setItem('vendorNotesRead_' + currentUserId, JSON.stringify(readTimestamps));
+            checkUnreadVendorNotes(); // refresh badge
+        } catch(e) {}
+    }
+
     // Agent Referral Partners
     // ============================================
 
@@ -10550,6 +10604,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Load email replies for everyone (agents see their own, admins see all)
             await loadEmailReplies();
+
+            // Check for unread vendor notes (shows badge on Vendor Programs nav)
+            checkUnreadVendorNotes();
 
             // Load agent-only sections (skip for admins)
             if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
@@ -21518,6 +21575,33 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
+            // Auto-email the agent if note is visible and vendor has an assigned agent (even without CC checkbox)
+            if (visibleToAgent && !shouldCCAgent) {
+                try {
+                    // Find the vendor's source agent
+                    var { data: vendorFull } = await db.from('vendors').select('source_agent_id').eq('id', vendorId).single();
+                    if (vendorFull && vendorFull.source_agent_id) {
+                        var { data: agentData } = await db.from('users').select('full_name, email').eq('id', vendorFull.source_agent_id).single();
+                        if (agentData && agentData.email) {
+                            var vendorName = vendor.name || 'a vendor';
+                            var agentFirst = (agentData.full_name || '').split(' ')[0] || '';
+                            var notifyHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                                '<div style="background:#0D1E3D;padding:20px;text-align:center;"><h2 style="color:#C9A84C;margin:0;font-size:20px;">Alliance Financing Group</h2></div>' +
+                                '<div style="padding:25px;background:#fff;border:1px solid #e2e8f0;">' +
+                                '<p style="font-size:15px;color:#333;margin-bottom:8px;">Hi ' + agentFirst + ',</p>' +
+                                '<p style="font-size:14px;color:#555;margin-bottom:15px;">A new note has been added to vendor <strong>' + vendorName + '</strong> for your review:</p>' +
+                                '<div style="background:#f8f9fa;border-left:4px solid #C9A84C;padding:15px;margin:15px 0;border-radius:0 4px 4px 0;">' +
+                                '<p style="font-size:14px;color:#333;line-height:1.6;margin:0;white-space:pre-wrap;">' + noteText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p></div>' +
+                                '<p style="font-size:13px;color:#999;">— ' + userEmail + '</p>' +
+                                '<p style="font-size:14px;color:#555;margin-top:15px;">Log in to your dashboard to view and respond.</p>' +
+                                '</div><div style="background:#f8f9fa;padding:15px;text-align:center;font-size:12px;color:#999;">Alliance Financing Group</div></div>';
+                            await sendEmailViaResend(agentData.email, 'New note on ' + vendorName + ' — Alliance Financing', notifyHtml, null, 'info@alliancefinancing.com');
+                            noteEntry.text = noteText + '\n📧 Notified ' + (agentData.full_name || agentData.email);
+                        }
+                    }
+                } catch(notifyErr) { console.log('Auto-notify agent failed (non-critical):', notifyErr); }
+            }
+
             notes.push(noteEntry);
 
             const { error } = await db
@@ -21528,7 +21612,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
 
             if (shouldCCAgent) {
-                alert('Note added and emailed to agent!');
+                showToast('Note added and emailed to agent!', 'success');
+            } else if (visibleToAgent) {
+                showToast('Note added and agent notified!', 'success');
             }
 
             await viewVendor(vendorId);
