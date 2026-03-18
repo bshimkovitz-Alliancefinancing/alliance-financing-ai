@@ -3822,7 +3822,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-18-v28';
+    const DASHBOARD_VERSION = '2026-03-18-v30';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -9869,12 +9869,46 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
+            // Send invite email to the new referral partner
+            try {
+                var activateUrl = window.location.origin + '/agent-activate.html?token=' + inviteToken;
+                var inviterName = currentUserName || 'An ISO Partner';
+                var inviteSubject = 'Welcome to Alliance Financing Group — ' + inviterName + ' invited you';
+                var inviteHtml =
+                    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                    '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                    '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                    '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                    '<p style="font-size:16px;color:#1E293B;">Hi ' + name + ',</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;"><strong>' + inviterName + '</strong> has invited you to join Alliance Financing Group as a <strong>Referral Partner</strong>.</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">As a referral partner, you can earn fees by connecting your clients with financing solutions. Alliance handles everything from application to funding.</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">To activate your account and get started, click the button below:</p>' +
+                    '<div style="text-align:center;margin:25px 0;">' +
+                    '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Activate My Account</a></div>' +
+                    '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;">' + activateUrl + '</a></p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, reach out to ' + inviterName + ' or contact Alliance at info@alliancefinancing.com.</p>' +
+                    '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong></p>' +
+                    '</div>' +
+                    '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                    '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+
+                await sendEmailViaResend(email, inviteSubject, inviteHtml);
+
+                // Update invite_sent_at
+                var { data: newUser } = await db.from('users').select('id').eq('email', email).maybeSingle();
+                if (newUser) {
+                    await db.from('users').update({ invite_sent_at: new Date().toISOString() }).eq('id', newUser.id);
+                }
+            } catch(emailErr) {
+                console.error('Invite email failed (non-critical):', emailErr);
+            }
+
             document.getElementById('inviteSubAgentModal').style.display = 'none';
             document.getElementById('subAgentName').value = '';
             document.getElementById('subAgentEmail').value = '';
             document.getElementById('subAgentPhone').value = '';
             document.getElementById('subAgentBusinessType').value = '';
-            alert('Referral partner invited successfully! Admin will complete their account setup.');
+            showToast('Invite sent to ' + email + '!', 'success');
             loadAgentSubAgents();
         } catch (err) {
             console.error('Invite sub-agent error:', err);
@@ -12234,7 +12268,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             html += '</div>';
         }
 
-        guideCount.textContent = 1 + filteredResources.length;
+        // Count: primary guide (1) + partner guides for ISO (2) + company docs (1) + shared resources
+        var totalGuides = 1 + filteredResources.length; // primary guide + shared resources
+        if (agentType === 'super_agent' || agentType === 'iso') totalGuides += 2; // referral + vendor guides
+        totalGuides += 1; // product guide
+        guideCount.textContent = totalGuides;
         container.innerHTML = html;
 
         // Load outreach history into help page table (for ISOs)
