@@ -797,6 +797,10 @@
                 <span class="nav-icon">📚</span>
                 <span>Admin Resources</span>
             </div>
+            <div class="nav-item" id="statsReportsNav" onclick="showPage('statsReports')" style="display: none;">
+                <span class="nav-icon">📈</span>
+                <span>Stats & Reports</span>
+            </div>
             <div class="nav-item" id="helpNav" onclick="showPage('help')" style="display: none;">
                 <span class="nav-icon">📖</span>
                 <span>Help & Resources</span>
@@ -826,8 +830,8 @@
 
         <div class="content-area">
 
-            <!-- Dashboard Page -->
-            <div id="dashboard" class="page-section active">
+            <!-- Stats & Reports Page -->
+            <div id="statsReports" class="page-section">
                 <div class="stats-grid">
                     <div class="stat-card" id="statCard1" data-accent="blue">
                         <div class="stat-icon">
@@ -862,7 +866,10 @@
                         <div class="stat-detail" id="vendorSalesPeople">0 sales contacts</div>
                     </div>
                 </div>
+            </div>
 
+            <!-- Dashboard Page -->
+            <div id="dashboard" class="page-section active">
                 <!-- Attention Alerts (admin only) -->
                 <div id="dashAttentionAlerts" style="display:none;margin-bottom:20px;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -3881,7 +3888,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-18-v36';
+    const DASHBOARD_VERSION = '2026-03-18-v37';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -4198,7 +4205,7 @@
 
             if (isAdmin) {
                 // Admins see everything except agent-only items
-                var agentOnlyItems = ['Marketing', 'Help & Resources', 'Vendor Programs', 'Referral Partners', 'Vendor Portal'];
+                var agentOnlyItems = ['Marketing', 'Help & Resources', 'Vendor Programs', 'Referral Partners', 'Vendor Portal', 'Application Hub'];
                 item.style.display = agentOnlyItems.includes(label) ? 'none' : 'flex';
             } else if (isVendor) {
                 // Vendor users see only Vendor Portal and Help
@@ -10267,6 +10274,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'team': 'Team Members',
             'vendorPortal': 'Vendor Portal',
             'resources': 'Admin Resources',
+            'statsReports': 'Stats & Reports',
             'help': 'Help & Resources'
         };
         var title = titles[pageName] || 'Dashboard';
@@ -12455,6 +12463,57 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         window.open(filename, '_blank');
     }
 
+    async function loadStatsReports() {
+        try {
+            // Deals received this month
+            var { data: applications } = await db.from('applications').select('id, submitted_at').order('submitted_at', { ascending: false });
+            if (applications) {
+                var now = new Date();
+                var currentMonth = now.getMonth();
+                var currentYear = now.getFullYear();
+                var dealsThisMonth = applications.filter(function(app) {
+                    if (!app.submitted_at) return false;
+                    var d = new Date(app.submitted_at);
+                    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+                }).length;
+                var el = document.getElementById('dealsThisMonth');
+                if (el) el.textContent = dealsThisMonth;
+                var label = document.getElementById('dealsMonthLabel');
+                if (label) label.textContent = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            }
+
+            // Active pipeline value
+            var { data: deals } = await db.from('deals').select('deal_amount, status');
+            if (deals) {
+                var activeStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
+                var pipelineVal = deals.filter(function(d) { return activeStatuses.includes(d.status); }).reduce(function(sum, d) { return sum + (d.deal_amount || 0); }, 0);
+                var el2 = document.getElementById('pipelineValue');
+                if (el2) el2.textContent = formatCurrency(pipelineVal);
+            }
+
+            // Lender count
+            var { data: lenders } = await db.from('lenders').select('id');
+            if (lenders) {
+                var el3 = document.getElementById('totalLenders');
+                if (el3) el3.textContent = lenders.length;
+            }
+
+            // Vendor count + contacts
+            var { data: vendors } = await db.from('vendors').select('id').neq('status', 'Archived');
+            if (vendors) {
+                var el4 = document.getElementById('totalVendors');
+                if (el4) el4.textContent = vendors.length;
+            }
+            var { data: vc } = await db.from('vendor_contacts').select('id');
+            if (vc) {
+                var el5 = document.getElementById('vendorSalesPeople');
+                if (el5) el5.textContent = vc.length + ' sales contacts';
+            }
+        } catch(err) {
+            console.error('Load stats error:', err);
+        }
+    }
+
     async function loadResourcesPage() {
         try {
             var { data, error } = await db
@@ -13065,6 +13124,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 break;
             case 'resources':
                 await loadResourcesPage();
+                break;
+            case 'statsReports':
+                await loadStatsReports();
                 break;
             case 'help':
                 await loadHelpPage();
