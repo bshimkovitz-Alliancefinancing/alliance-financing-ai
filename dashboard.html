@@ -1112,6 +1112,7 @@
                             <button class="deal-tab" data-tab="booked" onclick="switchDealTab('booked')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Funded / Booked <span id="dealCountBooked" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                             <button class="deal-tab" data-tab="dead" onclick="switchDealTab('dead')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Declined / Dead <span id="dealCountDead" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                             <button class="deal-tab" data-tab="archived" onclick="switchDealTab('archived')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#666;transition:all .2s;">Archived <span id="dealCountArchived" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                            <button class="deal-tab" data-tab="appsSent" id="dealTabAppsSent" onclick="switchDealTab('appsSent')" style="display:none;padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Apps Sent <span id="dealCountAppsSent" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             <input type="text" id="dealSearch" placeholder="Search AF#, AFG#, company, product, lender..."
@@ -4026,7 +4027,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-19-v47';
+    const DASHBOARD_VERSION = '2026-03-19-v48';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -4184,6 +4185,12 @@
             if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !['super_admin', 'admin'].includes(currentUserRole)) {
                 showPage('vendorPortal');
                 loadPageData('vendorPortal');
+            }
+
+            // Route ISO partners directly to Deal Pipeline (their main operational view)
+            if (currentAgentType === 'super_agent' && !['super_admin', 'admin'].includes(currentUserRole)) {
+                showPage('deals');
+                loadPageData('deals');
             }
 
             // Show admin agent filter on Applications Sent section
@@ -4370,10 +4377,25 @@
             }
         });
 
+        // ISO Partners: hide Dashboard nav item (they use Deal Pipeline as home)
+        if (currentAgentType === 'super_agent' && !isAdmin) {
+            navItems.forEach(function(item) {
+                var spans = item.querySelectorAll('span');
+                var lbl = spans.length > 1 ? spans[1].textContent.trim() : spans[0].textContent.trim();
+                if (lbl === 'Dashboard') item.style.display = 'none';
+            });
+        }
+
+        // Show "Apps Sent" tab in Deal Pipeline for agents
+        if (!isAdmin) {
+            var appsSentTab = document.getElementById('dealTabAppsSent');
+            if (appsSentTab) appsSentTab.style.display = '';
+        }
+
         // Show "My Referrals" nav for agents (Phase 4: referral tracking)
         var myReferralsNav = document.getElementById('myReferralsNav');
         if (myReferralsNav) {
-            var isAgentForReferrals = !isAdmin && currentAgentType && ['referring_agent', 'sub_agent', 'super_agent'].includes(currentAgentType);
+            var isAgentForReferrals = !isAdmin && currentAgentType && ['referring_agent', 'sub_agent'].includes(currentAgentType);
             myReferralsNav.style.display = isAgentForReferrals ? 'flex' : 'none';
         }
 
@@ -11029,9 +11051,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function loadDashboard() {
         try {
-            // If agent (referring, sub, or ISO), show simplified referral dashboard
-            if (!['super_admin', 'admin'].includes(currentUserRole) && ['referring_agent', 'sub_agent', 'super_agent'].includes(currentAgentType)) {
+            // If agent (referring or sub), show simplified referral dashboard
+            if (!['super_admin', 'admin'].includes(currentUserRole) && ['referring_agent', 'sub_agent'].includes(currentAgentType)) {
                 await loadReferralDashboard();
+                return;
+            }
+            // ISO partners use Deal Pipeline as home — redirect if they somehow land on dashboard
+            if (!['super_admin', 'admin'].includes(currentUserRole) && currentAgentType === 'super_agent') {
+                showPage('deals');
                 return;
             }
 
@@ -11545,6 +11572,32 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     var currentDealTab = 'active';
 
     function switchDealTab(tab) {
+        // Handle Apps Sent tab — toggle between deals table and applications sent section
+        var dealsTableContainer = document.getElementById('dealsTable')?.closest('.table-container') || document.getElementById('dealsTable')?.parentElement?.parentElement;
+        var appsSentSection = document.getElementById('applicationsSentSection');
+
+        if (tab === 'appsSent') {
+            if (dealsTableContainer) dealsTableContainer.querySelector('table').style.display = 'none';
+            if (appsSentSection) {
+                appsSentSection.style.display = 'block';
+                loadApplicationsSent();
+            }
+            // Update tab styling
+            document.querySelectorAll('#dealTabs .deal-tab').forEach(function(btn) {
+                var isActive = btn.getAttribute('data-tab') === 'appsSent';
+                btn.style.background = isActive ? 'var(--navy)' : '#f8fafc';
+                btn.style.color = isActive ? 'white' : '#333';
+                btn.style.fontWeight = isActive ? '600' : '500';
+            });
+            return;
+        } else {
+            if (dealsTableContainer) dealsTableContainer.querySelector('table').style.display = '';
+            // Hide applicationsSentSection when on a deals tab (it's now in the tab system)
+            if (appsSentSection && !['super_admin', 'admin'].includes(currentUserRole)) {
+                appsSentSection.style.display = 'none';
+            }
+        }
+
         currentDealTab = tab;
         // Update tab button styles
         document.querySelectorAll('#dealTabs .deal-tab').forEach(function(btn) {
@@ -13789,7 +13842,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     var refAppsCard = document.getElementById('agentReferralAppsCard');
                     if (refAppsCard) refAppsCard.style.display = 'none';
                 }
-                await loadApplicationsSent();
+                // For agents, Applications Sent is now behind the "Apps Sent" tab
+                // For admins, load it directly
+                if (['super_admin', 'admin'].includes(currentUserRole)) {
+                    await loadApplicationsSent();
+                } else {
+                    // Hide it initially — shown when "Apps Sent" tab is clicked
+                    var appsSentSection = document.getElementById('applicationsSentSection');
+                    if (appsSentSection) appsSentSection.style.display = 'none';
+                }
                 break;
             case 'applications':
                 // Redirect applications to deals
@@ -17690,6 +17751,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<div style="background:#F0FDF4;padding:8px 16px;border-radius:6px;text-align:center;flex:1;cursor:pointer;" onclick="document.getElementById(\'appSentStatusFilter\').value=\'Returned\';loadApplicationsSent();"><div style="font-size:20px;font-weight:700;color:#10B981;">' + totalReturned + '</div><div style="font-size:11px;color:#64748B;">Returned</div></div>' +
                     '<div style="background:#FEF2F2;padding:8px 16px;border-radius:6px;text-align:center;flex:1;cursor:pointer;" onclick="document.getElementById(\'appSentStatusFilter\').value=\'Expired\';loadApplicationsSent();"><div style="font-size:20px;font-weight:700;color:#EF4444;">' + totalExpired + '</div><div style="font-size:11px;color:#64748B;">Expired</div></div>' +
                     (totalArchived > 0 ? '<div style="background:#F1F5F9;padding:8px 16px;border-radius:6px;text-align:center;flex:1;cursor:pointer;" onclick="document.getElementById(\'appSentStatusFilter\').value=\'Archived\';loadApplicationsSent();"><div style="font-size:20px;font-weight:700;color:#94A3B8;">' + totalArchived + '</div><div style="font-size:11px;color:#64748B;">Archived</div></div>' : '');
+
+                // Update Apps Sent tab count
+                var appsSentCountEl = document.getElementById('dealCountAppsSent');
+                if (appsSentCountEl) appsSentCountEl.textContent = data.length;
             }
 
             if (filteredData.length === 0) {
