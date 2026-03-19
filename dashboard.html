@@ -17258,12 +17258,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var { data, error } = await query;
             if (error) throw error;
 
-            // Update stats
+            // Update stats (use safe element access — Phase 4 replaced some stat card IDs)
             var allApps = data || [];
-            document.getElementById('refStatSent').textContent = allApps.length;
-            document.getElementById('refStatOpened').textContent = allApps.filter(function(a) { return a.status === 'Opened'; }).length;
-            document.getElementById('refStatReturned').textContent = allApps.filter(function(a) { return a.status === 'Returned'; }).length;
-            document.getElementById('refStatOverdue').textContent = allApps.filter(function(a) {
+            var elSent = document.getElementById('refStatSent');
+            var elOpened = document.getElementById('refStatOpened');
+            var elReturned = document.getElementById('refStatReturned');
+            var elOverdue = document.getElementById('refStatOverdue');
+            if (elSent) elSent.textContent = allApps.length;
+            if (elOpened) elOpened.textContent = allApps.filter(function(a) { return a.status === 'Opened'; }).length;
+            if (elReturned) elReturned.textContent = allApps.filter(function(a) { return a.status === 'Returned'; }).length;
+            if (elOverdue) elOverdue.textContent = allApps.filter(function(a) {
                 return (a.status === 'Sent' || a.status === 'Follow-Up Needed') && a.follow_up_date && new Date(a.follow_up_date) < new Date();
             }).length;
 
@@ -19411,7 +19415,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function loadReferredApplications() {
         var tbody = document.getElementById('referredAppsBody');
-        if (!tbody || !agentProfile || !agentProfile.referral_slug) return;
+        if (!tbody) return;
+        if (!agentProfile || !agentProfile.referral_slug) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Your referral link is not set up yet. Contact Alliance to get your personalized referral link.</td></tr>';
+            return;
+        }
 
         try {
             // Load applications with this agent's referral_slug
