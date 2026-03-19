@@ -10617,6 +10617,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 return;
             }
 
+            // Vendor users: redirect to Vendor Portal instead of blank admin dashboard
+            if (!['super_admin', 'admin'].includes(currentUserRole) && (currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson')) {
+                showPage('vendorPortal');
+                return;
+            }
+
             // Load applications with role-based filtering
             let appQuery = db.from('applications').select('*').order('submitted_at', { ascending: false });
             if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
