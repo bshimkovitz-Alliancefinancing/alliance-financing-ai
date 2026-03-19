@@ -13805,6 +13805,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 // Hide applications sent by default — shown via "Apps Out" tab
                 var appsSentSection = document.getElementById('applicationsSentSection');
                 if (appsSentSection) appsSentSection.style.display = 'none';
+                // Pre-load apps sent data to populate the tab count badge
+                loadApplicationsSent();
                 break;
             case 'applications':
                 // Redirect applications to deals
@@ -17648,12 +17650,34 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             let query = db.from('applications_sent').select('*').order('sent_at', { ascending: false });
             if (agentFilter) query = query.eq('sent_by', agentFilter);
             if (!isAdmin) {
-                // Referral partners: filter by their referral_slug (admins send on their behalf)
                 if (currentAgentType === 'referring_agent') {
+                    // Referral partners: filter by their referral_slug
                     var { data: slugData } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
                     if (slugData && slugData.referral_slug) {
                         query = query.eq('referral_slug', slugData.referral_slug);
                     } else {
+                        query = query.eq('sent_by', currentUserName);
+                    }
+                } else if (currentAgentType === 'super_agent') {
+                    // ISO Partners: show apps sent by them AND their sub-agents
+                    var sentByNames = [currentUserName];
+                    try {
+                        var { data: subAgents } = await db.from('users').select('full_name, referral_slug').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                        if (subAgents) {
+                            subAgents.forEach(function(sa) { if (sa.full_name) sentByNames.push(sa.full_name); });
+                            var subSlugs = subAgents.filter(sa => sa.referral_slug).map(sa => sa.referral_slug);
+                            // Get ISO's own slug too
+                            var { data: mySlugData } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+                            if (mySlugData && mySlugData.referral_slug) subSlugs.push(mySlugData.referral_slug);
+                            if (subSlugs.length > 0) {
+                                // Query by referral_slug (covers apps sent on behalf of agents)
+                                query = query.in('referral_slug', subSlugs);
+                            } else {
+                                query = query.in('sent_by', sentByNames);
+                            }
+                        }
+                    } catch(e) {
+                        console.warn('ISO sub-agent lookup for apps sent failed:', e);
                         query = query.eq('sent_by', currentUserName);
                     }
                 } else if (currentUserName) {
@@ -17707,7 +17731,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     (totalArchived > 0 ? '<div style="background:#F1F5F9;padding:8px 16px;border-radius:6px;text-align:center;flex:1;cursor:pointer;" onclick="document.getElementById(\'appSentStatusFilter\').value=\'Archived\';loadApplicationsSent();"><div style="font-size:20px;font-weight:700;color:#94A3B8;">' + totalArchived + '</div><div style="font-size:11px;color:#64748B;">Archived</div></div>' : '');
 
                 // Update Apps Sent tab count
-                var appsSentCountEl = document.getElementById('dealCountAppsSent');
+                var appsSentCountEl = document.getElementById('dealCountAppsOut');
                 if (appsSentCountEl) appsSentCountEl.textContent = data.length;
             }
 
