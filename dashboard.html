@@ -3957,7 +3957,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-18-v40';
+    const DASHBOARD_VERSION = '2026-03-18-v41';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -18559,6 +18559,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Sort: priority (High first), then newest
             inboxItems.sort(inboxSortComparator);
 
+            // Resolve assigned_to names
+            await resolveAssignedNames();
+
             // Render
             renderInbox('dash');
             updateInboxCounts('dash');
@@ -18602,6 +18605,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             inboxItems = [...appItems, ...contactItems];
             inboxItems.sort(inboxSortComparator);
 
+            // Resolve assigned_to names
+            await resolveAssignedNames();
+
             renderInbox('page');
             updateInboxCounts('page');
         } catch (err) {
@@ -18609,30 +18615,83 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    function getRoutingSuggestion(app, sourceType, amount, product) {
+        if (sourceType === 'agent_referral' || sourceType === 'iso_referral') {
+            return { text: 'Assign to referral partner account manager', icon: '👤', color: '#7C3AED' };
+        }
+        if (sourceType === 'vendor') {
+            return { text: 'Route to vendor program team', icon: '🏭', color: '#0D9488' };
+        }
+        if (sourceType === 'direct' && amount >= 100000) {
+            return { text: 'Priority review — high value direct application', icon: '⭐', color: '#D97706' };
+        }
+        // Check product/subject for equipment keywords
+        const prodLower = (product || '').toLowerCase();
+        const descLower = ((app.description || '') + ' ' + (app.subject || '')).toLowerCase();
+        if (prodLower.includes('equipment') || prodLower.includes('leasing') || descLower.includes('equipment') || descLower.includes('leasing')) {
+            return { text: 'Suggest Equipment Leasing pipeline', icon: '🔧', color: '#2563EB' };
+        }
+        return null;
+    }
+
+    function getContactRoutingSuggestion(contact) {
+        const text = ((contact.subject || '') + ' ' + (contact.message || '')).toLowerCase();
+        if (text.includes('equipment') || text.includes('leasing') || text.includes('lease')) {
+            return { text: 'Suggest Equipment Leasing pipeline', icon: '🔧', color: '#2563EB' };
+        }
+        if (text.includes('vendor') || text.includes('dealer')) {
+            return { text: 'Route to vendor program team', icon: '🏭', color: '#0D9488' };
+        }
+        if (text.includes('partner') || text.includes('agent') || text.includes('referral') || text.includes('iso') || text.includes('broker')) {
+            return { text: 'May be a partnership inquiry — check Agents & Partners', icon: '🤝', color: '#7C3AED' };
+        }
+        return null;
+    }
+
     function normalizeApplication(app) {
         const slug = app.referral_slug || '';
         const agentInfo = inboxAgentCache[slug];
-        let sourceType = 'direct';
-        let sourceDisplay = 'Direct';
-        let referredBy = '—';
 
-        if (slug) {
-            if (slug.startsWith('vendor-')) {
-                sourceType = 'vendor';
-                sourceDisplay = 'Vendor';
-                referredBy = agentInfo ? agentInfo.name : slug;
-            } else if (agentInfo && agentInfo.agentType === 'super_agent') {
-                sourceType = 'iso_referral';
-                sourceDisplay = 'ISO Referral';
+        // Prefer DB-stored attribution, fall back to client-side calculation
+        let sourceType = app.source_type || '';
+        let sourceDisplay = app.source_display || '';
+        let referredBy = '—';
+        let priority = app.priority || '';
+
+        if (!sourceType) {
+            // Client-side fallback (Phase 1 logic)
+            sourceType = 'direct';
+            sourceDisplay = 'Direct';
+            if (slug) {
+                if (slug.startsWith('vendor-')) {
+                    sourceType = 'vendor';
+                    sourceDisplay = 'Vendor';
+                    referredBy = agentInfo ? agentInfo.name : slug;
+                } else if (agentInfo && agentInfo.agentType === 'super_agent') {
+                    sourceType = 'iso_referral';
+                    sourceDisplay = 'ISO Referral';
+                    referredBy = agentInfo.name;
+                } else if (agentInfo && (agentInfo.agentType === 'referring_agent' || agentInfo.agentType === 'sub_agent')) {
+                    sourceType = 'agent_referral';
+                    sourceDisplay = 'Agent Referral';
+                    referredBy = agentInfo.name;
+                } else {
+                    sourceType = 'agent_referral';
+                    sourceDisplay = 'Agent Referral';
+                    referredBy = agentInfo ? agentInfo.name : slug;
+                }
+            }
+        } else {
+            // DB has attribution — still resolve referredBy display name
+            if (slug && agentInfo) {
                 referredBy = agentInfo.name;
-            } else if (agentInfo && (agentInfo.agentType === 'referring_agent' || agentInfo.agentType === 'sub_agent')) {
-                sourceType = 'agent_referral';
-                sourceDisplay = 'Agent Referral';
-                referredBy = agentInfo.name;
-            } else {
-                sourceType = 'agent_referral';
-                sourceDisplay = 'Agent Referral';
-                referredBy = agentInfo ? agentInfo.name : slug;
+            } else if (slug) {
+                referredBy = slug;
+            }
+            // Map source_type to sourceDisplay if not stored
+            if (!sourceDisplay) {
+                const displayMap = { direct: 'Direct', agent_referral: 'Agent Referral', iso_referral: 'ISO Referral', vendor: 'Vendor', contact_form: 'Website Contact' };
+                sourceDisplay = displayMap[sourceType] || 'Direct';
             }
         }
 
@@ -18642,11 +18701,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             product = app.application_products[0].product || '—';
         }
 
-        // Priority calculation
-        let priority = 'medium';
+        // Priority: prefer DB value, fall back to calculation
         const amount = app.funding_amount_requested || 0;
-        if (slug && amount > 0) priority = 'high';
-        else if (!slug) priority = 'medium';
+        if (!priority) {
+            if (slug && amount > 0) priority = 'high';
+            else if (!slug) priority = 'medium';
+            else priority = 'medium';
+        }
 
         return {
             id: app.id,
@@ -18665,6 +18726,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             status: app.status || 'Application Received',
             applicationId: app.application_id || '',
             email: app.email || '',
+            assignedTo: app.assigned_to || null,
+            assignedName: '',  // will be populated later
+            routingSuggestion: getRoutingSuggestion(app, sourceType, amount, product),
             _raw: app
         };
     }
@@ -18686,6 +18750,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             priority: 'low',
             status: contact.status || 'New',
             email: contact.email || '',
+            assignedTo: null,
+            assignedName: '',
+            routingSuggestion: getContactRoutingSuggestion(contact),
             _raw: contact
         };
     }
@@ -18772,6 +18839,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (isAdmin && item.status !== 'Moved to Pipeline') {
                     actions += ` <button class="btn btn-gold btn-sm" onclick="moveToPipeline('${item.id}')" style="padding:3px 8px;font-size:11px;">Pipeline</button>`;
                 }
+                if (isAdmin) {
+                    actions += ` <button class="btn btn-sm" onclick="showAssignDropdown('${item.id}')" style="background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE;padding:3px 8px;font-size:11px;" title="${item.assignedTo ? 'Reassign' : 'Assign to team member'}">${item.assignedTo ? '👤' : 'Assign'}</button>`;
+                }
             } else {
                 actions = `<button class="btn btn-secondary btn-sm" onclick="viewContact('${item.id}')" style="padding:3px 8px;font-size:11px;">View</button>`;
                 if (isAdmin) {
@@ -18786,14 +18856,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             return `<tr>
                 <td style="text-align:center;font-size:16px;" title="${item.type === 'application' ? 'Credit Application' : 'Contact Inquiry'}">${item.typeIcon}</td>
                 <td>${getSourceBadgeHtml(item.sourceType, item.sourceDisplay)}</td>
-                <td><strong>${item.clientName}</strong>${item.applicationId ? '<br><span style="font-size:11px;color:#64748B;">' + item.applicationId + '</span>' : ''}</td>
+                <td>
+                    <strong>${item.clientName}</strong>
+                    ${item.applicationId ? '<br><span style="font-size:11px;color:#64748B;">' + item.applicationId + '</span>' : ''}
+                    ${item.routingSuggestion ? '<br><span style="font-size:10px;color:' + item.routingSuggestion.color + ';" title="' + item.routingSuggestion.text + '">' + item.routingSuggestion.icon + ' ' + item.routingSuggestion.text + '</span>' : ''}
+                </td>
                 <td style="font-size:12px;">${item.contactInfo}</td>
                 <td style="font-size:12px;">${item.product}</td>
                 <td>${item.amount}</td>
                 <td style="font-size:12px;">${item.referredBy}</td>
                 <td style="font-size:12px;">${formatDate(item.dateReceived)}</td>
                 <td>${getPriorityBadgeHtml(item.priority)}</td>
-                <td>${statusBadge}</td>
+                <td>${statusBadge}${item.assignedName ? '<br><span style="font-size:10px;color:#64748B;">👤 ' + item.assignedName + '</span>' : ''}</td>
                 <td style="white-space:nowrap;">${actions}</td>
             </tr>`;
         }).join('');
@@ -18855,6 +18929,84 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    var inboxTeamMembers = []; // cached team list
+
+    async function loadInboxTeamMembers() {
+        if (inboxTeamMembers.length > 0) return;
+        try {
+            const { data } = await db.from('team_members').select('id, full_name, role_title').eq('is_active', true).order('full_name');
+            if (data) inboxTeamMembers = data;
+        } catch (err) {
+            console.warn('Could not load team members for inbox:', err);
+        }
+    }
+
+    async function resolveAssignedNames() {
+        const assignedIds = [...new Set(inboxItems.filter(i => i.assignedTo).map(i => i.assignedTo))];
+        if (assignedIds.length === 0) return;
+
+        await loadInboxTeamMembers();
+        const nameMap = {};
+        inboxTeamMembers.forEach(tm => { nameMap[tm.id] = tm.full_name; });
+
+        inboxItems.forEach(item => {
+            if (item.assignedTo && nameMap[item.assignedTo]) {
+                item.assignedName = nameMap[item.assignedTo];
+            }
+        });
+    }
+
+    async function showAssignDropdown(applicationId) {
+        await loadInboxTeamMembers();
+
+        // Get current assignment
+        const item = inboxItems.find(i => i.id === applicationId);
+        const currentAssigned = item ? item.assignedTo : null;
+
+        const options = inboxTeamMembers.map(tm =>
+            `<option value="${tm.id}" ${tm.id === currentAssigned ? 'selected' : ''}>${tm.full_name}${tm.role_title ? ' (' + tm.role_title + ')' : ''}</option>`
+        ).join('');
+
+        const modal = document.getElementById('contactModalBody');
+        modal.innerHTML = `
+            <div style="padding:10px;">
+                <h3 style="margin:0 0 12px;font-size:16px;color:#0D1E3D;">Assign Application</h3>
+                <p style="font-size:13px;color:#64748B;margin-bottom:12px;">${item ? item.clientName + (item.applicationId ? ' (' + item.applicationId + ')' : '') : 'Application'}</p>
+                ${item && item.routingSuggestion ? '<div style="background:#F0F9FF;border-left:3px solid ' + item.routingSuggestion.color + ';padding:8px 12px;margin-bottom:12px;border-radius:0 4px 4px 0;font-size:12px;color:#334155;">' + item.routingSuggestion.icon + ' <strong>Suggestion:</strong> ' + item.routingSuggestion.text + '</div>' : ''}
+                <select id="assignTeamSelect" style="width:100%;padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:14px;margin-bottom:12px;">
+                    <option value="">— Unassigned —</option>
+                    ${options}
+                </select>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-gold btn-sm" onclick="assignApplication('${applicationId}')" style="padding:8px 20px;font-weight:600;">Assign</button>
+                    <button class="btn btn-secondary btn-sm" onclick="closeContactModal()" style="padding:8px 20px;">Cancel</button>
+                </div>
+            </div>
+        `;
+        document.getElementById('contactModal').classList.add('active');
+    }
+
+    async function assignApplication(applicationId) {
+        const select = document.getElementById('assignTeamSelect');
+        const assignedTo = select.value || null;
+
+        try {
+            const { error } = await db.from('applications')
+                .update({ assigned_to: assignedTo })
+                .eq('id', applicationId);
+
+            if (error) throw error;
+
+            closeContactModal();
+            showNotification('Application assigned successfully', 'success');
+            await loadUnifiedInbox();
+            if (currentPage === 'inbox') await loadInboxPage();
+        } catch (err) {
+            console.error('Assign error:', err);
+            alert('Error assigning: ' + err.message);
+        }
+    }
+
     async function viewInboxApplication(appId) {
         // Fetch the application and show in a modal similar to viewContact
         try {
@@ -18868,6 +19020,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (app.application_products && app.application_products.length > 0) {
                 products = app.application_products.map(p => p.product).join(', ');
             }
+
+            // Calculate routing suggestion
+            const normalized = normalizeApplication(app);
+            const routingSuggestion = getRoutingSuggestion(app, normalized.sourceType, app.funding_amount_requested || 0, products);
 
             const modalBody = document.getElementById('contactModalBody');
             modalBody.innerHTML = `
@@ -18903,6 +19059,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </div>
                 </div>
                 ${app.form_data ? '<div class="modal-row full"><div class="modal-field"><label>Additional Form Data</label><div class="modal-field-value"><pre style="background:#f8fafc;padding:10px;border-radius:4px;font-size:12px;max-height:200px;overflow:auto;white-space:pre-wrap;">' + JSON.stringify(typeof app.form_data === 'string' ? JSON.parse(app.form_data) : app.form_data, null, 2) + '</pre></div></div></div>' : ''}
+                ${routingSuggestion ? '<div style="background:#F0F9FF;border-left:3px solid ' + routingSuggestion.color + ';padding:10px 14px;margin-top:12px;border-radius:0 6px 6px 0;font-size:13px;color:#334155;">' + routingSuggestion.icon + ' <strong>Routing Suggestion:</strong> ' + routingSuggestion.text + '</div>' : ''}
                 <div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border-gray);display:flex;gap:10px;flex-wrap:wrap;">
                     ${app.status !== 'Moved to Pipeline' ? '<button class="btn btn-gold btn-sm" onclick="moveToPipeline(\'' + app.id + '\')" style="padding:8px 16px;font-weight:600;">Move to Pipeline</button>' : ''}
                     ${app.email ? '<a href="mailto:' + app.email + '" class="btn btn-sm" style="background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;padding:8px 16px;font-weight:600;text-decoration:none;">Email Applicant</a>' : ''}
