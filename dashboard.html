@@ -533,6 +533,45 @@
             margin-left: 6px;
         }
 
+        /* Phase 4: Referral Progress Bar */
+        .referral-progress {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            font-size: 10px;
+        }
+        .referral-progress-step {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .referral-progress-step.completed {
+            background: #D1FAE5;
+            color: #065F46;
+        }
+        .referral-progress-step.current {
+            background: #DBEAFE;
+            color: #1E40AF;
+            animation: pulse-step 2s infinite;
+        }
+        .referral-progress-step.pending {
+            background: #F1F5F9;
+            color: #94A3B8;
+        }
+        .referral-progress-arrow {
+            color: #CBD5E1;
+            font-size: 10px;
+            margin: 0 1px;
+        }
+        @keyframes pulse-step {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
         /* Modal */
         .modal {
             display: none;
@@ -1541,27 +1580,55 @@
 
             <!-- My Referrals Page (referring_agent only) -->
             <div id="myReferrals" class="page-section">
-                <!-- Referral Quick Stats -->
+                <!-- Referral Performance Stats -->
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-label">Applications Sent</div>
-                        <div class="stat-value" id="refStatSent">0</div>
-                        <div class="stat-detail">Total sent</div>
+                        <div class="stat-label">Total Referrals</div>
+                        <div class="stat-value" id="refStatTotal">0</div>
+                        <div class="stat-detail" id="refStatTotalDetail">Applications received</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Opened by Clients</div>
-                        <div class="stat-value" id="refStatOpened">0</div>
-                        <div class="stat-detail">Email opened</div>
+                        <div class="stat-label">In Pipeline</div>
+                        <div class="stat-value" id="refStatPipeline">0</div>
+                        <div class="stat-detail" id="refStatPipelineDetail">Active deals</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Returned / Completed</div>
-                        <div class="stat-value" id="refStatReturned">0</div>
-                        <div class="stat-detail">Applications received</div>
+                        <div class="stat-label">Funded</div>
+                        <div class="stat-value" id="refStatFunded">0</div>
+                        <div class="stat-detail" id="refStatFundedDetail">Total funded</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Needs Follow-Up</div>
-                        <div class="stat-value" id="refStatOverdue">0</div>
-                        <div class="stat-detail">3+ days no response</div>
+                        <div class="stat-label">Conversion Rate</div>
+                        <div class="stat-value" id="refStatConversion">0%</div>
+                        <div class="stat-detail" id="refStatConversionDetail">Referral to funded</div>
+                    </div>
+                </div>
+
+                <!-- Referred Applications Tracker (Phase 4) -->
+                <div class="table-container" style="margin-bottom: 20px;">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
+                        <div class="table-title">My Referred Applications</div>
+                        <span id="referredAppsNewBadge" style="display:none;background:#10B981;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;"></span>
+                    </div>
+                    <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">Applications submitted by clients through your referral link. Track their progress in real time.</p>
+                    <div style="overflow-x:auto;">
+                    <table style="min-width:900px;">
+                        <thead>
+                            <tr>
+                                <th>Client</th>
+                                <th>Business</th>
+                                <th>Product</th>
+                                <th>Amount</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th style="min-width:200px;">Progress</th>
+                                <th>Deal Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="referredAppsBody">
+                            <tr><td colspan="8" class="empty-state">Loading referred applications...</td></tr>
+                        </tbody>
+                    </table>
                     </div>
                 </div>
 
@@ -3959,7 +4026,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-18-v42';
+    const DASHBOARD_VERSION = '2026-03-18-v43';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -4303,10 +4370,11 @@
             }
         });
 
-        // Hide "My Referrals" nav — referral agents now use Deal Pipeline
+        // Show "My Referrals" nav for agents (Phase 4: referral tracking)
         var myReferralsNav = document.getElementById('myReferralsNav');
         if (myReferralsNav) {
-            myReferralsNav.style.display = 'none';
+            var isAgentForReferrals = !isAdmin && currentAgentType && ['referring_agent', 'sub_agent', 'super_agent'].includes(currentAgentType);
+            myReferralsNav.style.display = isAgentForReferrals ? 'flex' : 'none';
         }
 
         // Show "Vendor Portal" nav ONLY for vendor users (never for admin)
@@ -10428,12 +10496,102 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var inboxTable = document.getElementById('dashUnifiedInbox');
             if (inboxTable) inboxTable.style.display = 'none';
 
+            // Phase 4: Load referred applications tracker on agent dashboard
+            await loadReferredApplicationsDashboard();
+
             // Applications Sent section is inside Deal Pipeline page — keep it visible there
 
             // Application Hub is now on its own page — loaded when user navigates there
 
         } catch (err) {
             console.error('Referral dashboard load error:', err);
+        }
+    }
+
+    async function loadReferredApplicationsDashboard() {
+        // Create or find the dashboard referral section
+        var container = document.getElementById('dashReferredApps');
+        if (!container) {
+            // Dynamically create the section in the dashboard
+            var dashPage = document.getElementById('dashboard');
+            if (!dashPage) return;
+
+            container = document.createElement('div');
+            container.id = 'dashReferredApps';
+            container.className = 'table-container';
+            container.innerHTML = `
+                <div class="table-header" style="flex-wrap:wrap;gap:12px;">
+                    <div class="table-title">My Referred Applications</div>
+                    <button class="btn btn-secondary btn-sm" onclick="showPage('myReferrals')">View All</button>
+                </div>
+                <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">Recent applications from your referral link.</p>
+                <div style="overflow-x:auto;">
+                <table style="min-width:700px;">
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Amount</th>
+                            <th>Submitted</th>
+                            <th style="min-width:180px;">Progress</th>
+                            <th>Deal Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashReferredAppsBody">
+                        <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                    </tbody>
+                </table>
+                </div>
+            `;
+            dashPage.appendChild(container);
+        }
+
+        if (!agentProfile || !agentProfile.referral_slug) {
+            document.getElementById('dashReferredAppsBody').innerHTML = '<tr><td colspan="5" class="empty-state">Share your referral link to start tracking referred applications.</td></tr>';
+            return;
+        }
+
+        try {
+            var { data: apps } = await db.from('applications')
+                .select('*, application_products(product)')
+                .eq('referral_slug', agentProfile.referral_slug)
+                .order('submitted_at', { ascending: false })
+                .limit(5);
+
+            var applications = apps || [];
+            var tbody = document.getElementById('dashReferredAppsBody');
+
+            if (applications.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No referred applications yet. Share your referral link to get started!</td></tr>';
+                return;
+            }
+
+            // Get linked deals
+            var appIds = applications.map(a => a.id);
+            var dealMap = {};
+            if (appIds.length > 0) {
+                var { data: deals } = await db.from('deals')
+                    .select('id, deal_number, status, application_id')
+                    .in('application_id', appIds);
+                if (deals) deals.forEach(d => { dealMap[d.application_id] = d; });
+            }
+
+            tbody.innerHTML = applications.map(function(app) {
+                var deal = dealMap[app.id];
+                var amount = app.funding_amount_requested ? formatCurrency(app.funding_amount_requested) : '—';
+                var stage = getApplicationStage(app, deal);
+                var progressHtml = buildProgressBar(stage);
+                var dealStatus = deal ? '<span style="font-size:11px;font-weight:600;color:' + getDealStatusColor(deal.status) + ';">' + deal.status + '</span>' : '<span style="color:#94A3B8;font-size:11px;">Pending</span>';
+
+                return '<tr>' +
+                    '<td><strong>' + (app.full_name || 'N/A') + '</strong></td>' +
+                    '<td>' + amount + '</td>' +
+                    '<td style="font-size:12px;">' + formatDate(app.submitted_at) + '</td>' +
+                    '<td>' + progressHtml + '</td>' +
+                    '<td>' + dealStatus + '</td>' +
+                '</tr>';
+            }).join('');
+        } catch (err) {
+            console.error('Dashboard referred apps error:', err);
         }
     }
 
@@ -13045,6 +13203,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await loadAgentSubAgents();
                 break;
             case 'myReferrals':
+                await loadReferredApplications();
                 await loadMyReferrals();
                 break;
             case 'applicationHub':
@@ -19229,6 +19388,188 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             notifiedApplicationIds.add(item.id);
             const product = item.product !== '—' ? item.product : 'financing';
             await notifyReferringAgent(item, 'application_received', { product: product });
+        }
+    }
+
+    // ============================================
+    // Phase 4: Agent Referral Tracking
+    // ============================================
+
+    async function loadReferredApplications() {
+        var tbody = document.getElementById('referredAppsBody');
+        if (!tbody || !agentProfile || !agentProfile.referral_slug) return;
+
+        try {
+            // Load applications with this agent's referral_slug
+            var { data: apps, error: appErr } = await db.from('applications')
+                .select('*, application_products(product)')
+                .eq('referral_slug', agentProfile.referral_slug)
+                .order('submitted_at', { ascending: false });
+
+            if (appErr) throw appErr;
+            var applications = apps || [];
+
+            // Load deals linked to these applications (for pipeline tracking)
+            var appIds = applications.map(a => a.id);
+            var dealMap = {};
+            if (appIds.length > 0) {
+                var { data: deals } = await db.from('deals')
+                    .select('id, deal_number, company_name, deal_amount, status, application_id, commission_amount')
+                    .in('application_id', appIds);
+                if (deals) {
+                    deals.forEach(d => { dealMap[d.application_id] = d; });
+                }
+            }
+
+            // Also load deals directly assigned to this agent (not from applications)
+            var { data: directDeals } = await db.from('deals')
+                .select('id, deal_number, company_name, deal_amount, status, application_id, date_submitted, commission_amount, product_type')
+                .eq('source_agent_id', currentUserId)
+                .is('application_id', null)
+                .order('date_submitted', { ascending: false });
+
+            // Update stats
+            var totalReferrals = applications.length + (directDeals ? directDeals.length : 0);
+            var allDeals = Object.values(dealMap).concat(directDeals || []);
+            var inPipeline = allDeals.filter(d => !['Funded', 'Declined', 'Dead approval', 'Withdrawn'].includes(d.status));
+            var funded = allDeals.filter(d => d.status === 'Funded');
+            var fundedValue = funded.reduce((sum, d) => sum + (parseFloat(d.deal_amount) || 0), 0);
+            var conversionRate = totalReferrals > 0 ? Math.round((funded.length / totalReferrals) * 100) : 0;
+
+            document.getElementById('refStatTotal').textContent = totalReferrals;
+            document.getElementById('refStatTotalDetail').textContent = applications.length + ' applications' + (directDeals && directDeals.length > 0 ? ', ' + directDeals.length + ' direct deals' : '');
+            document.getElementById('refStatPipeline').textContent = inPipeline.length;
+            document.getElementById('refStatPipelineDetail').textContent = inPipeline.length > 0 ? formatCurrency(inPipeline.reduce((s, d) => s + (parseFloat(d.deal_amount) || 0), 0)) + ' in pipeline' : 'No active deals';
+            document.getElementById('refStatFunded').textContent = funded.length;
+            document.getElementById('refStatFundedDetail').textContent = fundedValue > 0 ? formatCurrency(fundedValue) + ' total funded' : 'No funded deals yet';
+            document.getElementById('refStatConversion').textContent = conversionRate + '%';
+            document.getElementById('refStatConversionDetail').textContent = funded.length + ' of ' + totalReferrals + ' referrals funded';
+
+            // New activity badge (last 7 days)
+            var sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            var recentApps = applications.filter(a => new Date(a.submitted_at) > sevenDaysAgo);
+            var newBadge = document.getElementById('referredAppsNewBadge');
+            if (newBadge && recentApps.length > 0) {
+                newBadge.textContent = recentApps.length + ' new this week';
+                newBadge.style.display = 'inline-block';
+            }
+
+            // Update nav badge
+            updateReferralNavBadge(recentApps.length);
+
+            if (applications.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No applications received through your referral link yet. Share your link to start receiving referrals!</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = applications.map(function(app) {
+                var deal = dealMap[app.id];
+                var product = app.application_products && app.application_products.length > 0 ? app.application_products[0].product : '—';
+                var amount = app.funding_amount_requested ? formatCurrency(app.funding_amount_requested) : (app.funding_amount_text || '—');
+
+                // Determine current stage for progress bar
+                var stage = getApplicationStage(app, deal);
+                var progressHtml = buildProgressBar(stage);
+
+                // Deal status
+                var dealStatusHtml = '—';
+                if (deal) {
+                    var dealColor = getDealStatusColor(deal.status);
+                    dealStatusHtml = '<span style="background:' + dealColor + '15;color:' + dealColor + ';padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">' + deal.status + '</span>';
+                    if (deal.deal_number) dealStatusHtml += '<br><span style="font-size:10px;color:#64748B;">' + deal.deal_number + '</span>';
+                }
+
+                return '<tr>' +
+                    '<td><strong>' + (app.full_name || 'N/A') + '</strong>' + (app.application_id ? '<br><span style="font-size:10px;color:#64748B;">' + app.application_id + '</span>' : '') + '</td>' +
+                    '<td style="font-size:12px;">' + (app.business_name || '—') + '</td>' +
+                    '<td style="font-size:12px;">' + product + '</td>' +
+                    '<td>' + amount + '</td>' +
+                    '<td style="font-size:12px;">' + formatDate(app.submitted_at) + '</td>' +
+                    '<td>' + getAppStatusBadge(app.status) + '</td>' +
+                    '<td>' + progressHtml + '</td>' +
+                    '<td>' + dealStatusHtml + '</td>' +
+                '</tr>';
+            }).join('');
+
+        } catch (err) {
+            console.error('Load referred applications error:', err);
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Error loading referred applications.</td></tr>';
+        }
+    }
+
+    function getApplicationStage(app, deal) {
+        // Returns: 'received', 'reviewing', 'pipeline', 'credit', 'approved', 'funded'
+        if (deal) {
+            if (deal.status === 'Funded') return 'funded';
+            if (deal.status === 'Approved' || deal.status === 'Approval sent' || deal.status === 'Docs requested' || deal.status === 'Docs out for signing' || deal.status === 'In funding') return 'approved';
+            if (deal.status === 'In Credit') return 'credit';
+            return 'pipeline'; // Prospect, Quote sent, Info received, etc.
+        }
+        // No deal yet — still in application stage
+        if (app.status === 'Under Review' || app.status === 'Info Requested') return 'reviewing';
+        if (app.status === 'Moved to Pipeline') return 'pipeline';
+        return 'received';
+    }
+
+    function buildProgressBar(currentStage) {
+        var stages = [
+            { key: 'received', label: 'Received' },
+            { key: 'reviewing', label: 'Review' },
+            { key: 'pipeline', label: 'Pipeline' },
+            { key: 'credit', label: 'Credit' },
+            { key: 'approved', label: 'Approved' },
+            { key: 'funded', label: 'Funded' }
+        ];
+
+        var currentIdx = stages.findIndex(s => s.key === currentStage);
+
+        return '<div class="referral-progress">' +
+            stages.map(function(s, i) {
+                var cls = i < currentIdx ? 'completed' : i === currentIdx ? 'current' : 'pending';
+                var arrow = i < stages.length - 1 ? '<span class="referral-progress-arrow">→</span>' : '';
+                return '<span class="referral-progress-step ' + cls + '">' + (i <= currentIdx ? '✓ ' : '') + s.label + '</span>' + arrow;
+            }).join('') +
+        '</div>';
+    }
+
+    function getDealStatusColor(status) {
+        var colors = {
+            'Prospect': '#3B82F6', 'Quote Requested': '#6366F1', 'Quote sent': '#8B5CF6',
+            'Info received': '#A855F7', 'In Credit': '#F59E0B', 'Approved': '#10B981',
+            'Approval sent': '#059669', 'Docs requested': '#0D9488', 'Docs out for signing': '#0891B2',
+            'In funding': '#06B6D4', 'Funded': '#10B981', 'Declined': '#EF4444',
+            'Dead approval': '#DC2626', 'Withdrawn': '#64748B'
+        };
+        return colors[status] || '#64748B';
+    }
+
+    function getAppStatusBadge(status) {
+        var colors = {
+            'Application Received': '#3B82F6', 'Under Review': '#F59E0B',
+            'Info Requested': '#8B5CF6', 'Moved to Pipeline': '#10B981',
+            'Declined': '#EF4444'
+        };
+        var color = colors[status] || '#64748B';
+        return '<span style="background:' + color + '15;color:' + color + ';padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">' + (status || 'New') + '</span>';
+    }
+
+    function updateReferralNavBadge(recentCount) {
+        var nav = document.getElementById('myReferralsNav');
+        if (!nav) return;
+
+        var badge = nav.querySelector('.referral-nav-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'referral-nav-badge';
+            badge.style.cssText = 'background:#10B981;color:white;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:8px;';
+            nav.appendChild(badge);
+        }
+
+        if (recentCount > 0) {
+            badge.textContent = recentCount;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
         }
     }
 
