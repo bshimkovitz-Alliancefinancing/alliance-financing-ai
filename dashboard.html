@@ -1036,6 +1036,7 @@
                         </div>
                     </div>
                     <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">All inbound applications and inquiries in one place. Review, assign, and route to the deal pipeline.</p>
+                    <div id="staleInboxBanner" style="display:none;align-items:center;gap:10px;padding:10px 20px;background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;margin:0 20px 8px;font-size:13px;color:#991B1B;"></div>
                     <div style="overflow-x:auto;">
                     <table id="unifiedInboxTable" style="min-width:1000px;">
                         <thead>
@@ -1512,6 +1513,7 @@
                             <button class="btn btn-secondary btn-sm" onclick="exportInbox()">Export CSV</button>
                         </div>
                     </div>
+                    <div id="staleInboxPageBanner" style="display:none;align-items:center;gap:10px;padding:10px 20px;background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;margin:0 20px 8px;font-size:13px;color:#991B1B;"></div>
                     <div style="overflow-x:auto;">
                     <table id="inboxPageTable" style="min-width:1000px;">
                         <thead>
@@ -3957,7 +3959,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-18-v41';
+    const DASHBOARD_VERSION = '2026-03-18-v42';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -11298,6 +11300,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
+            // Phase 3: Notify referring agent on status change
+            if (newStatus === 'Under Review') {
+                try {
+                    const { data: app } = await db.from('applications').select('*').eq('id', appId).single();
+                    if (app) await notifyReferringAgent(app, 'under_review');
+                } catch (notifyErr) {
+                    console.warn('Status change notification failed (non-critical):', notifyErr);
+                }
+            }
+
             await loadDashboard();
         } catch (error) {
             console.error('Update app status error:', error);
@@ -13868,6 +13880,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 .eq('id', dealId);
 
             if (error) throw error;
+
+            // Phase 3: Notify referring agent on deal status changes
+            try {
+                const { data: deal } = await db.from('deals').select('*').eq('id', dealId).single();
+                if (deal && deal.source_agent_id) {
+                    if (newStatus === 'In Credit') {
+                        await notifyReferringAgent(deal, 'in_credit');
+                    } else if (newStatus === 'Approved') {
+                        await notifyReferringAgent(deal, 'approved');
+                    } else if (newStatus === 'Funded') {
+                        await notifyReferringAgent(deal, 'funded');
+                    }
+                }
+            } catch (notifyErr) {
+                console.warn('Deal status notification failed (non-critical):', notifyErr);
+            }
 
             // Refresh the deals table and dashboard stats
             await loadDeals();
@@ -18566,6 +18594,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             renderInbox('dash');
             updateInboxCounts('dash');
             updateInboxNavBadge();
+            checkStaleInboxItems();
+            await checkNewArrivals();
         } catch (err) {
             console.error('Unified inbox load error:', err);
         }
@@ -18610,6 +18640,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             renderInbox('page');
             updateInboxCounts('page');
+            checkStaleInboxItemsPage();
         } catch (err) {
             console.error('Inbox page load error:', err);
         }
@@ -18833,6 +18864,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         tbody.innerHTML = items.map(item => {
             const statusBadge = item.type === 'inquiry' ? getContactStatusBadge(item.status) : getStatusBadge(item.status);
 
+            const isStale = (item.status === 'New' || item.status === 'Application Received') &&
+                (new Date() - new Date(item.dateReceived)) > 24 * 60 * 60 * 1000;
+
             let actions = '';
             if (item.type === 'application') {
                 actions = `<button class="btn btn-secondary btn-sm" onclick="viewInboxApplication('${item.id}')" style="padding:3px 8px;font-size:11px;">View</button>`;
@@ -18853,7 +18887,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 actions += ` <a href="mailto:${item.email}" class="btn btn-sm" style="background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;padding:3px 8px;font-size:11px;text-decoration:none;">Respond</a>`;
             }
 
-            return `<tr>
+            return `<tr style="${isStale ? 'background:#FEF2F2;' : ''}">
                 <td style="text-align:center;font-size:16px;" title="${item.type === 'application' ? 'Credit Application' : 'Contact Inquiry'}">${item.typeIcon}</td>
                 <td>${getSourceBadgeHtml(item.sourceType, item.sourceDisplay)}</td>
                 <td>
@@ -18865,7 +18899,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <td style="font-size:12px;">${item.product}</td>
                 <td>${item.amount}</td>
                 <td style="font-size:12px;">${item.referredBy}</td>
-                <td style="font-size:12px;">${formatDate(item.dateReceived)}</td>
+                <td style="font-size:12px;">${formatDate(item.dateReceived)}${isStale ? '<br><span style="font-size:10px;color:#DC2626;font-weight:600;">⚠️ 24h+</span>' : ''}</td>
                 <td>${getPriorityBadgeHtml(item.priority)}</td>
                 <td>${statusBadge}${item.assignedName ? '<br><span style="font-size:10px;color:#64748B;">👤 ' + item.assignedName + '</span>' : ''}</td>
                 <td style="white-space:nowrap;">${actions}</td>
@@ -19004,6 +19038,197 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (err) {
             console.error('Assign error:', err);
             alert('Error assigning: ' + err.message);
+        }
+    }
+
+    // ============================================
+    // Phase 3: Notification System
+    // ============================================
+
+    var notifiedApplicationIds = new Set();
+
+    async function notifyReferringAgent(application, eventType, extraData) {
+        if (!application.referral_slug && !application.source_agent_id) return;
+
+        try {
+            // Look up the referring agent
+            let agent = null;
+            if (application.source_agent_id) {
+                const { data } = await db.from('users').select('id, full_name, email, agent_type').eq('id', application.source_agent_id).single();
+                agent = data;
+            } else if (application.referral_slug) {
+                const { data } = await db.from('users').select('id, full_name, email, agent_type').eq('referral_slug', application.referral_slug).single();
+                agent = data;
+            }
+
+            if (!agent || !agent.email) return;
+
+            const clientName = application.full_name || application.company_name || 'Your client';
+            const product = extraData?.product || 'financing';
+            const amount = application.funding_amount_requested ? formatCurrency(application.funding_amount_requested) : (application.deal_amount ? formatCurrency(application.deal_amount) : 'TBD');
+            const appId = application.application_id || application.deal_number || '';
+
+            let subject = '';
+            let bodyContent = '';
+
+            switch (eventType) {
+                case 'application_received':
+                    subject = 'Your client ' + clientName + ' just submitted an application — We\'re on it!';
+                    bodyContent = `
+                        <p>Great news! Your referred client has submitted a financing application:</p>
+                        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+                            <tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;width:140px;">Client Name</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">${clientName}</td></tr>
+                            <tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;">Product</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">${product}</td></tr>
+                            <tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;">Est. Amount</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">${amount}</td></tr>
+                            ${appId ? '<tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;">Reference</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">' + appId + '</td></tr>' : ''}
+                        </table>
+                        <p>Our team is reviewing the application now. You can track the status anytime in your <strong>Alliance Dashboard</strong>.</p>
+                    `;
+                    break;
+
+                case 'under_review':
+                    subject = 'Update: ' + clientName + '\'s application is now Under Review';
+                    bodyContent = `
+                        <p>We wanted to let you know that your client <strong>${clientName}</strong>'s application ${appId ? '(' + appId + ')' : ''} has moved to <strong>Under Review</strong>.</p>
+                        <p>Our team is actively reviewing the details. We'll keep you posted on any developments.</p>
+                    `;
+                    break;
+
+                case 'in_credit':
+                    subject = 'Update: ' + clientName + '\'s deal is now In Credit';
+                    bodyContent = `
+                        <p>Your client <strong>${clientName}</strong>'s deal ${appId ? '(' + appId + ')' : ''} has been submitted to lenders and is now <strong>In Credit</strong>.</p>
+                        <p>This means the deal is being actively reviewed by our lending partners. We'll notify you when we have a decision.</p>
+                    `;
+                    break;
+
+                case 'approved':
+                    subject = 'Great news! ' + clientName + '\'s deal has been Approved!';
+                    bodyContent = `
+                        <p>Congratulations! Your client <strong>${clientName}</strong>'s deal ${appId ? '(' + appId + ')' : ''} has been <strong>Approved</strong>!</p>
+                        <p><strong>Deal Amount:</strong> ${amount}</p>
+                        <p>Next steps: Documentation will be sent for signing. We'll keep you informed as funding progresses.</p>
+                    `;
+                    break;
+
+                case 'funded':
+                    subject = 'Congratulations! ' + clientName + '\'s deal has been Funded!';
+                    bodyContent = `
+                        <p>Great news, ${agent.full_name || 'Partner'}!</p>
+                        <p>Your client <strong>${clientName}</strong>'s deal ${appId ? '(' + appId + ')' : ''} has been <strong>successfully funded</strong>!</p>
+                        <p><strong>Funded Amount:</strong> ${amount}</p>
+                        <p>Commission details will be available in your dashboard shortly. Thank you for this referral!</p>
+                    `;
+                    break;
+
+                default:
+                    return;
+            }
+
+            const htmlBody = buildNotificationEmail(subject, bodyContent, agent.full_name);
+
+            await sendEmailViaResend(agent.email, subject, htmlBody, null, 'info@alliancefinancing.com');
+            console.log('Notification sent to ' + agent.email + ' for event: ' + eventType);
+        } catch (err) {
+            console.warn('Agent notification failed (non-critical):', err);
+        }
+    }
+
+    function buildNotificationEmail(title, bodyContent, recipientName) {
+        return `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1E293B;">
+                <div style="background: linear-gradient(135deg, #0D1E3D 0%, #1a2e5a 100%); padding: 24px 30px; border-radius: 8px 8px 0 0;">
+                    <h1 style="color: #C9A84C; margin: 0; font-size: 18px; font-weight: 700;">Alliance Financing Group</h1>
+                </div>
+                <div style="background: #ffffff; padding: 30px; border: 1px solid #E5E7EB; border-top: none;">
+                    ${recipientName ? '<p style="font-size: 15px;">Hi ' + recipientName + ',</p>' : ''}
+                    ${bodyContent}
+                    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E7EB;">
+                        <a href="https://alliancefinancing.ai/dashboard.html" style="display: inline-block; background: #C9A84C; color: #0D1E3D; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">View in Dashboard</a>
+                    </div>
+                </div>
+                <div style="padding: 16px 30px; text-align: center; font-size: 12px; color: #94A3B8;">
+                    <p>Alliance Financing Group &bull; Powering Business Growth</p>
+                    <p>This is an automated notification. Please do not reply to this email.</p>
+                </div>
+            </div>
+        `;
+    }
+
+    function checkStaleInboxItems() {
+        if (!inboxItems || inboxItems.length === 0) return;
+
+        const now = new Date();
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+        const staleItems = inboxItems.filter(item => {
+            const isNew = item.status === 'New' || item.status === 'Application Received';
+            const received = new Date(item.dateReceived);
+            return isNew && received < twentyFourHoursAgo;
+        });
+
+        const banner = document.getElementById('staleInboxBanner');
+        if (banner) {
+            if (staleItems.length > 0) {
+                banner.style.display = 'flex';
+                banner.innerHTML = `
+                    <span style="font-size:16px;">⚠️</span>
+                    <span><strong>${staleItems.length} item${staleItems.length > 1 ? 's' : ''}</strong> ha${staleItems.length > 1 ? 've' : 's'} been in the inbox for over 24 hours without action.</span>
+                `;
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+
+        const badge = document.getElementById('inboxNavBadge');
+        if (badge && staleItems.length > 0) {
+            badge.style.background = '#EF4444';
+            badge.title = staleItems.length + ' stale item(s) need attention';
+        }
+    }
+
+    function checkStaleInboxItemsPage() {
+        if (!inboxItems || inboxItems.length === 0) return;
+
+        const now = new Date();
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+        const staleItems = inboxItems.filter(item => {
+            const isNew = item.status === 'New' || item.status === 'Application Received';
+            const received = new Date(item.dateReceived);
+            return isNew && received < twentyFourHoursAgo;
+        });
+
+        const banner = document.getElementById('staleInboxPageBanner');
+        if (banner) {
+            if (staleItems.length > 0) {
+                banner.style.display = 'flex';
+                banner.innerHTML = `
+                    <span style="font-size:16px;">⚠️</span>
+                    <span><strong>${staleItems.length} item${staleItems.length > 1 ? 's' : ''}</strong> ha${staleItems.length > 1 ? 've' : 's'} been in the inbox for over 24 hours without action.</span>
+                `;
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+    }
+
+    async function checkNewArrivals() {
+        const now = new Date();
+        const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+
+        const newArrivals = inboxItems.filter(item => {
+            if (item.type !== 'application') return false;
+            if (notifiedApplicationIds.has(item.id)) return false;
+            if (item.sourceType === 'direct' || item.sourceType === 'website_contact') return false;
+            const received = new Date(item.dateReceived);
+            return received > twoMinutesAgo;
+        });
+
+        for (const item of newArrivals) {
+            notifiedApplicationIds.add(item.id);
+            const product = item.product !== '—' ? item.product : 'financing';
+            await notifyReferringAgent(item, 'application_received', { product: product });
         }
     }
 
