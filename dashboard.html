@@ -1109,7 +1109,7 @@
                         <!-- Pipeline View Tabs -->
                         <div id="dealTabs" style="display:flex;gap:0;border:1px solid #ccc;border-radius:6px;overflow:hidden;font-size:13px;">
                             <button class="deal-tab" data-tab="prospects" onclick="switchDealTab('prospects')" style="padding:7px 16px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Prospects <span id="dealCountProspects" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
-                            <button class="deal-tab" data-tab="appsOut" onclick="switchDealTab('appsOut')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Apps Out <span id="dealCountAppsOut" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                            <!-- Apps Out removed from tabs — shown as separate section below -->
                             <button class="deal-tab active" data-tab="active" onclick="switchDealTab('active')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:600;background:var(--navy);color:white;transition:all .2s;">Active <span id="dealCountActive" style="background:rgba(255,255,255,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                             <button class="deal-tab" data-tab="funded" onclick="switchDealTab('funded')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Funded <span id="dealCountFunded" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                             <button class="deal-tab" data-tab="declined" onclick="switchDealTab('declined')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Declined <span id="dealCountDeclined" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
@@ -11495,7 +11495,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             allDeals = data || [];
             // Resolve source names for agent views (ISO sees who sourced each deal)
-            if (!isAdmin) {
+            var isAdminUser = ['super_admin', 'admin'].includes(currentUserRole);
+            if (!isAdminUser) {
                 await resolveSourceNames(allDeals);
             }
             updateDealTabCounts();
@@ -11542,22 +11543,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     var currentDealTab = 'active';
 
     function switchDealTab(tab) {
-        var appsSentSection = document.getElementById('applicationsSentSection');
-        var dealsContentArea = document.getElementById('dealsContentArea');
-
-        if (tab === 'appsOut') {
-            // Show Applications Sent section, hide deals content (search, filters, table)
-            if (dealsContentArea) dealsContentArea.style.display = 'none';
-            if (appsSentSection) {
-                appsSentSection.style.display = 'block';
-                loadApplicationsSent();
-            }
-        } else {
-            // Show deals content, hide applications sent section
-            if (dealsContentArea) dealsContentArea.style.display = '';
-            if (appsSentSection) appsSentSection.style.display = 'none';
-        }
-
         currentDealTab = tab;
 
         // Update tab button styles
@@ -13802,11 +13787,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 break;
             case 'deals':
                 await loadDeals();
-                // Hide applications sent — only shown via "Apps Out" tab click
-                var appsSentSection = document.getElementById('applicationsSentSection');
-                if (appsSentSection) appsSentSection.style.display = 'none';
-                // Load just the count for the Apps Out badge (don't render the full section)
-                loadAppsOutCount();
+                // Always load and show Applications Sent section below deals table
+                await loadApplicationsSent();
                 break;
             case 'applications':
                 // Redirect applications to deals
