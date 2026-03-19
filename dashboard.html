@@ -458,6 +458,81 @@
             color: #0C4A6E;
         }
 
+        .badge-secondary {
+            background-color: #F1F5F9;
+            color: #64748B;
+        }
+
+        /* Unified Inbox Components */
+        .source-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .priority-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .inbox-filter-tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .inbox-filter-tab {
+            padding: 6px 12px;
+            border: 1px solid #CBD5E1;
+            background: #F8FAFC;
+            color: #475569;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .inbox-filter-tab:hover {
+            background: #F1F5F9;
+            border-color: #94A3B8;
+        }
+
+        .inbox-filter-tab.active {
+            background: var(--navy);
+            color: white;
+            border-color: var(--navy);
+        }
+
+        .inbox-tab-count {
+            margin-left: 4px;
+            opacity: 0.7;
+            font-size: 11px;
+        }
+
+        .inbox-type-icon {
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .inbox-count-badge {
+            display: inline-block;
+            background: #EF4444;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-left: 6px;
+        }
+
         /* Modal */
         .modal {
             display: none;
@@ -752,9 +827,10 @@
                 <span class="nav-icon">🤝</span>
                 <span>Vendors</span>
             </div>
-            <div class="nav-item" onclick="showPage('contacts')">
-                <span class="nav-icon">✉️</span>
-                <span>Contact Submissions</span>
+            <div class="nav-item" id="inboxNav" onclick="showPage('inbox')">
+                <span class="nav-icon">📥</span>
+                <span>Inbox</span>
+                <span id="inboxNavBadge" class="inbox-count-badge" style="display:none;"></span>
             </div>
             <div class="nav-item" id="documentsNav" onclick="showPage('documents')">
                 <span class="nav-icon">📁</span>
@@ -947,54 +1023,41 @@
                     </table>
                 </div>
 
-                <div class="table-container">
+                <!-- Unified Inbox -->
+                <div id="dashUnifiedInbox" class="table-container">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Intake</div>
+                        <div class="table-title">Inbox</div>
+                        <div class="inbox-filter-tabs">
+                            <button class="inbox-filter-tab active" data-filter="all" onclick="filterInbox('all')">All <span id="inboxCountAll" class="inbox-tab-count"></span></button>
+                            <button class="inbox-filter-tab" data-filter="application" onclick="filterInbox('application')">Applications <span id="inboxCountApps" class="inbox-tab-count"></span></button>
+                            <button class="inbox-filter-tab" data-filter="inquiry" onclick="filterInbox('inquiry')">Inquiries <span id="inboxCountInquiries" class="inbox-tab-count"></span></button>
+                            <button class="inbox-filter-tab" data-filter="agent_referral" onclick="filterInbox('agent_referral')">Agent Referrals <span id="inboxCountAgent" class="inbox-tab-count"></span></button>
+                            <button class="inbox-filter-tab" data-filter="vendor" onclick="filterInbox('vendor')">Vendor Deals <span id="inboxCountVendor" class="inbox-tab-count"></span></button>
+                        </div>
                     </div>
-                    <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">New credit applications received through your online forms. Review and move to the deal pipeline.</p>
-                    <table id="recentApplicationsTable">
+                    <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">All inbound applications and inquiries in one place. Review, assign, and route to the deal pipeline.</p>
+                    <div style="overflow-x:auto;">
+                    <table id="unifiedInboxTable" style="min-width:1000px;">
                         <thead>
                             <tr>
-                                <th>AF #</th>
-                                <th>Name</th>
-                                <th>Business</th>
-                                <th>Amount</th>
+                                <th style="width:50px;">Type</th>
                                 <th>Source</th>
+                                <th>Client</th>
+                                <th>Contact</th>
+                                <th>Product</th>
+                                <th>Amount</th>
+                                <th>Referred By</th>
+                                <th>Received</th>
+                                <th>Priority</th>
                                 <th>Status</th>
-                                <th>Submitted</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="recentAppBody">
-                            <tr>
-                                <td colspan="8" class="empty-state">Loading...</td>
-                            </tr>
+                        <tbody id="unifiedInboxBody">
+                            <tr><td colspan="11" class="empty-state">Loading inbox...</td></tr>
                         </tbody>
                     </table>
-                </div>
-
-                <!-- New Contact Submissions Feed (admin only) -->
-                <div id="dashContactSubmissions" class="table-container" style="display: none;">
-                    <div class="table-header">
-                        <div class="table-title">New Contact Submissions</div>
-                        <button class="btn btn-secondary btn-sm" onclick="showPage('Contact Submissions')">View All</button>
                     </div>
-                    <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">Website inquiries from potential clients and partners. Respond, move to pipeline, or archive.</p>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Subject</th>
-                                <th>Submitted</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dashContactSubmissionsBody">
-                            <tr><td colspan="6" class="empty-state">Loading...</td></tr>
-                        </tbody>
-                    </table>
                 </div>
             </div>
 
@@ -1430,35 +1493,47 @@
                 </div>
             </div>
 
-            <!-- Contact Submissions Page -->
-            <div id="contacts" class="page-section">
+            <!-- Inbox Full Page (replaces Contact Submissions) -->
+            <div id="inbox" class="page-section">
                 <div class="table-container">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Contact Submissions</div>
+                        <div class="table-title">Inbox</div>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <div class="inbox-filter-tabs">
+                                <button class="inbox-filter-tab active" data-filter="all" onclick="filterInboxPage('all')">All <span id="inboxPageCountAll" class="inbox-tab-count"></span></button>
+                                <button class="inbox-filter-tab" data-filter="application" onclick="filterInboxPage('application')">Applications <span id="inboxPageCountApps" class="inbox-tab-count"></span></button>
+                                <button class="inbox-filter-tab" data-filter="inquiry" onclick="filterInboxPage('inquiry')">Inquiries <span id="inboxPageCountInquiries" class="inbox-tab-count"></span></button>
+                                <button class="inbox-filter-tab" data-filter="agent_referral" onclick="filterInboxPage('agent_referral')">Agent Referrals <span id="inboxPageCountAgent" class="inbox-tab-count"></span></button>
+                                <button class="inbox-filter-tab" data-filter="vendor" onclick="filterInboxPage('vendor')">Vendor Deals <span id="inboxPageCountVendor" class="inbox-tab-count"></span></button>
+                            </div>
                             <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#666;cursor:pointer;">
-                                <input type="checkbox" id="showArchivedContacts" onchange="loadContacts()"> Show Archived
+                                <input type="checkbox" id="showArchivedInbox" onchange="loadInboxPage()"> Show Archived
                             </label>
-                            <button class="btn btn-secondary btn-sm" onclick="exportContacts()" style="margin-left: 8px;">Export CSV</button>
+                            <button class="btn btn-secondary btn-sm" onclick="exportInbox()">Export CSV</button>
                         </div>
                     </div>
-                    <table id="contactsTable">
+                    <div style="overflow-x:auto;">
+                    <table id="inboxPageTable" style="min-width:1000px;">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Subject</th>
-                                <th>Date</th>
+                                <th style="width:50px;">Type</th>
+                                <th>Source</th>
+                                <th>Client</th>
+                                <th>Contact</th>
+                                <th>Product</th>
+                                <th>Amount</th>
+                                <th>Referred By</th>
+                                <th>Received</th>
+                                <th>Priority</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="contactsBody">
-                            <tr>
-                                <td colspan="6" class="empty-state">Loading...</td>
-                            </tr>
+                        <tbody id="inboxPageBody">
+                            <tr><td colspan="11" class="empty-state">Loading...</td></tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
 
@@ -3882,7 +3957,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-18-v39';
+    const DASHBOARD_VERSION = '2026-03-18-v40';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -4211,7 +4286,7 @@
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
             } else {
                 // ISO/other agent views
-                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Contact Submissions', 'Alliance Financing', 'Team', 'Admin Resources', 'Vendor Portal'];
+                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Inbox', 'Alliance Financing', 'Team', 'Admin Resources', 'Vendor Portal'];
 
                 if (adminOnly.includes(label)) {
                     item.style.display = 'none';
@@ -10257,7 +10332,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'agents': 'Agents & Partners',
             'lenders': 'Lenders',
             'vendors': 'Vendors',
-            'contacts': 'Contact Submissions',
+            'inbox': 'Inbox',
             'documents': 'Document Center',
             'alliance': 'Alliance Financing Group',
             'vendorPrograms': 'Vendor Programs',
@@ -10347,14 +10422,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var adminQuickActions = document.getElementById('adminQuickActions');
             if (adminQuickActions) adminQuickActions.style.display = 'none';
 
-            // Hide Intake table (referral agents see deals in Deal Pipeline page, not dashboard)
-            var intakeTables = document.querySelectorAll('#dashboard .table-container');
-            intakeTables.forEach(function(t) {
-                var title = t.querySelector('.table-title');
-                if (title && (title.textContent.trim() === 'Intake' || title.textContent.trim().includes('Recent Applications'))) {
-                    t.style.display = 'none';
-                }
-            });
+            // Hide Unified Inbox table (referral agents see deals in Deal Pipeline page, not dashboard)
+            var inboxTable = document.getElementById('dashUnifiedInbox');
+            if (inboxTable) inboxTable.style.display = 'none';
 
             // Applications Sent section is inside Deal Pipeline page — keep it visible there
 
@@ -10446,98 +10516,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
-            // Load recent applications for intake table - only show ones NOT moved to pipeline
-            if (!appError) {
-                const recentApps = applications.filter(app => app.status !== 'Moved to Pipeline').slice(0, 15);
-                const tbody = document.getElementById('recentAppBody');
-                const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
-
-                tbody.innerHTML = recentApps.map(app => {
-                    const moveButtonHtml = (isAdmin && app.status !== 'Moved to Pipeline')
-                        ? `<button class="btn btn-gold btn-sm" onclick="moveToPipeline('${app.id}')">Move to Pipeline</button>`
-                        : '';
-
-                    // For agents, show status as badge instead of dropdown
-                    const statusHtml = isAdmin
-                        ? `<select class="status-dropdown" onchange="updateAppStatus('${app.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
-                            <option value="Application Received" ${app.status === 'Application Received' ? 'selected' : ''}>Application Received</option>
-                            <option value="Under Review" ${app.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
-                            <option value="Info Requested" ${app.status === 'Info Requested' ? 'selected' : ''}>Info Requested</option>
-                            <option value="Moved to Pipeline" ${app.status === 'Moved to Pipeline' ? 'selected' : ''}>Moved to Pipeline</option>
-                            <option value="Declined" ${app.status === 'Declined' ? 'selected' : ''}>Declined</option>
-                        </select>`
-                        : `<span style="padding: 5px 8px; border-radius: 4px; background: #F3F4F6; font-size: 13px;">${app.status}</span>`;
-
-                    return `
-                        <tr>
-                            <td><strong>${app.application_id || 'N/A'}</strong></td>
-                            <td>${app.full_name || 'N/A'}</td>
-                            <td>${app.business_name || 'N/A'}</td>
-                            <td>${app.funding_amount_requested ? formatCurrency(app.funding_amount_requested) : (app.funding_amount_text || 'N/A')}</td>
-                            <td>${app.source_channel || 'Online'}</td>
-                            <td>${statusHtml}</td>
-                            <td>${formatDate(app.submitted_at)}</td>
-                            <td>${moveButtonHtml}</td>
-                        </tr>
-                    `;
-                }).join('');
-            }
-
-            // Load pending referral partners into intake table (admin only)
-            if (['super_admin', 'admin'].includes(currentUserRole)) {
-                try {
-                    const { data: pendingPartners } = await db.from('users')
-                        .select('id, full_name, email, phone, business_type, agent_status, created_at, parent_agent_id, invite_token, onboarding_status')
-                        .eq('role', 'agent')
-                        .eq('agent_status', 'Pending')
-                        .order('created_at', { ascending: false });
-
-                    if (pendingPartners && pendingPartners.length > 0) {
-                        const tbody = document.getElementById('recentAppBody');
-                        // Look up parent agent names
-                        const parentIds = [...new Set(pendingPartners.filter(p => p.parent_agent_id).map(p => p.parent_agent_id))];
-                        let parentMap = {};
-                        if (parentIds.length > 0) {
-                            const { data: parents } = await db.from('users').select('id, full_name').in('id', parentIds);
-                            if (parents) parents.forEach(p => { parentMap[p.id] = p.full_name; });
-                        }
-
-                        const partnerRows = pendingPartners.map(p => {
-                            const parentName = p.parent_agent_id ? (parentMap[p.parent_agent_id] || 'Unknown') : 'Direct';
-                            const statusHtml = `<select class="status-dropdown" onchange="updatePartnerStatus('${p.id}', this.value)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; cursor: pointer;">
-                                <option value="Pending" selected>Pending</option>
-                                <option value="Under Review">Under Review</option>
-                                <option value="AIA">AIA</option>
-                                <option value="MOU">MOU</option>
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
-                                <option value="Declined">Declined</option>
-                            </select>`;
-                            return `<tr style="background: #FFFBEB;">
-                                <td><span style="display:inline-block;padding:2px 8px;background:#F59E0B;color:#fff;border-radius:4px;font-size:11px;font-weight:600;">NEW PARTNER</span></td>
-                                <td><strong>${p.full_name || 'N/A'}</strong></td>
-                                <td>${p.business_type || 'N/A'}</td>
-                                <td>${p.email || 'N/A'}</td>
-                                <td>Referred by ${parentName}</td>
-                                <td>${statusHtml}</td>
-                                <td>${formatDate(p.created_at)}</td>
-                                <td style="display:flex;gap:6px;">
-                                    <button class="btn btn-gold btn-sm" onclick="viewAgent('${p.id}')">View</button>
-                                    ${p.invite_token && p.onboarding_status !== 'active' && p.email ? '<button class="btn btn-sm" onclick="resendAgentInvite(\'' + p.id + '\', \'' + (p.email || '').replace(/\'/g, "\\\\'") + '\', \'' + (p.full_name || '').replace(/\'/g, "\\\\'") + '\', \'' + (p.invite_token || '') + '\', \'referring_agent\')" style="background:#DBEAFE;color:#1E40AF;border:1px solid #93C5FD;padding:4px 10px;font-size:11px;font-weight:600;border-radius:4px;cursor:pointer;">Send Invite</button>' : ''}
-                                </td>
-                            </tr>`;
-                        }).join('');
-
-                        // Prepend partner rows to the top of the intake table
-                        tbody.innerHTML = partnerRows + tbody.innerHTML;
-                    }
-                } catch (err) {
-                    console.warn('Could not load pending partners for intake:', err);
-                }
-            }
-
-            // Load contact submissions feed for admin dashboard
-            await loadDashContactSubmissions();
+            // Load Unified Inbox (replaces old Intake + Contact Submissions)
+            await loadUnifiedInbox();
 
             // === Agent Portal Features ===
             const isAgentUser = !['super_admin', 'admin'].includes(currentUserRole) && currentUserId;
@@ -11980,55 +11960,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         `;
     }
 
-    async function loadContacts() {
-        try {
-            const showArchived = document.getElementById('showArchivedContacts')?.checked || false;
-
-            let query = db.from('contact_submissions').select('*').order('submitted_at', { ascending: false });
-
-            if (!showArchived) {
-                query = query.neq('status', 'Archived');
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
-
-            const tbody = document.getElementById('contactsBody');
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No contact submissions found.</td></tr>';
-                return;
-            }
-
-            const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
-
-            tbody.innerHTML = data.map(contact => {
-                const isArchived = contact.status === 'Archived';
-                const rowStyle = isArchived ? 'opacity: 0.55;' : '';
-                const archiveBtn = isAdmin && !isArchived
-                    ? `<button class="btn btn-sm" onclick="archiveContact('${contact.id}')" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 8px;font-size:11px;" title="Archive this submission">Archive</button>`
-                    : isAdmin && isArchived
-                    ? `<button class="btn btn-sm" onclick="unarchiveContact('${contact.id}')" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;padding:3px 8px;font-size:11px;" title="Restore from archive">Restore</button>`
-                    : '';
-
-                return `
-                    <tr style="${rowStyle}">
-                        <td><strong>${contact.name || 'N/A'}</strong></td>
-                        <td>${contact.email || 'N/A'}</td>
-                        <td>${contact.subject || 'N/A'}</td>
-                        <td>${formatDate(contact.submitted_at)}</td>
-                        <td>${getContactStatusBadge(contact.status || 'New')}</td>
-                        <td style="display:flex;gap:4px;flex-wrap:wrap;">
-                            <button class="btn btn-secondary btn-sm" onclick="viewContact('${contact.id}')">View</button>
-                            ${archiveBtn}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        } catch (error) {
-            console.error('Load contacts error:', error);
-        }
-    }
+    // Old loadContacts removed — replaced by loadInboxPage via backwards-compatible wrapper below
 
     // ============================================
     // ============================================
@@ -13083,8 +13015,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await loadVendors();
                 loadVendorInquiryLeads();
                 break;
-            case 'contacts':
-                await loadContacts();
+            case 'inbox':
+                await loadInboxPage();
                 break;
             case 'documents':
                 await loadDocumentsPage();
@@ -18456,8 +18388,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
 
             closeContactModal();
-            await loadContacts();
-            await loadDashContactSubmissions();
+            await loadUnifiedInbox();
+            if (currentPage === 'inbox') await loadInboxPage();
             showNotification('Contact submission archived', 'success');
         } catch (error) {
             console.error('Archive contact error:', error);
@@ -18483,8 +18415,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
 
             closeContactModal();
-            await loadContacts();
-            await loadDashContactSubmissions();
+            await loadUnifiedInbox();
+            if (currentPage === 'inbox') await loadInboxPage();
             showNotification('Contact submission restored', 'success');
         } catch (error) {
             console.error('Unarchive contact error:', error);
@@ -18560,6 +18492,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     db.from('contact_submissions')
                         .update({ status: 'Moved to Pipeline', admin_notes: JSON.stringify(notes) })
                         .eq('id', contactId);
+                    // Refresh inbox
+                    loadUnifiedInbox();
+                    if (currentPage === 'inbox') loadInboxPage();
                 });
 
                 showNotification('Contact info pre-filled in new deal form. Complete the deal details and save.', 'success');
@@ -18570,50 +18505,436 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    // Load new contact submissions on admin dashboard
-    async function loadDashContactSubmissions() {
-        const container = document.getElementById('dashContactSubmissions');
+    // ============================================
+    // Unified Inbox
+    // ============================================
+
+    var inboxItems = []; // cached merged items
+    var inboxFilter = 'all';
+    var inboxPageFilter = 'all';
+    var inboxAgentCache = {}; // cache agent names by referral_slug
+
+    async function loadUnifiedInbox() {
+        const container = document.getElementById('dashUnifiedInbox');
         if (!container) return;
 
         const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
         if (!isAdmin) { container.style.display = 'none'; return; }
 
+        container.style.display = 'block';
+
         try {
-            const { data, error } = await db
-                .from('contact_submissions')
+            // Fetch applications (not moved to pipeline)
+            let appQuery = db.from('applications')
+                .select('*, application_products(product)')
+                .neq('status', 'Moved to Pipeline')
+                .order('submitted_at', { ascending: false })
+                .limit(50);
+
+            // Fetch contact submissions (not archived, not moved)
+            let contactQuery = db.from('contact_submissions')
                 .select('*')
                 .neq('status', 'Archived')
                 .neq('status', 'Moved to Pipeline')
                 .order('submitted_at', { ascending: false })
-                .limit(10);
+                .limit(50);
 
-            if (error) throw error;
+            const [appResult, contactResult] = await Promise.all([appQuery, contactQuery]);
 
-            container.style.display = 'block';
-            const tbody = document.getElementById('dashContactSubmissionsBody');
+            if (appResult.error) console.error('Inbox apps error:', appResult.error);
+            if (contactResult.error) console.error('Inbox contacts error:', contactResult.error);
 
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No new contact submissions.</td></tr>';
-                return;
+            const apps = appResult.data || [];
+            const contacts = contactResult.data || [];
+
+            // Resolve agent names for referral_slugs
+            const slugs = [...new Set(apps.filter(a => a.referral_slug).map(a => a.referral_slug))];
+            await cacheAgentNames(slugs);
+
+            // Merge into unified items
+            const appItems = apps.map(app => normalizeApplication(app));
+            const contactItems = contacts.map(c => normalizeContact(c));
+            inboxItems = [...appItems, ...contactItems];
+
+            // Sort: priority (High first), then newest
+            inboxItems.sort(inboxSortComparator);
+
+            // Render
+            renderInbox('dash');
+            updateInboxCounts('dash');
+            updateInboxNavBadge();
+        } catch (err) {
+            console.error('Unified inbox load error:', err);
+        }
+    }
+
+    async function loadInboxPage() {
+        try {
+            const showArchived = document.getElementById('showArchivedInbox')?.checked || false;
+
+            // Fetch applications
+            let appQuery = db.from('applications')
+                .select('*, application_products(product)')
+                .order('submitted_at', { ascending: false });
+            if (!showArchived) {
+                appQuery = appQuery.neq('status', 'Moved to Pipeline');
             }
 
-            tbody.innerHTML = data.map(contact => `
-                <tr>
-                    <td><strong>${contact.name || 'N/A'}</strong></td>
-                    <td>${contact.email || 'N/A'}</td>
-                    <td>${contact.subject || 'N/A'}</td>
-                    <td>${formatDate(contact.submitted_at)}</td>
-                    <td>${getContactStatusBadge(contact.status || 'New')}</td>
-                    <td style="display:flex;gap:4px;flex-wrap:wrap;">
-                        <button class="btn btn-secondary btn-sm" onclick="viewContact('${contact.id}')">View</button>
-                        <button class="btn btn-gold btn-sm" onclick="moveContactToPipeline('${contact.id}')" style="padding:3px 8px;font-size:11px;">Pipeline</button>
-                        <button class="btn btn-sm" onclick="archiveContact('${contact.id}')" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 8px;font-size:11px;">Archive</button>
-                    </td>
-                </tr>
-            `).join('');
-        } catch (error) {
-            console.error('Load dash contact submissions error:', error);
+            // Fetch contact submissions
+            let contactQuery = db.from('contact_submissions')
+                .select('*')
+                .order('submitted_at', { ascending: false });
+            if (!showArchived) {
+                contactQuery = contactQuery.neq('status', 'Archived').neq('status', 'Moved to Pipeline');
+            }
+
+            const [appResult, contactResult] = await Promise.all([appQuery, contactQuery]);
+
+            const apps = appResult.data || [];
+            const contacts = contactResult.data || [];
+
+            // Resolve agent names
+            const slugs = [...new Set(apps.filter(a => a.referral_slug).map(a => a.referral_slug))];
+            await cacheAgentNames(slugs);
+
+            const appItems = apps.map(app => normalizeApplication(app));
+            const contactItems = contacts.map(c => normalizeContact(c));
+            inboxItems = [...appItems, ...contactItems];
+            inboxItems.sort(inboxSortComparator);
+
+            renderInbox('page');
+            updateInboxCounts('page');
+        } catch (err) {
+            console.error('Inbox page load error:', err);
         }
+    }
+
+    function normalizeApplication(app) {
+        const slug = app.referral_slug || '';
+        const agentInfo = inboxAgentCache[slug];
+        let sourceType = 'direct';
+        let sourceDisplay = 'Direct';
+        let referredBy = '—';
+
+        if (slug) {
+            if (slug.startsWith('vendor-')) {
+                sourceType = 'vendor';
+                sourceDisplay = 'Vendor';
+                referredBy = agentInfo ? agentInfo.name : slug;
+            } else if (agentInfo && agentInfo.agentType === 'super_agent') {
+                sourceType = 'iso_referral';
+                sourceDisplay = 'ISO Referral';
+                referredBy = agentInfo.name;
+            } else if (agentInfo && (agentInfo.agentType === 'referring_agent' || agentInfo.agentType === 'sub_agent')) {
+                sourceType = 'agent_referral';
+                sourceDisplay = 'Agent Referral';
+                referredBy = agentInfo.name;
+            } else {
+                sourceType = 'agent_referral';
+                sourceDisplay = 'Agent Referral';
+                referredBy = agentInfo ? agentInfo.name : slug;
+            }
+        }
+
+        // Product from application_products
+        let product = '—';
+        if (app.application_products && app.application_products.length > 0) {
+            product = app.application_products[0].product || '—';
+        }
+
+        // Priority calculation
+        let priority = 'medium';
+        const amount = app.funding_amount_requested || 0;
+        if (slug && amount > 0) priority = 'high';
+        else if (!slug) priority = 'medium';
+
+        return {
+            id: app.id,
+            type: 'application',
+            typeIcon: '📋',
+            sourceType: sourceType,
+            sourceDisplay: sourceDisplay,
+            clientName: app.full_name || 'N/A',
+            contactInfo: app.email || '—',
+            product: product,
+            amount: app.funding_amount_requested ? formatCurrency(app.funding_amount_requested) : (app.funding_amount_text || '—'),
+            amountRaw: amount,
+            referredBy: referredBy,
+            dateReceived: app.submitted_at,
+            priority: priority,
+            status: app.status || 'Application Received',
+            applicationId: app.application_id || '',
+            email: app.email || '',
+            _raw: app
+        };
+    }
+
+    function normalizeContact(contact) {
+        return {
+            id: contact.id,
+            type: 'inquiry',
+            typeIcon: '✉️',
+            sourceType: 'website_contact',
+            sourceDisplay: 'Website Contact',
+            clientName: contact.name || 'N/A',
+            contactInfo: contact.email || '—',
+            product: contact.subject || '—',
+            amount: '—',
+            amountRaw: 0,
+            referredBy: '—',
+            dateReceived: contact.submitted_at,
+            priority: 'low',
+            status: contact.status || 'New',
+            email: contact.email || '',
+            _raw: contact
+        };
+    }
+
+    async function cacheAgentNames(slugs) {
+        const uncached = slugs.filter(s => !inboxAgentCache[s]);
+        if (uncached.length === 0) return;
+
+        try {
+            const { data: agents } = await db.from('users')
+                .select('full_name, referral_slug, agent_type')
+                .in('referral_slug', uncached);
+
+            if (agents) {
+                agents.forEach(a => {
+                    inboxAgentCache[a.referral_slug] = { name: a.full_name, agentType: a.agent_type };
+                });
+            }
+        } catch (err) {
+            console.warn('Agent name cache error:', err);
+        }
+    }
+
+    function inboxSortComparator(a, b) {
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        const pa = priorityOrder[a.priority] ?? 1;
+        const pb = priorityOrder[b.priority] ?? 1;
+        if (pa !== pb) return pa - pb;
+        return new Date(b.dateReceived) - new Date(a.dateReceived);
+    }
+
+    function getSourceBadgeHtml(sourceType, sourceDisplay) {
+        const colors = {
+            direct: { bg: '#DBEAFE', text: '#1E40AF' },
+            agent_referral: { bg: '#EDE9FE', text: '#5B21B6' },
+            iso_referral: { bg: '#E0E7FF', text: '#3730A3' },
+            vendor: { bg: '#CCFBF1', text: '#115E59' },
+            website_contact: { bg: '#F1F5F9', text: '#475569' }
+        };
+        const c = colors[sourceType] || colors.direct;
+        return `<span class="source-badge" style="background:${c.bg};color:${c.text};">${sourceDisplay}</span>`;
+    }
+
+    function getPriorityBadgeHtml(priority) {
+        const config = {
+            high: { bg: '#FEE2E2', text: '#991B1B', label: 'High' },
+            medium: { bg: '#FEF3C7', text: '#92400E', label: 'Medium' },
+            low: { bg: '#F1F5F9', text: '#64748B', label: 'Low' }
+        };
+        const c = config[priority] || config.low;
+        return `<span class="priority-badge" style="background:${c.bg};color:${c.text};">${c.label}</span>`;
+    }
+
+    function renderInbox(target) {
+        const tbodyId = target === 'dash' ? 'unifiedInboxBody' : 'inboxPageBody';
+        const filter = target === 'dash' ? inboxFilter : inboxPageFilter;
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+
+        let items = inboxItems;
+        if (filter !== 'all') {
+            if (filter === 'application') items = items.filter(i => i.type === 'application' && i.sourceType === 'direct');
+            else if (filter === 'inquiry') items = items.filter(i => i.type === 'inquiry');
+            else if (filter === 'agent_referral') items = items.filter(i => i.sourceType === 'agent_referral' || i.sourceType === 'iso_referral');
+            else if (filter === 'vendor') items = items.filter(i => i.sourceType === 'vendor');
+        }
+
+        // Limit dashboard to 15 items
+        if (target === 'dash') items = items.slice(0, 15);
+
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No items in inbox.</td></tr>';
+            return;
+        }
+
+        const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
+        tbody.innerHTML = items.map(item => {
+            const statusBadge = item.type === 'inquiry' ? getContactStatusBadge(item.status) : getStatusBadge(item.status);
+
+            let actions = '';
+            if (item.type === 'application') {
+                actions = `<button class="btn btn-secondary btn-sm" onclick="viewInboxApplication('${item.id}')" style="padding:3px 8px;font-size:11px;">View</button>`;
+                if (isAdmin && item.status !== 'Moved to Pipeline') {
+                    actions += ` <button class="btn btn-gold btn-sm" onclick="moveToPipeline('${item.id}')" style="padding:3px 8px;font-size:11px;">Pipeline</button>`;
+                }
+            } else {
+                actions = `<button class="btn btn-secondary btn-sm" onclick="viewContact('${item.id}')" style="padding:3px 8px;font-size:11px;">View</button>`;
+                if (isAdmin) {
+                    actions += ` <button class="btn btn-gold btn-sm" onclick="moveContactToPipeline('${item.id}')" style="padding:3px 8px;font-size:11px;">Pipeline</button>`;
+                    actions += ` <button class="btn btn-sm" onclick="archiveContact('${item.id}')" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 8px;font-size:11px;">Archive</button>`;
+                }
+            }
+            if (item.email) {
+                actions += ` <a href="mailto:${item.email}" class="btn btn-sm" style="background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;padding:3px 8px;font-size:11px;text-decoration:none;">Respond</a>`;
+            }
+
+            return `<tr>
+                <td style="text-align:center;font-size:16px;" title="${item.type === 'application' ? 'Credit Application' : 'Contact Inquiry'}">${item.typeIcon}</td>
+                <td>${getSourceBadgeHtml(item.sourceType, item.sourceDisplay)}</td>
+                <td><strong>${item.clientName}</strong>${item.applicationId ? '<br><span style="font-size:11px;color:#64748B;">' + item.applicationId + '</span>' : ''}</td>
+                <td style="font-size:12px;">${item.contactInfo}</td>
+                <td style="font-size:12px;">${item.product}</td>
+                <td>${item.amount}</td>
+                <td style="font-size:12px;">${item.referredBy}</td>
+                <td style="font-size:12px;">${formatDate(item.dateReceived)}</td>
+                <td>${getPriorityBadgeHtml(item.priority)}</td>
+                <td>${statusBadge}</td>
+                <td style="white-space:nowrap;">${actions}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function filterInbox(filter) {
+        inboxFilter = filter;
+        document.querySelectorAll('#dashUnifiedInbox .inbox-filter-tab').forEach(t => {
+            t.classList.toggle('active', t.dataset.filter === filter);
+        });
+        renderInbox('dash');
+        updateInboxCounts('dash');
+    }
+
+    function filterInboxPage(filter) {
+        inboxPageFilter = filter;
+        document.querySelectorAll('#inbox .inbox-filter-tab').forEach(t => {
+            t.classList.toggle('active', t.dataset.filter === filter);
+        });
+        renderInbox('page');
+        updateInboxCounts('page');
+    }
+
+    function updateInboxCounts(target) {
+        const apps = inboxItems.filter(i => i.type === 'application' && i.sourceType === 'direct');
+        const inquiries = inboxItems.filter(i => i.type === 'inquiry');
+        const agentRefs = inboxItems.filter(i => i.sourceType === 'agent_referral' || i.sourceType === 'iso_referral');
+        const vendorDeals = inboxItems.filter(i => i.sourceType === 'vendor');
+
+        if (target === 'dash') {
+            setCountBadge('inboxCountAll', inboxItems.length);
+            setCountBadge('inboxCountApps', apps.length);
+            setCountBadge('inboxCountInquiries', inquiries.length);
+            setCountBadge('inboxCountAgent', agentRefs.length);
+            setCountBadge('inboxCountVendor', vendorDeals.length);
+        } else {
+            setCountBadge('inboxPageCountAll', inboxItems.length);
+            setCountBadge('inboxPageCountApps', apps.length);
+            setCountBadge('inboxPageCountInquiries', inquiries.length);
+            setCountBadge('inboxPageCountAgent', agentRefs.length);
+            setCountBadge('inboxPageCountVendor', vendorDeals.length);
+        }
+    }
+
+    function setCountBadge(id, count) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = count > 0 ? count : '';
+    }
+
+    function updateInboxNavBadge() {
+        const badge = document.getElementById('inboxNavBadge');
+        if (!badge) return;
+        const newCount = inboxItems.filter(i => i.status === 'New' || i.status === 'Application Received').length;
+        if (newCount > 0) {
+            badge.textContent = newCount;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    async function viewInboxApplication(appId) {
+        // Fetch the application and show in a modal similar to viewContact
+        try {
+            const { data: app, error } = await db.from('applications')
+                .select('*, application_products(product)')
+                .eq('id', appId)
+                .single();
+            if (error) throw error;
+
+            let products = '—';
+            if (app.application_products && app.application_products.length > 0) {
+                products = app.application_products.map(p => p.product).join(', ');
+            }
+
+            const modalBody = document.getElementById('contactModalBody');
+            modalBody.innerHTML = `
+                <div style="margin-bottom:12px;"><span style="display:inline-block;padding:4px 12px;background:#DBEAFE;color:#1E40AF;border-radius:4px;font-size:12px;font-weight:600;">Credit Application</span> ${app.application_id ? '<span style="font-size:13px;color:#64748B;margin-left:8px;">' + app.application_id + '</span>' : ''}</div>
+                <div class="modal-row">
+                    <div class="modal-field"><label>Applicant Name</label><div class="modal-field-value">${app.full_name || 'N/A'}</div></div>
+                    <div class="modal-field"><label>Business Name</label><div class="modal-field-value">${app.business_name || 'N/A'}</div></div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field"><label>Email</label><div class="modal-field-value">${app.email ? '<a href="mailto:' + app.email + '">' + app.email + '</a>' : 'N/A'}</div></div>
+                    <div class="modal-field"><label>Phone</label><div class="modal-field-value">${app.phone || 'N/A'}</div></div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field"><label>Product(s)</label><div class="modal-field-value">${products}</div></div>
+                    <div class="modal-field"><label>Amount Requested</label><div class="modal-field-value">${app.funding_amount_requested ? formatCurrency(app.funding_amount_requested) : (app.funding_amount_text || 'N/A')}</div></div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field"><label>Source</label><div class="modal-field-value">${app.source_channel || 'Online'}</div></div>
+                    <div class="modal-field"><label>Submitted</label><div class="modal-field-value">${formatDate(app.submitted_at)}</div></div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field"><label>Referral Slug</label><div class="modal-field-value">${app.referral_slug || 'None (Direct)'}</div></div>
+                    <div class="modal-field"><label>Status</label>
+                        <div class="modal-field-value">
+                            <select onchange="updateAppStatus('${app.id}', this.value)" style="padding:5px 8px;border-radius:4px;border:1px solid #ccc;font-size:14px;cursor:pointer;">
+                                <option value="Application Received" ${app.status === 'Application Received' ? 'selected' : ''}>Application Received</option>
+                                <option value="Under Review" ${app.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
+                                <option value="Info Requested" ${app.status === 'Info Requested' ? 'selected' : ''}>Info Requested</option>
+                                <option value="Moved to Pipeline" ${app.status === 'Moved to Pipeline' ? 'selected' : ''}>Moved to Pipeline</option>
+                                <option value="Declined" ${app.status === 'Declined' ? 'selected' : ''}>Declined</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                ${app.form_data ? '<div class="modal-row full"><div class="modal-field"><label>Additional Form Data</label><div class="modal-field-value"><pre style="background:#f8fafc;padding:10px;border-radius:4px;font-size:12px;max-height:200px;overflow:auto;white-space:pre-wrap;">' + JSON.stringify(typeof app.form_data === 'string' ? JSON.parse(app.form_data) : app.form_data, null, 2) + '</pre></div></div></div>' : ''}
+                <div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border-gray);display:flex;gap:10px;flex-wrap:wrap;">
+                    ${app.status !== 'Moved to Pipeline' ? '<button class="btn btn-gold btn-sm" onclick="moveToPipeline(\'' + app.id + '\')" style="padding:8px 16px;font-weight:600;">Move to Pipeline</button>' : ''}
+                    ${app.email ? '<a href="mailto:' + app.email + '" class="btn btn-sm" style="background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;padding:8px 16px;font-weight:600;text-decoration:none;">Email Applicant</a>' : ''}
+                </div>
+            `;
+            document.getElementById('contactModal').classList.add('active');
+        } catch (err) {
+            console.error('View inbox application error:', err);
+            alert('Error loading application details');
+        }
+    }
+
+    function exportInbox() {
+        if (inboxItems.length === 0) { alert('No items to export.'); return; }
+        const headers = ['Type', 'Source', 'Client', 'Contact', 'Product', 'Amount', 'Referred By', 'Date Received', 'Priority', 'Status'];
+        const rows = inboxItems.map(i => [i.type, i.sourceDisplay, i.clientName, i.contactInfo, i.product, i.amount, i.referredBy, i.dateReceived, i.priority, i.status]);
+        const csv = [headers, ...rows].map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'inbox-export-' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+    }
+
+    // Load new contact submissions on admin dashboard
+    async function loadDashContactSubmissions() {
+        return; // This function is no longer needed; loadUnifiedInbox replaces it
+    }
+
+    // Kept for backwards compatibility if called elsewhere
+    async function loadContacts() {
+        await loadInboxPage();
     }
 
     // ============================================
