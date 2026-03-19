@@ -11022,7 +11022,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 .order('date_submitted', { ascending: false });
 
             if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
-                dealsQuery = dealsQuery.eq('source_agent_id', currentUserId);
+                // ISO Partners: include sub-agent deals in pipeline
+                if (currentAgentType === 'super_agent') {
+                    try {
+                        var { data: subAgentList } = await db.from('users').select('id').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                        var agentIds = [currentUserId];
+                        if (subAgentList && subAgentList.length > 0) {
+                            agentIds = agentIds.concat(subAgentList.map(function(s) { return s.id; }));
+                        }
+                        dealsQuery = dealsQuery.in('source_agent_id', agentIds);
+                    } catch (subErr) {
+                        console.warn('Sub-agent lookup for deals failed, falling back to own deals:', subErr);
+                        dealsQuery = dealsQuery.eq('source_agent_id', currentUserId);
+                    }
+                } else {
+                    dealsQuery = dealsQuery.eq('source_agent_id', currentUserId);
+                }
             }
 
             const { data, error } = await dealsQuery;
