@@ -13802,11 +13802,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 break;
             case 'deals':
                 await loadDeals();
-                // Hide applications sent by default — shown via "Apps Out" tab
+                // Hide applications sent — only shown via "Apps Out" tab click
                 var appsSentSection = document.getElementById('applicationsSentSection');
                 if (appsSentSection) appsSentSection.style.display = 'none';
-                // Pre-load apps sent data to populate the tab count badge
-                loadApplicationsSent();
+                // Load just the count for the Apps Out badge (don't render the full section)
+                loadAppsOutCount();
                 break;
             case 'applications':
                 // Redirect applications to deals
@@ -17636,6 +17636,35 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // ============================================
     // Applications Sent - Tracking Table
     // ============================================
+
+    async function loadAppsOutCount() {
+        try {
+            var countEl = document.getElementById('dealCountAppsOut');
+            if (!countEl) return;
+            var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+            var query = db.from('applications_sent').select('id', { count: 'exact', head: true });
+            if (!isAdmin && currentUserName) {
+                if (currentAgentType === 'super_agent') {
+                    // ISO: count across their network
+                    var { data: subAgents } = await db.from('users').select('referral_slug').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                    var slugs = [];
+                    var { data: mySlug } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+                    if (mySlug && mySlug.referral_slug) slugs.push(mySlug.referral_slug);
+                    if (subAgents) subAgents.forEach(function(sa) { if (sa.referral_slug) slugs.push(sa.referral_slug); });
+                    if (slugs.length > 0) query = query.in('referral_slug', slugs);
+                    else query = query.eq('sent_by', currentUserName);
+                } else if (currentAgentType === 'referring_agent') {
+                    var { data: slugData } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+                    if (slugData && slugData.referral_slug) query = query.eq('referral_slug', slugData.referral_slug);
+                    else query = query.eq('sent_by', currentUserName);
+                } else {
+                    query = query.eq('sent_by', currentUserName);
+                }
+            }
+            var { count, error } = await query;
+            if (!error && count !== null) countEl.textContent = count;
+        } catch(e) { console.warn('Apps out count error:', e); }
+    }
 
     async function loadApplicationsSent() {
         const tbody = document.getElementById('applicationsSentBody');
