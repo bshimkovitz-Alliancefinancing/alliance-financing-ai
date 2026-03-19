@@ -4026,7 +4026,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-19-v46';
+    const DASHBOARD_VERSION = '2026-03-19-v47';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -10528,10 +10528,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var inboxTable = document.getElementById('dashUnifiedInbox');
             if (inboxTable) inboxTable.style.display = 'none';
 
-            // Phase 4: Load organization pipeline (ISO) or referred applications (agents)
-            if (currentAgentType === 'super_agent') {
-                await loadOrganizationPipeline();
-            } else {
+            // Phase 4: For non-ISO agents, show referred applications on dashboard
+            // ISOs use the full Deal Pipeline page instead (no duplicate widget)
+            if (currentAgentType !== 'super_agent') {
                 await loadReferredApplicationsDashboard();
             }
 
@@ -11321,6 +11320,41 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    async function resolveSourceNames(deals) {
+        // Collect unique agent IDs and vendor IDs
+        var agentIds = [...new Set(deals.filter(d => d.source_agent_id).map(d => d.source_agent_id))];
+        var vendorIds = [...new Set(deals.filter(d => d.source_vendor_id).map(d => d.source_vendor_id))];
+
+        var nameMap = {};
+
+        // Resolve agent names
+        if (agentIds.length > 0) {
+            try {
+                var { data: agents } = await db.from('users').select('id, full_name').in('id', agentIds);
+                if (agents) agents.forEach(function(a) { nameMap[a.id] = a.full_name; });
+            } catch(e) { console.warn('Source name resolve skipped:', e); }
+        }
+
+        // Resolve vendor names
+        if (vendorIds.length > 0) {
+            try {
+                var { data: vendors } = await db.from('vendors').select('id, name').in('id', vendorIds);
+                if (vendors) vendors.forEach(function(v) { nameMap[v.id] = v.name; });
+            } catch(e) { console.warn('Vendor name resolve skipped:', e); }
+        }
+
+        // Attach resolved names to each deal
+        deals.forEach(function(d) {
+            d._sourcedByName = '';
+            if (d.source_agent_id && nameMap[d.source_agent_id]) {
+                d._sourcedByName = nameMap[d.source_agent_id];
+            }
+            if (d.source_vendor_id && nameMap[d.source_vendor_id]) {
+                d._sourcedByVendor = nameMap[d.source_vendor_id];
+            }
+        });
+    }
+
     async function loadDeals() {
         try {
             // Load lenders cache if needed
@@ -11362,6 +11396,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
 
             allDeals = data || [];
+            // Resolve source names for agent views (ISO sees who sourced each deal)
+            if (!isAdmin) {
+                await resolveSourceNames(allDeals);
+            }
             updateDealTabCounts();
             filterDeals();
             updateUnreadBadge();
@@ -11495,7 +11533,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <option value="Vendor" ${deal.source === 'Vendor' ? 'selected' : ''}>Vendor</option>
                     <option value="Repeat Client" ${deal.source === 'Repeat Client' ? 'selected' : ''}>Repeat Client</option>
                 </select>`
-                : `<span style="font-size:13px;font-weight:500;color:#1f2937;">${deal.source || 'N/A'}</span>`;
+                : `<span style="font-size:13px;font-weight:500;color:#1f2937;">${deal.source || 'N/A'}</span>${deal._sourcedByName ? '<br><span style="font-size:11px;color:#64748B;">' + deal._sourcedByName + '</span>' : ''}${deal._sourcedByVendor ? '<br><span style="font-size:11px;color:#0D9488;">' + deal._sourcedByVendor + '</span>' : ''}`;
 
             // Lender column - read-only for agents
             const lenderHtml = isAdmin
@@ -12961,6 +12999,131 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    async function loadISOStatsReports() {
+        var dashPage = document.getElementById('statsReports');
+        if (!dashPage) return;
+
+        // Create ISO stats section if it doesn't exist
+        var container = document.getElementById('isoStatsSection');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'isoStatsSection';
+            container.className = 'table-container';
+            container.style.marginTop = '20px';
+            dashPage.appendChild(container);
+        }
+
+        try {
+            // Get all org deals for stats
+            var agentIds = [currentUserId];
+            var { data: subAgents } = await db.from('users').select('id, full_name').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+            if (subAgents) agentIds = agentIds.concat(subAgents.map(a => a.id));
+
+            var { data: myVendors } = await db.from('vendors').select('id, name').eq('primary_agent_id', currentUserId);
+            var vendorIds = myVendors ? myVendors.map(v => v.id) : [];
+
+            // Fetch all org deals
+            var allDeals = [];
+            var { data: agentDeals } = await db.from('deals').select('id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, commission_amount, is_archived').in('source_agent_id', agentIds);
+            if (agentDeals) allDeals = allDeals.concat(agentDeals);
+
+            if (vendorIds.length > 0) {
+                var { data: vDeals } = await db.from('deals').select('id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, commission_amount, is_archived').in('source_vendor_id', vendorIds);
+                if (vDeals) {
+                    var existingIds = new Set(allDeals.map(d => d.id));
+                    vDeals.forEach(d => { if (!existingIds.has(d.id)) allDeals.push(d); });
+                }
+            }
+
+            var activeDeals = allDeals.filter(d => !d.is_archived && !['Funded', 'Declined', 'Dead approval', 'Withdrawn'].includes(d.status));
+            var funded = allDeals.filter(d => d.status === 'Funded');
+            var declined = allDeals.filter(d => d.status === 'Declined' || d.status === 'Dead approval');
+            var totalValue = allDeals.reduce((s, d) => s + (parseFloat(d.deal_amount) || 0), 0);
+            var fundedValue = funded.reduce((s, d) => s + (parseFloat(d.deal_amount) || 0), 0);
+            var commissionValue = funded.reduce((s, d) => s + (parseFloat(d.commission_amount) || 0), 0);
+            var conversionRate = allDeals.length > 0 ? Math.round((funded.length / allDeals.length) * 100) : 0;
+
+            // Monthly breakdown (last 6 months)
+            var monthlyData = [];
+            for (var i = 5; i >= 0; i--) {
+                var d = new Date();
+                d.setMonth(d.getMonth() - i);
+                var monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                var monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                var monthDeals = allDeals.filter(function(deal) {
+                    if (!deal.date_submitted) return false;
+                    return deal.date_submitted.startsWith(monthKey);
+                });
+                monthlyData.push({
+                    label: monthLabel,
+                    total: monthDeals.length,
+                    funded: monthDeals.filter(md => md.status === 'Funded').length,
+                    value: monthDeals.reduce((s, md) => s + (parseFloat(md.deal_amount) || 0), 0)
+                });
+            }
+
+            container.innerHTML = `
+                <div class="table-header">
+                    <div class="table-title">Organization Performance</div>
+                </div>
+                <div style="padding:20px;">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;">
+                        <div style="background:#F0F4F8;border-radius:8px;padding:14px 16px;text-align:center;">
+                            <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;">Total Deals</div>
+                            <div style="font-size:26px;font-weight:700;color:#0D1E3D;">${allDeals.length}</div>
+                            <div style="font-size:11px;color:#64748B;">${formatCurrency(totalValue)} total value</div>
+                        </div>
+                        <div style="background:#F0FDF4;border-radius:8px;padding:14px 16px;text-align:center;">
+                            <div style="font-size:11px;color:#166534;font-weight:600;text-transform:uppercase;">Funded</div>
+                            <div style="font-size:26px;font-weight:700;color:#166534;">${funded.length}</div>
+                            <div style="font-size:11px;color:#64748B;">${formatCurrency(fundedValue)} funded</div>
+                        </div>
+                        <div style="background:#EFF6FF;border-radius:8px;padding:14px 16px;text-align:center;">
+                            <div style="font-size:11px;color:#1E40AF;font-weight:600;text-transform:uppercase;">Active</div>
+                            <div style="font-size:26px;font-weight:700;color:#1E40AF;">${activeDeals.length}</div>
+                            <div style="font-size:11px;color:#64748B;">In progress</div>
+                        </div>
+                        <div style="background:#FFFBEB;border-radius:8px;padding:14px 16px;text-align:center;">
+                            <div style="font-size:11px;color:#92400E;font-weight:600;text-transform:uppercase;">Conversion</div>
+                            <div style="font-size:26px;font-weight:700;color:#92400E;">${conversionRate}%</div>
+                            <div style="font-size:11px;color:#64748B;">${funded.length} of ${allDeals.length} deals</div>
+                        </div>
+                        <div style="background:#FAF5FF;border-radius:8px;padding:14px 16px;text-align:center;">
+                            <div style="font-size:11px;color:#7C3AED;font-weight:600;text-transform:uppercase;">Commissions</div>
+                            <div style="font-size:26px;font-weight:700;color:#7C3AED;">${formatCurrency(commissionValue)}</div>
+                            <div style="font-size:11px;color:#64748B;">From funded deals</div>
+                        </div>
+                    </div>
+
+                    <div style="font-size:14px;font-weight:600;color:#0D1E3D;margin-bottom:12px;">Monthly Trend (Last 6 Months)</div>
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="border-bottom:2px solid #E2E8F0;">
+                                <th style="text-align:left;padding:8px 12px;font-size:12px;color:#64748B;font-weight:600;">Month</th>
+                                <th style="text-align:center;padding:8px 12px;font-size:12px;color:#64748B;font-weight:600;">Deals</th>
+                                <th style="text-align:center;padding:8px 12px;font-size:12px;color:#64748B;font-weight:600;">Funded</th>
+                                <th style="text-align:right;padding:8px 12px;font-size:12px;color:#64748B;font-weight:600;">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${monthlyData.map(function(m) {
+                                return '<tr style="border-bottom:1px solid #F1F5F9;">' +
+                                    '<td style="padding:8px 12px;font-size:13px;font-weight:500;">' + m.label + '</td>' +
+                                    '<td style="padding:8px 12px;text-align:center;font-size:13px;">' + m.total + '</td>' +
+                                    '<td style="padding:8px 12px;text-align:center;font-size:13px;color:#166534;font-weight:600;">' + m.funded + '</td>' +
+                                    '<td style="padding:8px 12px;text-align:right;font-size:13px;">' + formatCurrency(m.value) + '</td>' +
+                                '</tr>';
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } catch (err) {
+            console.error('ISO stats error:', err);
+            container.innerHTML = '<div class="table-header"><div class="table-title">Organization Performance</div></div><p style="padding:20px;color:#94A3B8;">Error loading stats.</p>';
+        }
+    }
+
     async function loadResourcesPage() {
         try {
             var { data, error } = await db
@@ -13575,6 +13738,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 break;
             case 'statsReports':
                 await loadStatsReports();
+                if (currentAgentType === 'super_agent') {
+                    await loadISOStatsReports();
+                }
                 break;
             case 'help':
                 await loadHelpPage();
