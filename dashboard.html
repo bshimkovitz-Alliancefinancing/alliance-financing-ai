@@ -4026,7 +4026,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-19-v45';
+    const DASHBOARD_VERSION = '2026-03-19-v46';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -10528,8 +10528,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var inboxTable = document.getElementById('dashUnifiedInbox');
             if (inboxTable) inboxTable.style.display = 'none';
 
-            // Phase 4: Load referred applications tracker on agent dashboard
-            await loadReferredApplicationsDashboard();
+            // Phase 4: Load organization pipeline (ISO) or referred applications (agents)
+            if (currentAgentType === 'super_agent') {
+                await loadOrganizationPipeline();
+            } else {
+                await loadReferredApplicationsDashboard();
+            }
 
             // ISO Partners: show sub-agent activity summary
             if (currentAgentType === 'super_agent') {
@@ -10630,6 +10634,201 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (err) {
             console.error('Dashboard referred apps error:', err);
         }
+    }
+
+    async function loadOrganizationPipeline() {
+        var container = document.getElementById('dashOrgPipeline');
+        if (!container) {
+            var dashPage = document.getElementById('dashboard');
+            if (!dashPage) return;
+
+            container = document.createElement('div');
+            container.id = 'dashOrgPipeline';
+            container.className = 'table-container';
+            container.innerHTML = `
+                <div class="table-header" style="flex-wrap:wrap;gap:12px;">
+                    <div class="table-title">Organization Pipeline</div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <div id="orgPipelineTabs" style="display:flex;gap:0;border:1px solid #ccc;border-radius:6px;overflow:hidden;font-size:12px;">
+                            <button class="org-tab active" data-filter="all" onclick="filterOrgPipeline('all')" style="padding:5px 12px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:var(--navy);color:white;">All</button>
+                            <button class="org-tab" data-filter="direct" onclick="filterOrgPipeline('direct')" style="padding:5px 12px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">My Deals</button>
+                            <button class="org-tab" data-filter="agent" onclick="filterOrgPipeline('agent')" style="padding:5px 12px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Agent Deals</button>
+                            <button class="org-tab" data-filter="vendor" onclick="filterOrgPipeline('vendor')" style="padding:5px 12px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Vendor Deals</button>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="showPage('deals')">View Full Pipeline</button>
+                    </div>
+                </div>
+                <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">All deals from your network — your referrals, your agents' deals, and your vendor programs.</p>
+                <div style="overflow-x:auto;">
+                <table style="min-width:900px;">
+                    <thead>
+                        <tr>
+                            <th>Deal #</th>
+                            <th>Company</th>
+                            <th>Source</th>
+                            <th>Sourced By</th>
+                            <th>Product</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orgPipelineBody">
+                        <tr><td colspan="8" class="empty-state">Loading pipeline...</td></tr>
+                    </tbody>
+                </table>
+                </div>
+            `;
+            dashPage.appendChild(container);
+        }
+
+        try {
+            // 1. Get sub-agent IDs
+            var { data: subAgents } = await db.from('users')
+                .select('id, full_name')
+                .eq('parent_agent_id', currentUserId)
+                .eq('role', 'agent');
+            var subAgentMap = {};
+            var subIds = [];
+            if (subAgents) {
+                subAgents.forEach(function(a) { subAgentMap[a.id] = a.full_name; });
+                subIds = subAgents.map(function(a) { return a.id; });
+            }
+
+            // 2. Get vendor IDs managed by this ISO
+            var { data: myVendors } = await db.from('vendors')
+                .select('id, name')
+                .eq('primary_agent_id', currentUserId);
+            var vendorMap = {};
+            var vendorIds = [];
+            if (myVendors) {
+                myVendors.forEach(function(v) { vendorMap[v.id] = v.name; });
+                vendorIds = myVendors.map(function(v) { return v.id; });
+            }
+
+            // 3. Fetch all deals from all sources
+            var allOrgDeals = [];
+
+            // Direct deals (ISO's own)
+            var { data: directDeals } = await db.from('deals')
+                .select('id, deal_number, company_name, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, product_type, is_archived')
+                .eq('source_agent_id', currentUserId)
+                .eq('is_archived', false)
+                .order('date_submitted', { ascending: false });
+            if (directDeals) {
+                directDeals.forEach(function(d) {
+                    d._source = 'direct';
+                    d._sourcedBy = agentProfile ? agentProfile.full_name : 'You';
+                });
+                allOrgDeals = allOrgDeals.concat(directDeals);
+            }
+
+            // Sub-agent deals
+            if (subIds.length > 0) {
+                var { data: agentDeals } = await db.from('deals')
+                    .select('id, deal_number, company_name, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, product_type, is_archived')
+                    .in('source_agent_id', subIds)
+                    .eq('is_archived', false)
+                    .order('date_submitted', { ascending: false });
+                if (agentDeals) {
+                    agentDeals.forEach(function(d) {
+                        d._source = 'agent';
+                        d._sourcedBy = subAgentMap[d.source_agent_id] || 'Agent';
+                    });
+                    allOrgDeals = allOrgDeals.concat(agentDeals);
+                }
+            }
+
+            // Vendor deals
+            if (vendorIds.length > 0) {
+                var { data: vDeals } = await db.from('deals')
+                    .select('id, deal_number, company_name, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, product_type, is_archived')
+                    .in('source_vendor_id', vendorIds)
+                    .eq('is_archived', false)
+                    .order('date_submitted', { ascending: false });
+                if (vDeals) {
+                    // Deduplicate — some vendor deals may also have source_agent_id matching ISO/sub-agent
+                    var existingIds = new Set(allOrgDeals.map(function(d) { return d.id; }));
+                    vDeals.forEach(function(d) {
+                        if (!existingIds.has(d.id)) {
+                            d._source = 'vendor';
+                            d._sourcedBy = vendorMap[d.source_vendor_id] || 'Vendor';
+                            allOrgDeals.push(d);
+                        }
+                    });
+                }
+            }
+
+            // Sort by date (newest first)
+            allOrgDeals.sort(function(a, b) {
+                return new Date(b.date_submitted || 0) - new Date(a.date_submitted || 0);
+            });
+
+            // Store for filtering
+            window._orgPipelineDeals = allOrgDeals;
+
+            renderOrgPipeline('all');
+
+        } catch (err) {
+            console.error('Organization pipeline load error:', err);
+            document.getElementById('orgPipelineBody').innerHTML = '<tr><td colspan="8" class="empty-state">Error loading pipeline.</td></tr>';
+        }
+    }
+
+    function renderOrgPipeline(filter) {
+        var tbody = document.getElementById('orgPipelineBody');
+        if (!tbody || !window._orgPipelineDeals) return;
+
+        var deals = window._orgPipelineDeals;
+        if (filter !== 'all') {
+            deals = deals.filter(function(d) { return d._source === filter; });
+        }
+
+        // Update tab active state
+        document.querySelectorAll('#orgPipelineTabs .org-tab').forEach(function(t) {
+            var isActive = t.getAttribute('data-filter') === filter;
+            t.style.background = isActive ? 'var(--navy)' : '#f8fafc';
+            t.style.color = isActive ? 'white' : '#333';
+            t.style.fontWeight = isActive ? '600' : '500';
+        });
+
+        if (deals.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No deals found' + (filter !== 'all' ? ' for this source' : '') + '.</td></tr>';
+            return;
+        }
+
+        // Show up to 15 on dashboard
+        var displayDeals = deals.slice(0, 15);
+
+        var sourceColors = {
+            direct: { bg: '#DBEAFE', text: '#1E40AF', label: 'Direct' },
+            agent: { bg: '#EDE9FE', text: '#5B21B6', label: 'Agent' },
+            vendor: { bg: '#CCFBF1', text: '#115E59', label: 'Vendor' }
+        };
+
+        tbody.innerHTML = displayDeals.map(function(d) {
+            var sc = sourceColors[d._source] || sourceColors.direct;
+            var statusColor = getDealStatusColor ? getDealStatusColor(d.status) : '#64748B';
+
+            return '<tr>' +
+                '<td style="font-weight:600;color:var(--navy);">' + (d.deal_number || '—') + '</td>' +
+                '<td><strong>' + (d.company_name || 'N/A') + '</strong></td>' +
+                '<td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:' + sc.bg + ';color:' + sc.text + ';">' + sc.label + '</span></td>' +
+                '<td style="font-size:12px;">' + (d._sourcedBy || '—') + '</td>' +
+                '<td style="font-size:12px;">' + (d.product_type || '—') + '</td>' +
+                '<td>' + (d.deal_amount ? formatCurrency(d.deal_amount) : '—') + '</td>' +
+                '<td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:' + statusColor + '15;color:' + statusColor + ';">' + (d.status || 'Unknown') + '</span></td>' +
+                '<td style="font-size:12px;">' + (d.date_submitted || '—') + '</td>' +
+            '</tr>';
+        }).join('');
+
+        if (deals.length > 15) {
+            tbody.innerHTML += '<tr><td colspan="8" style="text-align:center;padding:12px;"><a href="#" onclick="showPage(\'deals\');return false;" style="color:#2563EB;font-size:13px;font-weight:600;">View all ' + deals.length + ' deals in full pipeline →</a></td></tr>';
+        }
+    }
+
+    function filterOrgPipeline(filter) {
+        renderOrgPipeline(filter);
     }
 
     async function loadISOTeamOverview() {
