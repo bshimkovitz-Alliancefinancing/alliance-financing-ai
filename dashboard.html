@@ -10690,7 +10690,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 2. Get vendor IDs managed by this ISO
             var { data: myVendors } = await db.from('vendors')
                 .select('id, name')
-                .eq('primary_agent_id', currentUserId);
+                .eq('source_agent_id', currentUserId);
             var vendorMap = {};
             var vendorIds = [];
             if (myVendors) {
@@ -10934,8 +10934,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         try {
             // Get ISO's own vendors
             var { data: myVendors } = await db.from('vendors')
-                .select('id, name, status, primary_agent_id, product_description')
-                .eq('primary_agent_id', currentUserId)
+                .select('id, name, status, source_agent_id, product_description')
+                .eq('source_agent_id', currentUserId)
                 .order('name');
             var ownVendors = myVendors || [];
 
@@ -10952,8 +10952,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var agentVendors = [];
             if (subIds.length > 0) {
                 var { data: subVendors } = await db.from('vendors')
-                    .select('id, name, status, primary_agent_id, product_description')
-                    .in('primary_agent_id', subIds)
+                    .select('id, name, status, source_agent_id, product_description')
+                    .in('source_agent_id', subIds)
                     .order('name');
                 agentVendors = subVendors || [];
             }
@@ -11004,7 +11004,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <div style="max-height:250px;overflow-y:auto;">
                         ${allVendors.map(function(v) {
                             var dealCount = vendorDealCounts[v.id] || 0;
-                            var managedBy = v.primary_agent_id === currentUserId ? 'You' : (subNameMap[v.primary_agent_id] || 'Agent');
+                            var managedBy = v.source_agent_id === currentUserId ? 'You' : (subNameMap[v.source_agent_id] || 'Agent');
                             var statusColor = (v.status === 'Approved' || v.status === 'Active') ? '#10B981' : v.status === 'Pending' ? '#F59E0B' : '#64748B';
                             return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #F1F5F9;">' +
                                 '<div style="flex:1;">' +
@@ -13105,6 +13105,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var dashPage = document.getElementById('statsReports');
         if (!dashPage) return;
 
+        // Hide admin stat cards — ISOs should only see their own data
+        var adminStatsGrid = dashPage.querySelector('.stats-grid');
+        if (adminStatsGrid) adminStatsGrid.style.display = 'none';
+
         // Create ISO stats section if it doesn't exist
         var container = document.getElementById('isoStatsSection');
         if (!container) {
@@ -13121,7 +13125,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var { data: subAgents } = await db.from('users').select('id, full_name').eq('parent_agent_id', currentUserId).eq('role', 'agent');
             if (subAgents) agentIds = agentIds.concat(subAgents.map(a => a.id));
 
-            var { data: myVendors } = await db.from('vendors').select('id, name').eq('primary_agent_id', currentUserId);
+            var { data: myVendors } = await db.from('vendors').select('id, name').in('source_agent_id', agentIds);
             var vendorIds = myVendors ? myVendors.map(v => v.id) : [];
 
             // Fetch all org deals
