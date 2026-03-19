@@ -4026,7 +4026,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-18-v43';
+    const DASHBOARD_VERSION = '2026-03-18-v44';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
@@ -10443,6 +10443,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 .eq('source_agent_id', currentUserId);
             var deals = myDeals || [];
 
+            // ISO Partners: also include deals from their sub-agents
+            if (currentAgentType === 'super_agent') {
+                try {
+                    var { data: subAgents } = await db.from('users').select('id').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                    if (subAgents && subAgents.length > 0) {
+                        var subIds = subAgents.map(function(s) { return s.id; });
+                        var { data: subDeals } = await db.from('deals')
+                            .select('id, deal_number, company_name, deal_amount, status, is_archived, commission_amount')
+                            .in('source_agent_id', subIds);
+                        if (subDeals) deals = deals.concat(subDeals);
+                    }
+                } catch (subErr) { console.warn('Sub-agent deals load skipped:', subErr); }
+            }
+
             var activeDeals = deals.filter(function(d) {
                 return !d.is_archived && d.status !== 'Funded' && d.status !== 'Declined' && d.status !== 'Dead approval' && d.status !== 'Withdrawn';
             });
@@ -10597,8 +10611,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function loadDashboard() {
         try {
-            // If referring agent, show simplified referral dashboard
-            if (!['super_admin', 'admin'].includes(currentUserRole) && currentAgentType === 'referring_agent') {
+            // If agent (referring, sub, or ISO), show simplified referral dashboard
+            if (!['super_admin', 'admin'].includes(currentUserRole) && ['referring_agent', 'sub_agent', 'super_agent'].includes(currentAgentType)) {
                 await loadReferralDashboard();
                 return;
             }
