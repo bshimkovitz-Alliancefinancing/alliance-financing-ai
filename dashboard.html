@@ -10509,14 +10509,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <div class="stat-value">${fundedDeals.length}</div>
                         <div class="stat-detail">${fundedValue > 0 ? formatCurrency(fundedValue) + ' total' : 'No funded deals yet'}</div>
                     </div>
-                    <div class="stat-card" data-accent="navy">
-                        <div class="stat-icon">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-                        </div>
-                        <div class="stat-label">Vendor Programs</div>
-                        <div class="stat-value">${activeVendors}</div>
-                        <div class="stat-detail">${(myVendors ? myVendors.length : 0)} total submitted</div>
-                    </div>
                 `;
             }
 
@@ -10534,9 +10526,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await loadReferredApplicationsDashboard();
             }
 
-            // ISO Partners: show sub-agent activity summary
+            // ISO Partners: show sub-agent activity summary and vendor programs
             if (currentAgentType === 'super_agent') {
                 await loadISOTeamOverview();
+                await loadISOVendorOverview();
             }
 
             // Applications Sent section is inside Deal Pipeline page — keep it visible there
@@ -10922,6 +10915,115 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (err) {
             console.error('ISO team overview error:', err);
             container.innerHTML = '<div class="table-header"><div class="table-title">Team Overview</div></div><p style="padding:20px;color:#94A3B8;text-align:center;">Could not load team data.</p>';
+        }
+    }
+
+    async function loadISOVendorOverview() {
+        var container = document.getElementById('dashISOVendorOverview');
+        if (!container) {
+            var dashPage = document.getElementById('dashboard');
+            if (!dashPage) return;
+
+            container = document.createElement('div');
+            container.id = 'dashISOVendorOverview';
+            container.className = 'table-container';
+            container.style.marginBottom = '20px';
+            dashPage.appendChild(container);
+        }
+
+        try {
+            // Get ISO's own vendors
+            var { data: myVendors } = await db.from('vendors')
+                .select('id, name, status, primary_agent_id, product_description')
+                .eq('primary_agent_id', currentUserId)
+                .order('name');
+            var ownVendors = myVendors || [];
+
+            // Get sub-agent IDs
+            var { data: subAgents } = await db.from('users')
+                .select('id, full_name')
+                .eq('parent_agent_id', currentUserId)
+                .eq('role', 'agent');
+            var subIds = subAgents ? subAgents.map(a => a.id) : [];
+            var subNameMap = {};
+            if (subAgents) subAgents.forEach(a => { subNameMap[a.id] = a.full_name; });
+
+            // Get vendors managed by sub-agents
+            var agentVendors = [];
+            if (subIds.length > 0) {
+                var { data: subVendors } = await db.from('vendors')
+                    .select('id, name, status, primary_agent_id, product_description')
+                    .in('primary_agent_id', subIds)
+                    .order('name');
+                agentVendors = subVendors || [];
+            }
+
+            var allVendors = ownVendors.concat(agentVendors);
+            var activeCount = allVendors.filter(v => v.status === 'Approved' || v.status === 'Active').length;
+            var pendingCount = allVendors.filter(v => v.status === 'Pending' || v.status === 'Under Review').length;
+
+            // Get deal counts per vendor
+            var vendorDealCounts = {};
+            if (allVendors.length > 0) {
+                var vIds = allVendors.map(v => v.id);
+                var { data: vDeals } = await db.from('deals')
+                    .select('id, source_vendor_id')
+                    .in('source_vendor_id', vIds);
+                if (vDeals) {
+                    vDeals.forEach(d => {
+                        vendorDealCounts[d.source_vendor_id] = (vendorDealCounts[d.source_vendor_id] || 0) + 1;
+                    });
+                }
+            }
+
+            container.innerHTML = `
+                <div class="table-header" style="flex-wrap:wrap;gap:12px;">
+                    <div class="table-title">Vendor Programs</div>
+                    <button class="btn btn-secondary btn-sm" onclick="showPage('vendorPrograms')">Manage Vendors</button>
+                </div>
+                <div style="padding:16px 20px;">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;">
+                        <div style="background:#FAF5FF;border-radius:8px;padding:12px 16px;">
+                            <div style="font-size:12px;color:#7C3AED;font-weight:600;margin-bottom:4px;">Active Vendors</div>
+                            <div style="font-size:22px;font-weight:700;color:#0D1E3D;">${activeCount}</div>
+                            <div style="font-size:11px;color:#64748B;">${allVendors.length} total vendors</div>
+                        </div>
+                        <div style="background:#FFFBEB;border-radius:8px;padding:12px 16px;">
+                            <div style="font-size:12px;color:#92400E;font-weight:600;margin-bottom:4px;">Pending Setup</div>
+                            <div style="font-size:22px;font-weight:700;color:#0D1E3D;">${pendingCount}</div>
+                            <div style="font-size:11px;color:#64748B;">Awaiting activation</div>
+                        </div>
+                        <div style="background:#F0FDF4;border-radius:8px;padding:12px 16px;">
+                            <div style="font-size:12px;color:#166534;font-weight:600;margin-bottom:4px;">Total Vendor Deals</div>
+                            <div style="font-size:22px;font-weight:700;color:#0D1E3D;">${Object.values(vendorDealCounts).reduce((s, c) => s + c, 0)}</div>
+                            <div style="font-size:11px;color:#64748B;">Across all vendor programs</div>
+                        </div>
+                    </div>
+                    ${allVendors.length > 0 ? `
+                    <div style="font-size:13px;font-weight:600;color:#0D1E3D;margin-bottom:8px;">Your Vendor Network</div>
+                    <div style="max-height:250px;overflow-y:auto;">
+                        ${allVendors.map(function(v) {
+                            var dealCount = vendorDealCounts[v.id] || 0;
+                            var managedBy = v.primary_agent_id === currentUserId ? 'You' : (subNameMap[v.primary_agent_id] || 'Agent');
+                            var statusColor = (v.status === 'Approved' || v.status === 'Active') ? '#10B981' : v.status === 'Pending' ? '#F59E0B' : '#64748B';
+                            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #F1F5F9;">' +
+                                '<div style="flex:1;">' +
+                                    '<strong style="font-size:13px;">' + (v.name || 'N/A') + '</strong>' +
+                                    '<span style="font-size:11px;color:#64748B;margin-left:8px;">managed by ' + managedBy + '</span>' +
+                                    (v.product_description ? '<br><span style="font-size:11px;color:#94A3B8;">' + v.product_description.substring(0, 60) + (v.product_description.length > 60 ? '...' : '') + '</span>' : '') +
+                                '</div>' +
+                                '<div style="display:flex;align-items:center;gap:12px;">' +
+                                    '<span style="font-size:12px;color:#334155;">' + dealCount + ' deal' + (dealCount !== 1 ? 's' : '') + '</span>' +
+                                    '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + statusColor + ';" title="' + (v.status || 'Unknown') + '"></span>' +
+                                '</div>' +
+                            '</div>';
+                        }).join('')}
+                    </div>` : '<p style="font-size:13px;color:#94A3B8;text-align:center;padding:12px 0;">No vendor programs yet. Set up your first vendor program to start receiving equipment financing deals.</p>'}
+                </div>
+            `;
+        } catch (err) {
+            console.error('ISO vendor overview error:', err);
+            container.innerHTML = '<div class="table-header"><div class="table-title">Vendor Programs</div></div><p style="padding:20px;color:#94A3B8;text-align:center;">Could not load vendor data.</p>';
         }
     }
 
