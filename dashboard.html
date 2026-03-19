@@ -1114,7 +1114,9 @@
                             <button class="deal-tab" data-tab="funded" onclick="switchDealTab('funded')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Funded <span id="dealCountFunded" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                             <button class="deal-tab" data-tab="declined" onclick="switchDealTab('declined')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Declined <span id="dealCountDeclined" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    </div>
+                    <div id="dealsContentArea">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 0 20px 12px;">
                             <input type="text" id="dealSearch" placeholder="Search AF#, AFG#, company, product, lender..."
                                 oninput="filterDeals()"
                                 style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 280px;">
@@ -1162,11 +1164,10 @@
                                 <option value="Other">Other</option>
                             </select>
                         </div>
-                        <div style="display: flex; gap: 8px;">
+                        <div style="display: flex; gap: 8px; padding: 0 20px 12px;">
                             <button class="btn btn-secondary btn-sm" onclick="exportDeals()">Export CSV</button>
                             <button class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ Add Application</button>
                         </div>
-                    </div>
                     <div style="overflow-x:auto;">
                     <table id="dealsTable" style="min-width:1100px;">
                         <thead>
@@ -1190,6 +1191,7 @@
                         </tbody>
                     </table>
                     </div>
+                    </div><!-- close dealsContentArea -->
                 </div>
 
                 <!-- Applications Sent Tracking -->
@@ -11541,21 +11543,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     function switchDealTab(tab) {
         var appsSentSection = document.getElementById('applicationsSentSection');
-        var dealsTable = document.getElementById('dealsTable');
+        var dealsContentArea = document.getElementById('dealsContentArea');
 
         if (tab === 'appsOut') {
-            // Show Applications Sent section, hide deals table
-            if (dealsTable) dealsTable.style.display = 'none';
+            // Show Applications Sent section, hide deals content (search, filters, table)
+            if (dealsContentArea) dealsContentArea.style.display = 'none';
             if (appsSentSection) {
                 appsSentSection.style.display = 'block';
                 loadApplicationsSent();
             }
-            // Hide referral apps section
-            var refApps = document.getElementById('agentReferralAppsCard');
-            if (refApps) refApps.style.display = 'none';
         } else {
-            // Show deals table, hide applications sent section
-            if (dealsTable) dealsTable.style.display = '';
+            // Show deals content, hide applications sent section
+            if (dealsContentArea) dealsContentArea.style.display = '';
             if (appsSentSection) appsSentSection.style.display = 'none';
         }
 
