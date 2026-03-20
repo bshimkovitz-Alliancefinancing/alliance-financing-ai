@@ -5592,23 +5592,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 console.warn('Failed to track branded one-pager outreach:', trackErr);
             }
 
-            // Also track in applications_sent for unified dashboard view
-            try {
-                var agentSlugForApps = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : null;
-                await db.from('applications_sent').insert({
-                    applicant_name: name || '',
-                    applicant_email: email,
-                    application_type: 'Marketing Package',
-                    subject: subject,
-                    status: 'Sent',
-                    follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-                    sent_by: senderName,
-                    referral_agent: senderName,
-                    referral_slug: agentSlugForApps
-                });
-            } catch(trackErr2) {
-                console.warn('Failed to track branded one-pager in applications_sent:', trackErr2);
-            }
+            // Marketing sends are tracked in prospect_outreach (not applications_sent,
+            // which has a CHECK constraint limiting application_type to Lease/MCA/etc.)
 
             showToast(docLabel + ' sent to ' + email, 'success');
             closeModal('genericModal');
