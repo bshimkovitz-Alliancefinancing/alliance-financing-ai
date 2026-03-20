@@ -17918,7 +17918,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         try {
             var query = db.from('applications_sent').select('*').order('sent_at', { ascending: false });
             if (statusFilter) query = query.eq('status', statusFilter);
-            if (currentUserName) query = query.eq('sent_by', currentUserName);
+            // Filter by referral_slug first (catches apps sent on behalf of this agent), fall back to sent_by name
+            if (currentUserId) {
+                try {
+                    var { data: slugData } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+                    if (slugData && slugData.referral_slug) {
+                        query = query.eq('referral_slug', slugData.referral_slug);
+                    } else if (currentUserName) {
+                        query = query.eq('sent_by', currentUserName);
+                    }
+                } catch(e) {
+                    if (currentUserName) query = query.eq('sent_by', currentUserName);
+                }
+            } else if (currentUserName) {
+                query = query.eq('sent_by', currentUserName);
+            }
             var { data, error } = await query;
             if (error) throw error;
 
