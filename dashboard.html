@@ -1864,6 +1864,8 @@
 
             <!-- Agent Marketing Page -->
             <div id="marketing" class="page-section">
+                <!-- Outreach alert banner placeholder (populated by JS) -->
+                <div id="marketingPageAlertBanner"></div>
                 <!-- Insurance Brokers One-Pager -->
                 <div class="table-container" style="margin-bottom: 24px;">
                     <div class="table-header">
@@ -6651,8 +6653,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 return;
             }
 
-            // Track reply count for nav badge
+            // Track reply count and overdue count for nav badge
             var replyCount = 0;
+            var overdueFollowUpCount = 0;
+            var repliedProspects = [];
 
             var html = '';
             for (var i = 0; i < outreachData.length; i++) {
@@ -6677,8 +6681,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 // Follow-up alert: flag records 3+ days old with status sent or replied
                 var needsFollowUp = daysAgo >= 3 && ['sent', 'replied'].indexOf(row.status) >= 0;
 
-                // Count replies for badge
-                if (row.status === 'replied') replyCount++;
+                // Count replies and overdue for badge
+                if (row.status === 'replied') {
+                    replyCount++;
+                    repliedProspects.push({ name: row.prospect_name || 'Unknown', email: row.prospect_email, daysAgo: daysAgo, id: row.id });
+                }
+                if (needsFollowUp) overdueFollowUpCount++;
 
                 var statusColors = {
                     'sent': { bg: '#DBEAFE', color: '#1E40AF', label: 'Sent' },
@@ -6732,8 +6740,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
             tbody.innerHTML = html;
 
-            // Update nav badge for replies
-            updateOutreachBadge(replyCount);
+            // Update nav badge for replies and overdue
+            updateOutreachBadge(replyCount, overdueFollowUpCount);
+
+            // Update alert banner on the marketing page (ISO Referral Partners page)
+            updateOutreachAlertBanner(repliedProspects, overdueFollowUpCount);
 
         } catch (err) {
             console.error('Error loading outreach:', err);
@@ -6747,17 +6758,108 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // Nav badge for replies/follow-ups
-    function updateOutreachBadge(count) {
+    function updateOutreachBadge(count, overdueCount) {
         var nav = document.getElementById('marketingNav');
         if (!nav) return;
         var existingBadge = document.getElementById('outreachBadge');
         if (existingBadge) existingBadge.remove();
-        if (count > 0) {
+        if (count > 0 || (overdueCount && overdueCount > 0)) {
             var badge = document.createElement('span');
             badge.id = 'outreachBadge';
-            badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;background:#EF4444;color:white;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;padding:0 5px;margin-left:6px;';
-            badge.textContent = count;
+            var label = '';
+            if (count > 0 && overdueCount > 0) {
+                label = count + ' repl' + (count === 1 ? 'y' : 'ies') + ', ' + overdueCount + ' overdue';
+                badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;background:#EF4444;color:white;font-size:9px;font-weight:700;height:18px;border-radius:9px;padding:0 7px;margin-left:6px;white-space:nowrap;';
+            } else if (count > 0) {
+                label = count + ' repl' + (count === 1 ? 'y' : 'ies');
+                badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;background:#EF4444;color:white;font-size:9px;font-weight:700;height:18px;border-radius:9px;padding:0 7px;margin-left:6px;white-space:nowrap;';
+            } else {
+                label = overdueCount + ' overdue';
+                badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;background:#F59E0B;color:white;font-size:9px;font-weight:700;height:18px;border-radius:9px;padding:0 7px;margin-left:6px;white-space:nowrap;';
+            }
+            badge.textContent = label;
             nav.appendChild(badge);
+        }
+    }
+
+    // Alert banner for prospect replies needing follow-up
+    function updateOutreachAlertBanner(repliedProspects, overdueCount) {
+        // Remove any existing banners
+        var existing = document.getElementById('outreachAlertBanner');
+        if (existing) existing.remove();
+
+        // Build banner if there are replies or overdue items
+        if (repliedProspects.length === 0 && overdueCount === 0) {
+            // Clear the marketing page banner too
+            var mktBanner = document.getElementById('marketingPageAlertBanner');
+            if (mktBanner) mktBanner.innerHTML = '';
+            return;
+        }
+
+        var html = '';
+
+        // Replied prospects section
+        if (repliedProspects.length > 0) {
+            html += '<div style="background:linear-gradient(135deg,#FEF3C7,#FDE68A);padding:16px 20px;border-left:4px solid #F59E0B;">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+            html += '<div style="display:flex;align-items:center;gap:8px;">';
+            html += '<span style="font-size:18px;">💬</span>';
+            html += '<span style="font-size:14px;font-weight:700;color:#92400E;">' + repliedProspects.length + ' Prospect' + (repliedProspects.length > 1 ? 's' : '') + ' Replied — Follow Up to Convert!</span>';
+            html += '</div></div>';
+            html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+            for (var i = 0; i < repliedProspects.length && i < 5; i++) {
+                var p = repliedProspects[i];
+                html += '<button onclick="openProspectDetail(\'' + p.id + '\')" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:white;border:1px solid #F59E0B;border-radius:8px;cursor:pointer;font-size:12px;color:#92400E;font-weight:600;transition:all 0.15s;" onmouseover="this.style.background=\'#FFFBEB\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.background=\'white\';this.style.transform=\'none\'">';
+                html += '<span style="width:24px;height:24px;background:#FEF3C7;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#92400E;">' + (p.name.charAt(0) || '?') + '</span>';
+                html += p.name + ' <span style="color:#B45309;font-weight:400;">(' + (p.daysAgo === 0 ? 'today' : p.daysAgo === 1 ? 'yesterday' : p.daysAgo + 'd ago') + ')</span>';
+                html += '</button>';
+            }
+            html += '</div></div>';
+        }
+
+        // Overdue follow-ups section
+        if (overdueCount > 0) {
+            html += '<div style="background:linear-gradient(135deg,#FEE2E2,#FECACA);padding:12px 20px;border-left:4px solid #EF4444;' + (repliedProspects.length > 0 ? 'border-top:1px solid rgba(239,68,68,0.2);' : '') + '">';
+            html += '<div style="display:flex;align-items:center;gap:8px;">';
+            html += '<span style="font-size:14px;">⏰</span>';
+            html += '<span style="font-size:13px;font-weight:600;color:#991B1B;">' + overdueCount + ' prospect' + (overdueCount > 1 ? 's' : '') + ' overdue for follow-up (3+ days with no response)</span>';
+            html += '</div></div>';
+        }
+
+        // Insert banner above the outreach table on Referral Partners page
+        var outreachSection = document.getElementById('outreachTableBody') || document.getElementById('adminOutreachTableBody');
+        if (outreachSection) {
+            var tableContainer = outreachSection.closest('.table-container');
+            if (tableContainer) {
+                var banner = document.createElement('div');
+                banner.id = 'outreachAlertBanner';
+                banner.style.cssText = 'margin-bottom:16px;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);';
+                banner.innerHTML = html;
+                tableContainer.parentNode.insertBefore(banner, tableContainer);
+            }
+        }
+
+        // Also show a condensed version on the Marketing page
+        var mktBanner = document.getElementById('marketingPageAlertBanner');
+        if (mktBanner) {
+            var mktHtml = '<div style="margin-bottom:16px;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">';
+            if (repliedProspects.length > 0) {
+                mktHtml += '<div style="background:linear-gradient(135deg,#FEF3C7,#FDE68A);padding:14px 20px;border-left:4px solid #F59E0B;display:flex;align-items:center;justify-content:space-between;">';
+                mktHtml += '<div style="display:flex;align-items:center;gap:8px;">';
+                mktHtml += '<span style="font-size:16px;">💬</span>';
+                mktHtml += '<span style="font-size:13px;font-weight:700;color:#92400E;">' + repliedProspects.length + ' prospect' + (repliedProspects.length > 1 ? 's' : '') + ' replied to your outreach!</span>';
+                mktHtml += '</div>';
+                mktHtml += '<button onclick="showPage(\'subAgents\')" style="padding:6px 14px;background:#92400E;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">View & Follow Up →</button>';
+                mktHtml += '</div>';
+            }
+            if (overdueCount > 0) {
+                mktHtml += '<div style="background:linear-gradient(135deg,#FEE2E2,#FECACA);padding:10px 20px;border-left:4px solid #EF4444;display:flex;align-items:center;gap:8px;">';
+                mktHtml += '<span style="font-size:13px;">⏰</span>';
+                mktHtml += '<span style="font-size:12px;font-weight:600;color:#991B1B;">' + overdueCount + ' overdue for follow-up</span>';
+                mktHtml += '</div>';
+            }
+            mktHtml += '</div>';
+            mktBanner.innerHTML = mktHtml;
         }
     }
 
