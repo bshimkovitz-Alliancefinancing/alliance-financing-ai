@@ -6465,7 +6465,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
                         sent_by: senderName || currentUserName || 'Unknown',
                         referral_agent: senderName,
-                        referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null
+                        referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null,
+                        sent_by_id: currentUserId || null,
+                        sent_by_role: currentUserRole || null
                     });
                 } catch(e2) { console.error('Fallback track error:', e2); }
             }
@@ -16456,7 +16458,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await db.from('applications_sent').insert({
                     applicant_name: clientName !== 'there' ? clientName : '',
                     applicant_email: email,
-                    application_type: selectedSendAppType === 'mca' ? 'MCA' : selectedSendAppType === 'wc' ? 'Working Capital' : selectedSendAppType === 'leasing' ? 'Lease' : 'MCA',
+                    application_type: selectedSendAppType === 'mca' ? 'MCA' : selectedSendAppType === 'wc' ? 'Working Capital' : selectedSendAppType === 'leasing' ? 'Lease' : 'General',
                     subject: subject,
                     resend_id: emailResult.id || null,
                     status: 'Sent',
@@ -18359,11 +18361,28 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 date: dateStr,
                 visible_to_agent: true
             });
-            await db.from('deals').update({ notes: JSON.stringify(notes), status: 'Application Sent' }).eq('id', dealId);
+            await db.from('deals').update({ notes: JSON.stringify(notes), status: 'Quote sent' }).eq('id', dealId);
 
             // Log to applications_sent tracking table
             try {
                 var appTypeMap = { 'apply-merchant-advance.html': 'MCA', 'apply-leasing.html': 'Lease', 'apply-working-capital.html': 'Working Capital' };
+                // Resolve referral agent info from the deal's source_agent_id or current user
+                var creditAppRefAgent = null;
+                var creditAppRefSlug = null;
+                try {
+                    var { data: dealAgentData } = await db.from('deals').select('source_agent_id').eq('id', dealId).single();
+                    if (dealAgentData && dealAgentData.source_agent_id) {
+                        var { data: agentData } = await db.from('users').select('full_name, referral_slug').eq('id', dealAgentData.source_agent_id).single();
+                        if (agentData) { creditAppRefAgent = agentData.full_name; creditAppRefSlug = agentData.referral_slug; }
+                    }
+                } catch(e) {}
+                // Fallback: if current user is an agent, use their info
+                if (!creditAppRefSlug && currentUserRole === 'agent') {
+                    try {
+                        var { data: myData } = await db.from('users').select('full_name, referral_slug').eq('id', currentUserId).single();
+                        if (myData) { creditAppRefAgent = creditAppRefAgent || myData.full_name; creditAppRefSlug = myData.referral_slug; }
+                    } catch(e) {}
+                }
                 await db.from('applications_sent').insert({
                     applicant_name: name !== 'there' ? name : '',
                     applicant_email: email,
@@ -18371,7 +18390,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     subject: 'Alliance Financing - ' + appTypeName + ' Application',
                     status: 'Sent',
                     follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-                    sent_by: currentUserName || 'Unknown'
+                    sent_by: currentUserName || 'Unknown',
+                    referral_agent: creditAppRefAgent || null,
+                    referral_slug: creditAppRefSlug || null
                 });
             } catch (trackErr) { console.error('Failed to log sent application:', trackErr); }
 
