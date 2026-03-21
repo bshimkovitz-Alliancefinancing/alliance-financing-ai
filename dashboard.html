@@ -16393,13 +16393,28 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (!select) return;
         var isVendorUser = ['vendor_program', 'vendor_salesperson'].includes(currentAgentType);
         select.innerHTML = '<option value="">-- No vendor tracking --</option>';
+        select.disabled = false;
         try {
-            var query = db.from('vendors').select('id, name').neq('status', 'Archived');
-            if (!['super_admin', 'admin'].includes(currentUserRole)) {
-                query = query.eq('source_agent_id', currentUserId);
+            var vendors = [];
+
+            if (isVendorUser) {
+                // Vendor users: find their vendor via vendor_contacts table (same as loadVendorPortal)
+                var { data: contactData } = await db.from('vendor_contacts').select('vendor_id').eq('email', currentUser?.email || '').limit(1);
+                if (contactData && contactData.length > 0) {
+                    var { data: vendorData } = await db.from('vendors').select('id, name').eq('id', contactData[0].vendor_id);
+                    if (vendorData) vendors = vendorData;
+                }
+            } else {
+                // Non-vendor users: admins see all, agents see their own
+                var query = db.from('vendors').select('id, name').neq('status', 'Archived');
+                if (!['super_admin', 'admin'].includes(currentUserRole)) {
+                    query = query.eq('source_agent_id', currentUserId);
+                }
+                var { data: vendorList } = await query.order('name');
+                if (vendorList) vendors = vendorList;
             }
-            const { data: vendors } = await query.order('name');
-            if (vendors && vendors.length > 0) {
+
+            if (vendors.length > 0) {
                 vendors.forEach(function(v) {
                     var opt = document.createElement('option');
                     opt.value = v.id;
@@ -16407,7 +16422,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     select.appendChild(opt);
                 });
                 // Auto-select vendor for vendor users and lock the dropdown
-                if (isVendorUser && vendors.length >= 1) {
+                if (isVendorUser) {
                     select.value = vendors[0].id;
                     select.disabled = true;
                     select.parentElement.style.background = '#E8F5E9';
