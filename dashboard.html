@@ -16263,11 +16263,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         // Reset "on behalf of" selection
         var onBehalfSelect = document.getElementById('sendOnBehalfAgent');
         if (onBehalfSelect) onBehalfSelect.value = '';
+
+        // For vendor users, only show Equipment Leasing application type
+        var isVendorUser = ['vendor_program', 'vendor_salesperson'].includes(currentAgentType);
+        ['sendAppMca', 'sendAppWc', 'sendAppGeneral'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = isVendorUser ? 'none' : 'flex';
+        });
+
         // Populate agent dropdown for admin
         if (['super_admin', 'admin'].includes(currentUserRole)) {
             populateSendOnBehalfDropdown();
         }
-        // Populate vendor tracking dropdown
+        // Populate vendor tracking dropdown (auto-selects for vendor users)
         populateVendorTrackingDropdown();
         document.getElementById('sendApplicationModal').classList.add('active');
     }
@@ -16275,6 +16283,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     async function populateVendorTrackingDropdown() {
         var select = document.getElementById('sendAppVendorTrack');
         if (!select) return;
+        var isVendorUser = ['vendor_program', 'vendor_salesperson'].includes(currentAgentType);
         select.innerHTML = '<option value="">-- No vendor tracking --</option>';
         try {
             var query = db.from('vendors').select('id, name').neq('status', 'Archived');
@@ -16289,6 +16298,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     opt.textContent = v.name;
                     select.appendChild(opt);
                 });
+                // Auto-select vendor for vendor users and lock the dropdown
+                if (isVendorUser && vendors.length >= 1) {
+                    select.value = vendors[0].id;
+                    select.disabled = true;
+                    select.parentElement.style.background = '#E8F5E9';
+                    select.parentElement.querySelector('p').textContent = 'Applications are automatically tracked to your vendor program.';
+                }
             }
         } catch (err) {
             console.warn('Could not load vendors for tracking dropdown:', err);
