@@ -2625,6 +2625,39 @@
         </table>
     </div>
 
+    <!-- Vendor Applications Sent Section -->
+    <div class="table-container" style="margin-top: 30px;" id="vendorAppsSentSection">
+        <div class="table-header">
+            <div class="table-title">Applications Sent</div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <select id="vendorAppsSentFilter" onchange="loadVendorApplicationsSent()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    <option value="">Active Only</option>
+                    <option value="all">All</option>
+                    <option value="Sent">Sent</option>
+                    <option value="Opened">Opened</option>
+                    <option value="Submitted">Submitted</option>
+                </select>
+            </div>
+        </div>
+        <table style="width: 100%;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border-gray);">
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Client</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Email</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Type</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Sent By</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Status</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Date</th>
+                </tr>
+            </thead>
+            <tbody id="vendorAppsSentBody">
+                <tr>
+                    <td colspan="6" style="padding: 40px; text-align: center; color: var(--text-light);">Loading applications...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
     <!-- Team Members Section (for vendor admins only) -->
     <div class="table-container" style="margin-top: 30px; display: none;" id="vendorTeamSection">
         <div class="table-header">
@@ -12931,9 +12964,84 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 document.getElementById('vendorTeamSection').style.display = 'none';
             }
 
+            // Load applications sent for this vendor
+            await loadVendorApplicationsSent(vendorId);
+
         } catch (error) {
             console.error('Load vendor portal error:', error);
             document.getElementById('vendorDealsBody').innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: var(--danger);">Error loading portal: ' + error.message + '</td></tr>';
+        }
+    }
+
+    var _vendorPortalVendorId = null; // cached for filter changes
+
+    async function loadVendorApplicationsSent(vendorId) {
+        if (vendorId) _vendorPortalVendorId = vendorId;
+        else vendorId = _vendorPortalVendorId;
+        var tbody = document.getElementById('vendorAppsSentBody');
+        if (!tbody || !vendorId) return;
+
+        var statusFilter = (document.getElementById('vendorAppsSentFilter') || {}).value || '';
+        var activeStatuses = ['Sent', 'Follow-Up Needed', 'Opened'];
+        var isAdmin = currentAgentType === 'vendor_program';
+
+        try {
+            var query = db.from('applications_sent').select('*').eq('vendor_id', vendorId).order('sent_at', { ascending: false });
+
+            // Vendor salesperson only sees their own sent apps
+            if (!isAdmin && currentUserName) {
+                query = query.eq('sent_by', currentUserName);
+            }
+
+            var { data: apps, error } = await query;
+            if (error) throw error;
+            if (!apps || apps.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--text-light);">No applications sent yet. Click "+ Send Lease Application" to get started.</td></tr>';
+                return;
+            }
+
+            // Apply status filter
+            var filtered = apps;
+            if (statusFilter === '') {
+                filtered = apps.filter(function(a) { return activeStatuses.indexOf(a.status) !== -1; });
+            } else if (statusFilter !== 'all') {
+                filtered = apps.filter(function(a) { return a.status === statusFilter; });
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text-light);">No applications match the selected filter.</td></tr>';
+                return;
+            }
+
+            var statusColors = {
+                'Sent': { bg: '#DBEAFE', color: '#1E40AF' },
+                'Opened': { bg: '#FEF3C7', color: '#92400E' },
+                'Submitted': { bg: '#D1FAE5', color: '#065F46' },
+                'Follow-Up Needed': { bg: '#FEE2E2', color: '#991B1B' },
+                'Expired': { bg: '#F3F4F6', color: '#6B7280' },
+                'Declined': { bg: '#F3F4F6', color: '#6B7280' }
+            };
+
+            tbody.innerHTML = filtered.map(function(app) {
+                var sc = statusColors[app.status] || statusColors['Sent'];
+                var sentDate = app.sent_at ? new Date(app.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+                var clientName = app.applicant_name || '—';
+                var clientEmail = app.applicant_email || '—';
+                var appType = app.application_type || '—';
+                var sentBy = app.sent_by || '—';
+                return '<tr style="border-bottom:1px solid var(--border-gray);">' +
+                    '<td style="padding:12px;font-size:13px;font-weight:500;">' + clientName + '</td>' +
+                    '<td style="padding:12px;font-size:13px;color:var(--text-light);">' + clientEmail + '</td>' +
+                    '<td style="padding:12px;font-size:13px;">' + appType + '</td>' +
+                    '<td style="padding:12px;font-size:13px;">' + sentBy + '</td>' +
+                    '<td style="padding:12px;"><span style="background:' + sc.bg + ';color:' + sc.color + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + (app.status || 'Sent') + '</span></td>' +
+                    '<td style="padding:12px;font-size:12px;color:var(--text-light);">' + sentDate + '</td>' +
+                    '</tr>';
+            }).join('');
+
+        } catch (err) {
+            console.error('Load vendor apps sent error:', err);
+            tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--danger);">Error loading applications: ' + err.message + '</td></tr>';
         }
     }
 
