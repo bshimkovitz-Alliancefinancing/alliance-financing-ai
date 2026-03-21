@@ -3913,6 +3913,10 @@
                     <select id="resourceAccess" style="padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:14px;width:100%;cursor:pointer;">
                         <option value="admin_only">Admin Only</option>
                         <option value="all_users">All Users (incl. Agents)</option>
+                        <option value="referral_partners">Referral Partners Only</option>
+                        <option value="iso_partners">ISO Partners Only</option>
+                        <option value="vendors">Vendors Only</option>
+                        <option value="vendor_salespersons">Vendor Salespersons Only</option>
                     </select>
                 </div>
             </div>
@@ -13060,42 +13064,33 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         html += '</div>';
 
         // Check for admin-uploaded resources shared with agents
+        // Fetch all non-admin-only resources, then filter by role-based access_level
         var sharedResources = [];
         try {
-            var { data: shared } = await db.from('admin_resources').select('*').eq('access_level', 'all_users').order('created_at', { ascending: false });
+            var { data: shared } = await db.from('admin_resources').select('*').neq('access_level', 'admin_only').order('created_at', { ascending: false });
             if (shared && shared.length > 0) {
                 sharedResources = shared;
             }
         } catch(e) {}
 
-        // Role-based filtering: map guide keywords to agent types
-        // Admins see all; agents only see guides relevant to their role + generic resources
+        // Role-based filtering using access_level field
+        // Map agent types to the access_level values they can see
         var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
-        var roleGuideKeywords = {
-            'referring_agent': ['referral partner'],
-            'sub_agent': ['referral partner'],
-            'iso': ['iso partner'],
-            'super_agent': ['iso partner'],
-            'vendor_program': ['vendor partner'],
-            'vendor_salesperson': ['equipment salesperson', 'vendor partner']
+        var roleAccessMap = {
+            'referring_agent': ['all_users', 'referral_partners'],
+            'sub_agent': ['all_users', 'referral_partners'],
+            'super_agent': ['all_users', 'iso_partners'],
+            'vendor_program': ['all_users', 'vendors', 'vendor_salespersons'],
+            'vendor_salesperson': ['all_users', 'vendors', 'vendor_salespersons']
         };
 
-        var myKeywords = roleGuideKeywords[agentType] || [];
+        var myAccessLevels = roleAccessMap[currentAgentType] || ['all_users'];
 
         var filteredResources = sharedResources.filter(function(res) {
             // Admins see everything
             if (isAdmin) return true;
-            // If no keywords for this role, show all
-            if (myKeywords.length === 0) return true;
-            // Check if this resource is a role-specific guide
-            var titleLower = (res.title || '').toLowerCase();
-            var isRoleGuide = ['referral partner', 'iso partner', 'vendor partner', 'equipment salesperson', 'sub-agent'].some(function(kw) {
-                return titleLower.includes(kw);
-            });
-            // If it's not a role-specific guide, show it to everyone (generic resources)
-            if (!isRoleGuide) return true;
-            // If it IS a role-specific guide, only show if it matches this agent's keywords
-            return myKeywords.some(function(kw) { return titleLower.includes(kw); });
+            // Check if this resource's access_level matches the user's role
+            return myAccessLevels.indexOf(res.access_level) !== -1;
         });
 
         if (filteredResources.length > 0) {
@@ -13457,9 +13452,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                 }
 
-                var accessBadge = r.access_level === 'all_users'
-                    ? '<span style="background:#D1FAE5;color:#065F46;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600;">All Users</span>'
-                    : '<span style="background:#E5E7EB;color:#6B7280;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600;">Admin Only</span>';
+                var accessLabels = {
+                    'admin_only': { label: 'Admin Only', bg: '#E5E7EB', color: '#6B7280' },
+                    'all_users': { label: 'All Users', bg: '#D1FAE5', color: '#065F46' },
+                    'referral_partners': { label: 'Referral Partners', bg: '#DBEAFE', color: '#1E40AF' },
+                    'iso_partners': { label: 'ISO Partners', bg: '#E0E7FF', color: '#3730A3' },
+                    'vendors': { label: 'Vendors', bg: '#FEF3C7', color: '#92400E' },
+                    'vendor_salespersons': { label: 'Vendor Salespersons', bg: '#FCE7F3', color: '#9D174D' }
+                };
+                var badge = accessLabels[r.access_level] || accessLabels['admin_only'];
+                var accessBadge = '<span style="background:' + badge.bg + ';color:' + badge.color + ';padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600;">' + badge.label + '</span>';
 
                 var actions = '';
                 if (r.resource_type === 'link' && r.url) {
@@ -13629,7 +13631,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var resource = allResources.find(function(r) { return r.id === resourceId; });
         if (!resource || !resource.file_path) return;
         try {
-            var { data, error } = await db.storage.from('deal-documents').createSignedUrl(resource.file_path, 3600);
+            // Generate a clean PDF filename from the resource title
+            var pdfName = (resource.title || 'document').replace(/[^a-zA-Z0-9\s\-]/g, '').replace(/\s+/g, '-') + '.pdf';
+            var { data, error } = await db.storage.from('deal-documents').createSignedUrl(resource.file_path, 3600, { download: pdfName });
             if (error) throw error;
             window.open(data.signedUrl, '_blank');
         } catch (err) {
