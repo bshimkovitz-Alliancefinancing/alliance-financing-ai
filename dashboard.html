@@ -16513,7 +16513,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         var typeNames = { leasing: 'Equipment Leasing', mca: 'Merchant Cash Advance', wc: 'Working Capital & Factoring', general: 'Financing' };
         var typeName = typeNames[selectedSendAppType];
-        var subject = 'Alliance Financing - ' + typeName + ' Application';
+        // Co-branded subject line when vendor is tracked
+        var subjectVendorEl = document.getElementById('sendAppVendorTrack');
+        var subjectVendorName = (subjectVendorEl && subjectVendorEl.value) ? subjectVendorEl.options[subjectVendorEl.selectedIndex].text : '';
+        var subject = subjectVendorName
+            ? subjectVendorName + ' — ' + typeName + ' Application via Alliance Financing'
+            : 'Alliance Financing - ' + typeName + ' Application';
 
         // Build quote section for email if we have quote data
         var quoteHtml = '';
@@ -16543,24 +16548,64 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         // Get sender name for sign-off
         var senderName = currentUserName || document.getElementById('userEmailDisplay').textContent || 'Alliance Financing Group';
 
+        // Get vendor name for co-branding (if a vendor is selected in tracking dropdown)
+        var coVendorName = '';
+        var coVendorEl = document.getElementById('sendAppVendorTrack');
+        if (coVendorEl && coVendorEl.value) {
+            coVendorName = coVendorEl.options[coVendorEl.selectedIndex].text;
+        }
+
+        // Build co-branded or standard header
+        var emailHeader = '';
+        var emailIntro = '';
+        var emailSignature = '';
+        var emailFooter = '';
+
+        if (coVendorName) {
+            // Vendor-first co-branded email
+            emailHeader =
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#ffffff;margin:0;font-size:24px;">' + coVendorName + '</h1>' +
+                '<p style="color:#C9A84C;margin:6px 0 0;font-size:13px;letter-spacing:0.5px;">Financing powered by Alliance Financing Group</p></div>';
+            emailIntro =
+                '<p style="font-size:14px;color:#475569;line-height:1.6;"><strong>' + coVendorName + '</strong> has partnered with Alliance Financing Group to offer you convenient equipment financing.</p>';
+            emailSignature =
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>' + coVendorName + '<br>' +
+                '<span style="font-size:12px;color:#94A3B8;">Financing by Alliance Financing Group Ltd.</span><br>' +
+                '1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>';
+            emailFooter =
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">' + coVendorName + ' &middot; Financing by Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+        } else {
+            // Standard Alliance-only email
+            emailHeader =
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>';
+            emailIntro =
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your interest in financing with Alliance Financing Group.</p>';
+            emailSignature =
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>Alliance Financing Group Ltd.<br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>';
+            emailFooter =
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+        }
+
         var htmlBody =
             '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
-            '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
-            '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+            emailHeader +
             '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
             '<p style="font-size:16px;color:#1E293B;">Hi ' + clientName + ',</p>' +
             personalParagraph +
-            '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your interest in financing with Alliance Financing Group.</p>' +
+            emailIntro +
             quoteHtml +
             '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete our <strong>' + typeName + '</strong> application using the button below:</p>' +
             '<div style="text-align:center;margin:25px 0;">' +
             '<a href="' + tokenizedLink + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Complete Application</a></div>' +
             '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + tokenizedLink + '" style="color:#3B82F6;">' + tokenizedLink + '</a></p>' +
             '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, please don\'t hesitate to reach out.</p>' +
-            '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>Alliance Financing Group Ltd.<br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>' +
+            emailSignature +
             '</div>' +
-            '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
-            '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+            emailFooter;
 
         btn.disabled = true;
         btn.textContent = 'Sending...';
