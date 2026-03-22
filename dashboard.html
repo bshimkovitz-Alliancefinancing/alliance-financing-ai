@@ -16668,8 +16668,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             ? '<p style="font-size:14px;color:#475569;line-height:1.6;background:#FFFBEB;padding:12px;border-radius:6px;border-left:3px solid #C9A84C;">' + personalMsg.replace(/\n/g, '<br>') + '</p>'
             : '';
 
-        // Get sender name for sign-off
+        // Get sender name and contact info for sign-off
         var senderName = currentUserName || document.getElementById('userEmailDisplay').textContent || 'Alliance Financing Group';
+        var senderEmail = (agentProfile && agentProfile.email) ? agentProfile.email : '';
+        var senderPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
 
         // Get vendor name for co-branding (if a vendor is selected in tracking dropdown)
         var coVendorName = '';
@@ -16677,6 +16679,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (coVendorEl && coVendorEl.value) {
             coVendorName = coVendorEl.options[coVendorEl.selectedIndex].text;
         }
+
+        // Build sender contact line (phone + email if available)
+        var senderContactLine = '';
+        if (senderPhone) senderContactLine += senderPhone + '<br>';
+        if (senderEmail) senderContactLine += '<a href="mailto:' + senderEmail + '" style="color:#3B82F6;">' + senderEmail + '</a><br>';
 
         // Build co-branded or standard header
         var emailHeader = '';
@@ -16694,20 +16701,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<p style="font-size:14px;color:#475569;line-height:1.6;"><strong>' + coVendorName + '</strong> has partnered with Alliance Financing Group to offer you convenient equipment financing.</p>';
             emailSignature =
                 '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>' + coVendorName + '<br>' +
-                '<span style="font-size:12px;color:#94A3B8;">Financing by Alliance Financing Group Ltd.</span><br>' +
-                '1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>';
+                senderContactLine +
+                '</p>' +
+                '<div style="border-top:1px solid #E2E8F0;margin-top:12px;padding-top:12px;">' +
+                '<p style="font-size:12px;color:#94A3B8;margin:0;">For financing support:<br>' +
+                '<strong style="color:#64748B;">Alliance Financing Group Ltd.</strong><br>' +
+                '1-877-660-3660 ext. 222<br>' +
+                '<a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p></div>';
             emailFooter =
                 '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
                 '<p style="font-size:11px;color:#94A3B8;margin:0;">' + coVendorName + ' &middot; Financing by Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
         } else {
-            // Standard Alliance-only email
+            // Standard Alliance-only email (agents/ISOs)
             emailHeader =
                 '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
                 '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>';
             emailIntro =
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your interest in financing with Alliance Financing Group.</p>';
             emailSignature =
-                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>Alliance Financing Group Ltd.<br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>';
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>' +
+                senderContactLine +
+                'Alliance Financing Group Ltd.<br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>';
             emailFooter =
                 '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
                 '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
