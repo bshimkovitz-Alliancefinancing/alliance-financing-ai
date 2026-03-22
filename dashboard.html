@@ -1462,6 +1462,7 @@
                             <select id="vendorStatusFilter" onchange="filterVendors()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
                                 <option value="">All Active Vendors</option>
                                 <option value="Approved">Approved</option>
+                                <option value="__pending">All Pending</option>
                                 <option value="Requires Approval">Requires Approval</option>
                                 <option value="Application Sent">Application Sent</option>
                                 <option value="Pending Review">Pending Review</option>
@@ -10297,12 +10298,52 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 : '<p style="color: var(--text-light); font-size: 14px;">No salespeople added yet.</p>';
 
             document.getElementById('agentVendorDetailBody').innerHTML = `
-                <div style="margin-bottom: 15px; padding: 12px; background: #F8FAFC; border-radius: 6px; border: 1px solid #E2E8F0;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                        <div><strong>Product:</strong> ${vendor.product_description || 'N/A'}</div>
-                        <div><strong>Country:</strong> ${vendor.country || 'N/A'}</div>
-                        <div><strong>Website:</strong> ${vendor.website ? '<a href="' + (vendor.website.startsWith('http') ? vendor.website : 'https://' + vendor.website) + '" target="_blank">' + vendor.website + '</a>' : 'N/A'}</div>
-                        <div><strong>Status:</strong> ${vendor.status || 'N/A'}</div>
+                <div style="margin-bottom: 15px; padding: 16px; background: #F8FAFC; border-radius: 8px; border: 1px solid #E2E8F0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <label style="font-size:14px;font-weight:600;color:var(--navy);">Vendor Information</label>
+                        <span style="font-size:11px;color:#64748B;">Fields auto-save on change</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+                        <div>
+                            <label style="font-weight:600;color:var(--navy);font-size:12px;display:block;margin-bottom:4px;">Vendor Name</label>
+                            <input type="text" id="agentVendorDetailName" value="${(vendor.name || '').replace(/"/g, '&quot;')}"
+                                data-original="${(vendor.name || '').replace(/"/g, '&quot;')}"
+                                onblur="agentUpdateVendorTrackedField('${vendorId}', 'name', this)"
+                                style="width:100%;padding:6px 10px;border:1px solid #CBD5E1;border-radius:4px;font-size:13px;">
+                        </div>
+                        <div>
+                            <label style="font-weight:600;color:var(--navy);font-size:12px;display:block;margin-bottom:4px;">Product Description</label>
+                            <input type="text" id="agentVendorDetailProduct" value="${(vendor.product_description || '').replace(/"/g, '&quot;')}"
+                                data-original="${(vendor.product_description || '').replace(/"/g, '&quot;')}"
+                                onblur="agentUpdateVendorTrackedField('${vendorId}', 'product_description', this)"
+                                style="width:100%;padding:6px 10px;border:1px solid #CBD5E1;border-radius:4px;font-size:13px;">
+                        </div>
+                        <div>
+                            <label style="font-weight:600;color:var(--navy);font-size:12px;display:block;margin-bottom:4px;">Website</label>
+                            <input type="text" id="agentVendorDetailWebsite" value="${(vendor.website || '').replace(/"/g, '&quot;')}"
+                                data-original="${(vendor.website || '').replace(/"/g, '&quot;')}"
+                                onblur="agentUpdateVendorTrackedField('${vendorId}', 'website', this)"
+                                style="width:100%;padding:6px 10px;border:1px solid #CBD5E1;border-radius:4px;font-size:13px;">
+                        </div>
+                        <div>
+                            <label style="font-weight:600;color:var(--navy);font-size:12px;display:block;margin-bottom:4px;">Country</label>
+                            ${(() => {
+                                const countries = ['Canada', 'United States', 'UK', 'Germany', 'Singapore', 'Australia', 'France', 'Netherlands', 'Japan', 'Israel', 'India', 'Mexico', 'China', 'South Korea', 'Italy', 'Other'];
+                                const currentCountries = (vendor.country || '').split(',').map(c => c.trim()).filter(c => c);
+                                return '<div style="display:flex;flex-wrap:wrap;gap:4px 10px;padding:6px;border:1px solid #CBD5E1;border-radius:4px;background:white;max-height:100px;overflow-y:auto;">' +
+                                    countries.map(country =>
+                                        '<label style="display:flex;align-items:center;gap:3px;font-weight:400;font-size:12px;cursor:pointer;white-space:nowrap;">' +
+                                        '<input type="checkbox" name="agentVendorDetailCountries" value="' + country + '"' + (currentCountries.includes(country) ? ' checked' : '') + ' onchange="agentUpdateVendorCountries(\'' + vendorId + '\')"> ' + country +
+                                        '</label>'
+                                    ).join('') +
+                                '</div>';
+                            })()}
+                        </div>
+                    </div>
+                    <div style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+                        <label style="font-weight:600;color:var(--navy);font-size:12px;">Status:</label>
+                        <span style="font-size:13px;padding:3px 10px;border-radius:10px;background:${vendor.status === 'Approved' ? '#DCFCE7' : vendor.status === 'Declined' ? '#FEE2E2' : '#FEF3C7'};color:${vendor.status === 'Approved' ? '#166534' : vendor.status === 'Declined' ? '#991B1B' : '#92400E'};font-weight:600;">${vendor.status || 'N/A'}</span>
+                        <span style="font-size:11px;color:#94A3B8;margin-left:auto;">Status can only be changed by admin</span>
                     </div>
                 </div>
                 <div style="border-top: 2px solid var(--border-gray); padding-top: 15px; margin-bottom: 10px;">
@@ -10322,22 +10363,36 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <button class="btn btn-gold btn-sm" onclick="agentAddVendorContact('${vendorId}')" style="margin-top: 10px;">Add Salesperson</button>
                 </div>
                 ${(() => {
-                    // Show notes (admin visible + agent's own) and add reply input
+                    // Show notes & change log (admin visible + agent's own) — all entries are permanent
                     let allNotes = [];
                     try { allNotes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { allNotes = []; }
                     const visibleNotes = allNotes.filter(n => n.visible_to_agent === true || n.from_agent === true);
 
                     let notesHtml = '<div style="border-top: 2px solid var(--border-gray); padding-top: 15px; margin-top: 15px;">';
-                    notesHtml += '<label style="font-size: 15px; font-weight: 600; color: var(--navy); display: block; margin-bottom: 10px;">Notes' + (visibleNotes.length > 0 ? ' (' + visibleNotes.length + ')' : '') + '</label>';
+                    notesHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+                    notesHtml += '<label style="font-size: 15px; font-weight: 600; color: var(--navy);">Activity & Notes' + (visibleNotes.length > 0 ? ' (' + visibleNotes.length + ')' : '') + '</label>';
+                    notesHtml += '<span style="font-size:10px;color:#94A3B8;display:flex;align-items:center;gap:4px;"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg> All entries are permanent</span>';
+                    notesHtml += '</div>';
 
                     if (visibleNotes.length > 0) {
                         visibleNotes.slice().reverse().forEach(n => {
                             const noteDate = n.date || '';
                             const isAgentNote = n.from_agent === true;
-                            const bg = isAgentNote ? '#EFF6FF' : '#FFFBEB';
-                            const border = isAgentNote ? '#BFDBFE' : '#FDE68A';
-                            const authorColor = isAgentNote ? '#1D4ED8' : '#92400E';
-                            const badge = isAgentNote ? '<span style="background:#DBEAFE;color:#1E40AF;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">You</span>' : '<span style="background:#FEF3C7;color:#92400E;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">Admin</span>';
+                            const isAudit = n.is_audit_log === true;
+
+                            // Audit log entries get a distinct gray/purple style
+                            var bg, border, authorColor, badge;
+                            if (isAudit) {
+                                bg = '#F5F3FF'; border = '#DDD6FE'; authorColor = '#5B21B6';
+                                badge = '<span style="background:#EDE9FE;color:#6D28D9;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">Change Log</span>';
+                            } else if (isAgentNote) {
+                                bg = '#EFF6FF'; border = '#BFDBFE'; authorColor = '#1D4ED8';
+                                badge = '<span style="background:#DBEAFE;color:#1E40AF;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">You</span>';
+                            } else {
+                                bg = '#FFFBEB'; border = '#FDE68A'; authorColor = '#92400E';
+                                badge = '<span style="background:#FEF3C7;color:#92400E;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">Admin</span>';
+                            }
+
                             notesHtml += '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;padding:10px 12px;margin-bottom:8px;">';
                             notesHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
                             notesHtml += '<span style="font-weight:600;color:' + authorColor + ';font-size:12px;">' + (n.author || 'Unknown') + badge + '</span>';
@@ -10346,7 +10401,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             notesHtml += '</div>';
                         });
                     } else {
-                        notesHtml += '<div style="color:#94A3B8;font-size:13px;padding:8px 0;">No notes yet.</div>';
+                        notesHtml += '<div style="color:#94A3B8;font-size:13px;padding:8px 0;">No activity yet.</div>';
                     }
 
                     // Add reply input
@@ -10399,6 +10454,105 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (error) {
             console.error('View agent vendor error:', error);
             alert('Error loading vendor details: ' + error.message);
+        }
+    }
+
+    // Agent/ISO: Update an editable vendor field with immutable audit trail
+    // Allowed fields: name, product_description, website (NOT status, EIN, bank info, etc.)
+    async function agentUpdateVendorTrackedField(vendorId, field, inputEl) {
+        const ALLOWED_FIELDS = ['name', 'product_description', 'website'];
+        if (!ALLOWED_FIELDS.includes(field)) {
+            alert('You do not have permission to edit this field.');
+            return;
+        }
+        const newValue = inputEl.value.trim();
+        const oldValue = inputEl.getAttribute('data-original') || '';
+        if (newValue === oldValue) return; // No change
+
+        try {
+            // Update the field
+            const { error } = await db.from('vendors').update({ [field]: newValue || null }).eq('id', vendorId);
+            if (error) throw error;
+
+            // Log the change in admin_notes (immutable audit trail)
+            const { data: vendor } = await db.from('vendors').select('admin_notes').eq('id', vendorId).single();
+            let notes = [];
+            try { notes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { notes = []; }
+
+            const fieldLabel = field === 'name' ? 'Vendor Name' : field === 'website' ? 'Website' : field === 'product_description' ? 'Product Description' : field;
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay') ? document.getElementById('userEmailDisplay').textContent : 'Unknown';
+
+            notes.unshift({
+                text: '\u270F\uFE0F Field Changed by ISO: ' + fieldLabel + '\nOld: ' + (oldValue || '(empty)') + '\nNew: ' + (newValue || '(empty)'),
+                author: userEmail,
+                date: dateStr,
+                visible_to_agent: true,
+                from_agent: true,
+                is_audit_log: true
+            });
+
+            await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
+
+            // Update the data-original attribute
+            inputEl.setAttribute('data-original', newValue);
+
+            // Update title if name changed
+            if (field === 'name') {
+                document.getElementById('agentVendorDetailTitle').textContent = newValue || 'Vendor Details';
+            }
+
+            showToast(fieldLabel + ' updated successfully', 'success');
+            loadAgentVendors();
+        } catch (error) {
+            console.error('Agent update vendor field error:', error);
+            alert('Error updating ' + field + ': ' + error.message);
+            // Revert the input value on error
+            inputEl.value = oldValue;
+        }
+    }
+
+    // Agent/ISO: Update vendor countries with audit trail
+    async function agentUpdateVendorCountries(vendorId) {
+        try {
+            const checkboxes = document.querySelectorAll('input[name="agentVendorDetailCountries"]');
+            const selected = [];
+            checkboxes.forEach(cb => { if (cb.checked) selected.push(cb.value); });
+            const newCountries = selected.join(', ');
+
+            // Get old value for audit
+            const { data: vendor } = await db.from('vendors').select('country, admin_notes').eq('id', vendorId).single();
+            const oldCountries = vendor.country || '(none)';
+
+            if (newCountries === oldCountries) return;
+
+            const { error } = await db.from('vendors').update({ country: newCountries || null }).eq('id', vendorId);
+            if (error) throw error;
+
+            // Log in audit trail
+            let notes = [];
+            try { notes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { notes = []; }
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay') ? document.getElementById('userEmailDisplay').textContent : 'Unknown';
+
+            notes.unshift({
+                text: '\u270F\uFE0F Field Changed by ISO: Countries\nOld: ' + oldCountries + '\nNew: ' + (newCountries || '(none)'),
+                author: userEmail,
+                date: dateStr,
+                visible_to_agent: true,
+                from_agent: true,
+                is_audit_log: true
+            });
+
+            await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
+            showToast('Countries updated', 'success');
+            loadAgentVendors();
+        } catch (error) {
+            console.error('Agent update vendor countries error:', error);
+            alert('Error updating countries: ' + error.message);
         }
     }
 
@@ -13150,6 +13304,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             let matchesStatus = true;
             if (statusFilter === '__all') {
                 matchesStatus = true;
+            } else if (statusFilter === '__pending') {
+                matchesStatus = vendor.status === 'Requires Approval' || vendor.status === 'Application Sent' || vendor.status === 'Pending Review';
             } else if (statusFilter === '__declined_archived') {
                 matchesStatus = vendor.status === 'Declined' || vendor.status === 'Archived';
             } else if (statusFilter) {
@@ -13187,7 +13343,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<span style="font-size:20px;">⚠️</span>' +
                     '<div><strong style="color:#92400E;">' + bannerMsg + '</strong>' +
                     '<div style="font-size:12px;color:#92400E;">' + bannerDetail + '</div></div></div>' +
-                    '<button onclick="document.getElementById(\'vendorStatusFilter\').value=\'Requires Approval\';filterVendors();" style="padding:6px 14px;background:#F59E0B;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">View Pending</button>';
+                    '<button onclick="document.getElementById(\'vendorStatusFilter\').value=\'__pending\';filterVendors();" style="padding:6px 14px;background:#F59E0B;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">View Pending</button>';
                 var vendorsSection = document.getElementById('vendors');
                 var tableContainer = vendorsSection ? vendorsSection.querySelector('.table-container') : null;
                 if (tableContainer) tableContainer.parentNode.insertBefore(banner, tableContainer);
@@ -23656,15 +23812,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             const notesHtml = notes.length > 0
-                ? notes.map(n => `
-                    <div style="background: ${n.from_agent ? '#EFF6FF' : n.visible_to_agent ? '#FFFBEB' : '#F8FAFC'}; border-left: 3px solid ${n.from_agent ? '#3B82F6' : n.visible_to_agent ? '#F59E0B' : 'var(--gold)'}; padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
-                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 4px;">
-                            <strong>${n.author || 'Admin'}</strong> — ${n.date || 'N/A'}
-                            ${n.from_agent ? '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Agent Note</span>' : n.visible_to_agent ? '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>' : '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>'}
-                        </div>
-                        <div style="font-size: 14px; color: var(--text-dark);">${n.text}</div>
-                    </div>
-                `).join('')
+                ? notes.map(n => {
+                    const isAudit = n.is_audit_log === true;
+                    const bgColor = isAudit ? '#F5F3FF' : n.from_agent ? '#EFF6FF' : n.visible_to_agent ? '#FFFBEB' : '#F8FAFC';
+                    const borderColor = isAudit ? '#7C3AED' : n.from_agent ? '#3B82F6' : n.visible_to_agent ? '#F59E0B' : 'var(--gold)';
+                    let badge;
+                    if (isAudit) {
+                        badge = '<span style="background:#EDE9FE;color:#6D28D9;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Change Log</span>';
+                    } else if (n.from_agent) {
+                        badge = '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Agent Note</span>';
+                    } else if (n.visible_to_agent) {
+                        badge = '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>';
+                    } else {
+                        badge = '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>';
+                    }
+                    return '<div style="background:' + bgColor + ';border-left:3px solid ' + borderColor + ';padding:10px 12px;margin-bottom:8px;border-radius:0 4px 4px 0;">' +
+                        '<div style="font-size:12px;color:var(--text-light);margin-bottom:4px;">' +
+                        '<strong>' + (n.author || 'Admin') + '</strong> — ' + (n.date || 'N/A') + ' ' + badge +
+                        '</div>' +
+                        '<div style="font-size:14px;color:var(--text-dark);white-space:pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+                        '</div>';
+                }).join('')
                 : '<p style="color: var(--text-light); font-size: 14px;">No notes yet.</p>';
 
             // Build contacts HTML with per-contact notes, edit, status, delete
@@ -24386,9 +24554,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const userEmail = document.getElementById('userEmailDisplay') ? document.getElementById('userEmailDisplay').textContent : 'System';
 
             notes.unshift({
-                text: '📝 Field Changed: ' + fieldLabel + '\nOld: ' + (oldValue || '(empty)') + '\nNew: ' + (newValue || '(empty)'),
+                text: '\uD83D\uDCDD Field Changed: ' + fieldLabel + '\nOld: ' + (oldValue || '(empty)') + '\nNew: ' + (newValue || '(empty)'),
                 author: userEmail,
-                date: dateStr
+                date: dateStr,
+                visible_to_agent: true,
+                is_audit_log: true
             });
 
             await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
@@ -25273,15 +25443,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             const notesHtml = notes.length > 0
-                ? notes.map(n => `
-                    <div style="background: ${n.from_agent ? '#EFF6FF' : n.visible_to_agent ? '#FFFBEB' : '#F8FAFC'}; border-left: 3px solid ${n.from_agent ? '#3B82F6' : n.visible_to_agent ? '#F59E0B' : 'var(--gold)'}; padding: 10px 12px; margin-bottom: 8px; border-radius: 0 4px 4px 0;">
-                        <div style="font-size: 12px; color: var(--text-light); margin-bottom: 4px;">
-                            <strong>${n.author || 'Admin'}</strong> — ${n.date || 'N/A'}
-                            ${n.from_agent ? '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Agent Note</span>' : n.visible_to_agent ? '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>' : '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>'}
-                        </div>
-                        <div style="font-size: 14px; color: var(--text-dark);">${n.text}</div>
-                    </div>
-                `).join('')
+                ? notes.map(n => {
+                    const isAudit = n.is_audit_log === true;
+                    const bgColor = isAudit ? '#F5F3FF' : n.from_agent ? '#EFF6FF' : n.visible_to_agent ? '#FFFBEB' : '#F8FAFC';
+                    const borderColor = isAudit ? '#7C3AED' : n.from_agent ? '#3B82F6' : n.visible_to_agent ? '#F59E0B' : 'var(--gold)';
+                    let badge;
+                    if (isAudit) {
+                        badge = '<span style="background:#EDE9FE;color:#6D28D9;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Change Log</span>';
+                    } else if (n.from_agent) {
+                        badge = '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Agent Note</span>';
+                    } else if (n.visible_to_agent) {
+                        badge = '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>';
+                    } else {
+                        badge = '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>';
+                    }
+                    return '<div style="background:' + bgColor + ';border-left:3px solid ' + borderColor + ';padding:10px 12px;margin-bottom:8px;border-radius:0 4px 4px 0;">' +
+                        '<div style="font-size:12px;color:var(--text-light);margin-bottom:4px;">' +
+                        '<strong>' + (n.author || 'Admin') + '</strong> — ' + (n.date || 'N/A') + ' ' + badge +
+                        '</div>' +
+                        '<div style="font-size:14px;color:var(--text-dark);white-space:pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+                        '</div>';
+                }).join('')
                 : '<p style="color: var(--text-light); font-size: 14px;">No notes yet.</p>';
 
             // Build contacts HTML with per-contact notes, edit, status, delete
