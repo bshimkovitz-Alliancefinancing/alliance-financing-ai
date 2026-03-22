@@ -908,6 +908,10 @@
                 <span class="nav-icon">🛠</span>
                 <span>Info & Quoting Tools</span>
             </div>
+            <div class="nav-item" id="vendorResourcesNav" onclick="showPage('vendorResources')" style="display: none;">
+                <span class="nav-icon">📦</span>
+                <span>Vendor Resources</span>
+            </div>
             <div class="nav-item" id="resourcesNav" onclick="showPage('resources')" style="display: none;">
                 <span class="nav-icon">📚</span>
                 <span>Admin Resources</span>
@@ -2849,6 +2853,134 @@
     </div>
 </div>
 
+<!-- Vendor Resources Admin Page -->
+<div id="vendorResources" class="page-section" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div>
+            <h2 style="margin:0;font-size:20px;font-weight:600;color:var(--navy);">Vendor Resources Manager</h2>
+            <p style="font-size:13px;color:var(--text-light);margin-top:4px;">Manage promotions, programs, FAQs, and tips shown on vendor Info & Quoting Tools pages</p>
+        </div>
+        <button class="btn btn-gold" onclick="openVendorResourceModal()" style="padding:8px 20px;font-weight:600;">+ Add Resource</button>
+    </div>
+
+    <!-- Filters -->
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+        <select id="vrFilterVendor" onchange="loadVendorResources()" style="padding:8px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:13px;">
+            <option value="">All Vendors + Universal</option>
+            <option value="universal">Universal Only</option>
+        </select>
+        <select id="vrFilterCategory" onchange="loadVendorResources()" style="padding:8px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:13px;">
+            <option value="">All Categories</option>
+            <option value="program">Programs</option>
+            <option value="promotion">Promotions</option>
+            <option value="faq">FAQs</option>
+            <option value="tip">Sales Tips</option>
+            <option value="rate_card">Rate Cards</option>
+        </select>
+        <select id="vrFilterStatus" onchange="loadVendorResources()" style="padding:8px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:13px;">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="all">All</option>
+        </select>
+    </div>
+
+    <!-- Resources Table -->
+    <div style="background:white;border:1px solid var(--border-gray);border-radius:12px;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:#F8FAFC;">
+                    <th style="padding:12px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--text-light);font-weight:600;">TITLE</th>
+                    <th style="padding:12px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--text-light);font-weight:600;">CATEGORY</th>
+                    <th style="padding:12px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--text-light);font-weight:600;">VENDOR</th>
+                    <th style="padding:12px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--text-light);font-weight:600;">STATUS</th>
+                    <th style="padding:12px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--text-light);font-weight:600;">VALID</th>
+                    <th style="padding:12px;text-align:center;font-size:11px;text-transform:uppercase;color:var(--text-light);font-weight:600;">ORDER</th>
+                    <th style="padding:12px;text-align:center;font-size:11px;text-transform:uppercase;color:var(--text-light);font-weight:600;">ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody id="vrTableBody">
+                <tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-light);">Loading resources...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Vendor Resource Add/Edit Modal -->
+<div id="vrModal" class="modal" style="z-index:1100;">
+    <div class="modal-content" style="max-width:600px;">
+        <div class="modal-header">
+            <h2 id="vrModalTitle">Add Resource</h2>
+            <button class="modal-close" onclick="closeVendorResourceModal()">✕</button>
+        </div>
+        <div class="modal-body" style="padding:20px;">
+            <input type="hidden" id="vrEditId">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div>
+                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Category <span style="color:#EF4444;">*</span></label>
+                    <select id="vrCategory" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                        <option value="program">Program</option>
+                        <option value="promotion">Promotion</option>
+                        <option value="faq">FAQ</option>
+                        <option value="tip">Sales Tip</option>
+                        <option value="rate_card">Rate Card</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Vendor</label>
+                    <select id="vrVendor" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                        <option value="">Universal (All Vendors)</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Title <span style="color:#EF4444;">*</span></label>
+                <input type="text" id="vrTitle" placeholder="e.g. 90-Day Deferred Payment" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Content <span style="color:#EF4444;">*</span></label>
+                <textarea id="vrContent" rows="4" placeholder="Description or answer text..." style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;resize:vertical;"></textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div>
+                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Style / Color</label>
+                    <select id="vrStyle" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                        <option value="default">Default</option>
+                        <option value="gold">Gold</option>
+                        <option value="blue">Blue</option>
+                        <option value="green">Green</option>
+                        <option value="purple">Purple</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Sort Order</label>
+                    <input type="number" id="vrSortOrder" value="0" min="0" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                </div>
+                <div>
+                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Active</label>
+                    <select id="vrIsActive" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div>
+                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Valid From</label>
+                    <input type="date" id="vrValidFrom" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                    <p style="font-size:11px;color:#94A3B8;margin-top:2px;">Leave blank for no start restriction</p>
+                </div>
+                <div>
+                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Valid Until</label>
+                    <input type="date" id="vrValidUntil" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                    <p style="font-size:11px;color:#94A3B8;margin-top:2px;">Leave blank for no expiry</p>
+                </div>
+            </div>
+            <div id="vrSaveStatus" style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:13px;text-align:center;"></div>
+            <button class="btn btn-gold" onclick="saveVendorResource()" style="width:100%;padding:12px;font-weight:600;font-size:14px;">Save Resource</button>
+        </div>
+    </div>
+</div>
+
 <!-- Team Member Management Modal -->
 <div id="teamMemberModal" class="modal" style="z-index: 1100;">
     <div class="modal-content" style="max-width: 500px;">
@@ -4612,7 +4744,7 @@
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
             } else {
                 // ISO/other agent views
-                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Inbox', 'Alliance Financing', 'Team', 'Admin Resources', 'Info & Quoting Tools', 'Documents'];
+                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Inbox', 'Alliance Financing', 'Team', 'Admin Resources', 'Vendor Resources', 'Documents'];
 
                 if (adminOnly.includes(label)) {
                     item.style.display = 'none';
@@ -4643,10 +4775,17 @@
             myReferralsNav.style.display = isAgentForReferrals ? 'flex' : 'none';
         }
 
-        // Show vendor nav items ONLY for vendor users (never for admin)
+        // Show Info & Quoting Tools for vendor users and ISO agents (view-only)
         var vendorToolsNav = document.getElementById('vendorToolsNav');
         if (vendorToolsNav) {
-            vendorToolsNav.style.display = (isVendor && !isAdmin) ? 'flex' : 'none';
+            var showTools = (isVendor && !isAdmin) || (!isAdmin && currentAgentType === 'super_agent');
+            vendorToolsNav.style.display = showTools ? 'flex' : 'none';
+        }
+
+        // Show Vendor Resources Manager for super admins only
+        var vendorResourcesNav = document.getElementById('vendorResourcesNav');
+        if (vendorResourcesNav) {
+            vendorResourcesNav.style.display = isAdmin ? 'flex' : 'none';
         }
 
         // Hide lender column from agents in pipeline table
@@ -10803,6 +10942,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'team': 'Team Members',
             'vendorPortal': 'Dashboard',
             'vendorTools': 'Information & Quoting Tools',
+            'vendorResources': 'Vendor Resources Manager',
             'resources': 'Admin Resources',
             'statsReports': 'Stats & Reports',
             'help': 'Help & Resources'
@@ -13546,6 +13686,301 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // ============================================
+    // Vendor Resources Admin Management
+    // ============================================
+    var _vrVendorListLoaded = false;
+
+    async function loadVendorResources() {
+        var tbody = document.getElementById('vrTableBody');
+        if (!tbody) return;
+
+        // Populate vendor filter dropdown on first load
+        if (!_vrVendorListLoaded) {
+            try {
+                var { data: vendors } = await db.from('vendors').select('id, name').order('name');
+                var filterSelect = document.getElementById('vrFilterVendor');
+                var modalSelect = document.getElementById('vrVendor');
+                if (vendors) {
+                    vendors.forEach(function(v) {
+                        var opt1 = document.createElement('option');
+                        opt1.value = v.id;
+                        opt1.textContent = v.name;
+                        filterSelect.appendChild(opt1);
+                        var opt2 = document.createElement('option');
+                        opt2.value = v.id;
+                        opt2.textContent = v.name;
+                        modalSelect.appendChild(opt2);
+                    });
+                }
+                _vrVendorListLoaded = true;
+            } catch(e) { console.error('Error loading vendor list:', e); }
+        }
+
+        var vendorFilter = document.getElementById('vrFilterVendor').value;
+        var categoryFilter = document.getElementById('vrFilterCategory').value;
+        var statusFilter = document.getElementById('vrFilterStatus').value;
+
+        try {
+            var query = db.from('vendor_resources').select('*, vendors(name)').order('category').order('sort_order');
+
+            if (vendorFilter === 'universal') {
+                query = query.is('vendor_id', null);
+            } else if (vendorFilter) {
+                query = query.eq('vendor_id', vendorFilter);
+            }
+            if (categoryFilter) query = query.eq('category', categoryFilter);
+            if (statusFilter === 'active') query = query.eq('is_active', true);
+            else if (statusFilter === 'inactive') query = query.eq('is_active', false);
+
+            var { data: resources, error } = await query;
+            if (error) throw error;
+
+            if (!resources || resources.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-light);">No resources found. Click "+ Add Resource" to create one.</td></tr>';
+                return;
+            }
+
+            var categoryLabels = { program: 'Program', promotion: 'Promotion', faq: 'FAQ', tip: 'Sales Tip', rate_card: 'Rate Card' };
+            var categoryColors = { program: '#C9A84C', promotion: '#F59E0B', faq: '#3B82F6', tip: '#10B981', rate_card: '#8B5CF6' };
+
+            tbody.innerHTML = resources.map(function(r) {
+                var catLabel = categoryLabels[r.category] || r.category;
+                var catColor = categoryColors[r.category] || '#6B7280';
+                var vendorName = r.vendor_id ? (r.vendors ? r.vendors.name : 'Unknown') : 'Universal';
+                var statusBg = r.is_active ? '#D1FAE5' : '#F3F4F6';
+                var statusColor = r.is_active ? '#065F46' : '#6B7280';
+                var statusLabel = r.is_active ? 'Active' : 'Inactive';
+                var validStr = '';
+                if (r.valid_from || r.valid_until) {
+                    validStr = (r.valid_from || '...') + ' → ' + (r.valid_until || '...');
+                } else {
+                    validStr = 'Always';
+                }
+                return '<tr style="border-bottom:1px solid var(--border-gray);">' +
+                    '<td style="padding:12px;font-size:13px;font-weight:500;max-width:200px;">' + r.title + '<div style="font-size:11px;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:250px;">' + (r.content || '').substring(0, 80) + '</div></td>' +
+                    '<td style="padding:12px;"><span style="background:' + catColor + '22;color:' + catColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + catLabel + '</span></td>' +
+                    '<td style="padding:12px;font-size:13px;">' + vendorName + '</td>' +
+                    '<td style="padding:12px;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + statusLabel + '</span></td>' +
+                    '<td style="padding:12px;font-size:12px;color:var(--text-light);">' + validStr + '</td>' +
+                    '<td style="padding:12px;text-align:center;font-size:13px;">' + (r.sort_order || 0) + '</td>' +
+                    '<td style="padding:12px;text-align:center;">' +
+                    '<button class="btn btn-secondary btn-sm" onclick="editVendorResource(\'' + r.id + '\')" style="padding:4px 10px;font-size:11px;margin-right:4px;">Edit</button>' +
+                    '<button class="btn btn-sm" onclick="toggleVendorResource(\'' + r.id + '\',' + !r.is_active + ')" style="padding:4px 10px;font-size:11px;background:' + (r.is_active ? '#FEE2E2' : '#D1FAE5') + ';color:' + (r.is_active ? '#991B1B' : '#065F46') + ';border:none;">' + (r.is_active ? 'Deactivate' : 'Activate') + '</button>' +
+                    '</td></tr>';
+            }).join('');
+
+        } catch (err) {
+            console.error('Load vendor resources error:', err);
+            tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--danger);">Error: ' + err.message + '</td></tr>';
+        }
+    }
+
+    function openVendorResourceModal(editData) {
+        document.getElementById('vrEditId').value = editData ? editData.id : '';
+        document.getElementById('vrModalTitle').textContent = editData ? 'Edit Resource' : 'Add Resource';
+        document.getElementById('vrCategory').value = editData ? editData.category : 'program';
+        document.getElementById('vrVendor').value = editData ? (editData.vendor_id || '') : '';
+        document.getElementById('vrTitle').value = editData ? editData.title : '';
+        document.getElementById('vrContent').value = editData ? editData.content : '';
+        document.getElementById('vrStyle').value = editData ? (editData.style || 'default') : 'default';
+        document.getElementById('vrSortOrder').value = editData ? (editData.sort_order || 0) : 0;
+        document.getElementById('vrIsActive').value = editData ? String(editData.is_active) : 'true';
+        document.getElementById('vrValidFrom').value = editData ? (editData.valid_from || '') : '';
+        document.getElementById('vrValidUntil').value = editData ? (editData.valid_until || '') : '';
+        document.getElementById('vrSaveStatus').style.display = 'none';
+        document.getElementById('vrModal').classList.add('active');
+    }
+
+    function closeVendorResourceModal() {
+        document.getElementById('vrModal').classList.remove('active');
+    }
+
+    async function editVendorResource(resourceId) {
+        try {
+            var { data, error } = await db.from('vendor_resources').select('*').eq('id', resourceId).single();
+            if (error) throw error;
+            openVendorResourceModal(data);
+        } catch (err) {
+            alert('Error loading resource: ' + err.message);
+        }
+    }
+
+    async function toggleVendorResource(resourceId, newActive) {
+        try {
+            var { error } = await db.from('vendor_resources').update({ is_active: newActive, updated_at: new Date().toISOString() }).eq('id', resourceId);
+            if (error) throw error;
+            await loadVendorResources();
+        } catch (err) {
+            alert('Error updating resource: ' + err.message);
+        }
+    }
+
+    async function saveVendorResource() {
+        var title = document.getElementById('vrTitle').value.trim();
+        var content = document.getElementById('vrContent').value.trim();
+        var statusDiv = document.getElementById('vrSaveStatus');
+
+        if (!title) { alert('Title is required.'); return; }
+        if (!content) { alert('Content is required.'); return; }
+
+        var record = {
+            category: document.getElementById('vrCategory').value,
+            vendor_id: document.getElementById('vrVendor').value || null,
+            title: title,
+            content: content,
+            style: document.getElementById('vrStyle').value,
+            sort_order: parseInt(document.getElementById('vrSortOrder').value) || 0,
+            is_active: document.getElementById('vrIsActive').value === 'true',
+            valid_from: document.getElementById('vrValidFrom').value || null,
+            valid_until: document.getElementById('vrValidUntil').value || null,
+            updated_at: new Date().toISOString()
+        };
+
+        var editId = document.getElementById('vrEditId').value;
+
+        try {
+            if (editId) {
+                var { error } = await db.from('vendor_resources').update(record).eq('id', editId);
+                if (error) throw error;
+            } else {
+                record.created_at = new Date().toISOString();
+                var { error } = await db.from('vendor_resources').insert([record]);
+                if (error) throw error;
+            }
+
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#D1FAE5';
+            statusDiv.style.color = '#065F46';
+            statusDiv.textContent = editId ? 'Resource updated!' : 'Resource created!';
+
+            setTimeout(function() {
+                closeVendorResourceModal();
+                loadVendorResources();
+            }, 800);
+        } catch (err) {
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#FEE2E2';
+            statusDiv.style.color = '#991B1B';
+            statusDiv.textContent = 'Error: ' + err.message;
+        }
+    }
+
+    // ============================================
+    // Updated loadVendorTools — pulls from database
+    // ============================================
+    async function loadVendorTools() {
+        try {
+            // Get vendor ID for this user
+            var vendorId = null;
+            var vendorName = '';
+            var { data: contactData } = await db.from('vendor_contacts').select('vendor_id').eq('email', currentUser?.email || '').limit(1);
+            if (contactData && contactData.length > 0) {
+                vendorId = contactData[0].vendor_id;
+                var { data: vendor } = await db.from('vendors').select('name').eq('id', vendorId).single();
+                if (vendor) vendorName = vendor.name;
+            }
+
+            // For ISO users, vendorId stays null — they see all resources
+            var isISO = currentAgentType === 'super_agent';
+
+            document.getElementById('vendorToolsSubtitle').textContent = vendorName
+                ? 'Resources for ' + vendorName + ' — sell more, close faster'
+                : isISO ? 'View leasing resources across all vendor programs' : 'Resources to help you sell more effectively';
+
+            // Fetch resources from database
+            var query = db.from('vendor_resources').select('*').eq('is_active', true).order('sort_order');
+
+            if (vendorId && !isISO) {
+                // Vendor user: get their vendor-specific + universal
+                query = db.from('vendor_resources').select('*').eq('is_active', true)
+                    .or('vendor_id.is.null,vendor_id.eq.' + vendorId)
+                    .order('sort_order');
+            }
+
+            var { data: resources, error } = await query;
+
+            if (error) {
+                console.error('Error loading vendor tools resources:', error);
+                // Fall back to static content (already in HTML)
+                return;
+            }
+
+            if (!resources || resources.length === 0) {
+                // Keep static HTML as fallback
+                return;
+            }
+
+            // Group by category
+            var programs = resources.filter(function(r) { return r.category === 'program'; });
+            var promotions = resources.filter(function(r) { return r.category === 'promotion'; });
+            var faqs = resources.filter(function(r) { return r.category === 'faq'; });
+            var tips = resources.filter(function(r) { return r.category === 'tip'; });
+
+            var styleColors = {
+                'gold': { border: '#C9A84C', bg: 'linear-gradient(135deg,#FEF3C7,#FDE68A)', borderSolid: '#F59E0B', color: '#92400E' },
+                'blue': { border: '#3B82F6', bg: '#EFF6FF', borderSolid: '#93C5FD', color: '#1E40AF' },
+                'green': { border: '#10B981', bg: '#F0FDF4', borderSolid: '#86EFAC', color: '#065F46' },
+                'purple': { border: '#8B5CF6', bg: '#F5F3FF', borderSolid: '#C4B5FD', color: '#5B21B6' },
+                'default': { border: '#CBD5E1', bg: '#F8FAFC', borderSolid: '#E2E8F0', color: '#334155' }
+            };
+
+            // Render programs
+            if (programs.length > 0) {
+                var programsEl = document.getElementById('vendorToolsPrograms');
+                if (programsEl) {
+                    programsEl.innerHTML = programs.map(function(p) {
+                        var sc = styleColors[p.style] || styleColors['default'];
+                        return '<div style="margin-bottom:14px;padding:12px;background:#F8FAFC;border-radius:8px;border-left:3px solid ' + sc.border + ';">' +
+                            '<div style="font-weight:600;font-size:13px;color:var(--navy);">' + p.title + '</div>' +
+                            '<div style="font-size:12px;color:var(--text-light);margin-top:2px;">' + p.content + '</div></div>';
+                    }).join('');
+                }
+            }
+
+            // Render promotions
+            if (promotions.length > 0) {
+                var promosEl = document.getElementById('vendorToolsPromos');
+                if (promosEl) {
+                    promosEl.innerHTML = promotions.map(function(p) {
+                        var sc = styleColors[p.style] || styleColors['gold'];
+                        return '<div style="margin-bottom:14px;padding:16px;background:' + sc.bg + ';border-radius:8px;border:1px solid ' + sc.borderSolid + ';">' +
+                            '<div style="font-weight:700;font-size:14px;color:' + sc.color + ';">' + p.title + '</div>' +
+                            '<div style="font-size:12px;color:' + sc.color + ';margin-top:4px;">' + p.content + '</div></div>';
+                    }).join('');
+                }
+            }
+
+            // Render FAQs
+            if (faqs.length > 0) {
+                var faqEl = document.getElementById('vendorToolsFAQ');
+                if (faqEl) {
+                    faqEl.innerHTML = faqs.map(function(f) {
+                        return '<details style="margin-bottom:10px;padding:12px;background:#F8FAFC;border-radius:8px;cursor:pointer;">' +
+                            '<summary style="font-weight:600;font-size:13px;color:var(--navy);">' + f.title + '</summary>' +
+                            '<p style="font-size:12px;color:var(--text-light);margin:8px 0 0;line-height:1.5;">' + f.content + '</p></details>';
+                    }).join('');
+                }
+            }
+
+            // Render tips
+            if (tips.length > 0) {
+                var tipsEl = document.getElementById('vendorToolsTraining');
+                if (tipsEl) {
+                    tipsEl.innerHTML = tips.map(function(t) {
+                        return '<div style="margin-bottom:14px;padding:14px;background:#F8FAFC;border-radius:8px;">' +
+                            '<div style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:4px;">💡 ' + t.title + '</div>' +
+                            '<div style="font-size:12px;color:var(--text-light);line-height:1.5;">' + t.content + '</div></div>';
+                    }).join('');
+                }
+            }
+
+        } catch (err) {
+            console.error('Error in loadVendorTools:', err);
+            // Static HTML fallback remains visible
+        }
+    }
+
     async function loadHelpPage() {
         var container = document.getElementById('helpContainer');
         var roleLabel = document.getElementById('helpRoleLabel');
@@ -14568,6 +15003,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 break;
             case 'vendorTools':
                 await loadVendorTools();
+                break;
+            case 'vendorResources':
+                await loadVendorResources();
                 break;
             case 'resources':
                 await loadResourcesPage();
