@@ -2955,6 +2955,16 @@
                 <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Content <span style="color:#EF4444;">*</span></label>
                 <textarea id="vrContent" rows="4" placeholder="Description or answer text..." style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;resize:vertical;"></textarea>
             </div>
+            <!-- File Upload -->
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">File / Attachment</label>
+                <div id="vrFileDisplay" style="display:none;margin-bottom:8px;padding:10px 12px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:6px;font-size:13px;display:flex;align-items:center;justify-content:space-between;">
+                    <span id="vrFileCurrentName" style="color:#065F46;font-weight:500;"></span>
+                    <button type="button" onclick="removeVrFile()" style="background:#FEE2E2;color:#991B1B;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;">Remove</button>
+                </div>
+                <input type="file" id="vrFileInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.xlsx,.docx,.pptx" style="width:100%;padding:8px;border:1px dashed var(--border-gray);border-radius:6px;font-size:13px;background:#F8FAFC;cursor:pointer;">
+                <p style="font-size:11px;color:#94A3B8;margin-top:4px;">Upload PDF, images, Word, Excel, or PowerPoint files (max 10MB)</p>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                 <div>
                     <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Style / Color</label>
@@ -4417,7 +4427,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-22-v53';
+    const DASHBOARD_VERSION = '2026-03-22-v54';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -13741,8 +13751,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (vendorFilter === 'universal') {
                 resources = (resources || []).filter(function(r) { return !r.vendor_ids || r.vendor_ids.length === 0; });
             } else if (vendorFilter) {
+                // Show vendor-specific AND universal resources (what the vendor actually sees)
                 resources = (resources || []).filter(function(r) {
-                    return r.vendor_ids && r.vendor_ids.indexOf(vendorFilter) !== -1;
+                    return (!r.vendor_ids || r.vendor_ids.length === 0) || (r.vendor_ids.indexOf(vendorFilter) !== -1);
                 });
             }
 
@@ -13774,8 +13785,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var statusLabel = r.is_active ? 'Active' : 'Inactive';
                 var validStr = (r.valid_from || r.valid_until) ? ((r.valid_from || '...') + ' → ' + (r.valid_until || '...')) : 'Always';
 
+                var fileIcon = r.file_url ? '<span title="' + (r.file_name || 'Attachment') + '" style="display:inline-block;margin-left:6px;background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;vertical-align:middle;cursor:pointer;" onclick="window.open(\'' + r.file_url + '\',\'_blank\')">📎 File</span>' : '';
+
                 return '<tr style="border-bottom:1px solid var(--border-gray);">' +
-                    '<td style="padding:12px;font-size:13px;font-weight:500;max-width:200px;">' + r.title + '<div style="font-size:11px;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:250px;">' + (r.content || '').substring(0, 80) + '</div></td>' +
+                    '<td style="padding:12px;font-size:13px;font-weight:500;max-width:200px;">' + r.title + fileIcon + '<div style="font-size:11px;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:250px;">' + (r.content || '').substring(0, 80) + '</div></td>' +
                     '<td style="padding:12px;"><span style="background:' + catColor + '22;color:' + catColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + catLabel + '</span></td>' +
                     '<td style="padding:12px;font-size:12px;">' + vendorDisplay + '</td>' +
                     '<td style="padding:12px;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + statusLabel + '</span></td>' +
@@ -13823,6 +13836,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             cb.checked = hasVendors && editData.vendor_ids.indexOf(cb.value) !== -1;
         });
 
+        // Set file display
+        _vrRemoveFile = false;
+        document.getElementById('vrFileInput').value = '';
+        if (editData && editData.file_url && editData.file_name) {
+            document.getElementById('vrFileDisplay').style.display = 'flex';
+            document.getElementById('vrFileCurrentName').textContent = editData.file_name;
+        } else {
+            document.getElementById('vrFileDisplay').style.display = 'none';
+            document.getElementById('vrFileCurrentName').textContent = '';
+        }
+
         document.getElementById('vrModal').classList.add('active');
     }
 
@@ -13850,6 +13874,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // Remove file from resource modal
+    var _vrRemoveFile = false;
+    function removeVrFile() {
+        _vrRemoveFile = true;
+        document.getElementById('vrFileDisplay').style.display = 'none';
+        document.getElementById('vrFileInput').value = '';
+    }
+
     async function saveVendorResource() {
         var title = document.getElementById('vrTitle').value.trim();
         var content = document.getElementById('vrContent').value.trim();
@@ -13871,6 +13903,46 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
         }
 
+        // Handle file upload
+        var fileInput = document.getElementById('vrFileInput');
+        var file = fileInput.files && fileInput.files[0];
+        var fileUrl = null;
+        var fileName = null;
+        var fileType = null;
+
+        if (file) {
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File size must be under 10MB.');
+                return;
+            }
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#DBEAFE';
+            statusDiv.style.color = '#1E40AF';
+            statusDiv.textContent = 'Uploading file...';
+
+            var timestamp = Date.now();
+            var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            var filePath = 'resources/' + timestamp + '_' + safeName;
+
+            var { data: uploadData, error: uploadError } = await db.storage.from('vendor-resources').upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
+
+            if (uploadError) {
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#FEE2E2';
+                statusDiv.style.color = '#991B1B';
+                statusDiv.textContent = 'File upload error: ' + uploadError.message;
+                return;
+            }
+
+            var { data: urlData } = db.storage.from('vendor-resources').getPublicUrl(filePath);
+            fileUrl = urlData.publicUrl;
+            fileName = file.name;
+            fileType = file.type;
+        }
+
         var record = {
             category: document.getElementById('vrCategory').value,
             vendor_ids: vendorIds,
@@ -13883,6 +13955,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             valid_until: document.getElementById('vrValidUntil').value || null,
             updated_at: new Date().toISOString()
         };
+
+        // Add file fields
+        if (fileUrl) {
+            record.file_url = fileUrl;
+            record.file_name = fileName;
+            record.file_type = fileType;
+        } else if (_vrRemoveFile) {
+            record.file_url = null;
+            record.file_name = null;
+            record.file_type = null;
+        }
 
         var editId = document.getElementById('vrEditId').value;
 
@@ -13969,6 +14052,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 'default': { border: '#CBD5E1', bg: '#F8FAFC', borderSolid: '#E2E8F0', color: '#334155' }
             };
 
+            // Helper: generate download link HTML for file attachments
+            function fileLink(item, linkColor) {
+                if (!item.file_url || !item.file_name) return '';
+                var icon = item.file_type && item.file_type.indexOf('pdf') !== -1 ? '📄' : item.file_type && item.file_type.indexOf('image') !== -1 ? '🖼️' : '📎';
+                return '<div style="margin-top:8px;"><a href="' + item.file_url + '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(255,255,255,0.7);border:1px solid ' + (linkColor || '#CBD5E1') + ';border-radius:6px;font-size:12px;color:' + (linkColor || '#1E40AF') + ';text-decoration:none;font-weight:500;">' + icon + ' ' + item.file_name + '</a></div>';
+            }
+
             // Render programs
             if (programs.length > 0) {
                 var programsEl = document.getElementById('vendorToolsPrograms');
@@ -13977,7 +14067,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         var sc = styleColors[p.style] || styleColors['default'];
                         return '<div style="margin-bottom:14px;padding:12px;background:#F8FAFC;border-radius:8px;border-left:3px solid ' + sc.border + ';">' +
                             '<div style="font-weight:600;font-size:13px;color:var(--navy);">' + p.title + '</div>' +
-                            '<div style="font-size:12px;color:var(--text-light);margin-top:2px;">' + p.content + '</div></div>';
+                            '<div style="font-size:12px;color:var(--text-light);margin-top:2px;">' + p.content + '</div>' +
+                            fileLink(p, sc.border) + '</div>';
                     }).join('');
                 }
             }
@@ -13990,7 +14081,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         var sc = styleColors[p.style] || styleColors['gold'];
                         return '<div style="margin-bottom:14px;padding:16px;background:' + sc.bg + ';border-radius:8px;border:1px solid ' + sc.borderSolid + ';">' +
                             '<div style="font-weight:700;font-size:14px;color:' + sc.color + ';">' + p.title + '</div>' +
-                            '<div style="font-size:12px;color:' + sc.color + ';margin-top:4px;">' + p.content + '</div></div>';
+                            '<div style="font-size:12px;color:' + sc.color + ';margin-top:4px;">' + p.content + '</div>' +
+                            fileLink(p, sc.color) + '</div>';
                     }).join('');
                 }
             }
@@ -14002,7 +14094,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     faqEl.innerHTML = faqs.map(function(f) {
                         return '<details style="margin-bottom:10px;padding:12px;background:#F8FAFC;border-radius:8px;cursor:pointer;">' +
                             '<summary style="font-weight:600;font-size:13px;color:var(--navy);">' + f.title + '</summary>' +
-                            '<p style="font-size:12px;color:var(--text-light);margin:8px 0 0;line-height:1.5;">' + f.content + '</p></details>';
+                            '<p style="font-size:12px;color:var(--text-light);margin:8px 0 0;line-height:1.5;">' + f.content + '</p>' +
+                            fileLink(f) + '</details>';
                     }).join('');
                 }
             }
@@ -14014,7 +14107,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     tipsEl.innerHTML = tips.map(function(t) {
                         return '<div style="margin-bottom:14px;padding:14px;background:#F8FAFC;border-radius:8px;">' +
                             '<div style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:4px;">💡 ' + t.title + '</div>' +
-                            '<div style="font-size:12px;color:var(--text-light);line-height:1.5;">' + t.content + '</div></div>';
+                            '<div style="font-size:12px;color:var(--text-light);line-height:1.5;">' + t.content + '</div>' +
+                            fileLink(t) + '</div>';
                     }).join('');
                 }
             }
