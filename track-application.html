@@ -630,6 +630,18 @@
     }
 
     // ============================================================
+    //  Safe query helper (returns [] on error instead of throwing)
+    // ============================================================
+    async function safeQuery(table, params) {
+        try {
+            return await supaQuery(table, params);
+        } catch (e) {
+            console.warn('Query to ' + table + ' failed:', e.message);
+            return [];
+        }
+    }
+
+    // ============================================================
     //  Lookup by Application ID
     // ============================================================
     async function lookupById(e) {
@@ -643,39 +655,44 @@
         btn.innerHTML = '<span class="spinner"></span> Searching...';
 
         try {
-            // Try matching by application_id in applications table first
             var deals = [];
 
-            // Approach 1: Search applications table for the application_id, then get linked deal
-            var apps = await supaQuery('applications', {
-                'select': 'id,application_id,deal_id,full_name,email,phone,business_name,form_type,form_data,created_at',
-                'or': '(application_id.ilike.*' + rawId + '*)',
+            // Approach 1: Search deals directly by deal_number or afg_number (most reliable)
+            deals = await safeQuery('deals', {
+                'select': 'id,company_name,contact_name,contact_email,contact_phone,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                'or': '(deal_number.ilike.*' + rawId + '*,afg_number.ilike.*' + rawId + '*)',
                 'limit': '5'
             });
 
-            if (apps && apps.length > 0) {
-                // Get linked deals
-                var dealIds = apps.filter(function(a) { return a.deal_id; }).map(function(a) { return a.deal_id; });
-                if (dealIds.length > 0) {
-                    deals = await supaQuery('deals', {
-                        'select': '*,applications(application_id,full_name,email,phone,business_name,form_type),lenders(name)',
-                        'id': 'in.(' + dealIds.join(',') + ')',
-                        'limit': '5'
-                    });
-                }
+            // Approach 2: If no deals found, try applications table
+            if (deals.length === 0) {
+                var apps = await safeQuery('applications', {
+                    'select': 'id,application_id,deal_id,full_name,email,phone,business_name,form_type,created_at',
+                    'application_id': 'ilike.*' + rawId + '*',
+                    'limit': '5'
+                });
 
-                // If no linked deals, show application-only info
-                if (deals.length === 0) {
-                    showApplicationOnly(apps[0]);
-                    return;
+                if (apps.length > 0) {
+                    var dealIds = apps.filter(function(a) { return a.deal_id; }).map(function(a) { return a.deal_id; });
+                    if (dealIds.length > 0) {
+                        deals = await safeQuery('deals', {
+                            'select': 'id,company_name,contact_name,contact_email,contact_phone,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                            'id': 'in.(' + dealIds.join(',') + ')',
+                            'limit': '5'
+                        });
+                    }
+                    if (deals.length === 0) {
+                        showApplicationOnly(apps[0]);
+                        return;
+                    }
                 }
             }
 
-            // Approach 2: Search deals directly by deal_number or afg_number
+            // Approach 3: Try searching by company name as last resort
             if (deals.length === 0) {
-                deals = await supaQuery('deals', {
-                    'select': '*,applications(application_id,full_name,email,phone,business_name,form_type),lenders(name)',
-                    'or': '(deal_number.ilike.*' + rawId + '*,afg_number.ilike.*' + rawId + '*)',
+                deals = await safeQuery('deals', {
+                    'select': 'id,company_name,contact_name,contact_email,contact_phone,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                    'company_name': 'ilike.*' + rawId + '*',
                     'limit': '5'
                 });
             }
@@ -686,7 +703,11 @@
                 return;
             }
 
-            renderDeal(deals[0]);
+            if (deals.length === 1) {
+                renderDeal(deals[0]);
+            } else {
+                renderMultipleDeals(deals);
+            }
 
         } catch (err) {
             console.error(err);
@@ -714,82 +735,63 @@
         btn.innerHTML = '<span class="spinner"></span> Searching...';
 
         try {
-            // Search applications by email
-            var apps = await supaQuery('applications', {
-                'select': 'id,application_id,deal_id,full_name,email,phone,business_name,form_type,form_data,created_at',
-                'email': 'ilike.' + email,
-                'order': 'created_at.desc',
+            var allDeals = [];
+
+            // Search deals by contact_email
+            var deals = await safeQuery('deals', {
+                'select': 'id,company_name,contact_name,contact_email,contact_phone,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                'contact_email': 'ilike.' + email,
+                'order': 'date_submitted.desc',
                 'limit': '10'
             });
 
             // Filter by last 4 of phone
-            var matched = (apps || []).filter(function(a) {
-                var phone = (a.phone || '').replace(/\D/g, '');
-                return phone.slice(-4) === last4;
+            allDeals = (deals || []).filter(function(d) {
+                var ph = (d.contact_phone || '').replace(/\D/g, '');
+                return ph.slice(-4) === last4;
             });
 
-            if (matched.length === 0) {
-                // Also check deals.contact_email
-                var deals = await supaQuery('deals', {
-                    'select': '*,applications(application_id,full_name,email,phone,business_name,form_type),lenders(name)',
-                    'contact_email': 'ilike.' + email,
-                    'order': 'date_submitted.desc',
+            // Also try applications table
+            if (allDeals.length === 0) {
+                var apps = await safeQuery('applications', {
+                    'select': 'id,application_id,deal_id,full_name,email,phone,business_name,form_type,created_at',
+                    'email': 'ilike.' + email,
+                    'order': 'created_at.desc',
                     'limit': '10'
                 });
 
-                var phoneDealMatch = (deals || []).filter(function(d) {
-                    var ph = (d.contact_phone || '').replace(/\D/g, '');
-                    return ph.slice(-4) === last4;
+                var matched = (apps || []).filter(function(a) {
+                    var phone = (a.phone || '').replace(/\D/g, '');
+                    return phone.slice(-4) === last4;
                 });
 
-                if (phoneDealMatch.length > 0) {
-                    if (phoneDealMatch.length === 1) {
-                        renderDeal(phoneDealMatch[0]);
-                    } else {
-                        renderMultipleDeals(phoneDealMatch);
+                if (matched.length > 0) {
+                    var dealIds = matched.filter(function(a) { return a.deal_id; }).map(function(a) { return a.deal_id; });
+                    if (dealIds.length > 0) {
+                        allDeals = await safeQuery('deals', {
+                            'select': 'id,company_name,contact_name,contact_email,contact_phone,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                            'id': 'in.(' + dealIds.join(',') + ')',
+                            'order': 'date_submitted.desc',
+                            'limit': '10'
+                        });
                     }
-                    return;
+                    if (allDeals.length === 0) {
+                        showApplicationOnly(matched[0]);
+                        return;
+                    }
                 }
+            }
 
+            if (allDeals.length === 0) {
                 showError('No application found matching that email and phone combination. Please check your information and try again.');
                 document.getElementById('resultsSection').style.display = 'none';
                 return;
             }
 
-            // Got matched application(s) - fetch deals
-            if (matched.length === 1 && matched[0].deal_id) {
-                var deals = await supaQuery('deals', {
-                    'select': '*,applications(application_id,full_name,email,phone,business_name,form_type),lenders(name)',
-                    'id': 'eq.' + matched[0].deal_id,
-                    'limit': '1'
-                });
-                if (deals && deals.length > 0) {
-                    renderDeal(deals[0]);
-                } else {
-                    showApplicationOnly(matched[0]);
-                }
-            } else if (matched.length === 1) {
-                showApplicationOnly(matched[0]);
+            if (allDeals.length === 1) {
+                renderDeal(allDeals[0]);
             } else {
-                // Multiple applications - get all deals
-                var dealIds = matched.filter(function(a) { return a.deal_id; }).map(function(a) { return a.deal_id; });
-                if (dealIds.length > 0) {
-                    var deals = await supaQuery('deals', {
-                        'select': '*,applications(application_id,full_name,email,phone,business_name,form_type),lenders(name)',
-                        'id': 'in.(' + dealIds.join(',') + ')',
-                        'order': 'date_submitted.desc',
-                        'limit': '10'
-                    });
-                    if (deals.length === 1) {
-                        renderDeal(deals[0]);
-                    } else if (deals.length > 1) {
-                        renderMultipleDeals(deals);
-                    } else {
-                        showApplicationOnly(matched[0]);
-                    }
-                } else {
-                    showApplicationOnly(matched[0]);
-                }
+                renderMultipleDeals(allDeals);
             }
 
         } catch (err) {
@@ -806,9 +808,8 @@
     //  Render Deal Result
     // ============================================================
     function renderDeal(deal) {
-        var app = deal.applications || {};
-        var appId = (app.application_id || deal.deal_number || deal.afg_number || deal.id.slice(0,8)).toString().toUpperCase();
-        var company = deal.company_name || app.business_name || 'Your Application';
+        var appId = (deal.deal_number || deal.afg_number || deal.id.slice(0,8)).toString().toUpperCase();
+        var company = deal.company_name || 'Your Application';
         var status = deal.status || 'Application Sent';
         var stageIdx = STATUS_MAP[status] !== undefined ? STATUS_MAP[status] : 0;
         var isDeclined = stageIdx === -1;
@@ -816,7 +817,6 @@
         var amount = deal.deal_amount ? formatCurrency(deal.deal_amount, deal.currency || 'USD') : '—';
         var product = deal.product_type || '—';
         var submitted = deal.date_submitted ? formatDate(deal.date_submitted) : (deal.created_at ? formatDate(deal.created_at) : '—');
-        var lender = deal.lenders ? deal.lenders.name : null;
 
         // Status badge class
         var badgeClass = 'active';
