@@ -2668,6 +2668,7 @@
                 <tr style="border-bottom: 2px solid var(--border-gray);">
                     <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Name</th>
                     <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Email</th>
+                    <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Phone</th>
                     <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Role</th>
                     <th style="text-align: left; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Deals Sourced</th>
                     <th style="text-align: center; padding: 12px; font-weight: 600; color: var(--navy); font-size: 13px;">Action</th>
@@ -2675,13 +2676,53 @@
             </thead>
             <tbody id="vendorTeamBody">
                 <tr>
-                    <td colspan="5" style="padding: 40px; text-align: center; color: var(--text-light);">Loading team members...</td>
+                    <td colspan="6" style="padding: 40px; text-align: center; color: var(--text-light);">Loading team members...</td>
                 </tr>
             </tbody>
         </table>
     </div>
             </div>
 
+        </div>
+    </div>
+</div>
+
+<!-- Team Member Management Modal -->
+<div id="teamMemberModal" class="modal" style="z-index: 1100;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h2>Edit Team Member</h2>
+            <button class="modal-close" onclick="closeTeamMemberModal()">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <input type="hidden" id="tmContactId">
+            <div style="margin-bottom: 16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Full Name</label>
+                <input type="text" id="tmName" placeholder="e.g. John Smith" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Email</label>
+                <input type="email" id="tmEmail" placeholder="john@company.com" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;" disabled>
+                <p style="font-size:11px;color:#94A3B8;margin-top:4px;">Email is linked to login and cannot be changed here.</p>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Phone</label>
+                <input type="tel" id="tmPhone" placeholder="(555) 123-4567" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Role / Title</label>
+                <input type="text" id="tmRoleTitle" placeholder="e.g. Sales Manager" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Status</label>
+                <select id="tmStatus" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Left Company">Left Company</option>
+                </select>
+            </div>
+            <div id="tmSaveStatus" style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:13px;text-align:center;"></div>
+            <button class="btn btn-gold" onclick="saveTeamMember()" style="width:100%;padding:12px;font-weight:600;font-size:14px;">Save Changes</button>
         </div>
     </div>
 </div>
@@ -12941,7 +12982,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 // Count deals per salesperson
                 const teamBody = document.getElementById('vendorTeamBody');
                 if (teamMembers.length === 0) {
-                    teamBody.innerHTML = '<tr><td colspan="5" style="padding: 40px; text-align: center; color: var(--text-light);">No team members found</td></tr>';
+                    teamBody.innerHTML = '<tr><td colspan="6" style="padding: 40px; text-align: center; color: var(--text-light);">No team members found</td></tr>';
                 } else {
                     teamBody.innerHTML = teamMembers.map(contact => {
                         var contactDeals = deals.filter(d => d.source_contact_id === contact.id).length;
@@ -12950,10 +12991,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             <tr style="border-bottom: 1px solid var(--border-gray);">
                                 <td style="padding: 12px;">${contact.contact_name || 'N/A'}</td>
                                 <td style="padding: 12px;">${contact.email || 'N/A'}</td>
+                                <td style="padding: 12px;">${contact.phone || '—'}</td>
                                 <td style="padding: 12px;">${roleLabel}</td>
                                 <td style="padding: 12px; text-align: center; font-weight: 600;">${contactDeals}</td>
                                 <td style="padding: 12px; text-align: center;">
-                                    <button class="btn btn-secondary btn-sm" onclick="alert('Team member management coming soon')" style="padding: 4px 12px; font-size: 12px;">Manage</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="openTeamMemberModal('${contact.id}')" style="padding: 4px 12px; font-size: 12px;">Manage</button>
                                 </td>
                             </tr>
                         `;
@@ -12974,6 +13016,72 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     var _vendorPortalVendorId = null; // cached for filter changes
+
+    // Team Member Management
+    async function openTeamMemberModal(contactId) {
+        try {
+            var { data: contact, error } = await db.from('vendor_contacts').select('*').eq('id', contactId).single();
+            if (error || !contact) { alert('Could not load team member details.'); return; }
+
+            document.getElementById('tmContactId').value = contactId;
+            document.getElementById('tmName').value = contact.contact_name || '';
+            document.getElementById('tmEmail').value = contact.email || '';
+            document.getElementById('tmPhone').value = contact.phone || '';
+            document.getElementById('tmRoleTitle').value = contact.role_title || '';
+            document.getElementById('tmStatus').value = contact.status || 'Active';
+            document.getElementById('tmSaveStatus').style.display = 'none';
+            document.getElementById('teamMemberModal').classList.add('active');
+        } catch (err) {
+            alert('Error loading team member: ' + err.message);
+        }
+    }
+
+    function closeTeamMemberModal() {
+        document.getElementById('teamMemberModal').classList.remove('active');
+    }
+
+    async function saveTeamMember() {
+        var contactId = document.getElementById('tmContactId').value;
+        var statusDiv = document.getElementById('tmSaveStatus');
+
+        var updates = {
+            contact_name: document.getElementById('tmName').value.trim(),
+            phone: document.getElementById('tmPhone').value.trim(),
+            role_title: document.getElementById('tmRoleTitle').value.trim(),
+            status: document.getElementById('tmStatus').value
+        };
+
+        if (!updates.contact_name) { alert('Name is required.'); return; }
+
+        try {
+            var { error } = await db.from('vendor_contacts').update(updates).eq('id', contactId);
+            if (error) throw error;
+
+            // Also update the users table phone if this contact has a linked user account
+            var contactEmail = document.getElementById('tmEmail').value.trim();
+            if (contactEmail && updates.phone) {
+                try {
+                    await db.from('users').update({ phone: updates.phone }).eq('email', contactEmail);
+                } catch(e) { /* user may not exist yet */ }
+            }
+
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#D1FAE5';
+            statusDiv.style.color = '#065F46';
+            statusDiv.textContent = 'Team member updated successfully!';
+
+            // Refresh the vendor portal to show updated info
+            setTimeout(function() {
+                closeTeamMemberModal();
+                loadVendorPortal();
+            }, 1000);
+        } catch (err) {
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#FEE2E2';
+            statusDiv.style.color = '#991B1B';
+            statusDiv.textContent = 'Error saving: ' + err.message;
+        }
+    }
 
     async function loadVendorApplicationsSent(vendorId) {
         if (vendorId) _vendorPortalVendorId = vendorId;
