@@ -550,22 +550,25 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
 
     // Helper: Supabase REST API call
-    async function supaQuery(table, params) {
-        // Build URL manually — searchParams.append() over-encodes *, (, ) which breaks PostgREST filters
+    // IMPORTANT: Do NOT use URL.searchParams — it encodes *, (, ) which breaks PostgREST
+    function afApiCall(table, params) {
         var qs = Object.keys(params).map(function(k) {
-            return encodeURIComponent(k) + '=' + params[k];
+            return k + '=' + params[k];
         }).join('&');
         var url = SUPABASE_URL + '/rest/v1/' + table + '?' + qs;
-        const resp = await fetch(url, {
+        return fetch(url, {
             headers: {
                 'apikey': SUPABASE_ANON_KEY,
                 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
                 'Content-Type': 'application/json'
             }
+        }).then(function(resp) {
+            if (!resp.ok) throw new Error('Request failed (' + resp.status + ')');
+            return resp.json();
         });
-        if (!resp.ok) throw new Error('Request failed (' + resp.status + ')');
-        return resp.json();
     }
+    // Keep old name as alias
+    var supaQuery = afApiCall;
 
     // ============================================================
     //  Pipeline Stages (ordered)
@@ -637,7 +640,7 @@
     // ============================================================
     async function safeQuery(table, params) {
         try {
-            return await supaQuery(table, params);
+            return await afApiCall(table, params);
         } catch (e) {
             console.warn('Query to ' + table + ' failed:', e.message);
             return [];
