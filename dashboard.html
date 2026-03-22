@@ -866,6 +866,10 @@
                 <span class="nav-icon">🤝</span>
                 <span>Vendors</span>
             </div>
+            <div class="nav-item" onclick="showPage('clients')">
+                <span class="nav-icon">👥</span>
+                <span>Clients</span>
+            </div>
             <div class="nav-item" id="inboxNav" onclick="showPage('inbox')">
                 <span class="nav-icon">📥</span>
                 <span>Inbox</span>
@@ -1512,6 +1516,65 @@
                             <p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">Loading leads...</p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Clients Page -->
+            <div id="clients" class="page-section">
+                <!-- Client Stats Bar -->
+                <div id="clientStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;"></div>
+
+                <div class="table-container" style="border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                    <!-- Toolbar -->
+                    <div style="padding:16px 20px;background:white;border-bottom:1px solid #E2E8F0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:1;">
+                            <div style="position:relative;flex:1;max-width:320px;">
+                                <input type="text" id="clientSearch" placeholder="Search clients..."
+                                       oninput="filterClients()"
+                                       style="width:100%;padding:8px 12px 8px 34px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;transition:border-color 0.2s;">
+                                <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94A3B8;font-size:14px;">🔍</span>
+                            </div>
+                            <select id="clientStatusFilter" onchange="filterClients()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
+                                <option value="">All Active</option>
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="Prospect">Prospect</option>
+                                <option value="__all">All Clients</option>
+                            </select>
+                            <select id="clientIndustryFilter" onchange="filterClients()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
+                                <option value="">All Industries</option>
+                                <option value="Technology">Technology</option>
+                                <option value="Manufacturing">Manufacturing</option>
+                                <option value="Retail">Retail</option>
+                                <option value="Healthcare">Healthcare</option>
+                                <option value="Finance">Finance</option>
+                                <option value="Education">Education</option>
+                                <option value="Logistics">Logistics</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button onclick="openAddClientModal()" style="padding:8px 14px;background:var(--gold);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;">+ New Client</button>
+                            <button onclick="loadClients()" style="padding:8px 14px;background:white;color:var(--navy);border:1px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;">↻ Refresh</button>
+                        </div>
+                    </div>
+                    <table id="clientsTable" style="border-collapse:separate;border-spacing:0;">
+                        <thead>
+                            <tr style="background:#F8FAFC;">
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Client</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Industry</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Country</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:center;">Deals</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Status</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientsBody">
+                            <tr>
+                                <td colspan="6" class="empty-state">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -4217,6 +4280,101 @@
         </div>
         <div class="modal-footer" style="display:flex;justify-content:flex-end;padding:15px 20px;border-top:1px solid #e2e8f0;">
             <button class="btn btn-gold" onclick="closeVendorDetailModal()" style="padding:8px 24px;font-weight:600;">Save & Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Client Detail Modal -->
+<div id="clientDetailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="clientDetailTitle">Client Details</h2>
+            <button class="modal-close" onclick="closeClientDetailModal()">✕</button>
+        </div>
+        <div class="modal-body" id="clientModalBody">
+        </div>
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;padding:15px 20px;border-top:1px solid #e2e8f0;">
+            <button class="btn btn-gold" onclick="closeClientDetailModal()" style="padding:8px 24px;font-weight:600;">Save & Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Client Modal -->
+<div id="addClientModal" class="modal">
+    <div class="modal-content" style="max-width:600px;">
+        <div class="modal-header">
+            <h2>Add New Client</h2>
+            <button class="modal-close" onclick="document.getElementById('addClientModal').classList.remove('active')">✕</button>
+        </div>
+        <div class="modal-body" style="padding:20px;">
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Company Name <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="addClientName" placeholder="Enter company name" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Legal Name</label>
+                    <input type="text" id="addClientLegalName" placeholder="Legal business name" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Industry</label>
+                    <select id="addClientIndustry" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                        <option value="">Select Industry</option>
+                        <option value="Technology">Technology</option>
+                        <option value="Manufacturing">Manufacturing</option>
+                        <option value="Retail">Retail</option>
+                        <option value="Healthcare">Healthcare</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Education">Education</option>
+                        <option value="Logistics">Logistics</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="modal-field">
+                    <label>Business Type</label>
+                    <select id="addClientBusinessType" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                        <option value="">Select Type</option>
+                        <option value="Sole Proprietor">Sole Proprietor</option>
+                        <option value="Partnership">Partnership</option>
+                        <option value="Corporation">Corporation</option>
+                        <option value="LLC">LLC</option>
+                        <option value="Non-Profit">Non-Profit</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Country</label>
+                    <input type="text" id="addClientCountry" placeholder="Country" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                </div>
+                <div class="modal-field">
+                    <label>Status</label>
+                    <select id="addClientStatus" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Prospect">Prospect</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Phone</label>
+                    <input type="text" id="addClientPhone" placeholder="Phone number" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                </div>
+                <div class="modal-field">
+                    <label>Website</label>
+                    <input type="text" id="addClientWebsite" placeholder="www.example.com" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding:15px 20px;border-top:1px solid #e2e8f0;">
+            <button class="btn btn-secondary" onclick="document.getElementById('addClientModal').classList.remove('active')" style="padding:8px 24px;">Cancel</button>
+            <button class="btn btn-gold" onclick="handleAddClient()" style="padding:8px 24px;">Create Client</button>
         </div>
     </div>
 </div>
@@ -11122,6 +11280,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'agents': 'Agents & Partners',
             'lenders': 'Lenders',
             'vendors': 'Vendors',
+            'clients': 'Clients',
             'inbox': 'Inbox',
             'documents': 'Document Center',
             'alliance': 'Alliance Financing Group',
@@ -15275,6 +15434,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             case 'vendors':
                 await loadVendors();
                 loadVendorInquiryLeads();
+                break;
+            case 'clients':
+                await loadClients();
                 break;
             case 'inbox':
                 await loadInboxPage();
@@ -25411,6 +25573,599 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // ============================================
+    // Clients Management
+    // ============================================
+
+    var allClients = [];
+    var cachedClientContacts = [];
+
+    async function loadClients() {
+        try {
+            // Ensure agents are cached for source agent lookup
+            if (cachedAgents.length === 0) {
+                const { data: agts } = await db.from('users').select('id, full_name').eq('role', 'agent');
+                cachedAgents = agts || [];
+            }
+            // Fetch all client contacts
+            const { data: ccData } = await db.from('client_contact_persons').select('id, client_id, contact_name, status');
+            cachedClientContacts = ccData || [];
+
+            const { data, error } = await db
+                .from('clients')
+                .select('*')
+                .order('company_name', { ascending: true });
+
+            if (error) throw error;
+
+            allClients = data || [];
+            filterClients();
+        } catch (error) {
+            console.error('Load clients error:', error);
+        }
+    }
+
+    function renderClientsTable(data) {
+        const tbody = document.getElementById('clientsBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px 20px;color:#94A3B8;font-size:14px;">No clients found.</td></tr>';
+            return;
+        }
+
+        const statusStyles = {
+            'Active': { bg: '#DCFCE7', color: '#166534', icon: '●' },
+            'Prospect': { bg: '#DBEAFE', color: '#1E40AF', icon: '●' },
+            'Inactive': { bg: '#FEE2E2', color: '#991B1B', icon: '●' }
+        };
+
+        tbody.innerHTML = data.map(client => {
+            const agentName = client.source_agent_id && cachedAgents.length > 0
+                ? (cachedAgents.find(a => a.id === client.source_agent_id) || {}).full_name || ''
+                : '';
+            const contactCount = cachedClientContacts.filter(cc => cc.client_id === client.id && cc.status !== 'Left Company').length;
+            const dealCount = client.deals_count || 0;
+            const st = statusStyles[client.status] || statusStyles['Active'];
+
+            return `
+            <tr style="border-bottom:1px solid #F1F5F9;transition:background 0.15s;cursor:pointer;" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='white'" onclick="viewClient('${client.id}')">
+                <td style="padding:12px 14px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#0D1E3D,#1E3A5F);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0;">${(client.company_name || '?').substring(0, 2).toUpperCase()}</div>
+                        <div>
+                            <div style="font-weight:600;color:var(--navy);font-size:14px;">${client.company_name || 'N/A'}</div>
+                            <div style="font-size:12px;color:#94A3B8;margin-top:2px;">${client.legal_name || ''}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="padding:12px 14px;font-size:13px;color:#475569;">${client.industry || '<span style="color:#CBD5E1;">—</span>'}</td>
+                <td style="padding:12px 14px;font-size:13px;color:#475569;">${client.country || '<span style="color:#CBD5E1;">—</span>'}</td>
+                <td style="padding:12px 14px;text-align:center;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:${dealCount > 0 ? '#EFF6FF' : '#F8FAFC'};color:${dealCount > 0 ? '#3B82F6' : '#CBD5E1'};font-weight:700;font-size:13px;">${dealCount}</span>
+                </td>
+                <td style="padding:12px 14px;" onclick="event.stopPropagation()">
+                    <select onchange="updateClientStatus('${client.id}', this.value)" style="padding:5px 8px;border-radius:6px;border:1px solid ${st.bg};background:${st.bg};color:${st.color};font-size:12px;font-weight:600;cursor:pointer;">
+                        ${'Active,Inactive,Prospect'.split(',').map(s => '<option value="' + s + '"' + ((client.status || 'Active') === s ? ' selected' : '') + '>' + s + '</option>').join('')}
+                    </select>
+                </td>
+                <td style="padding:12px 14px;text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
+                    <button onclick="viewClient('${client.id}')" style="padding:6px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">View</button>
+                </td>
+            </tr>
+        `;
+        }).join('');
+
+        // Render stats bar
+        renderClientStats();
+    }
+
+    function renderClientStats() {
+        const bar = document.getElementById('clientStatsBar');
+        if (!bar) return;
+        const total = allClients.length;
+        const active = allClients.filter(c => c.status === 'Active').length;
+        const prospect = allClients.filter(c => c.status === 'Prospect').length;
+        const thisMonth = allClients.filter(c => {
+            const created = new Date(c.created_at);
+            const now = new Date();
+            return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+        }).length;
+
+        const statCard = (label, count, color, bgColor, filterVal) =>
+            '<div onclick="document.getElementById(\'clientStatusFilter\').value=\'' + filterVal + '\';filterClients();" style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;cursor:pointer;transition:box-shadow 0.2s,border-color 0.2s;" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\';this.style.borderColor=\'' + color + '\'" onmouseout="this.style.boxShadow=\'none\';this.style.borderColor=\'#E2E8F0\'">' +
+            '<div style="font-size:24px;font-weight:700;color:' + color + ';">' + count + '</div>' +
+            '<div style="font-size:12px;color:#64748B;font-weight:500;margin-top:2px;">' + label + '</div></div>';
+
+        bar.innerHTML =
+            statCard('Total', total, 'var(--navy)', '', '') +
+            statCard('Active', active, '#16A34A', '#F0FDF4', 'Active') +
+            statCard('Prospect', prospect, '#2563EB', '#EFF6FF', 'Prospect') +
+            statCard('This Month', thisMonth, '#D97706', '#FFFBEB', '');
+    }
+
+    function filterClients() {
+        const search = document.getElementById('clientSearch').value.toLowerCase();
+        const statusFilter = document.getElementById('clientStatusFilter').value;
+        const industryFilter = document.getElementById('clientIndustryFilter').value;
+
+        let filtered = allClients.filter(client => {
+            const matchesSearch = !search ||
+                (client.company_name || '').toLowerCase().includes(search) ||
+                (client.legal_name || '').toLowerCase().includes(search) ||
+                (client.industry || '').toLowerCase().includes(search) ||
+                (client.country || '').toLowerCase().includes(search) ||
+                (client.phone || '').toLowerCase().includes(search);
+            const matchesStatus = !statusFilter || (statusFilter === '__all' ? true : (client.status || 'Active') === statusFilter);
+            const matchesIndustry = !industryFilter || (client.industry || '') === industryFilter;
+            return matchesSearch && matchesStatus && matchesIndustry;
+        });
+
+        renderClientsTable(filtered);
+    }
+
+    function openAddClientModal() {
+        document.getElementById('addClientName').value = '';
+        document.getElementById('addClientLegalName').value = '';
+        document.getElementById('addClientIndustry').value = '';
+        document.getElementById('addClientBusinessType').value = '';
+        document.getElementById('addClientCountry').value = '';
+        document.getElementById('addClientStatus').value = 'Active';
+        document.getElementById('addClientPhone').value = '';
+        document.getElementById('addClientWebsite').value = '';
+        document.getElementById('addClientModal').classList.add('active');
+    }
+
+    async function handleAddClient() {
+        const name = document.getElementById('addClientName').value.trim();
+        if (!name) {
+            alert('Please enter a company name.');
+            return;
+        }
+
+        try {
+            const { data, error } = await db.from('clients').insert({
+                company_name: name,
+                legal_name: document.getElementById('addClientLegalName').value.trim() || null,
+                industry: document.getElementById('addClientIndustry').value || null,
+                business_type: document.getElementById('addClientBusinessType').value || null,
+                country: document.getElementById('addClientCountry').value.trim() || null,
+                status: document.getElementById('addClientStatus').value || 'Active',
+                phone: document.getElementById('addClientPhone').value.trim() || null,
+                website: document.getElementById('addClientWebsite').value.trim() || null,
+                source_agent_id: currentUserId
+            }).select();
+
+            if (error) throw error;
+
+            showToast('Client created successfully!');
+            document.getElementById('addClientModal').classList.remove('active');
+            await loadClients();
+        } catch (error) {
+            console.error('Add client error:', error);
+            alert('Error creating client: ' + error.message);
+        }
+    }
+
+    async function viewClient(clientId) {
+        try {
+            // Ensure agents are cached
+            if (cachedAgents.length === 0) {
+                const { data: agts } = await db.from('users').select('id, full_name, email').eq('role', 'agent');
+                cachedAgents = agts || [];
+            }
+
+            // Fetch client details
+            const { data: client, error: clientError } = await db
+                .from('clients')
+                .select('*')
+                .eq('id', clientId)
+                .single();
+
+            if (clientError) throw clientError;
+            if (!client) { alert('Client not found'); return; }
+
+            // Fetch client contacts
+            const { data: contacts, error: contactsError } = await db
+                .from('client_contact_persons')
+                .select('*')
+                .eq('client_id', clientId);
+
+            if (contactsError) console.warn('Could not load contacts:', contactsError);
+
+            // Fetch deals linked to this client
+            let clientDeals = [];
+            try {
+                const { data: cd } = await db.from('deals').select('id, company_name, deal_amount, status').eq('client_id', clientId);
+                clientDeals = cd || [];
+            } catch(e) { console.warn('Could not load client deals:', e); }
+
+            // Parse admin notes
+            let notes = [];
+            try {
+                notes = client.admin_notes ? JSON.parse(client.admin_notes) : [];
+            } catch(e) {
+                notes = client.admin_notes ? [{ text: client.admin_notes, author: 'System', date: 'Previously' }] : [];
+            }
+
+            const notesHtml = notes.length > 0
+                ? notes.map(n => {
+                    const isAudit = n.is_audit_log === true;
+                    const bgColor = isAudit ? '#F5F3FF' : n.from_agent ? '#EFF6FF' : n.visible_to_agent ? '#FFFBEB' : '#F8FAFC';
+                    const borderColor = isAudit ? '#7C3AED' : n.from_agent ? '#3B82F6' : n.visible_to_agent ? '#F59E0B' : 'var(--gold)';
+                    let badge;
+                    if (isAudit) {
+                        badge = '<span style="background:#EDE9FE;color:#6D28D9;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Change Log</span>';
+                    } else if (n.from_agent) {
+                        badge = '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Agent Note</span>';
+                    } else if (n.visible_to_agent) {
+                        badge = '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>';
+                    } else {
+                        badge = '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>';
+                    }
+                    return '<div style="background:' + bgColor + ';border-left:3px solid ' + borderColor + ';padding:10px 12px;margin-bottom:8px;border-radius:0 4px 4px 0;">' +
+                        '<div style="font-size:12px;color:var(--text-light);margin-bottom:4px;">' +
+                        '<strong>' + (n.author || 'Admin') + '</strong> — ' + (n.date || 'N/A') + ' ' + badge +
+                        '</div>' +
+                        '<div style="font-size:14px;color:var(--text-dark);white-space:pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+                        '</div>';
+                }).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No notes yet.</p>';
+
+            // Build contacts HTML
+            const contactsHtml = (contacts && contacts.length > 0)
+                ? contacts.map(c => {
+                    const contactStatus = c.status || 'Active';
+                    const statusColor = (c.status === 'Left Company') ? 'var(--danger)' : (c.status === 'Inactive') ? 'var(--warning)' : 'var(--success)';
+                    return `
+                    <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--border-gray); ${contactStatus === 'Left Company' ? 'opacity: 0.65;' : ''}">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-weight: 600; color: var(--navy);">${c.contact_name || 'N/A'}</span>
+                                    <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${statusColor}; color: white;">${contactStatus}</span>
+                                </div>
+                                <div style="font-size: 13px; color: var(--text-light); margin-top: 4px;">
+                                    ${c.email ? `<div>Email: <a href="mailto:${c.email}">${c.email}</a></div>` : ''}
+                                    ${c.phone ? `<div>Phone: ${c.phone}</div>` : ''}
+                                    ${c.role_title ? `<div>Role: ${c.role_title}</div>` : ''}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 4px;">
+                                <button class="btn btn-secondary btn-sm" onclick="deleteClientContact('${c.id}', '${clientId}')" style="padding: 3px 8px; font-size: 11px; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No contacts yet.</p>';
+
+            // Build deals HTML
+            const dealsHtml = (clientDeals && clientDeals.length > 0)
+                ? clientDeals.map(d => `
+                    <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--border-gray);">
+                        <div style="font-weight: 600; color: var(--navy);">${d.company_name || 'N/A'}</div>
+                        <div style="font-size: 13px; color: var(--text-light); margin-top: 4px;">
+                            Amount: ${formatCurrency(d.deal_amount || 0)}
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 6px;">
+                            <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${d.status === 'Funded' ? '#DCFCE7' : d.status === 'Pending' ? '#FEF3C7' : '#DBEAFE'}; color: ${d.status === 'Funded' ? '#166534' : d.status === 'Pending' ? '#92400E' : '#1E40AF'};">${d.status}</span>
+                        </div>
+                    </div>
+                `).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No deals linked yet.</p>';
+
+            const modalBody = document.getElementById('clientModalBody');
+            document.getElementById('clientDetailTitle').textContent = client.company_name || 'Client Details';
+
+            modalBody.innerHTML = `
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Company Name</label>
+                        <input type="text" id="clientDetailName" value="${(client.company_name || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.company_name || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'company_name', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Legal Name</label>
+                        <input type="text" id="clientDetailLegalName" value="${(client.legal_name || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.legal_name || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'legal_name', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Industry</label>
+                        <select onchange="updateClientField('${clientId}', 'industry', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                            <option value="">Select Industry</option>
+                            <option value="Technology" ${(client.industry || '') === 'Technology' ? 'selected' : ''}>Technology</option>
+                            <option value="Manufacturing" ${(client.industry || '') === 'Manufacturing' ? 'selected' : ''}>Manufacturing</option>
+                            <option value="Retail" ${(client.industry || '') === 'Retail' ? 'selected' : ''}>Retail</option>
+                            <option value="Healthcare" ${(client.industry || '') === 'Healthcare' ? 'selected' : ''}>Healthcare</option>
+                            <option value="Finance" ${(client.industry || '') === 'Finance' ? 'selected' : ''}>Finance</option>
+                            <option value="Education" ${(client.industry || '') === 'Education' ? 'selected' : ''}>Education</option>
+                            <option value="Logistics" ${(client.industry || '') === 'Logistics' ? 'selected' : ''}>Logistics</option>
+                            <option value="Other" ${(client.industry || '') === 'Other' ? 'selected' : ''}>Other</option>
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>Business Type</label>
+                        <select onchange="updateClientField('${clientId}', 'business_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                            <option value="">Select Type</option>
+                            <option value="Sole Proprietor" ${(client.business_type || '') === 'Sole Proprietor' ? 'selected' : ''}>Sole Proprietor</option>
+                            <option value="Partnership" ${(client.business_type || '') === 'Partnership' ? 'selected' : ''}>Partnership</option>
+                            <option value="Corporation" ${(client.business_type || '') === 'Corporation' ? 'selected' : ''}>Corporation</option>
+                            <option value="LLC" ${(client.business_type || '') === 'LLC' ? 'selected' : ''}>LLC</option>
+                            <option value="Non-Profit" ${(client.business_type || '') === 'Non-Profit' ? 'selected' : ''}>Non-Profit</option>
+                            <option value="Other" ${(client.business_type || '') === 'Other' ? 'selected' : ''}>Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Country</label>
+                        <input type="text" id="clientDetailCountry" value="${(client.country || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.country || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'country', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Status</label>
+                        <select onchange="updateClientStatus('${clientId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                            <option value="Active" ${(client.status || 'Active') === 'Active' ? 'selected' : ''}>Active</option>
+                            <option value="Inactive" ${(client.status || 'Active') === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                            <option value="Prospect" ${(client.status || 'Active') === 'Prospect' ? 'selected' : ''}>Prospect</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Phone</label>
+                        <input type="text" id="clientDetailPhone" value="${(client.phone || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.phone || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'phone', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Website</label>
+                        <input type="text" id="clientDetailWebsite" value="${(client.website || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.website || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'website', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Years in Business</label>
+                        <input type="number" id="clientDetailYears" value="${client.years_in_business || ''}"
+                            data-original="${client.years_in_business || ''}"
+                            onblur="updateClientTrackedField('${clientId}', 'years_in_business', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Annual Revenue</label>
+                        <input type="text" id="clientDetailRevenue" value="${(client.annual_revenue || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.annual_revenue || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'annual_revenue', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Employee Count</label>
+                        <input type="number" id="clientDetailEmployees" value="${client.employee_count || ''}"
+                            data-original="${client.employee_count || ''}"
+                            onblur="updateClientTrackedField('${clientId}', 'employee_count', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Credit Score</label>
+                        <input type="number" id="clientDetailCreditScore" value="${client.credit_score || ''}"
+                            data-original="${client.credit_score || ''}"
+                            onblur="updateClientTrackedField('${clientId}', 'credit_score', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--navy);">Contact Persons</h3>
+                    <div style="margin-bottom: 12px;">
+                        ${contactsHtml}
+                    </div>
+                    <button onclick="openAddClientContactForm('${clientId}')" style="padding: 6px 14px; background: var(--gold); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">+ Add Contact</button>
+                </div>
+
+                <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--navy);">Linked Deals (${clientDeals.length})</h3>
+                    ${dealsHtml}
+                </div>
+
+                <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--navy);">Activity Notes</h3>
+                    <div id="clientNotes_${clientId}" style="margin-bottom: 12px;">
+                        ${notesHtml}
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <textarea id="clientNoteInput_${clientId}" placeholder="Add a note..." rows="2" style="flex: 1; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
+                        <button onclick="addClientNote('${clientId}')" style="padding: 8px 14px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; height: fit-content;">Add Note</button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('clientDetailModal').classList.add('active');
+        } catch (error) {
+            console.error('View client error:', error);
+            alert('Error loading client: ' + error.message);
+        }
+    }
+
+    function closeClientDetailModal() {
+        document.getElementById('clientDetailModal').classList.remove('active');
+    }
+
+    async function updateClientTrackedField(clientId, field, inputEl) {
+        const newValue = inputEl.value;
+        const originalValue = inputEl.getAttribute('data-original');
+
+        if (newValue === originalValue) return;
+
+        try {
+            const updateObj = {};
+            updateObj[field] = newValue || null;
+            const { error } = await db.from('clients').update(updateObj).eq('id', clientId);
+
+            if (error) throw error;
+
+            inputEl.setAttribute('data-original', newValue);
+            showToast('Updated');
+        } catch (error) {
+            console.error('Update client field error:', error);
+            inputEl.value = originalValue;
+            alert('Error updating field: ' + error.message);
+        }
+    }
+
+    async function updateClientField(clientId, field, value) {
+        try {
+            const updateObj = {};
+            updateObj[field] = value || null;
+            const { error } = await db.from('clients').update(updateObj).eq('id', clientId);
+
+            if (error) throw error;
+
+            showToast('Updated');
+        } catch (error) {
+            console.error('Update client field error:', error);
+            alert('Error updating field: ' + error.message);
+        }
+    }
+
+    async function updateClientStatus(clientId, newStatus) {
+        try {
+            const { error } = await db.from('clients').update({ status: newStatus }).eq('id', clientId);
+
+            if (error) throw error;
+
+            showToast('Status updated');
+            await loadClients();
+        } catch (error) {
+            console.error('Update client status error:', error);
+            alert('Error updating status: ' + error.message);
+        }
+    }
+
+    function openAddClientContactForm(clientId) {
+        const html = `
+            <div style="background: white; padding: 12px; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 10px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <input type="text" id="newContactName_${clientId}" placeholder="Name" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    <input type="email" id="newContactEmail_${clientId}" placeholder="Email" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <input type="text" id="newContactPhone_${clientId}" placeholder="Phone" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    <select id="newContactRole_${clientId}" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                        <option value="">Select Role</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Accounting">Accounting</option>
+                        <option value="Operations">Operations</option>
+                        <option value="Owner">Owner</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="addClientContact('${clientId}')" style="padding: 6px 12px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">Save Contact</button>
+                    <button onclick="this.closest('div').remove()" style="padding: 6px 12px; background: white; color: var(--navy); border: 1px solid #ccc; border-radius: 4px; font-size: 12px; cursor: pointer;">Cancel</button>
+                </div>
+            </div>
+        `;
+        const container = document.querySelector('[style*="Contact Persons"]').parentElement;
+        container.insertAdjacentHTML('beforeend', html);
+    }
+
+    async function addClientContact(clientId) {
+        const name = document.getElementById('newContactName_' + clientId).value.trim();
+        if (!name) {
+            alert('Please enter a contact name.');
+            return;
+        }
+
+        try {
+            const { error } = await db.from('client_contact_persons').insert({
+                client_id: clientId,
+                contact_name: name,
+                email: document.getElementById('newContactEmail_' + clientId).value.trim() || null,
+                phone: document.getElementById('newContactPhone_' + clientId).value.trim() || null,
+                role_title: document.getElementById('newContactRole_' + clientId).value || null,
+                status: 'Active'
+            });
+
+            if (error) throw error;
+
+            showToast('Contact added');
+            await viewClient(clientId);
+        } catch (error) {
+            console.error('Add client contact error:', error);
+            alert('Error adding contact: ' + error.message);
+        }
+    }
+
+    async function deleteClientContact(contactId, clientId) {
+        if (!confirm('Are you sure you want to delete this contact?')) return;
+
+        try {
+            const { error } = await db.from('client_contact_persons').delete().eq('id', contactId);
+
+            if (error) throw error;
+
+            showToast('Contact deleted');
+            await viewClient(clientId);
+        } catch (error) {
+            console.error('Delete client contact error:', error);
+            alert('Error deleting contact: ' + error.message);
+        }
+    }
+
+    async function addClientNote(clientId) {
+        const noteText = document.getElementById('clientNoteInput_' + clientId).value.trim();
+        if (!noteText) {
+            alert('Please enter a note.');
+            return;
+        }
+
+        try {
+            // Fetch current notes
+            const { data: client } = await db.from('clients').select('admin_notes').eq('id', clientId).single();
+            let notes = [];
+            try {
+                notes = client.admin_notes ? JSON.parse(client.admin_notes) : [];
+            } catch(e) { notes = []; }
+
+            // Add new note
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const userEmail = document.getElementById('userEmailDisplay').textContent;
+            notes.push({
+                text: noteText,
+                author: userEmail,
+                date: dateStr,
+                visible_to_agent: false,
+                from_agent: false,
+                is_audit_log: false
+            });
+
+            // Update
+            const { error } = await db.from('clients').update({ admin_notes: JSON.stringify(notes) }).eq('id', clientId);
+
+            if (error) throw error;
+
+            document.getElementById('clientNoteInput_' + clientId).value = '';
+            showToast('Note added');
+            await viewClient(clientId);
+        } catch (error) {
+            console.error('Add client note error:', error);
+            alert('Error adding note: ' + error.message);
+        }
+    }
+
+    // ============================================
     // Lender Detail View
     // ============================================
 
@@ -26864,7 +27619,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // ============================================
 
     window.onclick = function(event) {
-        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'forwardToLenderModal', 'lenderDetailModal', 'agentDetailModal', 'documentUploadModal', 'sendApplicationModal'];
+        const modals = ['dealModal', 'addDealModal', 'applicationModal', 'contactModal', 'addAgentModal', 'addLenderModal', 'addVendorModal', 'addApplicationModal', 'csvImportModal', 'vendorDetailModal', 'clientDetailModal', 'addClientModal', 'forwardToLenderModal', 'lenderDetailModal', 'agentDetailModal', 'documentUploadModal', 'sendApplicationModal'];
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (event.target === modal) {
