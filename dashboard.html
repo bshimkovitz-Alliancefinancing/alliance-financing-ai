@@ -2926,11 +2926,26 @@
                     </select>
                 </div>
                 <div>
-                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Vendor</label>
-                    <select id="vrVendor" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
-                        <option value="">Universal (All Vendors)</option>
+                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Active</label>
+                    <select id="vrIsActive" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
                     </select>
                 </div>
+            </div>
+            <!-- Vendor Assignment -->
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Assign to Vendors</label>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;">
+                        <input type="checkbox" id="vrUniversal" onchange="toggleVrUniversal()" checked>
+                        <strong>Universal (All Vendors)</strong>
+                    </label>
+                </div>
+                <div id="vrVendorCheckboxes" style="display:none;max-height:160px;overflow-y:auto;border:1px solid var(--border-gray);border-radius:6px;padding:8px 12px;background:#F8FAFC;">
+                    <p style="font-size:12px;color:var(--text-light);margin:0 0 6px;">Loading vendors...</p>
+                </div>
+                <p style="font-size:11px;color:#94A3B8;margin-top:4px;">Universal resources are shown to all vendors. Uncheck to assign to specific vendors.</p>
             </div>
             <div style="margin-bottom:16px;">
                 <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Title <span style="color:#EF4444;">*</span></label>
@@ -2940,7 +2955,7 @@
                 <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Content <span style="color:#EF4444;">*</span></label>
                 <textarea id="vrContent" rows="4" placeholder="Description or answer text..." style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;resize:vertical;"></textarea>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                 <div>
                     <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Style / Color</label>
                     <select id="vrStyle" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
@@ -2954,13 +2969,6 @@
                 <div>
                     <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Sort Order</label>
                     <input type="number" id="vrSortOrder" value="0" min="0" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
-                </div>
-                <div>
-                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Active</label>
-                    <select id="vrIsActive" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
-                        <option value="true">Active</option>
-                        <option value="false">Inactive</option>
-                    </select>
                 </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
@@ -13419,20 +13427,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    // Information & Quoting Tools
-    async function loadVendorTools() {
-        // Page is mostly static HTML — just update the subtitle with vendor name if available
-        try {
-            var { data: contactData } = await db.from('vendor_contacts').select('vendor_id').eq('email', currentUser?.email || '').limit(1);
-            if (contactData && contactData.length > 0) {
-                var { data: vendor } = await db.from('vendors').select('name').eq('id', contactData[0].vendor_id).single();
-                if (vendor) {
-                    document.getElementById('vendorToolsSubtitle').textContent = 'Resources for ' + vendor.name + ' — sell more, close faster';
-                }
-            }
-        } catch(e) { /* keep default subtitle */ }
-    }
-
     function calculatePayment() {
         var cost = parseFloat(document.getElementById('calcEquipCost').value);
         var term = parseInt(document.getElementById('calcTerm').value);
@@ -13690,28 +13684,30 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Vendor Resources Admin Management
     // ============================================
     var _vrVendorListLoaded = false;
+    var _vrVendorCache = [];
 
     async function loadVendorResources() {
         var tbody = document.getElementById('vrTableBody');
         if (!tbody) return;
 
-        // Populate vendor filter dropdown on first load
+        // Populate vendor filter dropdown and checkbox list on first load
         if (!_vrVendorListLoaded) {
             try {
                 var { data: vendors } = await db.from('vendors').select('id, name').order('name');
+                _vrVendorCache = vendors || [];
                 var filterSelect = document.getElementById('vrFilterVendor');
-                var modalSelect = document.getElementById('vrVendor');
-                if (vendors) {
-                    vendors.forEach(function(v) {
-                        var opt1 = document.createElement('option');
-                        opt1.value = v.id;
-                        opt1.textContent = v.name;
-                        filterSelect.appendChild(opt1);
-                        var opt2 = document.createElement('option');
-                        opt2.value = v.id;
-                        opt2.textContent = v.name;
-                        modalSelect.appendChild(opt2);
+                var checkboxContainer = document.getElementById('vrVendorCheckboxes');
+                if (_vrVendorCache.length > 0) {
+                    _vrVendorCache.forEach(function(v) {
+                        var opt = document.createElement('option');
+                        opt.value = v.id;
+                        opt.textContent = v.name;
+                        filterSelect.appendChild(opt);
                     });
+                    checkboxContainer.innerHTML = _vrVendorCache.map(function(v) {
+                        return '<label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer;">' +
+                            '<input type="checkbox" class="vr-vendor-cb" value="' + v.id + '"> ' + v.name + '</label>';
+                    }).join('');
                 }
                 _vrVendorListLoaded = true;
             } catch(e) { console.error('Error loading vendor list:', e); }
@@ -13722,13 +13718,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var statusFilter = document.getElementById('vrFilterStatus').value;
 
         try {
-            var query = db.from('vendor_resources').select('*, vendors(name)').order('category').order('sort_order');
+            var query = db.from('vendor_resources').select('*').order('category').order('sort_order');
 
-            if (vendorFilter === 'universal') {
-                query = query.is('vendor_id', null);
-            } else if (vendorFilter) {
-                query = query.eq('vendor_id', vendorFilter);
-            }
             if (categoryFilter) query = query.eq('category', categoryFilter);
             if (statusFilter === 'active') query = query.eq('is_active', true);
             else if (statusFilter === 'inactive') query = query.eq('is_active', false);
@@ -13736,10 +13727,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var { data: resources, error } = await query;
             if (error) throw error;
 
+            // Client-side filter by vendor_ids
+            if (vendorFilter === 'universal') {
+                resources = (resources || []).filter(function(r) { return !r.vendor_ids || r.vendor_ids.length === 0; });
+            } else if (vendorFilter) {
+                resources = (resources || []).filter(function(r) {
+                    return r.vendor_ids && r.vendor_ids.indexOf(vendorFilter) !== -1;
+                });
+            }
+
             if (!resources || resources.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-light);">No resources found. Click "+ Add Resource" to create one.</td></tr>';
                 return;
             }
+
+            // Build vendor name lookup
+            var vendorNameMap = {};
+            _vrVendorCache.forEach(function(v) { vendorNameMap[v.id] = v.name; });
 
             var categoryLabels = { program: 'Program', promotion: 'Promotion', faq: 'FAQ', tip: 'Sales Tip', rate_card: 'Rate Card' };
             var categoryColors = { program: '#C9A84C', promotion: '#F59E0B', faq: '#3B82F6', tip: '#10B981', rate_card: '#8B5CF6' };
@@ -13747,20 +13751,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             tbody.innerHTML = resources.map(function(r) {
                 var catLabel = categoryLabels[r.category] || r.category;
                 var catColor = categoryColors[r.category] || '#6B7280';
-                var vendorName = r.vendor_id ? (r.vendors ? r.vendors.name : 'Unknown') : 'Universal';
+
+                // Display vendor names
+                var vendorDisplay = 'Universal';
+                if (r.vendor_ids && r.vendor_ids.length > 0) {
+                    var names = r.vendor_ids.map(function(vid) { return vendorNameMap[vid] || 'Unknown'; });
+                    vendorDisplay = names.length <= 2 ? names.join(', ') : names.slice(0, 2).join(', ') + ' +' + (names.length - 2) + ' more';
+                }
+
                 var statusBg = r.is_active ? '#D1FAE5' : '#F3F4F6';
                 var statusColor = r.is_active ? '#065F46' : '#6B7280';
                 var statusLabel = r.is_active ? 'Active' : 'Inactive';
-                var validStr = '';
-                if (r.valid_from || r.valid_until) {
-                    validStr = (r.valid_from || '...') + ' → ' + (r.valid_until || '...');
-                } else {
-                    validStr = 'Always';
-                }
+                var validStr = (r.valid_from || r.valid_until) ? ((r.valid_from || '...') + ' → ' + (r.valid_until || '...')) : 'Always';
+
                 return '<tr style="border-bottom:1px solid var(--border-gray);">' +
                     '<td style="padding:12px;font-size:13px;font-weight:500;max-width:200px;">' + r.title + '<div style="font-size:11px;color:var(--text-light);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:250px;">' + (r.content || '').substring(0, 80) + '</div></td>' +
                     '<td style="padding:12px;"><span style="background:' + catColor + '22;color:' + catColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + catLabel + '</span></td>' +
-                    '<td style="padding:12px;font-size:13px;">' + vendorName + '</td>' +
+                    '<td style="padding:12px;font-size:12px;">' + vendorDisplay + '</td>' +
                     '<td style="padding:12px;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">' + statusLabel + '</span></td>' +
                     '<td style="padding:12px;font-size:12px;color:var(--text-light);">' + validStr + '</td>' +
                     '<td style="padding:12px;text-align:center;font-size:13px;">' + (r.sort_order || 0) + '</td>' +
@@ -13776,11 +13783,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    function toggleVrUniversal() {
+        var isUniversal = document.getElementById('vrUniversal').checked;
+        document.getElementById('vrVendorCheckboxes').style.display = isUniversal ? 'none' : 'block';
+        if (isUniversal) {
+            // Uncheck all vendor checkboxes
+            document.querySelectorAll('.vr-vendor-cb').forEach(function(cb) { cb.checked = false; });
+        }
+    }
+
     function openVendorResourceModal(editData) {
         document.getElementById('vrEditId').value = editData ? editData.id : '';
         document.getElementById('vrModalTitle').textContent = editData ? 'Edit Resource' : 'Add Resource';
         document.getElementById('vrCategory').value = editData ? editData.category : 'program';
-        document.getElementById('vrVendor').value = editData ? (editData.vendor_id || '') : '';
         document.getElementById('vrTitle').value = editData ? editData.title : '';
         document.getElementById('vrContent').value = editData ? editData.content : '';
         document.getElementById('vrStyle').value = editData ? (editData.style || 'default') : 'default';
@@ -13789,6 +13804,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         document.getElementById('vrValidFrom').value = editData ? (editData.valid_from || '') : '';
         document.getElementById('vrValidUntil').value = editData ? (editData.valid_until || '') : '';
         document.getElementById('vrSaveStatus').style.display = 'none';
+
+        // Set vendor checkboxes
+        var hasVendors = editData && editData.vendor_ids && editData.vendor_ids.length > 0;
+        document.getElementById('vrUniversal').checked = !hasVendors;
+        document.getElementById('vrVendorCheckboxes').style.display = hasVendors ? 'block' : 'none';
+        document.querySelectorAll('.vr-vendor-cb').forEach(function(cb) {
+            cb.checked = hasVendors && editData.vendor_ids.indexOf(cb.value) !== -1;
+        });
+
         document.getElementById('vrModal').classList.add('active');
     }
 
@@ -13824,9 +13848,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (!title) { alert('Title is required.'); return; }
         if (!content) { alert('Content is required.'); return; }
 
+        // Gather selected vendor IDs
+        var isUniversal = document.getElementById('vrUniversal').checked;
+        var vendorIds = [];
+        if (!isUniversal) {
+            document.querySelectorAll('.vr-vendor-cb:checked').forEach(function(cb) {
+                vendorIds.push(cb.value);
+            });
+            if (vendorIds.length === 0) {
+                alert('Please select at least one vendor, or check "Universal" for all vendors.');
+                return;
+            }
+        }
+
         var record = {
             category: document.getElementById('vrCategory').value,
-            vendor_id: document.getElementById('vrVendor').value || null,
+            vendor_ids: vendorIds,
             title: title,
             content: content,
             style: document.getElementById('vrStyle').value,
@@ -13867,7 +13904,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // ============================================
-    // Updated loadVendorTools — pulls from database
+    // loadVendorTools — pulls from database with vendor_ids array
     // ============================================
     async function loadVendorTools() {
         try {
@@ -13888,22 +13925,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 ? 'Resources for ' + vendorName + ' — sell more, close faster'
                 : isISO ? 'View leasing resources across all vendor programs' : 'Resources to help you sell more effectively';
 
-            // Fetch resources from database
-            var query = db.from('vendor_resources').select('*').eq('is_active', true).order('sort_order');
-
-            if (vendorId && !isISO) {
-                // Vendor user: get their vendor-specific + universal
-                query = db.from('vendor_resources').select('*').eq('is_active', true)
-                    .or('vendor_id.is.null,vendor_id.eq.' + vendorId)
-                    .order('sort_order');
-            }
-
-            var { data: resources, error } = await query;
+            // Fetch all active resources
+            var { data: resources, error } = await db.from('vendor_resources').select('*').eq('is_active', true).order('sort_order');
 
             if (error) {
                 console.error('Error loading vendor tools resources:', error);
-                // Fall back to static content (already in HTML)
                 return;
+            }
+
+            // Client-side filter: vendor sees universal + their vendor's resources
+            if (vendorId && !isISO) {
+                resources = (resources || []).filter(function(r) {
+                    return (!r.vendor_ids || r.vendor_ids.length === 0) || (r.vendor_ids.indexOf(vendorId) !== -1);
+                });
             }
 
             if (!resources || resources.length === 0) {
