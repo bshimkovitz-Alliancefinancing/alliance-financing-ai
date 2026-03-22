@@ -2662,6 +2662,7 @@
     <div class="table-container" style="margin-top: 30px; display: none;" id="vendorTeamSection">
         <div class="table-header">
             <div class="table-title">Team Members</div>
+            <button class="btn btn-gold btn-sm" onclick="openAddSalespersonModal()" style="padding:6px 16px;font-size:12px;font-weight:600;">+ Add Salesperson</button>
         </div>
         <table style="width: 100%;">
             <thead>
@@ -2723,6 +2724,38 @@
             </div>
             <div id="tmSaveStatus" style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:13px;text-align:center;"></div>
             <button class="btn btn-gold" onclick="saveTeamMember()" style="width:100%;padding:12px;font-weight:600;font-size:14px;">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Salesperson Modal -->
+<div id="addSalespersonModal" class="modal" style="z-index: 1100;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h2>Add Salesperson</h2>
+            <button class="modal-close" onclick="closeAddSalespersonModal()">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <p style="font-size:13px;color:var(--text-light);margin-bottom:16px;">Add a new salesperson to your team. They will receive an email invitation to set up their account and access their own dashboard.</p>
+            <div style="margin-bottom: 16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Full Name <span style="color:#EF4444;">*</span></label>
+                <input type="text" id="aspName" placeholder="e.g. John Smith" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Email <span style="color:#EF4444;">*</span></label>
+                <input type="email" id="aspEmail" placeholder="john@company.com" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                <p style="font-size:11px;color:#94A3B8;margin-top:4px;">This will be their login email.</p>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Phone</label>
+                <input type="tel" id="aspPhone" placeholder="(555) 123-4567" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Role / Title</label>
+                <input type="text" id="aspRoleTitle" placeholder="e.g. Sales Representative" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+            </div>
+            <div id="aspSaveStatus" style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:13px;text-align:center;"></div>
+            <button class="btn btn-gold" id="aspSubmitBtn" onclick="handleAddSalesperson()" style="width:100%;padding:12px;font-weight:600;font-size:14px;">Send Invitation</button>
         </div>
     </div>
 </div>
@@ -12600,7 +12633,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 'super_agent': 'ISO',
                 'referring_agent': 'RP',
                 'syndication_desk': 'SD',
-                'vendor_program': 'VP'
+                'vendor_program': 'VP',
+                'vendor_salesperson': 'VS'
             };
             var prefix = prefixMap[agentType] || 'AG';
             var { data } = await db.from('users').select('agent_code').not('agent_code', 'is', null).like('agent_code', prefix + '-%').order('agent_code', { ascending: false }).limit(1);
@@ -12610,7 +12644,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
             return prefix + '-001';
         } catch(e) {
-            var prefixMap2 = { 'super_agent': 'ISO', 'referring_agent': 'RP', 'syndication_desk': 'SD', 'vendor_program': 'VP' };
+            var prefixMap2 = { 'super_agent': 'ISO', 'referring_agent': 'RP', 'syndication_desk': 'SD', 'vendor_program': 'VP', 'vendor_salesperson': 'VS' };
             return (prefixMap2[agentType] || 'AG') + '-' + String(Date.now()).slice(-3);
         }
     }
@@ -13080,6 +13114,162 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             statusDiv.style.background = '#FEE2E2';
             statusDiv.style.color = '#991B1B';
             statusDiv.textContent = 'Error saving: ' + err.message;
+        }
+    }
+
+    function openAddSalespersonModal() {
+        document.getElementById('aspName').value = '';
+        document.getElementById('aspEmail').value = '';
+        document.getElementById('aspPhone').value = '';
+        document.getElementById('aspRoleTitle').value = '';
+        document.getElementById('aspSaveStatus').style.display = 'none';
+        document.getElementById('aspSubmitBtn').disabled = false;
+        document.getElementById('aspSubmitBtn').textContent = 'Send Invitation';
+        document.getElementById('addSalespersonModal').classList.add('active');
+    }
+
+    function closeAddSalespersonModal() {
+        document.getElementById('addSalespersonModal').classList.remove('active');
+    }
+
+    async function handleAddSalesperson() {
+        var name = document.getElementById('aspName').value.trim();
+        var email = document.getElementById('aspEmail').value.trim().toLowerCase();
+        var phone = document.getElementById('aspPhone').value.trim() || null;
+        var roleTitle = document.getElementById('aspRoleTitle').value.trim() || 'Sales Representative';
+        var statusDiv = document.getElementById('aspSaveStatus');
+        var submitBtn = document.getElementById('aspSubmitBtn');
+
+        // Validate required fields
+        if (!name) { alert('Please enter a full name.'); return; }
+        if (!email) { alert('Please enter an email address.'); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Please enter a valid email address.'); return; }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating account...';
+        statusDiv.style.display = 'none';
+
+        try {
+            // 1. Get the vendor admin's vendor_id
+            var { data: adminContact } = await db.from('vendor_contacts')
+                .select('vendor_id')
+                .eq('email', currentUser?.email || '')
+                .limit(1);
+
+            if (!adminContact || adminContact.length === 0) {
+                throw new Error('Could not find your vendor association. Please contact Alliance support.');
+            }
+            var vendorId = adminContact[0].vendor_id;
+
+            // 2. Get vendor name for co-branded email
+            var { data: vendorData } = await db.from('vendors').select('name').eq('id', vendorId).single();
+            var vendorName = vendorData ? vendorData.name : '';
+
+            // 3. Check if email is already in use
+            var { data: existingUser } = await db.from('users').select('id').eq('email', email).limit(1);
+            if (existingUser && existingUser.length > 0) {
+                throw new Error('A user with this email already exists. Please use a different email address.');
+            }
+
+            var { data: existingContact } = await db.from('vendor_contacts').select('id').eq('email', email).limit(1);
+            if (existingContact && existingContact.length > 0) {
+                throw new Error('A team member with this email already exists.');
+            }
+
+            // 4. Generate invite token and agent code
+            var inviteToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+            var agentCode = await generateAgentCode('vendor_salesperson');
+
+            // 5. Create users record
+            var slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            var { data: newUser, error: userError } = await db.from('users').insert([{
+                full_name: name,
+                email: email,
+                phone: phone,
+                role: 'agent',
+                agent_type: 'vendor_salesperson',
+                agent_code: agentCode,
+                company_name: vendorName,
+                referral_slug: slug,
+                agent_status: 'Active',
+                onboarding_status: 'invited',
+                invite_token: inviteToken,
+                invite_sent_at: new Date().toISOString(),
+                parent_agent_id: currentUserId,
+                program_details: { sales_role: roleTitle },
+                created_at: new Date().toISOString()
+            }]).select();
+
+            if (userError) throw userError;
+
+            // 6. Create vendor_contacts record
+            var { error: contactError } = await db.from('vendor_contacts').insert([{
+                vendor_id: vendorId,
+                contact_name: name,
+                email: email,
+                phone: phone,
+                role_title: roleTitle,
+                status: 'Active',
+                is_admin: false
+            }]);
+
+            if (contactError) throw contactError;
+
+            // 7. Send co-branded invitation email
+            var activateUrl = window.location.origin + '/agent-activate.html?token=' + inviteToken;
+            var inviteSubject = vendorName + ' — Set Up Your Equipment Financing Dashboard';
+            var inviteHtml =
+                '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#FFFFFF;margin:0;font-size:22px;">' + vendorName + '</h1>' +
+                '<p style="color:#C9A84C;margin:6px 0 0;font-size:13px;">Financing powered by Alliance Financing Group</p></div>' +
+                '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                '<p style="font-size:16px;color:#1E293B;">Hi ' + name + ',</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">You\'ve been added as a <strong>Sales Representative</strong> for <strong>' + vendorName + '</strong>. You now have access to your own financing dashboard to send equipment leasing applications and track deals.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">To get started, click the button below to set up your password and activate your account:</p>' +
+                '<div style="text-align:center;margin:25px 0;">' +
+                '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Activate My Account</a></div>' +
+                '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;">' + activateUrl + '</a></p>' +
+                '<hr style="border:none;border-top:1px solid #E2E8F0;margin:20px 0;">' +
+                '<p style="font-size:13px;color:#64748B;">For financing support:<br><strong>Alliance Financing Group Ltd.</strong><br>info@alliancefinancing.com | alliancefinancing.ai</p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">' + vendorName + ' · Financing by Alliance Financing Group Ltd.</p></div></div>';
+
+            try {
+                await sendEmailViaResend(email, inviteSubject, inviteHtml);
+            } catch (emailErr) {
+                console.error('Resend error for salesperson invite:', emailErr);
+                // Fallback to mailto
+                var subj = encodeURIComponent(inviteSubject);
+                var body = encodeURIComponent('Hi ' + name + ',\n\nYou\'ve been added as a Sales Representative for ' + vendorName + '.\n\nActivate your account: ' + activateUrl + '\n\nBest regards,\n' + vendorName);
+                window.open('mailto:' + email + '?subject=' + subj + '&body=' + body, '_blank');
+            }
+
+            // 8. Copy activation link to clipboard
+            try { await navigator.clipboard.writeText(activateUrl); } catch(e) {}
+
+            // 9. Show success
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#D1FAE5';
+            statusDiv.style.color = '#065F46';
+            statusDiv.innerHTML = '✓ Invitation sent to <strong>' + email + '</strong>! The activation link has been copied to your clipboard.';
+            submitBtn.textContent = 'Invitation Sent!';
+
+            // Refresh vendor portal after delay
+            setTimeout(function() {
+                closeAddSalespersonModal();
+                loadVendorPortal();
+            }, 2500);
+
+        } catch (err) {
+            console.error('Add salesperson error:', err);
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#FEE2E2';
+            statusDiv.style.color = '#991B1B';
+            statusDiv.textContent = 'Error: ' + err.message;
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Send Invitation';
         }
     }
 
