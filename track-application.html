@@ -662,7 +662,7 @@
 
             // Approach 1: Search deals directly by deal_number or afg_number (most reliable)
             deals = await safeQuery('deals', {
-                'select': 'id,company_name,contact_name,contact_email,contact_phone,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
                 'or': '(deal_number.ilike.*' + rawId + '*,afg_number.ilike.*' + rawId + '*)',
                 'limit': '5'
             });
@@ -679,7 +679,7 @@
                     var dealIds = apps.filter(function(a) { return a.deal_id; }).map(function(a) { return a.deal_id; });
                     if (dealIds.length > 0) {
                         deals = await safeQuery('deals', {
-                            'select': 'id,company_name,contact_name,contact_email,contact_phone,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                            'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
                             'id': 'in.(' + dealIds.join(',') + ')',
                             'limit': '5'
                         });
@@ -694,7 +694,7 @@
             // Approach 3: Try searching by company name as last resort
             if (deals.length === 0) {
                 deals = await safeQuery('deals', {
-                    'select': 'id,company_name,contact_name,contact_email,contact_phone,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                    'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
                     'company_name': 'ilike.*' + rawId + '*',
                     'limit': '5'
                 });
@@ -740,22 +740,8 @@
         try {
             var allDeals = [];
 
-            // Search deals by contact_email
-            var deals = await safeQuery('deals', {
-                'select': 'id,company_name,contact_name,contact_email,contact_phone,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
-                'contact_email': 'ilike.' + email,
-                'order': 'date_submitted.desc',
-                'limit': '10'
-            });
-
-            // Filter by last 4 of phone
-            allDeals = (deals || []).filter(function(d) {
-                var ph = (d.contact_phone || '').replace(/\D/g, '');
-                return ph.slice(-4) === last4;
-            });
-
-            // Also try applications table
-            if (allDeals.length === 0) {
+            // Search applications table by email (deals table doesn't have contact fields)
+            {
                 var apps = await safeQuery('applications', {
                     'select': 'id,application_id,deal_id,full_name,email,phone,business_name,form_type,created_at',
                     'email': 'ilike.' + email,
@@ -772,7 +758,7 @@
                     var dealIds = matched.filter(function(a) { return a.deal_id; }).map(function(a) { return a.deal_id; });
                     if (dealIds.length > 0) {
                         allDeals = await safeQuery('deals', {
-                            'select': 'id,company_name,contact_name,contact_email,contact_phone,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                            'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
                             'id': 'in.(' + dealIds.join(',') + ')',
                             'order': 'date_submitted.desc',
                             'limit': '10'
