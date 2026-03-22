@@ -10167,18 +10167,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (!contactName || !contactEmail) { alert('Please fill in the vendor contact name and email.'); return; }
 
         try {
-            const agentVendorCode = await generateVendorCode();
-            const { data: vendorResult, error } = await db.from('vendors').insert({
-                name: name,
-                website: document.getElementById('agentVendorWebsite').value.trim() || null,
-                product_description: product,
-                country: document.getElementById('agentVendorCountry').value,
-                projected_volume: document.getElementById('agentVendorVolume').value ? parseFloat(document.getElementById('agentVendorVolume').value) : null,
-                source_agent_id: currentUserId,
-                status: 'Requires Approval',
-                vendor_code: agentVendorCode
-            }).select();
-
+            var vendorResult = null;
+            var error = null;
+            for (var _retry = 0; _retry < 3; _retry++) {
+                var agentVendorCode = await generateVendorCode();
+                if (_retry > 0) agentVendorCode = 'VND-' + String(Date.now()).slice(-6);
+                var _res = await db.from('vendors').insert({
+                    name: name,
+                    website: document.getElementById('agentVendorWebsite').value.trim() || null,
+                    product_description: product,
+                    country: document.getElementById('agentVendorCountry').value,
+                    projected_volume: document.getElementById('agentVendorVolume').value ? parseFloat(document.getElementById('agentVendorVolume').value) : null,
+                    source_agent_id: currentUserId,
+                    status: 'Requires Approval',
+                    vendor_code: agentVendorCode
+                }).select();
+                vendorResult = _res.data;
+                error = _res.error;
+                if (!error) break;
+                if (error.message && error.message.indexOf('idx_vendors_vendor_code') === -1) break;
+                console.warn('Agent vendor code conflict, retrying...', agentVendorCode);
+            }
             if (error) throw error;
 
             // Save vendor contact
@@ -12946,14 +12955,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function generateVendorCode() {
         try {
-            const { data } = await db.from('vendors').select('vendor_code').not('vendor_code', 'is', null).order('vendor_code', { ascending: false }).limit(1);
-            if (data && data.length > 0 && data[0].vendor_code) {
-                const num = parseInt(data[0].vendor_code.replace('VND-', ''), 10);
-                return 'VND-' + String((num || 0) + 1).padStart(3, '0');
+            // Get ALL vendor codes and find the true max number to avoid sort issues
+            const { data } = await db.from('vendors').select('vendor_code').not('vendor_code', 'is', null);
+            if (data && data.length > 0) {
+                var maxNum = 0;
+                data.forEach(function(row) {
+                    var n = parseInt((row.vendor_code || '').replace('VND-', ''), 10);
+                    if (!isNaN(n) && n > maxNum) maxNum = n;
+                });
+                return 'VND-' + String(maxNum + 1).padStart(3, '0');
             }
             return 'VND-001';
         } catch(e) {
-            return 'VND-' + String(Date.now()).slice(-3);
+            // Fallback: use timestamp to guarantee uniqueness
+            return 'VND-' + String(Date.now()).slice(-6);
         }
     }
 
@@ -23518,20 +23533,30 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var sendCompanyName = document.getElementById('vendorName').value.trim();
 
             // Insert vendor with basic info — status defaults to "Requires Approval"
-            const vendorCode = await generateVendorCode();
-            const { data: vendorData, error: vendorError } = await db
-                .from('vendors')
-                .insert([{
-                    name: sendCompanyName,
-                    product_description: document.getElementById('vendorProduct').value.trim() || null,
-                    country: countries || null,
-                    status: 'Requires Approval',
-                    source_agent_id: currentUserId || null,
-                    vendor_code: vendorCode,
-                    created_at: new Date().toISOString()
-                }])
-                .select();
-
+            // Retry logic for duplicate vendor_code conflicts
+            var vendorData = null;
+            var vendorError = null;
+            for (var _attempt = 0; _attempt < 3; _attempt++) {
+                var vendorCode = await generateVendorCode();
+                if (_attempt > 0) vendorCode = 'VND-' + String(Date.now()).slice(-6);
+                var result = await db
+                    .from('vendors')
+                    .insert([{
+                        name: sendCompanyName,
+                        product_description: document.getElementById('vendorProduct').value.trim() || null,
+                        country: countries || null,
+                        status: 'Requires Approval',
+                        source_agent_id: currentUserId || null,
+                        vendor_code: vendorCode,
+                        created_at: new Date().toISOString()
+                    }])
+                    .select();
+                vendorData = result.data;
+                vendorError = result.error;
+                if (!vendorError) break;
+                if (vendorError.message && vendorError.message.indexOf('idx_vendors_vendor_code') === -1) break;
+                console.warn('Vendor code conflict, retrying...', vendorCode);
+            }
             if (vendorError) throw vendorError;
 
             // Insert the primary contact
