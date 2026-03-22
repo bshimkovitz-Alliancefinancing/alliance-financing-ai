@@ -905,8 +905,12 @@
                 <span>Team</span>
             </div>
             <div class="nav-item" id="vendorPortalNav" onclick="showPage('vendorPortal')" style="display: none;">
-                <span class="nav-icon">🏢</span>
-                <span>Vendor Portal</span>
+                <span class="nav-icon">📊</span>
+                <span>Dashboard</span>
+            </div>
+            <div class="nav-item" id="vendorToolsNav" onclick="showPage('vendorTools')" style="display: none;">
+                <span class="nav-icon">🛠</span>
+                <span>Info & Quoting Tools</span>
             </div>
             <div class="nav-item" id="resourcesNav" onclick="showPage('resources')" style="display: none;">
                 <span class="nav-icon">📚</span>
@@ -2688,6 +2692,167 @@
     </div>
 </div>
 
+<!-- Information & Quoting Tools Page -->
+<div id="vendorTools" class="page-section" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div>
+            <h2 style="margin:0;font-size:20px;font-weight:600;color:var(--navy);">Information & Quoting Tools</h2>
+            <p id="vendorToolsSubtitle" style="font-size:13px;color:var(--text-light);margin-top:4px;">Resources to help you sell more effectively</p>
+        </div>
+    </div>
+
+    <!-- Quick Payment Calculator -->
+    <div style="background:linear-gradient(135deg,#0D1E3D,#1a2e5a);border-radius:12px;padding:28px;margin-bottom:24px;color:white;">
+        <h3 style="margin:0 0 4px;font-size:18px;color:#C9A84C;">Quick Payment Estimator</h3>
+        <p style="margin:0 0 20px;font-size:13px;opacity:0.8;">Get an estimated monthly lease payment for your customer</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:16px;align-items:end;">
+            <div>
+                <label style="display:block;font-size:12px;opacity:0.7;margin-bottom:4px;">Equipment Cost ($)</label>
+                <input type="number" id="calcEquipCost" placeholder="25,000" min="1000" step="500" style="width:100%;padding:10px 12px;border:none;border-radius:6px;font-size:14px;background:rgba(255,255,255,0.15);color:white;" oninput="calculatePayment()">
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;opacity:0.7;margin-bottom:4px;">Lease Term</label>
+                <select id="calcTerm" style="width:100%;padding:10px 12px;border:none;border-radius:6px;font-size:14px;background:rgba(255,255,255,0.15);color:white;" onchange="calculatePayment()">
+                    <option value="24">24 Months</option>
+                    <option value="36">36 Months</option>
+                    <option value="48" selected>48 Months</option>
+                    <option value="60">60 Months</option>
+                    <option value="72">72 Months</option>
+                </select>
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;opacity:0.7;margin-bottom:4px;">Credit Profile</label>
+                <select id="calcCredit" style="width:100%;padding:10px 12px;border:none;border-radius:6px;font-size:14px;background:rgba(255,255,255,0.15);color:white;" onchange="calculatePayment()">
+                    <option value="A">A Credit (Strong)</option>
+                    <option value="B" selected>B Credit (Good)</option>
+                    <option value="C">C Credit (Fair)</option>
+                </select>
+            </div>
+            <button class="btn" onclick="calculatePayment()" style="background:#C9A84C;color:#0D1E3D;padding:10px 20px;border-radius:6px;font-weight:700;font-size:14px;white-space:nowrap;border:none;cursor:pointer;">Calculate</button>
+        </div>
+        <div id="calcResult" style="display:none;margin-top:20px;background:rgba(255,255,255,0.1);border-radius:8px;padding:16px;text-align:center;">
+            <div style="font-size:13px;opacity:0.7;">Estimated Monthly Payment</div>
+            <div id="calcPaymentAmount" style="font-size:36px;font-weight:700;color:#C9A84C;margin:4px 0;"></div>
+            <div id="calcPaymentDetails" style="font-size:12px;opacity:0.6;"></div>
+            <p style="font-size:11px;opacity:0.5;margin:10px 0 0;">* Estimate only. Actual rates depend on credit approval, equipment type, and lender terms.</p>
+        </div>
+    </div>
+
+    <!-- Leasing Programs & Promotions Grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+
+        <!-- Leasing Program Info -->
+        <div style="background:white;border:1px solid var(--border-gray);border-radius:12px;padding:24px;">
+            <h3 style="margin:0 0 16px;font-size:16px;color:var(--navy);display:flex;align-items:center;gap:8px;">
+                <span style="font-size:20px;">📋</span> Equipment Leasing Programs
+            </h3>
+            <div id="vendorToolsPrograms">
+                <div style="margin-bottom:14px;padding:12px;background:#F8FAFC;border-radius:8px;border-left:3px solid #C9A84C;">
+                    <div style="font-weight:600;font-size:13px;color:var(--navy);">Standard Lease</div>
+                    <div style="font-size:12px;color:var(--text-light);margin-top:2px;">$5,000 – $500,000 | 24–72 months | All credit profiles</div>
+                </div>
+                <div style="margin-bottom:14px;padding:12px;background:#F8FAFC;border-radius:8px;border-left:3px solid #3B82F6;">
+                    <div style="font-weight:600;font-size:13px;color:var(--navy);">Quick Approval (Under $75K)</div>
+                    <div style="font-size:12px;color:var(--text-light);margin-top:2px;">App-only up to $75K | Same-day decisions | Minimal documentation</div>
+                </div>
+                <div style="margin-bottom:14px;padding:12px;background:#F8FAFC;border-radius:8px;border-left:3px solid #10B981;">
+                    <div style="font-weight:600;font-size:13px;color:var(--navy);">$1 Buyout Lease</div>
+                    <div style="font-size:12px;color:var(--text-light);margin-top:2px;">Own the equipment at end of term | Best for long-term assets</div>
+                </div>
+                <div style="padding:12px;background:#F8FAFC;border-radius:8px;border-left:3px solid #8B5CF6;">
+                    <div style="font-weight:600;font-size:13px;color:var(--navy);">Fair Market Value (FMV) Lease</div>
+                    <div style="font-size:12px;color:var(--text-light);margin-top:2px;">Lower payments | Option to upgrade, return, or purchase at end of term</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Promotions -->
+        <div style="background:white;border:1px solid var(--border-gray);border-radius:12px;padding:24px;">
+            <h3 style="margin:0 0 16px;font-size:16px;color:var(--navy);display:flex;align-items:center;gap:8px;">
+                <span style="font-size:20px;">🔥</span> Current Promotions
+            </h3>
+            <div id="vendorToolsPromos">
+                <div style="margin-bottom:14px;padding:16px;background:linear-gradient(135deg,#FEF3C7,#FDE68A);border-radius:8px;border:1px solid #F59E0B;">
+                    <div style="font-weight:700;font-size:14px;color:#92400E;">90-Day Deferred Payment</div>
+                    <div style="font-size:12px;color:#78350F;margin-top:4px;">Customers don't pay for the first 90 days. Available on all new leases over $10,000 through Q2 2026.</div>
+                </div>
+                <div style="margin-bottom:14px;padding:16px;background:#EFF6FF;border-radius:8px;border:1px solid #93C5FD;">
+                    <div style="font-weight:700;font-size:14px;color:#1E40AF;">Seasonal Step-Up Payments</div>
+                    <div style="font-size:12px;color:#1E3A8A;margin-top:4px;">Start with lower payments that increase over time. Ideal for seasonal businesses or new equipment ramp-up.</div>
+                </div>
+                <div style="padding:16px;background:#F0FDF4;border-radius:8px;border:1px solid #86EFAC;">
+                    <div style="font-weight:700;font-size:14px;color:#065F46;">Quick Close Bonus</div>
+                    <div style="font-size:12px;color:#064E3B;margin-top:4px;">Deals funded within 5 business days of approval receive preferred rates. Contact Alliance for details.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAQ & Training Grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+
+        <!-- FAQ Section -->
+        <div style="background:white;border:1px solid var(--border-gray);border-radius:12px;padding:24px;">
+            <h3 style="margin:0 0 16px;font-size:16px;color:var(--navy);display:flex;align-items:center;gap:8px;">
+                <span style="font-size:20px;">❓</span> Frequently Asked Questions
+            </h3>
+            <div id="vendorToolsFAQ">
+                <details style="margin-bottom:10px;padding:12px;background:#F8FAFC;border-radius:8px;cursor:pointer;">
+                    <summary style="font-weight:600;font-size:13px;color:var(--navy);">What credit scores qualify?</summary>
+                    <p style="font-size:12px;color:var(--text-light);margin:8px 0 0;line-height:1.5;">We work with all credit profiles. A-credit customers get the best rates, but we have programs for B and C credit as well. Startups with limited history can also qualify with additional documentation.</p>
+                </details>
+                <details style="margin-bottom:10px;padding:12px;background:#F8FAFC;border-radius:8px;cursor:pointer;">
+                    <summary style="font-weight:600;font-size:13px;color:var(--navy);">How fast is approval?</summary>
+                    <p style="font-size:12px;color:var(--text-light);margin:8px 0 0;line-height:1.5;">Deals under $75K are typically app-only and can be approved same-day. Larger deals may require financial statements and usually take 2–5 business days.</p>
+                </details>
+                <details style="margin-bottom:10px;padding:12px;background:#F8FAFC;border-radius:8px;cursor:pointer;">
+                    <summary style="font-weight:600;font-size:13px;color:var(--navy);">What documentation is needed?</summary>
+                    <p style="font-size:12px;color:var(--text-light);margin:8px 0 0;line-height:1.5;">Under $75K: Completed application only. Over $75K: Application plus 3 months bank statements and 2 years tax returns or financial statements.</p>
+                </details>
+                <details style="margin-bottom:10px;padding:12px;background:#F8FAFC;border-radius:8px;cursor:pointer;">
+                    <summary style="font-weight:600;font-size:13px;color:var(--navy);">Can my customer get pre-approved?</summary>
+                    <p style="font-size:12px;color:var(--text-light);margin:8px 0 0;line-height:1.5;">Yes. Send the application early — customers can get a pre-approval so they know their budget before selecting equipment. Pre-approvals are valid for 30 days.</p>
+                </details>
+                <details style="padding:12px;background:#F8FAFC;border-radius:8px;cursor:pointer;">
+                    <summary style="font-weight:600;font-size:13px;color:var(--navy);">How does the vendor get paid?</summary>
+                    <p style="font-size:12px;color:var(--text-light);margin:8px 0 0;line-height:1.5;">Once the lease is funded and equipment is delivered, the vendor receives full payment via wire or ACH within 1–2 business days. You get paid in full — the customer pays the lease over time.</p>
+                </details>
+            </div>
+        </div>
+
+        <!-- Training & Tips -->
+        <div style="background:white;border:1px solid var(--border-gray);border-radius:12px;padding:24px;">
+            <h3 style="margin:0 0 16px;font-size:16px;color:var(--navy);display:flex;align-items:center;gap:8px;">
+                <span style="font-size:20px;">🎓</span> Sales Tips & Training
+            </h3>
+            <div id="vendorToolsTraining">
+                <div style="margin-bottom:14px;padding:14px;background:#F8FAFC;border-radius:8px;">
+                    <div style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:4px;">💡 Lead with the Payment</div>
+                    <div style="font-size:12px;color:var(--text-light);line-height:1.5;">Instead of quoting the full equipment price, show customers their monthly payment. "$500/mo" is easier to budget than "$25,000 upfront."</div>
+                </div>
+                <div style="margin-bottom:14px;padding:14px;background:#F8FAFC;border-radius:8px;">
+                    <div style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:4px;">💡 Offer Financing Early</div>
+                    <div style="font-size:12px;color:var(--text-light);line-height:1.5;">Don't wait until the customer hesitates on price. Mention financing options upfront as part of your proposal to remove the price objection before it comes up.</div>
+                </div>
+                <div style="margin-bottom:14px;padding:14px;background:#F8FAFC;border-radius:8px;">
+                    <div style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:4px;">💡 Pre-Qualify Before the Quote</div>
+                    <div style="font-size:12px;color:var(--text-light);line-height:1.5;">Send the application before your customer commits. A pre-approval gives them confidence and speeds up the close.</div>
+                </div>
+                <div style="padding:14px;background:#F8FAFC;border-radius:8px;">
+                    <div style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:4px;">💡 Use the 90-Day Deferral</div>
+                    <div style="font-size:12px;color:var(--text-light);line-height:1.5;">Our current promo lets customers start using equipment today with no payments for 90 days. This is a powerful closer for budget-conscious buyers.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Support -->
+    <div style="background:white;border:1px solid var(--border-gray);border-radius:12px;padding:20px;text-align:center;">
+        <p style="font-size:14px;color:var(--navy);margin:0 0 4px;font-weight:600;">Need help with a deal or have questions?</p>
+        <p style="font-size:13px;color:var(--text-light);margin:0;">Contact Alliance Financing — info@alliancefinancing.com | alliancefinancing.ai</p>
+    </div>
+</div>
+
 <!-- Team Member Management Modal -->
 <div id="teamMemberModal" class="modal" style="z-index: 1100;">
     <div class="modal-content" style="max-width: 500px;">
@@ -4439,11 +4604,11 @@
 
             if (isAdmin) {
                 // Admins see everything except agent-only items
-                var agentOnlyItems = ['Marketing', 'Help & Resources', 'Vendor Programs', 'Referral Partners', 'Vendor Portal', 'Application Hub'];
+                var agentOnlyItems = ['Marketing', 'Help & Resources', 'Vendor Programs', 'Referral Partners', 'Info & Quoting Tools', 'Application Hub'];
                 item.style.display = agentOnlyItems.includes(label) ? 'none' : 'flex';
             } else if (isVendor) {
-                // Vendor users see only Vendor Portal and Help
-                var vendorAllowed = ['Dashboard', 'Vendor Portal', 'Help & Resources'];
+                // Vendor users see only Dashboard, Info & Quoting Tools, and Help
+                var vendorAllowed = ['Dashboard', 'Info & Quoting Tools', 'Help & Resources'];
                 item.style.display = vendorAllowed.includes(label) ? 'flex' : 'none';
             } else if (isReferralAgent) {
                 // Referral agents get: Dashboard, Deal Pipeline, Application Hub, Vendor Programs, Help
@@ -4451,7 +4616,7 @@
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
             } else {
                 // ISO/other agent views
-                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Inbox', 'Alliance Financing', 'Team', 'Admin Resources', 'Vendor Portal', 'Documents'];
+                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Inbox', 'Alliance Financing', 'Team', 'Admin Resources', 'Info & Quoting Tools', 'Documents'];
 
                 if (adminOnly.includes(label)) {
                     item.style.display = 'none';
@@ -4482,10 +4647,14 @@
             myReferralsNav.style.display = isAgentForReferrals ? 'flex' : 'none';
         }
 
-        // Show "Vendor Portal" nav ONLY for vendor users (never for admin)
+        // Show vendor nav items ONLY for vendor users (never for admin)
         var vendorPortalNav = document.getElementById('vendorPortalNav');
         if (vendorPortalNav) {
             vendorPortalNav.style.display = (isVendor && !isAdmin) ? 'flex' : 'none';
+        }
+        var vendorToolsNav = document.getElementById('vendorToolsNav');
+        if (vendorToolsNav) {
+            vendorToolsNav.style.display = (isVendor && !isAdmin) ? 'flex' : 'none';
         }
 
         // Hide lender column from agents in pipeline table
@@ -10640,7 +10809,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'applicationHub': 'Application Hub',
             'marketing': 'Marketing',
             'team': 'Team Members',
-            'vendorPortal': 'Vendor Portal',
+            'vendorPortal': 'Dashboard',
+            'vendorTools': 'Information & Quoting Tools',
             'resources': 'Admin Resources',
             'statsReports': 'Stats & Reports',
             'help': 'Help & Resources'
@@ -13117,6 +13287,47 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // Information & Quoting Tools
+    async function loadVendorTools() {
+        // Page is mostly static HTML — just update the subtitle with vendor name if available
+        try {
+            var { data: contactData } = await db.from('vendor_contacts').select('vendor_id').eq('email', currentUser?.email || '').limit(1);
+            if (contactData && contactData.length > 0) {
+                var { data: vendor } = await db.from('vendors').select('name').eq('id', contactData[0].vendor_id).single();
+                if (vendor) {
+                    document.getElementById('vendorToolsSubtitle').textContent = 'Resources for ' + vendor.name + ' — sell more, close faster';
+                }
+            }
+        } catch(e) { /* keep default subtitle */ }
+    }
+
+    function calculatePayment() {
+        var cost = parseFloat(document.getElementById('calcEquipCost').value);
+        var term = parseInt(document.getElementById('calcTerm').value);
+        var credit = document.getElementById('calcCredit').value;
+        var resultDiv = document.getElementById('calcResult');
+
+        if (!cost || cost < 1000) {
+            resultDiv.style.display = 'none';
+            return;
+        }
+
+        // Rate factors per credit tier (approximate monthly rate factors per $1)
+        var rateMap = {
+            'A': { 24: 0.0460, 36: 0.0315, 48: 0.0245, 60: 0.0205, 72: 0.0178 },
+            'B': { 24: 0.0490, 36: 0.0340, 48: 0.0268, 60: 0.0228, 72: 0.0200 },
+            'C': { 24: 0.0530, 36: 0.0375, 48: 0.0300, 60: 0.0260, 72: 0.0232 }
+        };
+
+        var factor = rateMap[credit][term] || 0.0268;
+        var monthlyPayment = cost * factor;
+        var totalCost = monthlyPayment * term;
+
+        resultDiv.style.display = 'block';
+        document.getElementById('calcPaymentAmount').textContent = '$' + monthlyPayment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('calcPaymentDetails').textContent = term + ' months | ' + credit + ' Credit | Total: $' + totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     function openAddSalespersonModal() {
         document.getElementById('aspName').value = '';
         document.getElementById('aspEmail').value = '';
@@ -14362,6 +14573,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 break;
             case 'vendorPortal':
                 await loadVendorPortal();
+                break;
+            case 'vendorTools':
+                await loadVendorTools();
                 break;
             case 'resources':
                 await loadResourcesPage();
