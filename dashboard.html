@@ -25597,7 +25597,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
-            allClients = data || [];
+            // Count deals per client
+            const { data: dealLinks } = await db.from('deals').select('client_id').not('client_id', 'is', null);
+            const dealCounts = {};
+            (dealLinks || []).forEach(d => { dealCounts[d.client_id] = (dealCounts[d.client_id] || 0) + 1; });
+
+            allClients = (data || []).map(c => ({ ...c, deals_count: dealCounts[c.id] || 0 }));
             filterClients();
         } catch (error) {
             console.error('Load clients error:', error);
