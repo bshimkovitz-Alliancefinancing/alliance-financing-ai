@@ -9767,6 +9767,44 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (agentData) agentSlug = agentData.referral_slug;
             }
 
+            // Auto-match or create client record
+            let appClientId = null;
+            if (businessName) {
+                const { data: matchedClient } = await db.from('clients').select('id').ilike('company_name', businessName.trim()).limit(1);
+                if (matchedClient && matchedClient.length > 0) {
+                    appClientId = matchedClient[0].id;
+                } else {
+                    try {
+                        const { data: newClient } = await db.from('clients').insert([{
+                            company_name: businessName.trim(),
+                            status: 'Prospect',
+                            country: 'Canada',
+                            phone: phone || null,
+                            website: null,
+                            annual_revenue: annualRevenue || null,
+                            years_in_business: timeInBusiness || null
+                        }]).select('id').single();
+                        if (newClient) appClientId = newClient.id;
+                    } catch(e) { console.warn('Auto-create client on app submit:', e); }
+                }
+                // Also add the contact person if we have a client
+                if (appClientId && fullName) {
+                    try {
+                        const { data: existingContact } = await db.from('client_contact_persons').select('id').eq('client_id', appClientId).ilike('contact_name', fullName.trim()).limit(1);
+                        if (!existingContact || existingContact.length === 0) {
+                            await db.from('client_contact_persons').insert([{
+                                client_id: appClientId,
+                                contact_name: fullName.trim(),
+                                email: email || null,
+                                phone: phone || null,
+                                role: 'Primary Contact',
+                                status: 'Active'
+                            }]);
+                        }
+                    } catch(e) { console.warn('Auto-add contact person:', e); }
+                }
+            }
+
             const { data: appData, error: appError } = await db
                 .from('applications')
                 .insert([{
@@ -9781,7 +9819,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     source_agent_id: isAgent ? currentUserId : null,
                     source_channel: isAgent ? 'Agent' : 'Direct',
                     referral_slug: agentSlug,
-                    status: 'Application Received'
+                    status: 'Application Received',
+                    client_id: appClientId
                 }])
                 .select();
 
@@ -12734,6 +12773,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    async function updateApplicationClient(appId, clientId) {
+        try {
+            const { error } = await db.from('applications').update({ client_id: clientId || null }).eq('id', appId);
+            if (error) throw error;
+            showToast(clientId ? 'Client linked to application' : 'Client unlinked from application', 'success');
+        } catch(e) {
+            console.error('Update application client error:', e);
+            alert('Error updating client link: ' + e.message);
+        }
+    }
+
     async function moveToPipeline(applicationId) {
         try {
             // Check if a deal already exists for this application
@@ -12771,6 +12821,44 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const dealAmount = application.funding_amount_requested || clientProfile._equipment_cost || null;
             delete clientProfile._equipment_cost;
 
+            // Auto-match or create client record for the deal
+            let pipelineClientId = application.client_id || null;
+            if (!pipelineClientId && application.business_name) {
+                const bizName = application.business_name.trim();
+                const { data: matchedC } = await db.from('clients').select('id').ilike('company_name', bizName).limit(1);
+                if (matchedC && matchedC.length > 0) {
+                    pipelineClientId = matchedC[0].id;
+                } else {
+                    try {
+                        const { data: newC } = await db.from('clients').insert([{
+                            company_name: bizName,
+                            status: 'Prospect',
+                            country: 'Canada',
+                            phone: application.phone || null,
+                            annual_revenue: application.annual_revenue || null,
+                            years_in_business: application.time_in_business || null
+                        }]).select('id').single();
+                        if (newC) pipelineClientId = newC.id;
+                    } catch(e) { console.warn('Auto-create client on pipeline move:', e); }
+                }
+                // Add contact person if available
+                if (pipelineClientId && application.full_name) {
+                    try {
+                        const { data: existC } = await db.from('client_contact_persons').select('id').eq('client_id', pipelineClientId).ilike('contact_name', application.full_name.trim()).limit(1);
+                        if (!existC || existC.length === 0) {
+                            await db.from('client_contact_persons').insert([{
+                                client_id: pipelineClientId,
+                                contact_name: application.full_name.trim(),
+                                email: application.email || null,
+                                phone: application.phone || null,
+                                role: 'Primary Contact',
+                                status: 'Active'
+                            }]);
+                        }
+                    } catch(e) { console.warn('Auto-add contact on pipeline move:', e); }
+                }
+            }
+
             // Create new deal with client profile fields populated
             const dealRecord = {
                 company_name: application.business_name,
@@ -12780,7 +12868,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 source_agent_id: application.source_agent_id || null,
                 product_type: productType,
                 date_submitted: new Date().toLocaleDateString('en-CA'),
-                status: 'Prospect'
+                status: 'Prospect',
+                client_id: pipelineClientId
             };
 
             // Merge client profile fields (revenue, years, industry, province)
@@ -17406,6 +17495,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <div class="modal-field">
                         <label>Status</label>
                         <div class="modal-field-value">${app.status || 'N/A'}</div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field" style="flex:1;">
+                        <label>Linked Client <span style="font-weight:400;color:#94A3B8;font-size:11px;">Auto-matched from business name</span></label>
+                        <select id="appClientLink_${appId}" onchange="updateApplicationClient('${appId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            <option value="">— Not linked —</option>
+                            ${await (async function() {
+                                const { data: cls } = await db.from('clients').select('id, company_name').order('company_name');
+                                return (cls || []).map(c => '<option value="' + c.id + '"' + (app.client_id === c.id ? ' selected' : '') + '>' + c.company_name + '</option>').join('');
+                            })()}
+                        </select>
                     </div>
                 </div>
                 <div class="modal-row full">
