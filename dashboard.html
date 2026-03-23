@@ -1000,7 +1000,7 @@
                         <span style="font-size:15px;font-weight:700;color:var(--navy);">Needs Your Attention</span>
                         <span id="alertBadgeCount" style="background:#EF4444;color:white;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;display:none;">0</span>
                     </div>
-                    <p style="font-size:13px;color:#64748B;margin:0 0 12px;">Pending agents, prospect replies, vendor requests, credit responses, and overdue items that need your action.</p>
+                    <p style="font-size:13px;color:#64748B;margin:0 0 12px;">Pending agents, prospect replies, returned applications, vendor requests, credit responses, and overdue items that need your action.</p>
                     <div id="alertCardsContainer" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;"></div>
                 </div>
 
@@ -12233,7 +12233,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
-            // 8. Credit Responses (applications with credit decision pending review)
+            // 8. Returned Applications (clients who completed and submitted their application)
+            var { data: returnedApps } = await db.from('applications_sent').select('id').eq('status', 'Returned').limit(50);
+            if (returnedApps && returnedApps.length > 0) {
+                alerts.push({ icon: '📥', color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', label: 'Returned Applications', count: returnedApps.length, detail: 'Completed — ready for review', onclick: "showPage('deals');document.getElementById('appSentStatusFilter').value='Returned';loadApplicationsSent();" });
+            }
+
+            // 9. Credit Responses (applications with credit decision pending review)
             var { data: creditResponses } = await db.from('applications').select('id')
                 .in('status', ['Credit Approved', 'Credit Declined', 'Conditional Approval']).limit(50);
             if (creditResponses && creditResponses.length > 0) {
@@ -19705,6 +19711,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     }
                 }
 
+                // View button — find matching submitted application by email
+                var viewBtnHtml = '';
+                if (app.status === 'Returned' && app.applicant_email) {
+                    viewBtnHtml = '<button onclick="viewAppSentSubmission(\'' + app.applicant_email.replace(/'/g, "\\'") + '\', \'' + (app.applicant_name || '').replace(/'/g, "\\'") + '\')" style="padding:4px 10px;background:#059669;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;margin-right:4px;" title="View submitted application">View</button>';
+                } else if (app.applicant_email) {
+                    viewBtnHtml = '<button onclick="viewAppSentSubmission(\'' + app.applicant_email.replace(/'/g, "\\'") + '\', \'' + (app.applicant_name || '').replace(/'/g, "\\'") + '\')" style="padding:4px 10px;background:#0D1E3D;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;margin-right:4px;" title="View application details">View</button>';
+                }
+
                 var rowStyle = isOverdue ? 'background:#FFF7ED;' : (app.status === 'Archived' ? 'opacity:0.6;' : '');
 
                 return '<tr style="' + rowStyle + '">' +
@@ -19717,11 +19731,35 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<td>' + (app.sent_at ? new Date(app.sent_at).toLocaleDateString() : 'N/A') + '</td>' +
                     '<td>' + expiryText + '</td>' +
                     '<td>' + followUpText + '</td>' +
-                    '<td style="white-space:nowrap;">' + actionHtml + '</td></tr>';
+                    '<td style="white-space:nowrap;">' + viewBtnHtml + actionHtml + '</td></tr>';
             }).join('');
         } catch (err) {
             console.error('Load applications sent error:', err);
             tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Error loading applications.</td></tr>';
+        }
+    }
+
+    // View a submitted application by looking up the client's email in the applications table
+    async function viewAppSentSubmission(email, name) {
+        try {
+            // Find the submitted application by matching email
+            var { data: apps, error } = await db.from('applications')
+                .select('id, application_id, full_name, business_name, email, status, submitted_at, form_type')
+                .ilike('email', email)
+                .order('submitted_at', { ascending: false })
+                .limit(5);
+            if (error) throw error;
+
+            if (apps && apps.length > 0) {
+                // Open the most recent matching application
+                viewApplication(apps[0].id);
+            } else {
+                // No submitted application found — show info message
+                alert('No submitted application found for ' + (name || email) + '. The client may not have completed the form yet.');
+            }
+        } catch (err) {
+            console.error('View app sent submission error:', err);
+            alert('Error looking up application: ' + err.message);
         }
     }
 
