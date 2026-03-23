@@ -3029,7 +3029,7 @@
         </div>
         <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
             <div id="dealModalArchiveBtn"></div>
-            <button class="btn btn-secondary" onclick="closeDealModal()">Close</button>
+            <button class="btn btn-gold" onclick="closeDealModal()" style="padding:8px 24px;font-weight:600;">Save & Close</button>
         </div>
     </div>
 </div>
@@ -12870,6 +12870,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const dealRecord = {
                 company_name: application.business_name,
                 deal_amount: dealAmount,
+                amount_requested: dealAmount,
                 application_id: application.id,
                 source: application.source_channel || 'Online',
                 source_agent_id: application.source_agent_id || null,
@@ -16319,9 +16320,32 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 <label>Cell</label>
                                 <input type="text" id="newClientCell" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                             </div>
+                        </div>
+                        <div style="font-weight:500;font-size:13px;color:var(--navy);margin:10px 0 6px 0;">Address</div>
+                        <div class="modal-row">
+                            <div class="modal-field" style="flex:1;">
+                                <label>Street Address</label>
+                                <input type="text" id="newClientStreet" placeholder="123 Main Street" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                        </div>
+                        <div class="modal-row">
                             <div class="modal-field">
-                                <label>Address</label>
-                                <input type="text" id="newClientAddress" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                                <label>City</label>
+                                <input type="text" id="newClientCity" placeholder="Toronto" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                            <div class="modal-field">
+                                <label>Province / State</label>
+                                <input type="text" id="newClientProvince" placeholder="Ontario" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Postal / Zip Code</label>
+                                <input type="text" id="newClientPostal" placeholder="M5V 1A1" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            </div>
+                            <div class="modal-field">
+                                <label>Country</label>
+                                <input type="text" id="newClientCountry" value="Canada" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                             </div>
                         </div>
                         <div class="modal-row">
@@ -17015,6 +17039,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         const name = document.getElementById('newClientName').value.trim();
         if (!name) { alert('Please enter a contact name'); return; }
         try {
+            // Build full address from individual fields
+            var addrParts = [];
+            var street = (document.getElementById('newClientStreet')?.value || '').trim();
+            var city = (document.getElementById('newClientCity')?.value || '').trim();
+            var province = (document.getElementById('newClientProvince')?.value || '').trim();
+            var postal = (document.getElementById('newClientPostal')?.value || '').trim();
+            var country = (document.getElementById('newClientCountry')?.value || '').trim();
+            if (street) addrParts.push(street);
+            if (city) addrParts.push(city);
+            if (province) addrParts.push(province);
+            if (postal) addrParts.push(postal);
+            if (country && country !== 'Canada') addrParts.push(country);
+            else if (country) addrParts.push(country);
+            var fullAddress = addrParts.length > 0 ? addrParts.join(', ') : null;
+
             const { error } = await db.from('client_contacts').insert({
                 deal_id: dealId,
                 contact_name: name,
@@ -17022,7 +17061,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 email: document.getElementById('newClientEmail').value.trim() || null,
                 phone: document.getElementById('newClientPhone').value.trim() || null,
                 cell: document.getElementById('newClientCell').value.trim() || null,
-                address: document.getElementById('newClientAddress').value.trim() || null,
+                address: fullAddress,
                 is_primary: false
             });
             if (error) throw error;
@@ -17268,9 +17307,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var status = isAdmin ? (document.getElementById('dealStatusAdmin').value || 'Prospect') : 'Prospect';
             var lenderVal = isAdmin ? document.getElementById('dealLender').value : null;
 
+            var amountVal = parseFloat(document.getElementById('dealAmount').value) || null;
             var dealRecord = {
                 company_name: document.getElementById('companyName').value,
-                deal_amount: parseFloat(document.getElementById('dealAmount').value),
+                deal_amount: amountVal,
+                amount_requested: amountVal,
                 currency: document.getElementById('dealCurrency').value,
                 product_type: document.getElementById('productType').value,
                 source: source,
