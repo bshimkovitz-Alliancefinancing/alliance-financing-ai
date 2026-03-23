@@ -1238,6 +1238,7 @@
                                 <option value="">All Status</option>
                                 <option value="Active">Active</option>
                                 <option value="Invited">Invited</option>
+                                <option value="Pending">Pending</option>
                                 <option value="Under Review">Under Review</option>
                                 <option value="AIA">AIA</option>
                                 <option value="MOU">MOU</option>
@@ -13039,16 +13040,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     function renderAgentsTable() {
-        // Hide Pending agents — they show in the Intake table until processed
-        const nonPending = allAgentsData.filter(a => a.agent_status !== 'Pending');
-
         // Apply search filter
         const searchVal = document.getElementById('agentSearchInput') ? document.getElementById('agentSearchInput').value.toLowerCase() : '';
         const statusFilter = document.getElementById('agentStatusFilter') ? document.getElementById('agentStatusFilter').value : '';
 
         let data = currentAgentTypeFilter
-            ? nonPending.filter(a => (a.agent_type || 'referring_agent') === currentAgentTypeFilter)
-            : nonPending;
+            ? allAgentsData.filter(a => (a.agent_type || 'referring_agent') === currentAgentTypeFilter)
+            : [...allAgentsData];
 
         if (searchVal) {
             data = data.filter(a =>
@@ -13065,7 +13063,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         // Assign display indices per type for code generation
         const typeCounters = {};
-        nonPending.forEach(a => {
+        allAgentsData.forEach(a => {
             const t = a.agent_type || 'referring_agent';
             typeCounters[t] = (typeCounters[t] || 0) + 1;
             a._displayIndex = typeCounters[t];
@@ -13181,10 +13179,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
             allAgentsData = data || [];
 
-            // Update summary counts (exclude Pending)
-            const nonPending = allAgentsData.filter(a => a.agent_status !== 'Pending');
+            // Update summary counts
             const counts = { super_agent: 0, referring_agent: 0, syndication_desk: 0, vendor_program: 0 };
-            nonPending.forEach(a => {
+            allAgentsData.forEach(a => {
                 const t = a.agent_type || 'referring_agent';
                 if (counts[t] !== undefined) counts[t]++;
             });
