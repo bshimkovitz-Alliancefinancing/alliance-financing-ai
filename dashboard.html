@@ -4221,13 +4221,24 @@
                     <label>Industry</label>
                     <select id="addClientIndustry" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
                         <option value="">Select Industry</option>
-                        <option value="Technology">Technology</option>
-                        <option value="Manufacturing">Manufacturing</option>
-                        <option value="Retail">Retail</option>
-                        <option value="Healthcare">Healthcare</option>
-                        <option value="Finance">Finance</option>
+                        <option value="Agriculture">Agriculture</option>
+                        <option value="Automotive">Automotive</option>
+                        <option value="Construction">Construction</option>
                         <option value="Education">Education</option>
+                        <option value="Energy">Energy</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Franchisor">Franchisor</option>
+                        <option value="Healthcare">Healthcare</option>
+                        <option value="Hospitality">Hospitality</option>
                         <option value="Logistics">Logistics</option>
+                        <option value="Manufacturing">Manufacturing</option>
+                        <option value="Professional Services">Professional Services</option>
+                        <option value="Real Estate">Real Estate</option>
+                        <option value="Restaurant">Restaurant</option>
+                        <option value="Retail">Retail</option>
+                        <option value="Technology">Technology</option>
+                        <option value="Transportation">Transportation</option>
                         <option value="Other">Other</option>
                     </select>
                 </div>
@@ -15616,11 +15627,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
             if (!deal) { alert('Deal not found'); return; }
 
-            // Fetch client contacts for this deal
-            const { data: clientContacts } = await db
-                .from('client_contacts')
-                .select('*')
-                .eq('deal_id', dealId);
+            // Fetch client contacts from the linked client (client_contact_persons table)
+            let clientContacts = [];
+            if (deal.client_id) {
+                const { data: ccData } = await db
+                    .from('client_contact_persons')
+                    .select('*')
+                    .eq('client_id', deal.client_id)
+                    .order('created_at', { ascending: true });
+                clientContacts = ccData || [];
+            }
 
             // Fetch syndication entries for this deal
             const { data: syndications } = await db
@@ -15742,20 +15758,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </div>
             `).join('');
 
-            // Build client contacts HTML
+            // Build client contacts HTML (from linked client's contact persons)
             const contactRows = (clientContacts || []).map(c => `
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 10px; background: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">
                     <div style="flex: 1;">
-                        <div style="font-weight: 600;">${c.contact_name || 'Unknown'}</div>
+                        <div style="font-weight: 600;">${c.full_name || 'Unknown'}${c.status ? ` <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${c.status === 'Active' ? '#DEF7EC' : '#FDE8E8'};color:${c.status === 'Active' ? '#03543F' : '#9B1C1C'};font-weight:500;">${c.status}</span>` : ''}</div>
                         <div style="font-size: 12px; color: #666; line-height: 1.4;">
-                            ${c.title ? `<div>Title: ${c.title}</div>` : ''}
+                            ${c.role_title ? `<div>Role: ${c.role_title}</div>` : ''}
                             ${c.email ? `<div>Email: ${c.email}</div>` : ''}
                             ${c.phone ? `<div>Phone: ${c.phone}</div>` : ''}
-                            ${c.cell ? `<div>Cell: ${c.cell}</div>` : ''}
-                            ${c.address ? `<div>Address: ${c.address}</div>` : ''}
                         </div>
                     </div>
-                    <button onclick="deleteDealClientContact('${c.id}', '${dealId}', '${c.contact_name}')" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px;">Delete</button>
                 </div>
             `).join('');
 
@@ -16290,45 +16303,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <!-- Section 6b: Credit Submissions (admin only) -->
                 ${!isAgentView ? buildLenderSubmissionsHtml(dealId, lenderSubmissions) : ''}
 
-                <!-- Section 7: Client Contacts -->
+                <!-- Section 7: Client Contacts (sourced from Clients page) -->
                 <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Client Contacts</h3>
                 <div style="margin-bottom: 15px;">
-                    ${contactRows || '<div style="color: #999; padding: 10px;">No client contacts yet.</div>'}
-
-                    <div style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px; border: 1px solid var(--border-gray);">
-                        <div style="font-weight: 600; margin-bottom: 12px; color: var(--navy);">Add Client Contact</div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Name</label>
-                                <input type="text" id="newClientName" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                            <div class="modal-field">
-                                <label>Title</label>
-                                <input type="text" id="newClientTitle" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Email</label>
-                                <input type="email" id="newClientEmail" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                            <div class="modal-field">
-                                <label>Phone</label>
-                                <input type="text" id="newClientPhone" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Cell</label>
-                                <input type="text" id="newClientCell" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field full">
-                                <button onclick="addDealClientContact('${dealId}')" style="padding: 8px 16px; background: var(--gold); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; width: 100%;">Add Contact</button>
-                            </div>
-                        </div>
-                    </div>
+                    ${deal.client_id ? (contactRows || '<div style="color: #999; padding: 10px;">No contacts found for this client.</div>') : '<div style="color: #999; padding: 10px;">No client linked to this deal. Link a client above to see contacts.</div>'}
+                    ${deal.client_id ? `<div style="margin-top: 10px; padding: 10px 14px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 12px; color: #1E40AF;">Contacts are managed on the Clients page.</span>
+                        <button onclick="document.getElementById('dealDetailModal').style.display='none';showPage('clients');setTimeout(function(){var rows=document.querySelectorAll('#clientsTableBody tr');rows.forEach(function(r){if(r.dataset.clientId==='${deal.client_id}'){r.querySelector('button')&&r.querySelector('button').click();}});},500);" style="padding: 5px 12px; background: #1E40AF; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">Manage Contacts</button>
+                    </div>` : ''}
                 </div>
 
                 <!-- Section 8: Notes -->
@@ -17010,36 +16992,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch(e) { console.error('Error adding system note:', e); }
     }
 
-    async function addDealClientContact(dealId) {
-        const name = document.getElementById('newClientName').value.trim();
-        if (!name) { alert('Please enter a contact name'); return; }
-        try {
-            const { error } = await db.from('client_contacts').insert({
-                deal_id: dealId,
-                contact_name: name,
-                title: document.getElementById('newClientTitle').value.trim() || null,
-                email: document.getElementById('newClientEmail').value.trim() || null,
-                phone: document.getElementById('newClientPhone').value.trim() || null,
-                cell: document.getElementById('newClientCell').value.trim() || null,
-                is_primary: false
-            });
-            if (error) throw error;
-            await viewDeal(dealId);
-        } catch (error) {
-            alert('Error adding client contact: ' + error.message);
-        }
-    }
-
-    async function deleteDealClientContact(contactId, dealId, name) {
-        if (!confirm(`Delete contact "${name}"?`)) return;
-        try {
-            const { error } = await db.from('client_contacts').delete().eq('id', contactId);
-            if (error) throw error;
-            await viewDeal(dealId);
-        } catch (error) {
-            alert('Error deleting contact: ' + error.message);
-        }
-    }
+    // addDealClientContact and deleteDealClientContact removed — contacts are now managed on the Clients page
+    // and displayed read-only in Deal Details via client_contact_persons table
 
     function normalizeNotes(notes) {
         return notes.map(n => ({
@@ -26142,13 +26096,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <label>Industry</label>
                         <select onchange="updateClientField('${clientId}', 'industry', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                             <option value="">Select Industry</option>
-                            <option value="Technology" ${(client.industry || '') === 'Technology' ? 'selected' : ''}>Technology</option>
-                            <option value="Manufacturing" ${(client.industry || '') === 'Manufacturing' ? 'selected' : ''}>Manufacturing</option>
-                            <option value="Retail" ${(client.industry || '') === 'Retail' ? 'selected' : ''}>Retail</option>
-                            <option value="Healthcare" ${(client.industry || '') === 'Healthcare' ? 'selected' : ''}>Healthcare</option>
-                            <option value="Finance" ${(client.industry || '') === 'Finance' ? 'selected' : ''}>Finance</option>
+                            <option value="Agriculture" ${(client.industry || '') === 'Agriculture' ? 'selected' : ''}>Agriculture</option>
+                            <option value="Automotive" ${(client.industry || '') === 'Automotive' ? 'selected' : ''}>Automotive</option>
+                            <option value="Construction" ${(client.industry || '') === 'Construction' ? 'selected' : ''}>Construction</option>
                             <option value="Education" ${(client.industry || '') === 'Education' ? 'selected' : ''}>Education</option>
+                            <option value="Energy" ${(client.industry || '') === 'Energy' ? 'selected' : ''}>Energy</option>
+                            <option value="Entertainment" ${(client.industry || '') === 'Entertainment' ? 'selected' : ''}>Entertainment</option>
+                            <option value="Finance" ${(client.industry || '') === 'Finance' ? 'selected' : ''}>Finance</option>
+                            <option value="Franchisor" ${(client.industry || '') === 'Franchisor' ? 'selected' : ''}>Franchisor</option>
+                            <option value="Healthcare" ${(client.industry || '') === 'Healthcare' ? 'selected' : ''}>Healthcare</option>
+                            <option value="Hospitality" ${(client.industry || '') === 'Hospitality' ? 'selected' : ''}>Hospitality</option>
                             <option value="Logistics" ${(client.industry || '') === 'Logistics' ? 'selected' : ''}>Logistics</option>
+                            <option value="Manufacturing" ${(client.industry || '') === 'Manufacturing' ? 'selected' : ''}>Manufacturing</option>
+                            <option value="Professional Services" ${(client.industry || '') === 'Professional Services' ? 'selected' : ''}>Professional Services</option>
+                            <option value="Real Estate" ${(client.industry || '') === 'Real Estate' ? 'selected' : ''}>Real Estate</option>
+                            <option value="Restaurant" ${(client.industry || '') === 'Restaurant' ? 'selected' : ''}>Restaurant</option>
+                            <option value="Retail" ${(client.industry || '') === 'Retail' ? 'selected' : ''}>Retail</option>
+                            <option value="Technology" ${(client.industry || '') === 'Technology' ? 'selected' : ''}>Technology</option>
+                            <option value="Transportation" ${(client.industry || '') === 'Transportation' ? 'selected' : ''}>Transportation</option>
                             <option value="Other" ${(client.industry || '') === 'Other' ? 'selected' : ''}>Other</option>
                         </select>
                     </div>
