@@ -1000,7 +1000,7 @@
                         <span style="font-size:15px;font-weight:700;color:var(--navy);">Needs Your Attention</span>
                         <span id="alertBadgeCount" style="background:#EF4444;color:white;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;display:none;">0</span>
                     </div>
-                    <p style="font-size:13px;color:#64748B;margin:0 0 12px;">Pending agents, overdue items, and tasks that require your immediate action.</p>
+                    <p style="font-size:13px;color:#64748B;margin:0 0 12px;">Pending agents, prospect replies, vendor requests, credit responses, and overdue items that need your action.</p>
                     <div id="alertCardsContainer" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;"></div>
                 </div>
 
@@ -1010,34 +1010,7 @@
 
                 <!-- Vendor Programs and Referral Partners moved to their own pages -->
 
-                <!-- Email Replies Section (visible to agents and admins) -->
-                <div id="emailRepliesSection" class="table-container" style="display: none;">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Client Email Replies</div>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <span id="unreadRepliesBadge" style="display:none;background:#EF4444;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;"></span>
-                            <button class="btn btn-sm" onclick="markAllRepliesRead()" style="padding:5px 12px;background:#E2E8F0;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Mark All Read</button>
-                        </div>
-                    </div>
-                    <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">Responses from clients and prospects to your outreach emails. Click to view and follow up.</p>
-                    <div style="overflow-x:auto;">
-                    <table style="min-width:700px;">
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>From</th>
-                                <th>Subject</th>
-                                <th>Preview</th>
-                                <th>Received</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="emailRepliesBody">
-                            <tr><td colspan="6" class="empty-state">Loading replies...</td></tr>
-                        </tbody>
-                    </table>
-                    </div>
-                </div>
+                <!-- Email Replies Section moved to Recruitment Hub -->
 
                 <!-- Agent Deals Section (agents only) -->
                 <div id="agentCommissionsSection" class="table-container" style="display: none;">
@@ -2297,6 +2270,35 @@
                                 <span style="font-size: 11px; color: var(--text-light); background: #E2E8F0; padding: 3px 8px; border-radius: 4px;">PDF</span>
                             </a>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Prospect Email Replies -->
+                <div id="emailRepliesSection" class="table-container" style="margin-bottom: 24px;">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
+                        <div class="table-title">Prospect Email Replies</div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span id="unreadRepliesBadge" style="display:none;background:#EF4444;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;"></span>
+                            <button class="btn btn-sm" onclick="markAllRepliesRead()" style="padding:5px 12px;background:#E2E8F0;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Mark All Read</button>
+                        </div>
+                    </div>
+                    <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">Responses from prospects to your recruitment outreach emails. Click to view and follow up.</p>
+                    <div style="overflow-x:auto;">
+                    <table style="min-width:700px;">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>From</th>
+                                <th>Subject</th>
+                                <th>Preview</th>
+                                <th>Received</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="emailRepliesBody">
+                            <tr><td colspan="6" class="empty-state">Loading replies...</td></tr>
+                        </tbody>
+                    </table>
                     </div>
                 </div>
 
@@ -12213,8 +12215,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Application Hub is now on its own page
 
-            // Load email replies for everyone (agents see their own, admins see all)
-            await loadEmailReplies();
+            // Email replies moved to Recruitment Hub page
 
             // Check for unread vendor notes (shows badge on Vendor Programs nav)
             checkUnreadVendorNotes();
@@ -12273,6 +12274,33 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var { data: vendorLeads } = await db.from('vendor_inquiries').select('id').eq('status', 'New').limit(50);
             if (vendorLeads && vendorLeads.length > 0) {
                 alerts.push({ icon: '🏭', color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA', label: 'Vendor Inquiries', count: vendorLeads.length, detail: 'New leads to review', onclick: "showPage('vendors')" });
+            }
+
+            // 6. Prospect Replies (unread email replies from prospects)
+            var { data: prospectReplies } = await db.from('email_replies').select('id').eq('is_read', false).limit(50);
+            if (prospectReplies && prospectReplies.length > 0) {
+                alerts.push({ icon: '💬', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', label: 'Prospect Replies', count: prospectReplies.length, detail: 'Unread prospect emails', onclick: "showPage('alliance')" });
+            }
+
+            // 7. Overdue Follow-ups (outreach with no activity in 3+ days, not archived)
+            var { data: followUps } = await db.from('prospect_outreach').select('id, last_contact_date, updated_at')
+                .eq('is_archived', false).limit(100);
+            if (followUps) {
+                var threeDaysAgo = Date.now() - 3 * 86400000;
+                var overdue = followUps.filter(function(p) {
+                    var lastDate = p.last_contact_date || p.updated_at;
+                    return lastDate && new Date(lastDate).getTime() < threeDaysAgo;
+                });
+                if (overdue.length > 0) {
+                    alerts.push({ icon: '🔔', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', label: 'Overdue Follow-ups', count: overdue.length, detail: 'No response in 3+ days', onclick: "showPage('alliance')" });
+                }
+            }
+
+            // 8. Credit Responses (applications with credit decision pending review)
+            var { data: creditResponses } = await db.from('applications').select('id')
+                .in('status', ['Credit Approved', 'Credit Declined', 'Conditional Approval']).limit(50);
+            if (creditResponses && creditResponses.length > 0) {
+                alerts.push({ icon: '💳', color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC', label: 'Credit Responses', count: creditResponses.length, detail: 'Decisions ready for review', onclick: "showPage('deals')" });
             }
 
             if (alerts.length === 0) {
@@ -15580,6 +15608,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             case 'alliance':
                 await loadAllianceHouse();
                 loadAdminOutreachHistory();
+                loadEmailReplies();
                 break;
             case 'vendorPrograms':
                 await loadAgentVendors();
