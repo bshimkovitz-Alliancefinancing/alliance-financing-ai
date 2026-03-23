@@ -1189,7 +1189,7 @@
             <!-- Agents Page -->
             <div id="agents" class="page-section">
                 <!-- Agent Stats Bar -->
-                <div id="agentStatsBar" style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:24px;">
+                <div id="agentStatsBar" style="display:grid;grid-template-columns:repeat(7,1fr);gap:14px;margin-bottom:24px;">
                     <div onclick="filterAgentsByType('')" style="background:white;border-radius:12px;padding:18px 16px;text-align:center;cursor:pointer;transition:all 0.2s ease;border:2px solid transparent;box-shadow:0 1px 4px rgba(0,0,0,0.06);position:relative;overflow:hidden;" id="agentStatAll" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'">
                         <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0D1E3D,#1E3A5F);border-radius:12px 12px 0 0;"></div>
                         <div style="font-size:28px;font-weight:800;color:#0D1E3D;line-height:1;" id="countAllAgents">0</div>
@@ -1214,6 +1214,11 @@
                         <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#7C3AED,#A78BFA);border-radius:12px 12px 0 0;"></div>
                         <div style="font-size:28px;font-weight:800;color:#7C3AED;line-height:1;" id="countVendorPrograms">0</div>
                         <div style="font-size:11px;color:#64748B;margin-top:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;">Vendor Programs</div>
+                    </div>
+                    <div onclick="document.getElementById('agentStatusFilter').value='Pending';renderAgentsTable();" style="background:white;border-radius:12px;padding:18px 16px;text-align:center;cursor:pointer;transition:all 0.2s ease;border:2px solid transparent;box-shadow:0 1px 4px rgba(0,0,0,0.06);position:relative;overflow:hidden;" id="agentStatPending" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(234,88,12,0.15)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'">
+                        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#EA580C,#FB923C);border-radius:12px 12px 0 0;"></div>
+                        <div style="font-size:28px;font-weight:800;color:#EA580C;line-height:1;" id="countPendingAgents">0</div>
+                        <div style="font-size:11px;color:#64748B;margin-top:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;">Pending</div>
                     </div>
                     <div style="background:linear-gradient(135deg,#166534,#22C55E);border-radius:12px;padding:18px 16px;text-align:center;cursor:default;border:2px solid transparent;box-shadow:0 1px 4px rgba(22,101,52,0.2);position:relative;overflow:hidden;">
                         <div style="font-size:28px;font-weight:800;color:white;line-height:1;" id="countActiveAgents">0</div>
@@ -12202,10 +12207,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 alerts.push({ icon: '📋', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', label: 'New Applications', count: pendingApps.length, detail: 'Not yet reviewed', onclick: "showPage('inbox')" });
             }
 
-            // 4. Agents with Invited status (not yet active)
-            var { data: invitedAgents } = await db.from('users').select('id').eq('role', 'agent').eq('agent_status', 'Invited');
-            if (invitedAgents && invitedAgents.length > 0) {
-                alerts.push({ icon: '👥', color: '#0D9488', bg: '#F0FDFA', border: '#99F6E4', label: 'Pending Agents', count: invitedAgents.length, detail: 'Invited, not yet active', onclick: "showPage('agents')" });
+            // 4. Agents with Invited or Pending status (not yet active)
+            var { data: pendingAgents } = await db.from('users').select('id').eq('role', 'agent').in('agent_status', ['Invited', 'Pending']);
+            if (pendingAgents && pendingAgents.length > 0) {
+                alerts.push({ icon: '👥', color: '#0D9488', bg: '#F0FDFA', border: '#99F6E4', label: 'Pending Agents', count: pendingAgents.length, detail: 'Invited or pending, not yet active', onclick: "document.getElementById('agentStatusFilter').value='Pending';showPage('agents');setTimeout(function(){renderAgentsTable();},300);" });
             }
 
             // 5. Vendor inquiry leads (new/unprocessed)
@@ -13148,6 +13153,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         const el = (id) => document.getElementById(id);
         if (el('countAllAgents')) el('countAllAgents').textContent = allAgentsData.length;
         if (el('countActiveAgents')) el('countActiveAgents').textContent = allAgentsData.filter(a => a.agent_status === 'Active').length;
+        if (el('countPendingAgents')) el('countPendingAgents').textContent = allAgentsData.filter(a => a.agent_status === 'Pending' || a.agent_status === 'Invited').length;
 
         // Highlight active filter stat card with ring + slight scale
         const statCards = { '': 'agentStatAll', 'super_agent': 'agentStatISO', 'referring_agent': 'agentStatRef', 'syndication_desk': 'agentStatSynd', 'vendor_program': 'agentStatVendor' };
