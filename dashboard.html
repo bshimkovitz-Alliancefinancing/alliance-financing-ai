@@ -5021,6 +5021,15 @@
             var vpTabs = document.getElementById('vendorProgramTabs');
             if (vpTabs) vpTabs.style.display = 'none';
         }
+
+        // Agents (non-admin): hide client management buttons
+        if (!['super_admin', 'admin'].includes(currentUserRole)) {
+            var allBtns = document.querySelectorAll('button');
+            allBtns.forEach(function(btn) {
+                var txt = btn.textContent.trim();
+                if (txt === '+ New Client' || txt === 'Import CSV') btn.style.display = 'none';
+            });
+        }
     }
 
     // ============================================
@@ -25760,6 +25769,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function loadClients() {
         try {
+            const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
             // Ensure agents are cached for source agent lookup
             if (cachedAgents.length === 0) {
                 const { data: agts } = await db.from('users').select('id, full_name').eq('role', 'agent');
@@ -25769,6 +25780,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const { data: ccData } = await db.from('client_contact_persons').select('id, client_id, contact_name, status');
             cachedClientContacts = ccData || [];
 
+            // For agents: only show clients linked to their deals
+            let agentClientIds = null;
+            if (!isAdmin && currentUserId) {
+                const { data: agentDeals } = await db.from('deals').select('client_id').eq('source_agent_id', currentUserId).not('client_id', 'is', null);
+                agentClientIds = new Set((agentDeals || []).map(d => d.client_id));
+            }
+
             const { data, error } = await db
                 .from('clients')
                 .select('*')
@@ -25776,12 +25794,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
-            // Count deals per client
-            const { data: dealLinks } = await db.from('deals').select('client_id').not('client_id', 'is', null);
+            // Count deals per client (agent sees only their deal counts)
+            let dealQuery = db.from('deals').select('client_id').not('client_id', 'is', null);
+            if (!isAdmin && currentUserId) {
+                dealQuery = dealQuery.eq('source_agent_id', currentUserId);
+            }
+            const { data: dealLinks } = await dealQuery;
             const dealCounts = {};
             (dealLinks || []).forEach(d => { dealCounts[d.client_id] = (dealCounts[d.client_id] || 0) + 1; });
 
-            allClients = (data || []).map(c => ({ ...c, deals_count: dealCounts[c.id] || 0 }));
+            let clientList = (data || []).map(c => ({ ...c, deals_count: dealCounts[c.id] || 0 }));
+
+            // Filter to agent's clients only
+            if (agentClientIds) {
+                clientList = clientList.filter(c => agentClientIds.has(c.id));
+            }
+
+            allClients = clientList;
             filterClients();
         } catch (error) {
             console.error('Load clients error:', error);
@@ -25790,6 +25819,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     function renderClientsTable(data) {
         const tbody = document.getElementById('clientsBody');
+        const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
         if (!data || data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px 20px;color:#94A3B8;font-size:14px;">No clients found.</td></tr>';
             return;
@@ -25809,6 +25839,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const dealCount = client.deals_count || 0;
             const st = statusStyles[client.status] || statusStyles['Active'];
 
+            const statusCell = isAdmin
+                ? `<select onchange="updateClientStatus('${client.id}', this.value)" style="padding:5px 8px;border-radius:6px;border:1px solid ${st.bg};background:${st.bg};color:${st.color};font-size:12px;font-weight:600;cursor:pointer;">
+                    ${'Active,Inactive,Prospect'.split(',').map(s => '<option value="' + s + '"' + ((client.status || 'Active') === s ? ' selected' : '') + '>' + s + '</option>').join('')}
+                   </select>`
+                : `<span style="padding:3px 10px;border-radius:10px;background:${st.bg};color:${st.color};font-size:12px;font-weight:600;">${client.status || 'Active'}</span>`;
+
             return `
             <tr style="border-bottom:1px solid #F1F5F9;transition:background 0.15s;cursor:pointer;" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='white'" onclick="viewClient('${client.id}')">
                 <td style="padding:12px 14px;">
@@ -25826,9 +25862,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:${dealCount > 0 ? '#EFF6FF' : '#F8FAFC'};color:${dealCount > 0 ? '#3B82F6' : '#CBD5E1'};font-weight:700;font-size:13px;">${dealCount}</span>
                 </td>
                 <td style="padding:12px 14px;" onclick="event.stopPropagation()">
-                    <select onchange="updateClientStatus('${client.id}', this.value)" style="padding:5px 8px;border-radius:6px;border:1px solid ${st.bg};background:${st.bg};color:${st.color};font-size:12px;font-weight:600;cursor:pointer;">
-                        ${'Active,Inactive,Prospect'.split(',').map(s => '<option value="' + s + '"' + ((client.status || 'Active') === s ? ' selected' : '') + '>' + s + '</option>').join('')}
-                    </select>
+                    ${statusCell}
                 </td>
                 <td style="padding:12px 14px;text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
                     <button onclick="viewClient('${client.id}')" style="padding:6px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">View</button>
@@ -25930,6 +25964,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function viewClient(clientId) {
         try {
+            const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
             // Ensure agents are cached
             if (cachedAgents.length === 0) {
                 const { data: agts } = await db.from('users').select('id, full_name, email').eq('role', 'agent');
@@ -25954,19 +25990,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (contactsError) console.warn('Could not load contacts:', contactsError);
 
-            // Fetch deals linked to this client
+            // Fetch deals linked to this client (agents only see their own deals)
             let clientDeals = [];
             try {
-                const { data: cd } = await db.from('deals').select('id, company_name, deal_amount, status').eq('client_id', clientId);
+                let dealQuery = db.from('deals').select('id, company_name, deal_amount, status').eq('client_id', clientId);
+                if (!isAdmin && currentUserId) {
+                    dealQuery = dealQuery.eq('source_agent_id', currentUserId);
+                }
+                const { data: cd } = await dealQuery;
                 clientDeals = cd || [];
             } catch(e) { console.warn('Could not load client deals:', e); }
 
-            // Parse admin notes
+            // Parse admin notes — agents only see notes marked visible_to_agent or from_agent
             let notes = [];
             try {
                 notes = client.admin_notes ? JSON.parse(client.admin_notes) : [];
             } catch(e) {
                 notes = client.admin_notes ? [{ text: client.admin_notes, author: 'System', date: 'Previously' }] : [];
+            }
+
+            if (!isAdmin) {
+                notes = notes.filter(n => n.from_agent || n.visible_to_agent);
             }
 
             const notesHtml = notes.length > 0
@@ -25993,7 +26037,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }).join('')
                 : '<p style="color: var(--text-light); font-size: 14px;">No notes yet.</p>';
 
-            // Build contacts HTML
+            // Build contacts HTML — agents see contacts read-only (no delete button)
             const contactsHtml = (contacts && contacts.length > 0)
                 ? contacts.map(c => {
                     const contactStatus = c.status || 'Active';
@@ -26012,15 +26056,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                     ${c.role_title ? `<div>Role: ${c.role_title}</div>` : ''}
                                 </div>
                             </div>
-                            <div style="display: flex; gap: 4px;">
+                            ${isAdmin ? `<div style="display: flex; gap: 4px;">
                                 <button class="btn btn-secondary btn-sm" onclick="deleteClientContact('${c.id}', '${clientId}')" style="padding: 3px 8px; font-size: 11px; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
-                            </div>
+                            </div>` : ''}
                         </div>
                     </div>
                 `}).join('')
                 : '<p style="color: var(--text-light); font-size: 14px;">No contacts yet.</p>';
 
-            // Build deals HTML
+            // Build deals HTML — agents cannot unlink deals
             const dealsHtml = (clientDeals && clientDeals.length > 0)
                 ? clientDeals.map(d => `
                     <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--border-gray); display: flex; justify-content: space-between; align-items: center;">
@@ -26033,7 +26077,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${d.status === 'Funded' ? '#DCFCE7' : d.status === 'Pending' ? '#FEF3C7' : '#DBEAFE'}; color: ${d.status === 'Funded' ? '#166534' : d.status === 'Pending' ? '#92400E' : '#1E40AF'};">${d.status}</span>
                             </div>
                         </div>
-                        <button onclick="unlinkDealFromClient('${d.id}', '${clientId}')" title="Unlink deal" style="background:none;border:1px solid #E2E8F0;border-radius:4px;padding:4px 8px;cursor:pointer;color:#94A3B8;font-size:12px;white-space:nowrap;" onmouseover="this.style.color='#EF4444';this.style.borderColor='#EF4444'" onmouseout="this.style.color='#94A3B8';this.style.borderColor='#E2E8F0'">✕ Unlink</button>
+                        ${isAdmin ? `<button onclick="unlinkDealFromClient('${d.id}', '${clientId}')" title="Unlink deal" style="background:none;border:1px solid #E2E8F0;border-radius:4px;padding:4px 8px;cursor:pointer;color:#94A3B8;font-size:12px;white-space:nowrap;" onmouseover="this.style.color='#EF4444';this.style.borderColor='#EF4444'" onmouseout="this.style.color='#94A3B8';this.style.borderColor='#E2E8F0'">✕ Unlink</button>` : ''}
                     </div>
                 `).join('')
                 : '<p style="color: var(--text-light); font-size: 14px;">No deals linked yet.</p>';
@@ -26041,7 +26085,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const modalBody = document.getElementById('clientModalBody');
             document.getElementById('clientDetailTitle').textContent = client.company_name || 'Client Details';
 
-            modalBody.innerHTML = `
+            // Helper: read-only display field for agents
+            const roField = (label, value) => `<div class="modal-field"><label>${label}</label><div style="padding:6px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:4px;font-size:14px;color:#334155;min-height:20px;">${value || '<span style="color:#CBD5E1;">—</span>'}</div></div>`;
+
+            if (isAdmin) {
+                // ADMIN VIEW — full editable form
+                modalBody.innerHTML = `
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Company Name</label>
@@ -26184,7 +26233,62 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <button onclick="addClientNote('${clientId}')" style="padding: 8px 14px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; height: fit-content;">Add Note</button>
                     </div>
                 </div>
-            `;
+                `;
+            } else {
+                // AGENT VIEW — read-only basic info, sensitive fields hidden
+                const statusStyle = (client.status || 'Active') === 'Active' ? 'background:#DCFCE7;color:#166534;' : (client.status || 'Active') === 'Prospect' ? 'background:#DBEAFE;color:#1E40AF;' : 'background:#FEE2E2;color:#991B1B;';
+                modalBody.innerHTML = `
+                <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#1E40AF;">
+                    <strong>Read-only view</strong> — Contact your admin to update client details.
+                </div>
+                <div class="modal-row">
+                    ${roField('Company Name', (client.company_name || '').replace(/</g, '&lt;'))}
+                    ${roField('Legal Name', (client.legal_name || '').replace(/</g, '&lt;'))}
+                </div>
+                <div class="modal-row">
+                    ${roField('Industry', client.industry || '')}
+                    ${roField('Business Type', client.business_type || '')}
+                </div>
+                <div class="modal-row">
+                    ${roField('Country', client.country || '')}
+                    <div class="modal-field">
+                        <label>Status</label>
+                        <div style="padding:6px 10px;"><span style="padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;${statusStyle}">${client.status || 'Active'}</span></div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    ${roField('Phone', client.phone || '')}
+                    ${roField('Website', client.website ? '<a href="' + (client.website.startsWith('http') ? '' : 'https://') + client.website + '" target="_blank">' + (client.website || '').replace(/</g, '&lt;') + '</a>' : '')}
+                </div>
+                <div class="modal-row">
+                    ${roField('Years in Business', client.years_in_business || '')}
+                    <div class="modal-field"></div>
+                </div>
+
+                <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--navy);">Contact Persons</h3>
+                    <div style="margin-bottom: 12px;">
+                        ${contactsHtml}
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--navy);">Linked Deals (${clientDeals.length})</h3>
+                    ${dealsHtml}
+                </div>
+
+                <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--navy);">Activity Notes</h3>
+                    <div id="clientNotes_${clientId}" style="margin-bottom: 12px;">
+                        ${notesHtml}
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <textarea id="clientNoteInput_${clientId}" placeholder="Add a note for admin..." rows="2" style="flex: 1; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
+                        <button onclick="addClientNote('${clientId}', true)" style="padding: 8px 14px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; height: fit-content;">Add Note</button>
+                    </div>
+                </div>
+                `;
+            }
 
             document.getElementById('clientDetailModal').classList.add('active');
         } catch (error) {
@@ -26319,7 +26423,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    async function addClientNote(clientId) {
+    async function addClientNote(clientId, isFromAgent) {
         const noteText = document.getElementById('clientNoteInput_' + clientId).value.trim();
         if (!noteText) {
             alert('Please enter a note.');
@@ -26342,8 +26446,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 text: noteText,
                 author: userEmail,
                 date: dateStr,
-                visible_to_agent: false,
-                from_agent: false,
+                visible_to_agent: isFromAgent ? true : false,
+                from_agent: isFromAgent ? true : false,
                 is_audit_log: false
             });
 
