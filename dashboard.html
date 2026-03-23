@@ -2238,34 +2238,7 @@
                     </div>
                 </div>
 
-                <!-- Prospect Email Replies -->
-                <div id="emailRepliesSection" class="table-container" style="margin-bottom: 24px;">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Prospect Email Replies</div>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <span id="unreadRepliesBadge" style="display:none;background:#EF4444;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;"></span>
-                            <button class="btn btn-sm" onclick="markAllRepliesRead()" style="padding:5px 12px;background:#E2E8F0;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Mark All Read</button>
-                        </div>
-                    </div>
-                    <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">Responses from prospects to your recruitment outreach emails. Click to view and follow up.</p>
-                    <div style="overflow-x:auto;">
-                    <table style="min-width:700px;">
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>From</th>
-                                <th>Subject</th>
-                                <th>Preview</th>
-                                <th>Received</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="emailRepliesBody">
-                            <tr><td colspan="6" class="empty-state">Loading replies...</td></tr>
-                        </tbody>
-                    </table>
-                    </div>
-                </div>
+                <!-- Prospect replies are handled in Recruitment Outreach notes — no separate section needed -->
 
                 <!-- Recruitment Outreach (Admin) -->
                 <div class="table-container" style="margin-bottom: 24px;">
@@ -12240,10 +12213,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 alerts.push({ icon: '🏭', color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA', label: 'Vendor Inquiries', count: vendorLeads.length, detail: 'New leads to review', onclick: "showPage('vendors')" });
             }
 
-            // 6. Prospect Replies (unread email replies from prospects)
-            var { data: prospectReplies } = await db.from('email_replies').select('id').eq('is_read', false).limit(50);
-            if (prospectReplies && prospectReplies.length > 0) {
-                alerts.push({ icon: '💬', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', label: 'Prospect Replies', count: prospectReplies.length, detail: 'Unread prospect emails', onclick: "showPage('alliance')" });
+            // 6. Prospect Replies (prospects who replied to recruitment outreach)
+            var { data: repliedProspects } = await db.from('prospect_outreach').select('id').eq('status', 'Replied').eq('is_archived', false).limit(50);
+            if (repliedProspects && repliedProspects.length > 0) {
+                alerts.push({ icon: '💬', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', label: 'Prospect Replies', count: repliedProspects.length, detail: 'Replied — follow up to convert', onclick: "showPage('alliance')" });
             }
 
             // 7. Overdue Follow-ups (outreach with no activity in 3+ days, not archived)
@@ -15572,7 +15545,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             case 'alliance':
                 await loadAllianceHouse();
                 loadAdminOutreachHistory();
-                loadEmailReplies();
                 break;
             case 'vendorPrograms':
                 await loadAgentVendors();
