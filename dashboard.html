@@ -7217,6 +7217,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     async function loadOutreachHistory(targetId) {
         var tbody = document.getElementById(targetId || 'outreachTableBody');
         if (!tbody) return;
+        var idPrefix = (targetId === 'adminOutreachTableBody') ? 'admin_' : '';
 
         try {
             // Try loading from prospect_outreach first
@@ -7320,12 +7321,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 html += '</select></td>';
                 html += '<td style="padding:12px 16px;text-align:center;white-space:nowrap;">';
                 html += '<button onclick="openProspectDetail(\'' + row.id + '\')" style="padding:4px 10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:4px;cursor:pointer;font-size:11px;color:#1E40AF;margin-right:4px;" title="View Details">📋 Details</button>';
-                html += '<button onclick="toggleOutreachNotes(\'' + row.id + '\')" style="padding:4px 10px;background:' + (row.notes ? '#FEF3C7' : '#F8FAFC') + ';border:1px solid ' + (row.notes ? '#F59E0B' : '#E2E8F0') + ';border-radius:4px;cursor:pointer;font-size:11px;color:' + (row.notes ? '#92400E' : '#64748B') + ';margin-right:4px;" title="' + (row.notes ? 'View Notes' : 'Add Notes') + '">' + (row.notes ? '💬 Notes' : '+ Notes') + '</button>';
+                html += '<button onclick="toggleOutreachNotes(\'' + idPrefix + row.id + '\')" style="padding:4px 10px;background:' + (row.notes ? '#FEF3C7' : '#F8FAFC') + ';border:1px solid ' + (row.notes ? '#F59E0B' : '#E2E8F0') + ';border-radius:4px;cursor:pointer;font-size:11px;color:' + (row.notes ? '#92400E' : '#64748B') + ';margin-right:4px;" title="' + (row.notes ? 'View Notes' : 'Add Notes') + '">' + (row.notes ? '💬 Notes' : '+ Notes') + '</button>';
                 html += '<button onclick="resendMarketingPackage(\'' + row.id + '\')" style="padding:4px 10px;background:#F3F4F6;border:1px solid #E2E8F0;border-radius:4px;cursor:pointer;font-size:11px;color:#374151;" title="Resend">↻ Resend</button>';
                 html += '</td>';
                 html += '</tr>';
                 // Expandable notes row (hidden by default) — always rendered so admin can add notes
-                html += '<tr id="outreachNotes_' + row.id + '" style="display:none;"><td colspan="6" style="padding:12px 24px;background:#FFFBEB;border-bottom:1px solid #F59E0B;">';
+                html += '<tr id="outreachNotes_' + idPrefix + row.id + '" style="display:none;"><td colspan="6" style="padding:12px 24px;background:#FFFBEB;border-bottom:1px solid #F59E0B;">';
                 html += '<div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:6px;">📝 Prospect Notes</div>';
                 if (row.notes) {
                     html += '<pre style="font-size:12px;color:#374151;line-height:1.6;white-space:pre-wrap;margin:0 0 12px;font-family:inherit;">' + row.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
@@ -7333,8 +7334,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     html += '<div style="color:#94A3B8;font-size:12px;font-style:italic;margin-bottom:12px;">No notes yet.</div>';
                 }
                 html += '<div style="display:flex;gap:8px;align-items:flex-start;">';
-                html += '<input type="text" id="outreachNoteInput_' + row.id + '" placeholder="Add internal note..." style="flex:1;padding:8px 10px;border:1px solid #D4D9E2;border-radius:6px;font-size:12px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addQuickOutreachNote(\'' + row.id + '\')}">';
-                html += '<button onclick="addQuickOutreachNote(\'' + row.id + '\')" style="padding:8px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Add Note</button>';
+                html += '<input type="text" id="outreachNoteInput_' + idPrefix + row.id + '" placeholder="Add internal note..." style="flex:1;padding:8px 10px;border:1px solid #D4D9E2;border-radius:6px;font-size:12px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addQuickOutreachNote(\'' + row.id + '\', \'' + idPrefix + '\')}">';
+                html += '<button onclick="addQuickOutreachNote(\'' + row.id + '\', \'' + idPrefix + '\')" style="padding:8px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Add Note</button>';
                 html += '</div>';
                 html += '</td></tr>';
             }
@@ -7586,8 +7587,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // Quick add note from the inline outreach notes row
-    window.addQuickOutreachNote = async function(id) {
-        var inputEl = document.getElementById('outreachNoteInput_' + id);
+    window.addQuickOutreachNote = async function(id, idPrefix) {
+        idPrefix = idPrefix || '';
+        var inputEl = document.getElementById('outreachNoteInput_' + idPrefix + id);
         if (!inputEl) return;
         var noteText = inputEl.value.trim();
         if (!noteText) { showToast('Please enter a note first', 'warning'); return; }
@@ -7609,6 +7611,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             showToast('Note added', 'success');
             inputEl.value = '';
             loadOutreachHistory();
+            loadOutreachHistory('adminOutreachTableBody');
         } catch (err) {
             console.error('Quick note error:', err);
             showToast('Failed to add note', 'error');
