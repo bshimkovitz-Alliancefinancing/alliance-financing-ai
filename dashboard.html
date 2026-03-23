@@ -26208,13 +26208,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </div>
                 <div class="modal-row">
                     <div class="modal-field">
-                        <label>Country</label>
-                        <input type="text" id="clientDetailCountry" value="${(client.country || '').replace(/"/g, '&quot;')}"
-                            data-original="${(client.country || '').replace(/"/g, '&quot;')}"
-                            onblur="updateClientTrackedField('${clientId}', 'country', this)"
-                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
-                    </div>
-                    <div class="modal-field">
                         <label>Status</label>
                         <select onchange="updateClientStatus('${clientId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                             <option value="Active" ${(client.status || 'Active') === 'Active' ? 'selected' : ''}>Active</option>
@@ -26222,6 +26215,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             <option value="Prospect" ${(client.status || 'Active') === 'Prospect' ? 'selected' : ''}>Prospect</option>
                         </select>
                     </div>
+                    <div class="modal-field"></div>
                 </div>
                 <div class="modal-row">
                     <div class="modal-field">
@@ -26239,6 +26233,59 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                     </div>
                 </div>
+                <h3 style="color: var(--navy); font-size: 14px; margin: 20px 0 10px 0; padding-bottom: 6px; border-bottom: 1px solid #E2E8F0;">Address</h3>
+                <div class="modal-row">
+                    <div class="modal-field" style="flex:1;">
+                        <label>Street Address</label>
+                        <input type="text" value="${(client.address_line1 || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientField('${clientId}', 'address_line1', this.value)"
+                            placeholder="123 Main Street"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field" style="flex:1;">
+                        <label>Street Address 2</label>
+                        <input type="text" value="${(client.address_line2 || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientField('${clientId}', 'address_line2', this.value)"
+                            placeholder="Suite, Unit, Floor (optional)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>City</label>
+                        <input type="text" value="${(client.city || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientField('${clientId}', 'city', this.value)"
+                            placeholder="Toronto"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Province / State</label>
+                        <input type="text" value="${(client.province_state || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientField('${clientId}', 'province_state', this.value)"
+                            placeholder="Ontario"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Postal / Zip Code</label>
+                        <input type="text" value="${(client.postal_code || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientField('${clientId}', 'postal_code', this.value)"
+                            placeholder="M5V 1A1"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Country</label>
+                        <input type="text" id="clientDetailCountry" value="${(client.country || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.country || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'country', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+
+                <h3 style="color: var(--navy); font-size: 14px; margin: 20px 0 10px 0; padding-bottom: 6px; border-bottom: 1px solid #E2E8F0;">Business Details</h3>
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Years in Business</label>
@@ -26447,8 +26494,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </div>
             </div>
         `;
-        const container = document.querySelector('[style*="Contact Persons"]').parentElement;
-        container.insertAdjacentHTML('beforeend', html);
+        // Find the contact persons section by looking for the button itself, then insert form before it
+        var addBtn = document.querySelector('button[onclick*="openAddClientContactForm"]');
+        if (addBtn) {
+            addBtn.insertAdjacentHTML('beforebegin', html);
+        } else {
+            // Fallback: append to modal body
+            document.getElementById('clientModalBody').insertAdjacentHTML('beforeend', html);
+        }
     }
 
     async function addClientContact(clientId) {
