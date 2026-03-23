@@ -1043,43 +1043,7 @@
                     </table>
                 </div>
 
-                <!-- Unified Inbox -->
-                <div id="dashUnifiedInbox" class="table-container">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Inbox</div>
-                        <div class="inbox-filter-tabs">
-                            <button class="inbox-filter-tab active" data-filter="all" onclick="filterInbox('all')">All <span id="inboxCountAll" class="inbox-tab-count"></span></button>
-                            <button class="inbox-filter-tab" data-filter="application" onclick="filterInbox('application')">Applications <span id="inboxCountApps" class="inbox-tab-count"></span></button>
-                            <button class="inbox-filter-tab" data-filter="inquiry" onclick="filterInbox('inquiry')">Inquiries <span id="inboxCountInquiries" class="inbox-tab-count"></span></button>
-                            <button class="inbox-filter-tab" data-filter="agent_referral" onclick="filterInbox('agent_referral')">Agent Referrals <span id="inboxCountAgent" class="inbox-tab-count"></span></button>
-                            <button class="inbox-filter-tab" data-filter="vendor" onclick="filterInbox('vendor')">Vendor Deals <span id="inboxCountVendor" class="inbox-tab-count"></span></button>
-                        </div>
-                    </div>
-                    <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">All inbound applications and inquiries in one place. Review, assign, and route to the deal pipeline.</p>
-                    <div id="staleInboxBanner" style="display:none;align-items:center;gap:10px;padding:10px 20px;background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;margin:0 20px 8px;font-size:13px;color:#991B1B;"></div>
-                    <div style="overflow-x:auto;">
-                    <table id="unifiedInboxTable" style="min-width:1000px;">
-                        <thead>
-                            <tr>
-                                <th style="width:50px;">Type</th>
-                                <th>Source</th>
-                                <th>Client</th>
-                                <th>Contact</th>
-                                <th>Product</th>
-                                <th>Amount</th>
-                                <th>Referred By</th>
-                                <th>Received</th>
-                                <th>Priority</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="unifiedInboxBody">
-                            <tr><td colspan="11" class="empty-state">Loading inbox...</td></tr>
-                        </tbody>
-                    </table>
-                    </div>
-                </div>
+                <!-- Unified Inbox moved to dedicated Inbox page — dashboard uses alert cards only -->
             </div>
 
             <!-- Deal Pipeline Page -->
@@ -12085,8 +12049,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
-            // Load Unified Inbox (replaces old Intake + Contact Submissions)
-            await loadUnifiedInbox();
+            // Unified Inbox moved to dedicated Inbox page — dashboard is alerts-only
 
             // === Agent Portal Features ===
             const isAgentUser = !['super_admin', 'admin'].includes(currentUserRole) && currentUserId;
@@ -12255,13 +12218,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 2. Unanswered contact submissions
             var { data: contacts } = await db.from('contact_submissions').select('id, status').eq('status', 'New').limit(50);
             if (contacts && contacts.length > 0) {
-                alerts.push({ icon: '✉️', color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE', label: 'New Contacts', count: contacts.length, detail: 'Awaiting response', onclick: "showPage('contacts')" });
+                alerts.push({ icon: '✉️', color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE', label: 'New Contacts', count: contacts.length, detail: 'Awaiting response', onclick: "showPage('inbox')" });
             }
 
             // 3. Applications awaiting review
             var pendingApps = (applications || []).filter(function(a) { return a.status === 'Application Received'; });
             if (pendingApps.length > 0) {
-                alerts.push({ icon: '📋', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', label: 'New Applications', count: pendingApps.length, detail: 'Not yet reviewed', onclick: "document.getElementById('recentApplicationsTable').scrollIntoView({behavior:'smooth',block:'start'})" });
+                alerts.push({ icon: '📋', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', label: 'New Applications', count: pendingApps.length, detail: 'Not yet reviewed', onclick: "showPage('inbox')" });
             }
 
             // 4. Agents with Invited status (not yet active)
