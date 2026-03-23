@@ -9766,14 +9766,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 // Also add the contact person if we have a client
                 if (appClientId && fullName) {
                     try {
-                        const { data: existingContact } = await db.from('client_contact_persons').select('id').eq('client_id', appClientId).ilike('contact_name', fullName.trim()).limit(1);
+                        const { data: existingContact } = await db.from('client_contact_persons').select('id').eq('client_id', appClientId).ilike('full_name', fullName.trim()).limit(1);
                         if (!existingContact || existingContact.length === 0) {
                             await db.from('client_contact_persons').insert([{
                                 client_id: appClientId,
-                                contact_name: fullName.trim(),
+                                full_name: fullName.trim(),
                                 email: email || null,
                                 phone: phone || null,
-                                role: 'Primary Contact',
+                                role_title: 'Primary Contact',
                                 status: 'Active'
                             }]);
                         }
@@ -12851,14 +12851,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 // Add contact person if available
                 if (pipelineClientId && application.full_name) {
                     try {
-                        const { data: existC } = await db.from('client_contact_persons').select('id').eq('client_id', pipelineClientId).ilike('contact_name', application.full_name.trim()).limit(1);
+                        const { data: existC } = await db.from('client_contact_persons').select('id').eq('client_id', pipelineClientId).ilike('full_name', application.full_name.trim()).limit(1);
                         if (!existC || existC.length === 0) {
                             await db.from('client_contact_persons').insert([{
                                 client_id: pipelineClientId,
-                                contact_name: application.full_name.trim(),
+                                full_name: application.full_name.trim(),
                                 email: application.email || null,
                                 phone: application.phone || null,
-                                role: 'Primary Contact',
+                                role_title: 'Primary Contact',
                                 status: 'Active'
                             }]);
                         }
@@ -16321,33 +16321,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 <input type="text" id="newClientCell" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                             </div>
                         </div>
-                        <div style="font-weight:500;font-size:13px;color:var(--navy);margin:10px 0 6px 0;">Address</div>
-                        <div class="modal-row">
-                            <div class="modal-field" style="flex:1;">
-                                <label>Street Address</label>
-                                <input type="text" id="newClientStreet" placeholder="123 Main Street" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>City</label>
-                                <input type="text" id="newClientCity" placeholder="Toronto" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                            <div class="modal-field">
-                                <label>Province / State</label>
-                                <input type="text" id="newClientProvince" placeholder="Ontario" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                        </div>
-                        <div class="modal-row">
-                            <div class="modal-field">
-                                <label>Postal / Zip Code</label>
-                                <input type="text" id="newClientPostal" placeholder="M5V 1A1" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                            <div class="modal-field">
-                                <label>Country</label>
-                                <input type="text" id="newClientCountry" value="Canada" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                            </div>
-                        </div>
                         <div class="modal-row">
                             <div class="modal-field full">
                                 <button onclick="addDealClientContact('${dealId}')" style="padding: 8px 16px; background: var(--gold); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; width: 100%;">Add Contact</button>
@@ -17039,21 +17012,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         const name = document.getElementById('newClientName').value.trim();
         if (!name) { alert('Please enter a contact name'); return; }
         try {
-            // Build full address from individual fields
-            var addrParts = [];
-            var street = (document.getElementById('newClientStreet')?.value || '').trim();
-            var city = (document.getElementById('newClientCity')?.value || '').trim();
-            var province = (document.getElementById('newClientProvince')?.value || '').trim();
-            var postal = (document.getElementById('newClientPostal')?.value || '').trim();
-            var country = (document.getElementById('newClientCountry')?.value || '').trim();
-            if (street) addrParts.push(street);
-            if (city) addrParts.push(city);
-            if (province) addrParts.push(province);
-            if (postal) addrParts.push(postal);
-            if (country && country !== 'Canada') addrParts.push(country);
-            else if (country) addrParts.push(country);
-            var fullAddress = addrParts.length > 0 ? addrParts.join(', ') : null;
-
             const { error } = await db.from('client_contacts').insert({
                 deal_id: dealId,
                 contact_name: name,
@@ -17061,7 +17019,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 email: document.getElementById('newClientEmail').value.trim() || null,
                 phone: document.getElementById('newClientPhone').value.trim() || null,
                 cell: document.getElementById('newClientCell').value.trim() || null,
-                address: fullAddress,
                 is_primary: false
             });
             if (error) throw error;
@@ -25848,7 +25805,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 cachedAgents = agts || [];
             }
             // Fetch all client contacts
-            const { data: ccData } = await db.from('client_contact_persons').select('id, client_id, contact_name, status');
+            const { data: ccData } = await db.from('client_contact_persons').select('id, client_id, full_name, status');
             cachedClientContacts = ccData || [];
 
             // For agents: only show clients linked to their deals
@@ -26118,7 +26075,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="font-weight: 600; color: var(--navy);">${c.contact_name || 'N/A'}</span>
+                                    <span style="font-weight: 600; color: var(--navy);">${c.full_name || 'N/A'}</span>
                                     <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${statusColor}; color: white;">${contactStatus}</span>
                                 </div>
                                 <div style="font-size: 13px; color: var(--text-light); margin-top: 4px;">
@@ -26514,7 +26471,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         try {
             const { error } = await db.from('client_contact_persons').insert({
                 client_id: clientId,
-                contact_name: name,
+                full_name: name,
                 email: document.getElementById('newContactEmail_' + clientId).value.trim() || null,
                 phone: document.getElementById('newContactPhone_' + clientId).value.trim() || null,
                 role_title: document.getElementById('newContactRole_' + clientId).value || null,
