@@ -250,6 +250,7 @@
             font-size: 13px;
             font-weight: 700;
             letter-spacing: 0.5px;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
         }
         .deal-meta {
             display: grid;
@@ -491,7 +492,7 @@
         <form class="lookup-form" id="idForm" onsubmit="lookupById(event)">
             <div class="form-group">
                 <label for="appIdInput">Application ID</label>
-                <input type="text" id="appIdInput" placeholder="e.g. AF-10042 or your Application ID" autocomplete="off">
+                <input type="text" id="appIdInput" placeholder="e.g. AF-10042 or your Application ID" autocomplete="off" style="font-family:'SF Mono','Cascadia Code','Consolas',monospace;letter-spacing:0.5px;">
             </div>
             <button type="submit" class="lookup-btn" id="idBtn">Track</button>
         </form>
@@ -665,7 +666,7 @@
 
             // Approach 1: Search deals directly by deal_number or afg_number
             deals = await safeQuery('deals', {
-                'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,applications(application_id)',
                 'or': '(deal_number.ilike.*' + rawId + '*,afg_number.ilike.*' + rawId + '*)',
                 'limit': '5'
             });
@@ -683,7 +684,7 @@
                     var appUuids = apps.map(function(a) { return a.id; });
                     for (var ai = 0; ai < appUuids.length && deals.length === 0; ai++) {
                         deals = await safeQuery('deals', {
-                            'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                            'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,applications(application_id)',
                             'application_id': 'eq.' + appUuids[ai],
                             'limit': '5'
                         });
@@ -698,7 +699,7 @@
             // Approach 3: Try searching by company name as last resort
             if (deals.length === 0) {
                 deals = await safeQuery('deals', {
-                    'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                    'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,applications(application_id)',
                     'company_name': 'ilike.*' + rawId + '*',
                     'limit': '5'
                 });
@@ -763,7 +764,7 @@
                     var appUuids = matched.map(function(a) { return a.id; });
                     for (var ai = 0; ai < appUuids.length && allDeals.length === 0; ai++) {
                         allDeals = await safeQuery('deals', {
-                            'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
+                            'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,applications(application_id)',
                             'application_id': 'eq.' + appUuids[ai],
                             'order': 'date_submitted.desc',
                             'limit': '10'
@@ -802,7 +803,7 @@
     //  Render Deal Result
     // ============================================================
     function renderDeal(deal) {
-        var appId = (deal.deal_number || deal.afg_number || deal.id.slice(0,8)).toString().toUpperCase();
+        var appId = ((deal.applications && deal.applications.application_id) || deal.afg_number || deal.deal_number || deal.id.slice(0,8)).toString().toUpperCase();
         var company = deal.company_name || 'Your Application';
         var status = deal.status || 'Application Sent';
         var stageIdx = STATUS_MAP[status] !== undefined ? STATUS_MAP[status] : 0;
@@ -949,7 +950,7 @@
             var name = d.company_name || app.business_name || 'Application';
             var dt = d.date_submitted ? formatDate(d.date_submitted) : '';
             html += '<div onclick="selectDeal(' + i + ')" style="padding:14px 18px;background:var(--light-bg);border-radius:10px;cursor:pointer;border:1.5px solid var(--border);transition:border-color 0.2s;" onmouseenter="this.style.borderColor=\'var(--gold)\'" onmouseleave="this.style.borderColor=\'var(--border)\'">' +
-                '<div style="font-weight:600;font-size:15px;color:var(--navy);">' + esc(name) + ' <span style="color:var(--gold);font-size:13px;">' + esc(id) + '</span></div>' +
+                '<div style="font-weight:600;font-size:15px;color:var(--navy);">' + esc(name) + ' <span style="color:var(--gold);font-size:13px;font-family:SF Mono,Consolas,monospace;">' + esc(id) + '</span></div>' +
                 '<div style="font-size:13px;color:var(--text-secondary);margin-top:2px;">' + esc(d.product_type || '') + ' &middot; ' + esc(d.status || '') + ' &middot; ' + dt + '</div>' +
                 '</div>';
         }
