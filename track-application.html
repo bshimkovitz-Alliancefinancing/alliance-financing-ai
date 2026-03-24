@@ -663,41 +663,30 @@
         try {
             var deals = [];
 
-            // Approach 1: Search deals directly by deal_number or afg_number (most reliable)
+            // Approach 1: Search deals directly by deal_number or afg_number
             deals = await safeQuery('deals', {
                 'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
                 'or': '(deal_number.ilike.*' + rawId + '*,afg_number.ilike.*' + rawId + '*)',
                 'limit': '5'
             });
 
-            // Approach 2: If no deals found, try applications table
+            // Approach 2: Search applications table by application_id, then find linked deal
             if (deals.length === 0) {
                 var apps = await safeQuery('applications', {
-                    'select': 'id,application_id,deal_id,full_name,email,phone,business_name,form_type,created_at',
+                    'select': 'id,application_id,full_name,email,phone,business_name,form_type,submitted_at',
                     'application_id': 'ilike.*' + rawId + '*',
                     'limit': '5'
                 });
 
                 if (apps.length > 0) {
-                    // Try 1: application has deal_id set
-                    var dealIds = apps.filter(function(a) { return a.deal_id; }).map(function(a) { return a.deal_id; });
-                    if (dealIds.length > 0) {
+                    // Find deals linked via deals.application_id (UUID)
+                    var appUuids = apps.map(function(a) { return a.id; });
+                    for (var ai = 0; ai < appUuids.length && deals.length === 0; ai++) {
                         deals = await safeQuery('deals', {
                             'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
-                            'id': 'in.(' + dealIds.join(',') + ')',
+                            'application_id': 'eq.' + appUuids[ai],
                             'limit': '5'
                         });
-                    }
-                    // Try 2: deal links to application via deals.application_id (UUID)
-                    if (deals.length === 0) {
-                        var appUuids = apps.map(function(a) { return a.id; });
-                        for (var ai = 0; ai < appUuids.length && deals.length === 0; ai++) {
-                            deals = await safeQuery('deals', {
-                                'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
-                                'application_id': 'eq.' + appUuids[ai],
-                                'limit': '5'
-                            });
-                        }
                     }
                     if (deals.length === 0) {
                         showApplicationOnly(apps[0]);
@@ -758,9 +747,9 @@
             // Search applications table by email (deals table doesn't have contact fields)
             {
                 var apps = await safeQuery('applications', {
-                    'select': 'id,application_id,deal_id,full_name,email,phone,business_name,form_type,created_at',
+                    'select': 'id,application_id,full_name,email,phone,business_name,form_type,submitted_at',
                     'email': 'ilike.' + email,
-                    'order': 'created_at.desc',
+                    'order': 'submitted_at.desc',
                     'limit': '10'
                 });
 
@@ -770,27 +759,15 @@
                 });
 
                 if (matched.length > 0) {
-                    // Try 1: application has deal_id set
-                    var dealIds = matched.filter(function(a) { return a.deal_id; }).map(function(a) { return a.deal_id; });
-                    if (dealIds.length > 0) {
+                    // Find deals linked via deals.application_id (UUID)
+                    var appUuids = matched.map(function(a) { return a.id; });
+                    for (var ai = 0; ai < appUuids.length && allDeals.length === 0; ai++) {
                         allDeals = await safeQuery('deals', {
                             'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
-                            'id': 'in.(' + dealIds.join(',') + ')',
+                            'application_id': 'eq.' + appUuids[ai],
                             'order': 'date_submitted.desc',
                             'limit': '10'
                         });
-                    }
-                    // Try 2: deal links to application via deals.application_id (UUID)
-                    if (allDeals.length === 0) {
-                        var appUuids = matched.map(function(a) { return a.id; });
-                        for (var ai = 0; ai < appUuids.length && allDeals.length === 0; ai++) {
-                            allDeals = await safeQuery('deals', {
-                                'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source',
-                                'application_id': 'eq.' + appUuids[ai],
-                                'order': 'date_submitted.desc',
-                                'limit': '10'
-                            });
-                        }
                     }
                     if (allDeals.length === 0) {
                         showApplicationOnly(matched[0]);
@@ -929,7 +906,7 @@
         var appId = (app.application_id || app.id.slice(0,8)).toString().toUpperCase();
         var company = app.business_name || app.full_name || 'Your Application';
         var formType = app.form_type || 'Financing Application';
-        var submitted = app.created_at ? formatDate(app.created_at) : '—';
+        var submitted = app.submitted_at ? formatDate(app.submitted_at) : '—';
 
         var headerHtml = '<div class="deal-top-row">' +
             '<div class="deal-company">' + esc(company) + '</div>' +
