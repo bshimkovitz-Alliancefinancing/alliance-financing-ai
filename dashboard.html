@@ -13350,13 +13350,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     async function loadDeals() {
         try {
             // Load lenders cache if needed
-            if (cachedLenders.length === 0) {
-                const { data: lenderList } = await db
-                    .from('lenders')
-                    .select('id, name')
-                    .order('name');
-                cachedLenders = lenderList || [];
-            }
+            // Always refresh lender cache to pick up newly added lenders/brokers
+            const { data: lenderList } = await db
+                .from('lenders')
+                .select('id, name')
+                .order('name');
+            cachedLenders = lenderList || [];
 
             // Fetch deals with role-based filtering
             let dealsQuery = db
