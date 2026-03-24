@@ -1189,7 +1189,7 @@
             <!-- Agents Page -->
             <div id="agents" class="page-section">
                 <!-- Agent Stats Bar -->
-                <div id="agentStatsBar" style="display:grid;grid-template-columns:repeat(7,1fr);gap:14px;margin-bottom:24px;">
+                <div id="agentStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:24px;">
                     <div onclick="filterAgentsByType('')" style="background:white;border-radius:12px;padding:18px 16px;text-align:center;cursor:pointer;transition:all 0.2s ease;border:2px solid transparent;box-shadow:0 1px 4px rgba(0,0,0,0.06);position:relative;overflow:hidden;" id="agentStatAll" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'">
                         <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0D1E3D,#1E3A5F);border-radius:12px 12px 0 0;"></div>
                         <div style="font-size:28px;font-weight:800;color:#0D1E3D;line-height:1;" id="countAllAgents">0</div>
@@ -1214,6 +1214,16 @@
                         <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#7C3AED,#A78BFA);border-radius:12px 12px 0 0;"></div>
                         <div style="font-size:28px;font-weight:800;color:#7C3AED;line-height:1;" id="countVendorPrograms">0</div>
                         <div style="font-size:11px;color:#64748B;margin-top:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;">Vendor Programs</div>
+                    </div>
+                    <div onclick="filterAgentsByType('mortgage_broker')" style="background:white;border-radius:12px;padding:18px 16px;text-align:center;cursor:pointer;transition:all 0.2s ease;border:2px solid transparent;box-shadow:0 1px 4px rgba(0,0,0,0.06);position:relative;overflow:hidden;" id="agentStatMtgBroker" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(8,145,178,0.15)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'">
+                        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0891B2,#22D3EE);border-radius:12px 12px 0 0;"></div>
+                        <div style="font-size:28px;font-weight:800;color:#0891B2;line-height:1;" id="countMortgageBrokers">0</div>
+                        <div style="font-size:11px;color:#64748B;margin-top:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;">Mortgage Brokers</div>
+                    </div>
+                    <div onclick="filterAgentsByType('mortgage_agent')" style="background:white;border-radius:12px;padding:18px 16px;text-align:center;cursor:pointer;transition:all 0.2s ease;border:2px solid transparent;box-shadow:0 1px 4px rgba(0,0,0,0.06);position:relative;overflow:hidden;" id="agentStatMtgAgent" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(14,116,144,0.15)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'">
+                        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0E7490,#67E8F9);border-radius:12px 12px 0 0;"></div>
+                        <div style="font-size:28px;font-weight:800;color:#0E7490;line-height:1;" id="countMortgageAgents">0</div>
+                        <div style="font-size:11px;color:#64748B;margin-top:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;">Mortgage Agents</div>
                     </div>
                     <div onclick="document.getElementById('agentStatusFilter').value='Pending';renderAgentsTable();" style="background:white;border-radius:12px;padding:18px 16px;text-align:center;cursor:pointer;transition:all 0.2s ease;border:2px solid transparent;box-shadow:0 1px 4px rgba(0,0,0,0.06);position:relative;overflow:hidden;" id="agentStatPending" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(234,88,12,0.15)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'">
                         <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#EA580C,#FB923C);border-radius:12px 12px 0 0;"></div>
@@ -3108,15 +3118,15 @@
     </div>
 </div>
 
-<!-- Invite Referral Partner Modal (for agents) -->
+<!-- Invite Sub-Agent Modal (for ISOs and Mortgage Brokers) -->
 <div id="inviteSubAgentModal" class="modal">
     <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">
-            <h3>Invite a Referral Partner</h3>
+            <h3 id="inviteSubAgentTitle">Invite a Referral Partner</h3>
             <span class="modal-close" onclick="document.getElementById('inviteSubAgentModal').style.display='none'">&times;</span>
         </div>
         <div class="modal-body">
-            <p style="color: #64748b; font-size: 13px; margin-bottom: 15px;">Add a referral partner to your network. They'll be linked to you and you'll earn overrides on their deals.</p>
+            <p id="inviteSubAgentDesc" style="color: #64748b; font-size: 13px; margin-bottom: 15px;">Add a referral partner to your network. They'll be linked to you and you'll earn overrides on their deals.</p>
             <div style="margin-bottom: 12px;">
                 <label style="font-weight: 600; display: block; margin-bottom: 4px;">Full Name *</label>
                 <input type="text" id="subAgentName" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
@@ -3143,7 +3153,7 @@
                     <option value="Other">Other</option>
                 </select>
             </div>
-            <button class="btn btn-gold" onclick="handleInviteSubAgent()" style="width: 100%; margin-top: 10px;">Invite Referral Partner</button>
+            <button id="inviteSubAgentBtn" class="btn btn-gold" onclick="handleInviteSubAgent()" style="width: 100%; margin-top: 10px;">Invite Referral Partner</button>
         </div>
     </div>
 </div>
@@ -3152,7 +3162,7 @@
 <div id="viewSubAgentModal" class="modal">
     <div class="modal-content" style="max-width: 600px;">
         <div class="modal-header">
-            <h3 id="subAgentDetailTitle">Referral Partner Details</h3>
+            <h3 id="subAgentDetailTitle">Team Member Details</h3>
             <span class="modal-close" onclick="document.getElementById('viewSubAgentModal').style.display='none'">&times;</span>
         </div>
         <div class="modal-body" id="subAgentModalBody">
@@ -3465,6 +3475,18 @@
                             <div style="width:32px;height:32px;border-radius:8px;background:#FDF2F8;display:flex;align-items:center;justify-content:center;margin-bottom:10px;font-size:16px;">👤</div>
                             <div style="font-weight:600;color:var(--navy);font-size:14px;">Vendor Salesperson</div>
                             <div style="font-size:11.5px;color:#94A3B8;margin-top:4px;line-height:1.4;">Sales rep under a vendor program. Submits & tracks own deals.</div>
+                        </label>
+                        <label onclick="selectAgentType('mortgage_broker')" id="typeCard_mortgage_broker" style="display:block;border:2px solid #E8ECF1;border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s ease;background:white;" onmouseover="if(!this.classList.contains('selected'))this.style.borderColor='#A5F3FC'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#E8ECF1'">
+                            <input type="radio" name="agentType" value="mortgage_broker" style="display:none;">
+                            <div style="width:32px;height:32px;border-radius:8px;background:#ECFEFF;display:flex;align-items:center;justify-content:center;margin-bottom:10px;font-size:16px;">🏠</div>
+                            <div style="font-weight:600;color:var(--navy);font-size:14px;">Mortgage Broker</div>
+                            <div style="font-size:11.5px;color:#94A3B8;margin-top:4px;line-height:1.4;">Mortgage brokerage. Manages mortgage agents & all financing products.</div>
+                        </label>
+                        <label onclick="selectAgentType('mortgage_agent')" id="typeCard_mortgage_agent" style="display:block;border:2px solid #E8ECF1;border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s ease;background:white;" onmouseover="if(!this.classList.contains('selected'))this.style.borderColor='#A5F3FC'" onmouseout="if(!this.classList.contains('selected'))this.style.borderColor='#E8ECF1'">
+                            <input type="radio" name="agentType" value="mortgage_agent" style="display:none;">
+                            <div style="width:32px;height:32px;border-radius:8px;background:#ECFEFF;display:flex;align-items:center;justify-content:center;margin-bottom:10px;font-size:16px;">🏡</div>
+                            <div style="font-weight:600;color:var(--navy);font-size:14px;">Mortgage Agent</div>
+                            <div style="font-size:11.5px;color:#94A3B8;margin-top:4px;line-height:1.4;">Mortgage agent under a brokerage. Sends all financing products.</div>
                         </label>
                     </div>
                     <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px;">
@@ -4668,8 +4690,8 @@
                 loadPageData('vendorPortal');
             }
 
-            // Route ISO partners directly to Deal Pipeline (their main operational view)
-            if (currentAgentType === 'super_agent' && !['super_admin', 'admin'].includes(currentUserRole)) {
+            // Route ISO partners and mortgage brokers directly to Deal Pipeline (their main operational view)
+            if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') && !['super_admin', 'admin'].includes(currentUserRole)) {
                 showPage('deals');
                 loadPageData('deals');
             }
@@ -4822,6 +4844,8 @@
         const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
         const isReferralAgent = !isAdmin && currentAgentType === 'referring_agent';
         const isVendor = currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson';
+        const isMortgageBroker = !isAdmin && currentAgentType === 'mortgage_broker';
+        const isMortgageAgent = !isAdmin && currentAgentType === 'mortgage_agent';
 
         // Hide/show nav items based on role AND agent type
         const navItems = document.querySelectorAll('.nav-item');
@@ -4837,6 +4861,14 @@
                 // Vendor users see only Dashboard, Info & Quoting Tools, and Help
                 var vendorAllowed = ['Dashboard', 'Info & Quoting Tools', 'Help & Resources'];
                 item.style.display = vendorAllowed.includes(label) ? 'flex' : 'none';
+            } else if (isMortgageBroker) {
+                // Mortgage brokers get: Dashboard, Deal Pipeline, Application Hub, Team, Help
+                var brokerAllowed = ['Dashboard', 'Deal Pipeline', 'Application Hub', 'Team', 'Help & Resources'];
+                item.style.display = brokerAllowed.includes(label) ? 'flex' : 'none';
+            } else if (isMortgageAgent) {
+                // Mortgage agents get same as referral agents: Dashboard, Deal Pipeline, Application Hub, Help
+                var mtgAgentAllowed = ['Dashboard', 'Deal Pipeline', 'Application Hub', 'Help & Resources'];
+                item.style.display = mtgAgentAllowed.includes(label) ? 'flex' : 'none';
             } else if (isReferralAgent) {
                 // Referral agents get: Dashboard, Deal Pipeline, Application Hub, Vendor Programs, Help
                 var referralAllowed = ['Dashboard', 'Deal Pipeline', 'Application Hub', 'Vendor Programs', 'Help & Resources'];
@@ -4858,8 +4890,8 @@
             }
         });
 
-        // ISO Partners: hide Dashboard nav item (they use Deal Pipeline as home)
-        if (currentAgentType === 'super_agent' && !isAdmin) {
+        // ISO Partners and Mortgage Brokers: hide Dashboard nav item (they use Deal Pipeline as home)
+        if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') && !isAdmin) {
             navItems.forEach(function(item) {
                 var spans = item.querySelectorAll('span');
                 var lbl = spans.length > 1 ? spans[1].textContent.trim() : spans[0].textContent.trim();
@@ -4877,7 +4909,7 @@
         // Show Info & Quoting Tools for vendor users and ISO agents (view-only)
         var vendorToolsNav = document.getElementById('vendorToolsNav');
         if (vendorToolsNav) {
-            var showTools = (isVendor && !isAdmin) || (!isAdmin && currentAgentType === 'super_agent');
+            var showTools = (isVendor && !isAdmin) || (!isAdmin && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker'));
             vendorToolsNav.style.display = showTools ? 'flex' : 'none';
         }
 
@@ -7766,7 +7798,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         try {
             var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
-            var isISO = (currentAgentType === 'super_agent');
+            var isISO = (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker');
             var canManage = isAdmin || isISO;
             var mySlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : null;
 
@@ -10947,6 +10979,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (!section) return;
         section.style.display = 'block';
 
+        // Hide Prospect Outreach for mortgage brokers (not relevant for their workflow)
+        var outreachContainer = section.parentElement ? section.parentElement.querySelector('.table-container:first-child') : null;
+        if (outreachContainer && outreachContainer !== section) {
+            outreachContainer.style.display = (currentAgentType === 'mortgage_broker') ? 'none' : 'block';
+        }
+
         try {
             // Get sub-agents (users with parent_agent_id = current user)
             const { data: subAgents, error } = await db
@@ -10958,8 +10996,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
 
             const tbody = document.getElementById('agentSubAgentsBody');
+            var isBroker = (currentAgentType === 'mortgage_broker');
+            var memberLabel = isBroker ? 'mortgage agents' : 'referral partners';
+
+            // Update section labels dynamically
+            var sectionTitle = document.querySelector('#agentSubAgentsSection .table-title');
+            if (sectionTitle) sectionTitle.textContent = isBroker ? 'My Mortgage Agents' : 'Active Referral Partners';
+            var inviteBtn = document.querySelector('#agentSubAgentsSection .btn-gold');
+            if (inviteBtn) inviteBtn.textContent = isBroker ? '+ Invite Mortgage Agent' : '+ Invite Referral Partner';
+
             if (!subAgents || subAgents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No referral partners yet. Invite one above!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No ' + memberLabel + ' yet. Invite one above!</td></tr>';
                 return;
             }
 
@@ -10996,6 +11043,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     function openInviteSubAgentModal() {
+        var isBroker = (currentAgentType === 'mortgage_broker');
+        var titleEl = document.getElementById('inviteSubAgentTitle');
+        var descEl = document.getElementById('inviteSubAgentDesc');
+        var btnEl = document.getElementById('inviteSubAgentBtn');
+        if (titleEl) titleEl.textContent = isBroker ? 'Invite a Mortgage Agent' : 'Invite a Referral Partner';
+        if (descEl) descEl.textContent = isBroker
+            ? 'Add a mortgage agent to your team. They\'ll have access to all financing products and their deals will appear in your pipeline.'
+            : 'Add a referral partner to your network. They\'ll be linked to you and you\'ll earn overrides on their deals.';
+        if (btnEl) btnEl.textContent = isBroker ? 'Invite Mortgage Agent' : 'Invite Referral Partner';
         document.getElementById('inviteSubAgentModal').style.display = 'flex';
     }
 
@@ -11011,7 +11067,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (existing) {
                 // If they already exist and are already linked to this agent, just notify
                 if (existing.parent_agent_id === currentUserId) {
-                    alert(existing.full_name + ' is already one of your referral partners.');
+                    var teamLabel = (currentAgentType === 'mortgage_broker') ? 'mortgage agents' : 'referral partners';
+                    alert(existing.full_name + ' is already one of your ' + teamLabel + '.');
                     return;
                 }
                 // If they exist but not linked to this agent, offer to link them
@@ -11032,20 +11089,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 document.getElementById('subAgentEmail').value = '';
                 document.getElementById('subAgentPhone').value = '';
                 document.getElementById('subAgentBusinessType').value = '';
-                alert(existing.full_name + ' has been added as your referral partner.');
+                var addedLabel = (currentAgentType === 'mortgage_broker') ? 'mortgage agent' : 'referral partner';
+                alert(existing.full_name + ' has been added as your ' + addedLabel + '.');
                 loadAgentSubAgents();
                 return;
             }
 
             // No existing user — create a new one with invite token for activation
             const inviteToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2) + Date.now().toString(36);
+            var newAgentType = (currentAgentType === 'mortgage_broker') ? 'mortgage_agent' : 'referring_agent';
             const { error } = await db.from('users').insert({
                 full_name: name,
                 email: email,
                 phone: document.getElementById('subAgentPhone').value.trim() || null,
                 business_type: document.getElementById('subAgentBusinessType').value || null,
                 role: 'agent',
-                agent_type: 'referring_agent',
+                agent_type: newAgentType,
                 agent_status: 'Pending',
                 parent_agent_id: currentUserId,
                 invite_token: inviteToken,
@@ -11058,6 +11117,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             try {
                 var activateUrl = window.location.origin + '/agent-activate.html?token=' + inviteToken;
                 var inviterName = currentUserName || 'An ISO Partner';
+                var roleLabel = (newAgentType === 'mortgage_agent') ? 'Mortgage Agent' : 'Referral Partner';
+                var roleDescription = (newAgentType === 'mortgage_agent')
+                    ? 'As a mortgage agent, you\'ll have access to our full suite of financing products to offer your clients. Your broker handles everything from application to funding.'
+                    : 'As a referral partner, you can earn fees by connecting your clients with financing solutions. Alliance handles everything from application to funding.';
                 var inviteSubject = 'Welcome to Alliance Financing Group — ' + inviterName + ' invited you';
                 var inviteHtml =
                     '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
@@ -11065,8 +11128,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
                     '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
                     '<p style="font-size:16px;color:#1E293B;">Hi ' + name + ',</p>' +
-                    '<p style="font-size:14px;color:#475569;line-height:1.6;"><strong>' + inviterName + '</strong> has invited you to join Alliance Financing Group as a <strong>Referral Partner</strong>.</p>' +
-                    '<p style="font-size:14px;color:#475569;line-height:1.6;">As a referral partner, you can earn fees by connecting your clients with financing solutions. Alliance handles everything from application to funding.</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;"><strong>' + inviterName + '</strong> has invited you to join Alliance Financing Group as a <strong>' + roleLabel + '</strong>.</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">' + roleDescription + '</p>' +
                     '<p style="font-size:14px;color:#475569;line-height:1.6;">To activate your account and get started, click the button below:</p>' +
                     '<div style="text-align:center;margin:25px 0;">' +
                     '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Activate My Account</a></div>' +
@@ -11097,7 +11160,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             loadAgentSubAgents();
         } catch (err) {
             console.error('Invite sub-agent error:', err);
-            alert('Error inviting referral partner: ' + err.message);
+            var errLabel = (currentAgentType === 'mortgage_broker') ? 'mortgage agent' : 'referral partner';
+            alert('Error inviting ' + errLabel + ': ' + err.message);
         }
     }
 
@@ -11283,6 +11347,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // ============================================
 
     function showPage(pageName) {
+        // Mortgage brokers: redirect Team to subAgents (their team management page)
+        if (pageName === 'team' && currentAgentType === 'mortgage_broker' && !['super_admin', 'admin'].includes(currentUserRole)) {
+            pageName = 'subAgents';
+        }
+
         // Hide all pages
         document.querySelectorAll('.page-section').forEach(el => {
             el.classList.remove('active');
@@ -11329,7 +11398,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'documents': 'Document Center',
             'alliance': 'Recruitment Hub',
             'vendorPrograms': 'Vendor Programs',
-            'subAgents': 'Referral Partners',
+            'subAgents': (currentAgentType === 'mortgage_broker') ? 'My Agents' : 'Referral Partners',
             'myReferrals': 'My Referrals',
             'applicationHub': 'Application Hub',
             'marketing': 'Marketing',
@@ -11368,8 +11437,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 .eq('source_agent_id', currentUserId);
             var deals = myDeals || [];
 
-            // ISO Partners: also include deals from their sub-agents
-            if (currentAgentType === 'super_agent') {
+            // ISO Partners and Mortgage Brokers: also include deals from their sub-agents/team
+            if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
                 try {
                     var { data: subAgents } = await db.from('users').select('id').eq('parent_agent_id', currentUserId).eq('role', 'agent');
                     if (subAgents && subAgents.length > 0) {
@@ -11408,7 +11477,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             if (agentStatsGrid) {
-                var isoLabel = currentAgentType === 'super_agent' ? ' (Team)' : '';
+                var isoLabel = (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') ? ' (Team)' : '';
                 agentStatsGrid.innerHTML = `
                     <div class="stat-card" data-accent="blue">
                         <div class="stat-icon">
@@ -11445,16 +11514,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var inboxTable = document.getElementById('dashUnifiedInbox');
             if (inboxTable) inboxTable.style.display = 'none';
 
-            // Phase 4: For non-ISO agents, show referred applications on dashboard
-            // ISOs use the full Deal Pipeline page instead (no duplicate widget)
-            if (currentAgentType !== 'super_agent') {
+            // Phase 4: For non-ISO/non-broker agents, show referred applications on dashboard
+            // ISOs and mortgage brokers use the full Deal Pipeline page instead (no duplicate widget)
+            if (currentAgentType !== 'super_agent' && currentAgentType !== 'mortgage_broker') {
                 await loadReferredApplicationsDashboard();
             }
 
-            // ISO Partners: show sub-agent activity summary and vendor programs
-            if (currentAgentType === 'super_agent') {
+            // ISO Partners and Mortgage Brokers: show sub-agent activity summary
+            if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
                 await loadISOTeamOverview();
-                await loadISOVendorOverview();
+                if (currentAgentType === 'super_agent') {
+                    await loadISOVendorOverview();
+                }
             }
 
             // Applications Sent section is inside Deal Pipeline page — keep it visible there
@@ -11955,12 +12026,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     async function loadDashboard() {
         try {
             // If agent (referring or sub), show simplified referral dashboard
-            if (!['super_admin', 'admin'].includes(currentUserRole) && ['referring_agent', 'sub_agent'].includes(currentAgentType)) {
+            if (!['super_admin', 'admin'].includes(currentUserRole) && ['referring_agent', 'sub_agent', 'mortgage_agent'].includes(currentAgentType)) {
                 await loadReferralDashboard();
                 return;
             }
-            // ISO partners use Deal Pipeline as home — redirect if they somehow land on dashboard
-            if (!['super_admin', 'admin'].includes(currentUserRole) && currentAgentType === 'super_agent') {
+            // ISO partners and mortgage brokers use Deal Pipeline as home — redirect if they somehow land on dashboard
+            if (!['super_admin', 'admin'].includes(currentUserRole) && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker')) {
                 showPage('deals');
                 return;
             }
@@ -12334,7 +12405,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 .eq('role', 'agent').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(5);
             if (recentAgents) {
                 recentAgents.forEach(function(ag) {
-                    var typeLabels = { 'super_agent': 'ISO Partner', 'referring_agent': 'Referral Partner', 'vendor_program': 'Vendor Program', 'syndication_desk': 'Syndication Desk' };
+                    var typeLabels = { 'super_agent': 'ISO Partner', 'referring_agent': 'Referral Partner', 'vendor_program': 'Vendor Program', 'syndication_desk': 'Syndication Desk', 'mortgage_broker': 'Mortgage Broker', 'mortgage_agent': 'Mortgage Agent' };
                     activities.push({ time: ag.created_at, icon: '👤', color: '#0D9488',
                         text: '<strong>' + (ag.full_name || 'New Agent') + '</strong> onboarded as ' + (typeLabels[ag.agent_type] || 'Agent'),
                         badge: ag.agent_status || 'Invited', badgeBg: '#F0FDFA', badgeColor: '#0D9488' });
@@ -12435,8 +12506,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 .order('date_submitted', { ascending: false });
 
             if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
-                // ISO Partners: include sub-agent deals in pipeline
-                if (currentAgentType === 'super_agent') {
+                // ISO Partners and Mortgage Brokers: include sub-agent/team deals in pipeline
+                if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
                     try {
                         var { data: subAgentList } = await db.from('users').select('id').eq('parent_agent_id', currentUserId).eq('role', 'agent');
                         var agentIds = [currentUserId];
@@ -13013,13 +13084,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'referring_agent': '<span style="display:inline-flex;align-items:center;gap:5px;background:#F0FDF4;color:#166534;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid #BBF7D0;"><span style="width:6px;height:6px;border-radius:50%;background:#166534;display:inline-block;"></span>Referral Partner</span>',
             'syndication_desk': '<span style="display:inline-flex;align-items:center;gap:5px;background:#FFF7ED;color:#9A3412;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid #FED7AA;"><span style="width:6px;height:6px;border-radius:50%;background:#B45309;display:inline-block;"></span>Syndication</span>',
             'vendor_program': '<span style="display:inline-flex;align-items:center;gap:5px;background:#FAF5FF;color:#7C3AED;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid #DDD6FE;"><span style="width:6px;height:6px;border-radius:50%;background:#7C3AED;display:inline-block;"></span>Vendor</span>',
-            'vendor_salesperson': '<span style="display:inline-flex;align-items:center;gap:5px;background:#FDF2F8;color:#BE185D;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid #FBCFE8;"><span style="width:6px;height:6px;border-radius:50%;background:#BE185D;display:inline-block;"></span>Vendor Sales</span>'
+            'vendor_salesperson': '<span style="display:inline-flex;align-items:center;gap:5px;background:#FDF2F8;color:#BE185D;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid #FBCFE8;"><span style="width:6px;height:6px;border-radius:50%;background:#BE185D;display:inline-block;"></span>Vendor Sales</span>',
+            'mortgage_broker': '<span style="display:inline-flex;align-items:center;gap:5px;background:#ECFEFF;color:#0891B2;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid #A5F3FC;"><span style="width:6px;height:6px;border-radius:50%;background:#0891B2;display:inline-block;"></span>Mortgage Broker</span>',
+            'mortgage_agent': '<span style="display:inline-flex;align-items:center;gap:5px;background:#ECFEFF;color:#0E7490;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid #A5F3FC;"><span style="width:6px;height:6px;border-radius:50%;background:#0E7490;display:inline-block;"></span>Mortgage Agent</span>'
         };
         return badges[agentType] || '<span style="display:inline-flex;align-items:center;gap:5px;background:#F1F5F9;color:#64748B;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid #E2E8F0;"><span style="width:6px;height:6px;border-radius:50%;background:#64748B;display:inline-block;"></span>Agent</span>';
     }
 
     function getAgentTypeLabel(agentType) {
-        const labels = { 'super_agent': 'ISO Partner', 'referring_agent': 'Referral Partner', 'syndication_desk': 'Syndication Desk', 'vendor_program': 'Vendor Program', 'vendor_salesperson': 'Vendor Salesperson' };
+        const labels = { 'super_agent': 'ISO Partner', 'referring_agent': 'Referral Partner', 'syndication_desk': 'Syndication Desk', 'vendor_program': 'Vendor Program', 'vendor_salesperson': 'Vendor Salesperson', 'mortgage_broker': 'Mortgage Broker', 'mortgage_agent': 'Mortgage Agent' };
         return labels[agentType] || 'Referral Partner';
     }
 
@@ -13054,7 +13127,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'super_agent': 'ISO',
             'referring_agent': 'RP',
             'syndication_desk': 'SD',
-            'vendor_program': 'VP'
+            'vendor_program': 'VP',
+            'mortgage_broker': 'MB',
+            'mortgage_agent': 'MA'
         };
         return (prefixMap[type] || 'AG') + '-' + String(agent._displayIndex || 0).padStart(3, '0');
     }
@@ -13113,7 +13188,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'super_agent': 'linear-gradient(135deg,#1E40AF,#3B82F6)',
             'referring_agent': 'linear-gradient(135deg,#166534,#22C55E)',
             'syndication_desk': 'linear-gradient(135deg,#B45309,#F59E0B)',
-            'vendor_program': 'linear-gradient(135deg,#7C3AED,#A78BFA)'
+            'vendor_program': 'linear-gradient(135deg,#7C3AED,#A78BFA)',
+            'mortgage_broker': 'linear-gradient(135deg,#0891B2,#22D3EE)',
+            'mortgage_agent': 'linear-gradient(135deg,#0E7490,#06B6D4)'
         };
 
         // Update result count
@@ -13200,7 +13277,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             allAgentsData = data || [];
 
             // Update summary counts
-            const counts = { super_agent: 0, referring_agent: 0, syndication_desk: 0, vendor_program: 0 };
+            const counts = { super_agent: 0, referring_agent: 0, syndication_desk: 0, vendor_program: 0, mortgage_broker: 0, mortgage_agent: 0 };
             allAgentsData.forEach(a => {
                 const t = a.agent_type || 'referring_agent';
                 if (counts[t] !== undefined) counts[t]++;
@@ -13210,6 +13287,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (el('countReferringAgents')) el('countReferringAgents').textContent = counts.referring_agent;
             if (el('countSyndicationDesks')) el('countSyndicationDesks').textContent = counts.syndication_desk;
             if (el('countVendorPrograms')) el('countVendorPrograms').textContent = counts.vendor_program;
+            if (el('countMortgageBrokers')) el('countMortgageBrokers').textContent = counts.mortgage_broker;
+            if (el('countMortgageAgents')) el('countMortgageAgents').textContent = counts.mortgage_agent;
 
             renderAgentsTable();
         } catch (error) {
@@ -13414,7 +13493,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 'referring_agent': 'RP',
                 'syndication_desk': 'SD',
                 'vendor_program': 'VP',
-                'vendor_salesperson': 'VS'
+                'vendor_salesperson': 'VS',
+                'mortgage_broker': 'MB',
+                'mortgage_agent': 'MA'
             };
             var prefix = prefixMap[agentType] || 'AG';
             var { data } = await db.from('users').select('agent_code').not('agent_code', 'is', null).like('agent_code', prefix + '-%').order('agent_code', { ascending: false }).limit(1);
@@ -13424,7 +13505,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
             return prefix + '-001';
         } catch(e) {
-            var prefixMap2 = { 'super_agent': 'ISO', 'referring_agent': 'RP', 'syndication_desk': 'SD', 'vendor_program': 'VP', 'vendor_salesperson': 'VS' };
+            var prefixMap2 = { 'super_agent': 'ISO', 'referring_agent': 'RP', 'syndication_desk': 'SD', 'vendor_program': 'VP', 'vendor_salesperson': 'VS', 'mortgage_broker': 'MB', 'mortgage_agent': 'MA' };
             return (prefixMap2[agentType] || 'AG') + '-' + String(Date.now()).slice(-3);
         }
     }
@@ -13685,7 +13766,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         'vendor': { label: 'Vendor Partner', file: 'Guide-Vendor.pdf', icon: '🏭', desc: 'Guide for equipment vendors on how the financing process works, submitting deals, required documentation, and funding procedures.' },
         'vendor_program': { label: 'Vendor Partner', file: 'Guide-Vendor.pdf', icon: '🏭', desc: 'Guide for equipment vendors on how the financing process works, submitting deals, required documentation, and funding procedures.' },
         'salesperson': { label: 'Equipment Salesperson', file: 'Guide-Equipment-Salesperson.pdf', icon: '💼', desc: 'Guide for equipment salespeople on offering financing, the application process, products available, and tips for closing more deals.' },
-        'vendor_salesperson': { label: 'Equipment Salesperson', file: 'Guide-Equipment-Salesperson.pdf', icon: '💼', desc: 'Guide for equipment salespeople on offering financing, the application process, products available, and tips for closing more deals.' }
+        'vendor_salesperson': { label: 'Equipment Salesperson', file: 'Guide-Equipment-Salesperson.pdf', icon: '💼', desc: 'Guide for equipment salespeople on offering financing, the application process, products available, and tips for closing more deals.' },
+        'mortgage_broker': { label: 'Mortgage Broker', file: 'Referral-Partner-Guide.pdf', icon: '🏠', desc: 'Guide for mortgage brokerages — managing your team, sending applications, tracking deals, and earning referral fees on all financing products.' },
+        'mortgage_agent': { label: 'Mortgage Agent', file: 'Referral-Partner-Guide.pdf', icon: '🏡', desc: 'Guide for mortgage agents — sending applications to clients, tracking referrals, follow-ups, and earning referral fees on all financing products.' }
     };
 
     async function loadVendorPortal() {
@@ -14464,11 +14547,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             // For ISO users, vendorId stays null — they see all resources
-            var isISO = currentAgentType === 'super_agent';
+            var isISO = (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker');
 
             document.getElementById('vendorToolsSubtitle').textContent = vendorName
                 ? 'Resources for ' + vendorName + ' — sell more, close faster'
-                : isISO ? 'View leasing resources across all vendor programs' : 'Resources to help you sell more effectively';
+                : isISO ? 'View financing resources across all programs' : 'Resources to help you sell more effectively';
 
             // Fetch all active resources
             var { data: resources, error } = await db.from('vendor_resources').select('*').eq('is_active', true).order('sort_order');
@@ -14703,7 +14786,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'sub_agent': ['all_users', 'referral_partners'],
             'super_agent': ['all_users', 'iso_partners'],
             'vendor_program': ['all_users', 'vendors', 'vendor_salespersons'],
-            'vendor_salesperson': ['all_users', 'vendors', 'vendor_salespersons']
+            'vendor_salesperson': ['all_users', 'vendors', 'vendor_salespersons'],
+            'mortgage_broker': ['all_users', 'referral_partners'],
+            'mortgage_agent': ['all_users', 'referral_partners']
         };
 
         var myAccessLevels = roleAccessMap[currentAgentType] || ['all_users'];
@@ -14745,7 +14830,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         container.innerHTML = html;
 
         // Load outreach history into help page table (for ISOs)
-        if (currentAgentType === 'super_agent' || ['super_admin', 'admin'].includes(currentUserRole)) {
+        if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker' || ['super_admin', 'admin'].includes(currentUserRole)) {
             loadHelpOutreachHistory();
         }
     }
@@ -15605,7 +15690,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 break;
             case 'statsReports':
                 await loadStatsReports();
-                if (currentAgentType === 'super_agent') {
+                if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
                     await loadISOStatsReports();
                 }
                 break;
@@ -19576,8 +19661,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
             var query = db.from('applications_sent').select('id', { count: 'exact', head: true });
             if (!isAdmin && currentUserName) {
-                if (currentAgentType === 'super_agent') {
-                    // ISO: count across their network
+                if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
+                    // ISO/Mortgage Broker: count across their network
                     var { data: subAgents } = await db.from('users').select('referral_slug').eq('parent_agent_id', currentUserId).eq('role', 'agent');
                     var slugs = [];
                     var { data: mySlug } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
@@ -19619,8 +19704,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     } else {
                         query = query.eq('sent_by', currentUserName);
                     }
-                } else if (currentAgentType === 'super_agent') {
-                    // ISO Partners: show apps sent by them AND their sub-agents
+                } else if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
+                    // ISO Partners / Mortgage Brokers: show apps sent by them AND their sub-agents
                     var sentByNames = [currentUserName];
                     try {
                         var { data: subAgents } = await db.from('users').select('full_name, referral_slug').eq('parent_agent_id', currentUserId).eq('role', 'agent');
@@ -20130,7 +20215,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             data.forEach(function(agent) {
                 var opt = document.createElement('option');
                 opt.value = JSON.stringify({ id: agent.id, name: agent.full_name, slug: agent.referral_slug, type: agent.agent_type });
-                var typeLabel = agent.agent_type === 'super_agent' ? 'ISO' : agent.agent_type === 'referring_agent' ? 'Referral' : agent.agent_type === 'vendor_program' ? 'Vendor' : agent.agent_type || 'Agent';
+                var typeLabel = agent.agent_type === 'super_agent' ? 'ISO' : agent.agent_type === 'referring_agent' ? 'Referral' : agent.agent_type === 'vendor_program' ? 'Vendor' : agent.agent_type === 'mortgage_broker' ? 'Broker' : agent.agent_type === 'mortgage_agent' ? 'Mtg Agent' : agent.agent_type || 'Agent';
                 opt.textContent = agent.full_name + ' (' + typeLabel + ')' + (agent.email ? ' - ' + agent.email : '');
                 select.appendChild(opt);
             });
@@ -22473,9 +22558,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     function selectAgentType(type) {
         selectedAgentType = type;
         // Highlight selected card with type-specific color
-        var typeColors = { 'super_agent': '#1E40AF', 'referring_agent': '#166534', 'syndication_desk': '#B45309', 'vendor_program': '#7C3AED', 'vendor_salesperson': '#BE185D' };
-        var typeBgs = { 'super_agent': '#EFF6FF', 'referring_agent': '#F0FDF4', 'syndication_desk': '#FFF7ED', 'vendor_program': '#FAF5FF', 'vendor_salesperson': '#FDF2F8' };
-        ['super_agent', 'referring_agent', 'syndication_desk', 'vendor_program', 'vendor_salesperson'].forEach(t => {
+        var typeColors = { 'super_agent': '#1E40AF', 'referring_agent': '#166534', 'syndication_desk': '#B45309', 'vendor_program': '#7C3AED', 'vendor_salesperson': '#BE185D', 'mortgage_broker': '#0891B2', 'mortgage_agent': '#0E7490' };
+        var typeBgs = { 'super_agent': '#EFF6FF', 'referring_agent': '#F0FDF4', 'syndication_desk': '#FFF7ED', 'vendor_program': '#FAF5FF', 'vendor_salesperson': '#FDF2F8', 'mortgage_broker': '#ECFEFF', 'mortgage_agent': '#ECFEFF' };
+        ['super_agent', 'referring_agent', 'syndication_desk', 'vendor_program', 'vendor_salesperson', 'mortgage_broker', 'mortgage_agent'].forEach(t => {
             const card = document.getElementById('typeCard_' + t);
             if (card) {
                 card.style.borderColor = t === type ? (typeColors[t] || 'var(--gold)') : '#E8ECF1';
@@ -22490,6 +22575,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (type === 'super_agent') commSelect.value = 'override';
         else if (type === 'syndication_desk') commSelect.value = 'facilitation';
         else if (type === 'vendor_program' || type === 'vendor_salesperson') commSelect.value = 'none';
+        else if (type === 'mortgage_broker' || type === 'mortgage_agent') commSelect.value = 'referral_fee';
         else commSelect.value = 'referral_fee';
 
         // Update company label
@@ -22831,7 +22917,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 `<option value="${s}" ${(agent.business_type || '') === s ? 'selected' : ''}>${s}</option>`
             ).join('');
 
-            const agentTypeOptions = 'super_agent,referring_agent,syndication_desk,vendor_program,vendor_salesperson'.split(',').map(s =>
+            const agentTypeOptions = 'super_agent,referring_agent,syndication_desk,vendor_program,vendor_salesperson,mortgage_broker,mortgage_agent'.split(',').map(s =>
                 `<option value="${s}" ${(agent.agent_type || 'referring_agent') === s ? 'selected' : ''}>${getAgentTypeLabel(s)}</option>`
             ).join('');
 
