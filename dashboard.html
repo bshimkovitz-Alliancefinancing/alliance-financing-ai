@@ -958,6 +958,18 @@
             <div class="header-actions">
                 <button class="btn btn-sm" onclick="refreshCurrentPage()" title="Refresh current page data" style="margin-right: 10px; font-size: 13px; padding: 6px 16px; background: var(--gold); color: var(--navy); font-weight: 600; border: none; border-radius: 4px; cursor: pointer;">🔄 Refresh</button>
                 <button class="btn btn-secondary btn-sm" onclick="openCSVImportModal()" style="margin-right: 10px;">Import CSV</button>
+                <div id="notificationBell" style="position:relative;display:inline-block;margin-right:14px;cursor:pointer;" onclick="toggleNotificationPanel()">
+                    <span style="font-size:20px;">🔔</span>
+                    <span id="notifBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:#dc3545;color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:50%;padding:0 3px;">0</span>
+                    <div id="notificationPanel" style="display:none;position:absolute;right:0;top:32px;width:360px;max-height:420px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:10000;">
+                        <div style="padding:12px 16px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                            <strong style="color:var(--navy);font-size:14px;">Notifications</strong>
+                            <button onclick="clearNotifications(event)" style="background:none;border:none;color:#64748b;font-size:12px;cursor:pointer;">Clear all</button>
+                        </div>
+                        <div id="notifList" style="padding:0;"></div>
+                        <div id="notifEmpty" style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">No new notifications</div>
+                    </div>
+                </div>
                 <span id="currentUser" style="color: var(--text-light); font-size: 14px;"></span>
             </div>
         </div>
@@ -1121,6 +1133,11 @@
                                 <option value="Other">Other</option>
                             </select>
                         </div>
+                            <select id="dealAssignedFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <option value="">All Analysts</option>
+                                <option value="__mine__">My Deals</option>
+                            </select>
+                        </div>
                         <div style="display: flex; gap: 8px; padding: 0 20px 12px;">
                             <button class="btn btn-secondary btn-sm" onclick="exportDeals()">Export CSV</button>
                             <button class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ Add Application</button>
@@ -1136,6 +1153,7 @@
                                 <th style="min-width:150px;">Product</th>
                                 <th style="min-width:130px;">Source</th>
                                 <th style="min-width:140px;" class="lender-col">Lender</th>
+                                <th style="min-width:130px;">Assigned To</th>
                                 <th style="min-width:140px;">Status</th>
                                 <th>Date</th>
                                 <th>Actions</th>
@@ -13358,6 +13376,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 .order('name');
             cachedLenders = lenderList || [];
 
+            // Load team members cache for assignment dropdown
+            if (cachedTeamMembers.length === 0) {
+                const { data: tmList } = await db.from('team_members').select('id, full_name, role_title').eq('is_active', true).order('full_name');
+                cachedTeamMembers = tmList || [];
+            }
+            // Populate the analyst filter dropdown
+            var assignedFilterEl = document.getElementById('dealAssignedFilter');
+            if (assignedFilterEl && assignedFilterEl.options.length <= 2) {
+                cachedTeamMembers.forEach(function(t) {
+                    var opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.full_name;
+                    assignedFilterEl.appendChild(opt);
+                });
+            }
+
             // Fetch deals with role-based filtering
             let dealsQuery = db
                 .from('deals')
@@ -13388,6 +13422,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
 
             allDeals = data || [];
+            // Resolve assigned_to names for display
+            var tmMap = {};
+            cachedTeamMembers.forEach(function(t) { tmMap[t.id] = t.full_name; });
+            allDeals.forEach(function(d) {
+                d._assignedToName = d.assigned_to ? (tmMap[d.assigned_to] || '') : '';
+            });
             // Resolve source names for agent views (ISO sees who sourced each deal)
             var isAdminUser = ['super_admin', 'admin'].includes(currentUserRole);
             if (!isAdminUser) {
@@ -13546,6 +13586,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </select>`
                 : `<span style="font-size:13px;font-weight:500;color:#1f2937;">${lenderName || 'N/A'}</span>`;
 
+            // Assigned To column - admin can assign team members
+            const assignedName = deal._assignedToName || '';
+            const assignedToHtml = isAdmin
+                ? `<select class="pipeline-select" onchange="updateDealField('${deal.id}', 'assigned_to', this.value || null)" style="padding:5px 10px;border-radius:4px;border:1px solid #d1d5db;font-size:13px;cursor:pointer;min-width:120px;background:#fff;color:#1f2937;font-weight:500;appearance:auto;">
+                    <option value="">Unassigned</option>
+                    ${cachedTeamMembers.map(t => `<option value="${t.id}" ${deal.assigned_to === t.id ? 'selected' : ''}>${t.full_name}</option>`).join('')}
+                </select>`
+                : `<span style="font-size:13px;font-weight:500;color:#1f2937;">${assignedName || '<span style="color:#ccc;">—</span>'}</span>`;
+
             // Archive button for admins
             const archiveBtn = isAdmin
                 ? (isArchived
@@ -13567,6 +13616,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <td>${productHtml}</td>
                     <td>${sourceHtml}</td>
                     <td class="lender-col" style="${isAdmin ? '' : 'display:none;'}">${lenderHtml}</td>
+                    <td>${assignedToHtml}</td>
                     <td>${isAdmin ? `<select class="pipeline-select" onchange="updateDealField('${deal.id}', 'status', this.value)" style="padding:5px 10px;border-radius:4px;border:1px solid #d1d5db;font-size:13px;cursor:pointer;min-width:130px;background:#fff;color:#1f2937;font-weight:500;appearance:auto;">${getDealStatusOptions(deal.status)}</select>` : getStatusBadge(deal.status)}</td>
                     <td>${formatDate(deal.date_submitted)}</td>
                     <td style="white-space:nowrap;">
@@ -13583,6 +13633,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         const statusFilter = document.getElementById('dealStatusFilter')?.value || '';
         const sourceFilter = document.getElementById('dealSourceFilter')?.value || '';
         const productFilter = document.getElementById('dealProductFilter')?.value || '';
+        const assignedFilter = document.getElementById('dealAssignedFilter')?.value || '';
 
         const filtered = allDeals.filter(deal => {
             // Tab filter — skip if a specific status is selected (search across all tabs)
@@ -13625,8 +13676,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const matchesStatus = !statusFilter || deal.status === statusFilter;
             const matchesSource = !sourceFilter || deal.source === sourceFilter;
             const matchesProduct = !productFilter || deal.product_type === productFilter;
+            const matchesAssigned = !assignedFilter || (assignedFilter === '__mine__' ? deal.assigned_to === currentUserId : deal.assigned_to === assignedFilter);
 
-            return matchesSearch && matchesStatus && matchesSource && matchesProduct;
+            return matchesSearch && matchesStatus && matchesSource && matchesProduct && matchesAssigned;
         });
 
         renderDealsTable(filtered);
@@ -17119,6 +17171,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <div style="${isAgentView ? 'display:none;' : ''}">
                 <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Approval & Dates</h3>
 
+                <!-- Row 0: Assigned Analyst -->
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Assigned Analyst</label>
+                        ${isAgentView ? roField(deal._assignedToName || 'Unassigned') : `<select onchange="updateDealField('${dealId}', 'assigned_to', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                            <option value="">Unassigned</option>
+                            ${cachedTeamMembers.map(t => `<option value="${t.id}" ${deal.assigned_to === t.id ? 'selected' : ''}>${t.full_name}${t.role_title ? ' (' + t.role_title + ')' : ''}</option>`).join('')}
+                        </select>`}
+                    </div>
+                    <div class="modal-field"></div>
+                </div>
+
                 <!-- Row 1: Assigned Lender | Syndicated -->
                 <div class="modal-row">
                     <div class="modal-field">
@@ -19954,6 +20018,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             document.getElementById('docUploadProgressBar').style.width = '100%';
             document.getElementById('docUploadProgressText').textContent = 'Upload complete!';
+
+            // Auto-create note on the deal when doc is uploaded
+            if (currentDocUploadDealId) {
+                try {
+                    var { data: noteDeal } = await db.from('deals').select('notes, company_name, deal_number').eq('id', currentDocUploadDealId).maybeSingle();
+                    if (noteDeal) {
+                        var existingNotes = [];
+                        try { existingNotes = noteDeal.notes ? JSON.parse(noteDeal.notes) : []; } catch(e) {}
+                        existingNotes.push({
+                            id: Date.now().toString(36),
+                            text: '📄 Document uploaded: ' + (docType || 'document').replace(/_/g, ' ') + ' — ' + file.name,
+                            author: currentUserName || 'System',
+                            timestamp: new Date().toISOString(),
+                            type: 'internal'
+                        });
+                        await db.from('deals').update({ notes: JSON.stringify(existingNotes) }).eq('id', currentDocUploadDealId);
+                    }
+                } catch(noteErr) { console.warn('Auto-note on upload failed:', noteErr); }
+            }
 
             var refreshDealId = currentDocUploadDealId;
             var refreshAppId = currentDocUploadApplicationId;
@@ -29360,6 +29443,130 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         document.body.appendChild(toast);
         setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 300); }, 3000);
     }
+
+    // ===== NOTIFICATION SYSTEM =====
+    var _notifications = JSON.parse(localStorage.getItem('afg_notifications') || '[]');
+    var _notifPanelOpen = false;
+
+    function toggleNotificationPanel() {
+        _notifPanelOpen = !_notifPanelOpen;
+        var panel = document.getElementById('notificationPanel');
+        if (panel) panel.style.display = _notifPanelOpen ? 'block' : 'none';
+    }
+
+    // Close panel when clicking outside
+    document.addEventListener('click', function(e) {
+        var bell = document.getElementById('notificationBell');
+        if (bell && !bell.contains(e.target) && _notifPanelOpen) {
+            _notifPanelOpen = false;
+            document.getElementById('notificationPanel').style.display = 'none';
+        }
+    });
+
+    function addNotification(text, dealId, type) {
+        type = type || 'info';
+        var notif = {
+            id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+            text: text,
+            dealId: dealId || null,
+            type: type,
+            time: new Date().toISOString(),
+            read: false
+        };
+        _notifications.unshift(notif);
+        if (_notifications.length > 50) _notifications = _notifications.slice(0, 50);
+        localStorage.setItem('afg_notifications', JSON.stringify(_notifications));
+        renderNotifications();
+    }
+
+    function renderNotifications() {
+        var badge = document.getElementById('notifBadge');
+        var list = document.getElementById('notifList');
+        var empty = document.getElementById('notifEmpty');
+        if (!badge || !list) return;
+
+        var unread = _notifications.filter(function(n) { return !n.read; }).length;
+        badge.textContent = unread;
+        badge.style.display = unread > 0 ? 'inline-block' : 'none';
+
+        if (_notifications.length === 0) {
+            list.innerHTML = '';
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+
+        list.innerHTML = _notifications.slice(0, 20).map(function(n) {
+            var ago = timeAgo(n.time);
+            var iconMap = { doc_upload: '📄', status_change: '🔄', assignment: '👤', info: 'ℹ️' };
+            var icon = iconMap[n.type] || 'ℹ️';
+            var bgColor = n.read ? '#fff' : '#f0f7ff';
+            var clickAction = n.dealId ? 'onclick="markNotifRead(\'' + n.id + '\');viewDeal(\'' + n.dealId + '\');toggleNotificationPanel();"' : '';
+            return '<div ' + clickAction + ' style="padding:10px 16px;border-bottom:1px solid #f1f5f9;background:' + bgColor + ';cursor:' + (n.dealId ? 'pointer' : 'default') + ';transition:background 0.15s;" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'' + bgColor + '\'">' +
+                '<div style="display:flex;gap:8px;align-items:flex-start;">' +
+                '<span style="font-size:16px;flex-shrink:0;">' + icon + '</span>' +
+                '<div style="flex:1;min-width:0;">' +
+                '<div style="font-size:13px;color:#1e293b;line-height:1.4;">' + n.text + '</div>' +
+                '<div style="font-size:11px;color:#94a3b8;margin-top:2px;">' + ago + '</div>' +
+                '</div></div></div>';
+        }).join('');
+    }
+
+    function markNotifRead(notifId) {
+        _notifications.forEach(function(n) { if (n.id === notifId) n.read = true; });
+        localStorage.setItem('afg_notifications', JSON.stringify(_notifications));
+        renderNotifications();
+    }
+
+    function clearNotifications(e) {
+        if (e) e.stopPropagation();
+        _notifications = [];
+        localStorage.setItem('afg_notifications', JSON.stringify(_notifications));
+        renderNotifications();
+    }
+
+    function timeAgo(dateStr) {
+        var now = new Date(), then = new Date(dateStr);
+        var diff = Math.floor((now - then) / 1000);
+        if (diff < 60) return 'Just now';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+        if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+        return Math.floor(diff / 86400) + 'd ago';
+    }
+
+    // Check for new document uploads (polling — runs every 60s)
+    var _lastDocCheck = new Date().toISOString();
+    async function checkForNewDocUploads() {
+        if (!['super_admin', 'admin'].includes(currentUserRole)) return;
+        try {
+            var { data: newDocs } = await db.from('documents')
+                .select('id, file_name, document_type, deal_id, application_id, uploaded_by_name, uploaded_at, deals(company_name, deal_number)')
+                .gt('uploaded_at', _lastDocCheck)
+                .order('uploaded_at', { ascending: false })
+                .limit(10);
+            if (newDocs && newDocs.length > 0) {
+                _lastDocCheck = new Date().toISOString();
+                newDocs.forEach(function(doc) {
+                    // Skip docs uploaded by current user (admin uploaded it themselves)
+                    if (doc.uploaded_by_name && doc.uploaded_by_name.toLowerCase().includes('admin')) return;
+                    var company = (doc.deals && doc.deals.company_name) || 'Unknown';
+                    var dealNum = (doc.deals && doc.deals.deal_number) || '';
+                    var docType = (doc.document_type || 'document').replace(/_/g, ' ');
+                    var text = '<strong>' + company + '</strong>' + (dealNum ? ' (' + dealNum + ')' : '') + ' — New ' + docType + ' uploaded';
+                    if (doc.uploaded_by_name) text += ' by ' + doc.uploaded_by_name;
+                    addNotification(text, doc.deal_id, 'doc_upload');
+                });
+            }
+        } catch(e) { console.warn('Doc upload check failed:', e); }
+    }
+
+    // Start polling for new uploads
+    setInterval(checkForNewDocUploads, 60000);
+    // Initial check after 5s (let page load first)
+    setTimeout(checkForNewDocUploads, 5000);
+    // Render any stored notifications on load
+    renderNotifications();
+    // ===== END NOTIFICATION SYSTEM =====
 
     function formatCurrency(value) {
         return new Intl.NumberFormat('en-US', {
