@@ -5334,6 +5334,9 @@
         }
         // Show default template on marketing page
         showEmailTemplate('insurance');
+
+        // Pre-generate branded PDFs in background (so they're ready when agent sends)
+        preGenerateAgentPdfs().catch(function(e) { console.warn('Pre-generate PDFs:', e); });
     }
 
     // ============================================
@@ -5365,6 +5368,126 @@
             openMortgageBrokersOnePager(contacts, agentSlug, autoPrint);
         } else {
             showToast('Document type not found', 'error');
+        }
+    }
+
+    // Generate branded one-pager HTML without opening a window (for PDF generation)
+    function generateBrandedOnePagerHtml(docKey) {
+        var contacts = getBrandedOnePagerContacts();
+        var agentSlug = getBrandedOnePagerSlug();
+        if (docKey === 'insurance-brokers') {
+            return openInsuranceBrokersOnePager(contacts, agentSlug, false, true);
+        } else if (docKey === 'accountants-cfos') {
+            return openAccountantsCFOsOnePager(contacts, agentSlug, false, true);
+        } else if (docKey === 'alliance-overview') {
+            return openAllianceOverviewOnePager(contacts, agentSlug, false, true);
+        } else if (docKey === 'mortgage-brokers') {
+            return openMortgageBrokersOnePager(contacts, agentSlug, false, true);
+        }
+        return null;
+    }
+
+    // Map MARKETING_MATERIALS IDs to branded one-pager doc keys
+    var BRANDED_DOC_KEY_MAP = {
+        'alliance_overview': 'alliance-overview',
+        'insurance_brokers': 'insurance-brokers',
+        'accountants_cfos': 'accountants-cfos',
+        'mortgage_brokers': 'mortgage-brokers'
+    };
+
+    // Generate a PDF from branded one-pager HTML using html2pdf.js, upload to Supabase Storage
+    async function generateAndUploadOnePagerPdf(materialId) {
+        var docKey = BRANDED_DOC_KEY_MAP[materialId];
+        if (!docKey) return null;
+
+        var html = generateBrandedOnePagerHtml(docKey);
+        if (!html) return null;
+
+        var agentId = currentUserId || 'anon';
+        var storagePath = 'agent-marketing/' + agentId + '/' + materialId + '.pdf';
+
+        // Create a hidden container, inject the HTML, render to PDF
+        var container = document.createElement('div');
+        container.style.cssText = 'position:absolute;left:-9999px;top:0;width:816px;';
+        document.body.appendChild(container);
+
+        // Parse out just the body content and styles from the full HTML
+        var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        var styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi);
+        var bodyContent = bodyMatch ? bodyMatch[1] : html;
+        var styles = styleMatch ? styleMatch.join('') : '';
+
+        // Remove print scripts
+        bodyContent = bodyContent.replace(/<script[\s\S]*?<\/script>/gi, '');
+
+        container.innerHTML = styles + bodyContent;
+
+        try {
+            var opt = {
+                margin: 0,
+                filename: materialId + '.pdf',
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: { scale: 2, useCORS: true, width: 816, scrollY: 0 },
+                jsPDF: { unit: 'px', format: [816, 1056], hotfixes: ['px_scaling'] },
+                pagebreak: { mode: ['css', 'legacy'], before: '.page-two' }
+            };
+
+            var pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
+
+            // Upload to Supabase Storage
+            var pdfFile = new File([pdfBlob], materialId + '.pdf', { type: 'application/pdf' });
+            await uploadToStorage('deal-documents', storagePath, pdfFile);
+
+            // Get a signed URL (valid for 1 year)
+            var { data: urlData, error: urlErr } = await db.storage.from('deal-documents').createSignedUrl(storagePath, 365 * 24 * 3600);
+            if (urlErr) throw urlErr;
+
+            document.body.removeChild(container);
+            return urlData.signedUrl;
+        } catch (err) {
+            console.error('PDF generation/upload error for ' + materialId + ':', err);
+            document.body.removeChild(container);
+            return null;
+        }
+    }
+
+    // Cache of generated PDF URLs per agent — avoids re-generating on every send
+    var agentPdfCache = {};
+
+    // Get PDF URL for a branded material — returns cached URL or generates new one
+    async function getOnePagerPdfUrl(materialId) {
+        if (!BRANDED_DOC_KEY_MAP[materialId]) return null; // Not a branded material
+
+        // Check cache first
+        if (agentPdfCache[materialId]) return agentPdfCache[materialId];
+
+        // Check if PDF already exists in storage
+        var agentId = currentUserId || 'anon';
+        var storagePath = 'agent-marketing/' + agentId + '/' + materialId + '.pdf';
+        try {
+            var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(storagePath, 365 * 24 * 3600);
+            if (urlData && urlData.signedUrl) {
+                agentPdfCache[materialId] = urlData.signedUrl;
+                return urlData.signedUrl;
+            }
+        } catch (e) { /* PDF doesn't exist yet, generate it */ }
+
+        // Generate and upload
+        showToast('Generating ' + materialId.replace(/_/g, ' ') + ' PDF...', 'info');
+        var url = await generateAndUploadOnePagerPdf(materialId);
+        if (url) {
+            agentPdfCache[materialId] = url;
+            showToast('PDF ready!', 'success');
+        }
+        return url;
+    }
+
+    // Pre-generate all branded PDFs for the current agent (called on Marketing page load)
+    async function preGenerateAgentPdfs() {
+        if (!currentUserId) return;
+        var brandedIds = Object.keys(BRANDED_DOC_KEY_MAP);
+        for (var i = 0; i < brandedIds.length; i++) {
+            await getOnePagerPdfUrl(brandedIds[i]);
         }
     }
 
@@ -7319,11 +7442,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">I have put together some information for your review. Please find the ' + (selectedMaterials.length === 1 ? 'document' : 'materials') + ' below.</p>';
             htmlBody += '</td></tr>';
 
-            // Materials cards — clean card layout with View links for all materials
+            // Resolve PDF URLs for branded materials (generates PDF if not cached)
+            var materialPdfUrls = {};
+            for (var p = 0; p < selectedMaterials.length; p++) {
+                var matId = selectedMaterials[p].id;
+                if (BRANDED_DOC_KEY_MAP[matId]) {
+                    var pdfUrl = await getOnePagerPdfUrl(matId);
+                    if (pdfUrl) materialPdfUrls[matId] = pdfUrl;
+                }
+            }
+
+            // Materials cards — branded materials link to generated PDF, others to website
             htmlBody += '<tr><td style="background:white;padding:0 48px 28px;">';
             for (var s = 0; s < selectedMaterials.length; s++) {
                 var mat = selectedMaterials[s];
-                var materialUrl = baseUrl + mat.file;
+                var materialUrl = materialPdfUrls[mat.id] || (baseUrl + mat.file);
                 htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">';
                 htmlBody += '<tr><td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px 20px;">';
                 htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>';
