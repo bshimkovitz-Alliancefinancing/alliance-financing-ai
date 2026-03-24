@@ -16632,6 +16632,57 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 } catch(e) { console.log('Linked application not found:', e); }
             }
 
+            // If no linked application found, try to find one by company name match
+            if (!linkedApp && deal.company_name) {
+                try {
+                    var { data: matchByBiz } = await db.from('applications')
+                        .select('*')
+                        .ilike('business_name', '%' + deal.company_name.trim() + '%')
+                        .order('submitted_at', { ascending: false })
+                        .limit(1);
+                    if (matchByBiz && matchByBiz.length > 0) {
+                        linkedApp = matchByBiz[0];
+                        // Auto-link this application to the deal so it's connected going forward
+                        try {
+                            await db.from('deals').update({ application_id: linkedApp.id }).eq('id', dealId);
+                            deal.application_id = linkedApp.id;
+                            // Also mark the application as Moved to Pipeline
+                            if (linkedApp.status !== 'Moved to Pipeline') {
+                                await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', linkedApp.id);
+                            }
+                        } catch(linkErr) { console.warn('Auto-link application to deal:', linkErr); }
+                    }
+                } catch(e) { console.log('Business name application match failed:', e); }
+            }
+
+            // Still no match? Try fuzzy match by company name keywords
+            if (!linkedApp && deal.company_name) {
+                try {
+                    // Extract first significant word from company name (e.g., "Nuport" from "Nuport Robotics")
+                    var companyWords = deal.company_name.trim().split(/\s+/).filter(function(w) {
+                        return w.length > 2 && !['inc', 'ltd', 'llc', 'corp', 'co', 'the', 'and', 'sales', 'group', 'distribution'].includes(w.toLowerCase().replace(/[.,]/g, ''));
+                    });
+                    for (var cwi = 0; cwi < companyWords.length && !linkedApp; cwi++) {
+                        var { data: fuzzyMatch } = await db.from('applications')
+                            .select('*')
+                            .ilike('business_name', '%' + companyWords[cwi] + '%')
+                            .order('submitted_at', { ascending: false })
+                            .limit(1);
+                        if (fuzzyMatch && fuzzyMatch.length > 0) {
+                            linkedApp = fuzzyMatch[0];
+                            // Auto-link
+                            try {
+                                await db.from('deals').update({ application_id: linkedApp.id }).eq('id', dealId);
+                                deal.application_id = linkedApp.id;
+                                if (linkedApp.status !== 'Moved to Pipeline') {
+                                    await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', linkedApp.id);
+                                }
+                            } catch(linkErr) { console.warn('Auto-link fuzzy application to deal:', linkErr); }
+                        }
+                    }
+                } catch(e) { console.log('Fuzzy application match failed:', e); }
+            }
+
             // Fetch lender submissions for this deal
             var lenderSubmissions = [];
             try {
