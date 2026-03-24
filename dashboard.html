@@ -19003,29 +19003,35 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<p>Generated on: ' + new Date().toLocaleString() + '</p>' +
                 '</div></body></html>';
 
-            // Convert summary HTML to PDF and add to ZIP
+            // Convert summary HTML to PDF using an iframe (so full <html>/<style> renders correctly)
             btn.textContent = '⏳ Converting to PDF...';
-            var pdfContainer = document.createElement('div');
-            pdfContainer.innerHTML = summaryHtml;
-            pdfContainer.style.position = 'absolute';
-            pdfContainer.style.left = '-9999px';
-            pdfContainer.style.top = '0';
-            pdfContainer.style.width = '816px';
-            document.body.appendChild(pdfContainer);
+            var pdfIframe = document.createElement('iframe');
+            pdfIframe.style.position = 'absolute';
+            pdfIframe.style.left = '-9999px';
+            pdfIframe.style.top = '0';
+            pdfIframe.style.width = '816px';
+            pdfIframe.style.height = '1200px';
+            pdfIframe.style.border = 'none';
+            document.body.appendChild(pdfIframe);
             try {
+                pdfIframe.contentDocument.open();
+                pdfIframe.contentDocument.write(summaryHtml);
+                pdfIframe.contentDocument.close();
+                // Wait for iframe content to render
+                await new Promise(function(resolve) { setTimeout(resolve, 600); });
                 var pdfBlob = await html2pdf().set({
                     margin: [10, 10, 10, 10],
                     filename: 'Application_Summary.pdf',
                     image: { type: 'jpeg', quality: 0.95 },
-                    html2canvas: { scale: 2, useCORS: true, width: 816, scrollY: 0 },
+                    html2canvas: { scale: 2, useCORS: true, width: 796, scrollY: 0 },
                     jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
-                }).from(pdfContainer).outputPdf('blob');
+                }).from(pdfIframe.contentDocument.body).outputPdf('blob');
                 zip.file('Application_Summary_' + (app.application_id || 'unknown') + '.pdf', pdfBlob);
             } catch(pdfErr) {
                 console.warn('PDF conversion failed, falling back to HTML:', pdfErr);
                 zip.file('Application_Summary_' + (app.application_id || 'unknown') + '.html', summaryHtml);
             } finally {
-                document.body.removeChild(pdfContainer);
+                document.body.removeChild(pdfIframe);
             }
 
             // Generate and download ZIP
