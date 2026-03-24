@@ -17731,10 +17731,39 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             rows += '</div>';
         }
 
+        // Build document checklist for the deal
+        var docChecklistHtml = '';
+        try {
+            var { data: dealDocs } = await db.from('documents')
+                .select('id, file_name, document_type, file_path, file_size_bytes')
+                .eq('deal_id', dealId)
+                .order('uploaded_at', { ascending: false });
+            if (dealDocs && dealDocs.length > 0) {
+                docChecklistHtml = '<div style="margin-top:12px;">';
+                docChecklistHtml += '<label style="font-weight:600;color:var(--navy);font-size:13px;display:block;margin-bottom:8px;">Select Documents to Include</label>';
+                docChecklistHtml += '<div style="display:flex;align-items:center;margin-bottom:6px;padding:4px 0;">';
+                docChecklistHtml += '<input type="checkbox" id="lenderDocSelectAll" onchange="document.querySelectorAll(\'.lender-doc-check\').forEach(function(c){c.checked=this.checked}.bind(this))" style="margin-right:8px;cursor:pointer;">';
+                docChecklistHtml += '<label for="lenderDocSelectAll" style="font-size:12px;font-weight:600;color:#64748B;cursor:pointer;">Select All</label></div>';
+                for (var di = 0; di < dealDocs.length; di++) {
+                    var doc = dealDocs[di];
+                    var sizeStr = doc.file_size_bytes ? '(' + (doc.file_size_bytes / 1024 < 1024 ? Math.round(doc.file_size_bytes / 1024) + ' KB' : (doc.file_size_bytes / 1048576).toFixed(1) + ' MB') + ')' : '';
+                    docChecklistHtml += '<div style="display:flex;align-items:center;padding:6px 10px;background:white;border:1px solid #E5E7EB;border-radius:4px;margin-bottom:4px;">';
+                    docChecklistHtml += '<input type="checkbox" class="lender-doc-check" value="' + doc.id + '" data-path="' + (doc.file_path || '') + '" data-name="' + (doc.file_name || '').replace(/"/g, '&quot;') + '" data-type="' + (doc.document_type || 'Document') + '" style="margin-right:10px;cursor:pointer;">';
+                    docChecklistHtml += '<span style="font-size:13px;color:var(--navy);flex:1;">' + (doc.file_name || 'Untitled') + '</span>';
+                    docChecklistHtml += '<span style="font-size:11px;color:#64748B;margin:0 8px;">' + (doc.document_type || '') + '</span>';
+                    docChecklistHtml += '<span style="font-size:11px;color:#94A3B8;">' + sizeStr + '</span>';
+                    docChecklistHtml += '</div>';
+                }
+                docChecklistHtml += '</div>';
+            } else {
+                docChecklistHtml = '<div style="margin-top:12px;padding:10px;background:#FEF3C7;border-radius:4px;font-size:12px;color:#92400E;">No documents uploaded for this deal yet. You can still send the deal summary.</div>';
+            }
+        } catch(e) { console.warn('Load deal docs for send:', e); }
+
         var addForm = '<div style="margin-top:15px;padding:15px;background:#f9f9f9;border-radius:6px;border:1px solid var(--border-gray);">';
-        addForm += '<div style="font-weight:600;margin-bottom:12px;color:var(--navy);">Send Deal to Lender</div>';
+        addForm += '<div style="font-weight:600;margin-bottom:12px;color:var(--navy);font-size:15px;">📦 Prepare & Send Credit Package</div>';
         addForm += '<div class="modal-row"><div class="modal-field">';
-        addForm += '<label>Select Lender</label>';
+        addForm += '<label>Select Lender / Broker</label>';
         addForm += '<select id="newLenderSubId" onchange="loadLenderContactsForSend(\'' + dealId + '\')" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;cursor:pointer;">';
         addForm += '<option value="">Choose a lender...</option>';
         for (var j = 0; j < cachedLenders.length; j++) {
@@ -17747,13 +17776,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         addForm += '<option value="">Loading contacts...</option>';
         addForm += '</select></div></div>';
         addForm += '<div id="sendToLenderActions" style="display:none;margin-top:12px;">';
-        addForm += '<div class="modal-row"><div class="modal-field full">';
-        addForm += '<label>Custom Message (optional)</label>';
-        addForm += '<textarea id="lenderSendMessage" rows="3" placeholder="Add a personal note to the lender..." style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;resize:vertical;"></textarea>';
-        addForm += '</div></div>';
-        addForm += '<div style="display:flex;gap:8px;margin-top:10px;">';
-        addForm += '<button id="sendToLenderBtn" onclick="sendDealToLender(\'' + dealId + '\')" style="padding:8px 20px;background:#10B981;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;">📧 Send Email & Track</button>';
-        addForm += '<button onclick="addLenderSubmission(\'' + dealId + '\')" style="padding:8px 16px;background:var(--gold);color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;">Track Only (No Email)</button>';
+
+        // Document selection
+        addForm += docChecklistHtml;
+
+        // Message type toggle
+        addForm += '<div style="margin-top:14px;">';
+        addForm += '<label style="font-weight:600;color:var(--navy);font-size:13px;display:block;margin-bottom:8px;">Email Message</label>';
+        addForm += '<div style="display:flex;gap:6px;margin-bottom:10px;">';
+        addForm += '<button type="button" id="msgTypeCanned" onclick="document.getElementById(\'lenderSendMessage\').style.display=\'none\';document.getElementById(\'lenderCannedPreview\').style.display=\'block\';this.style.background=\'#0D1E3D\';this.style.color=\'white\';document.getElementById(\'msgTypeCustom\').style.background=\'#F1F5F9\';document.getElementById(\'msgTypeCustom\').style.color=\'#475569\';document.getElementById(\'lenderMessageType\').value=\'canned\';" style="padding:6px 14px;background:#0D1E3D;color:white;border:1px solid #CBD5E1;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Standard Package Summary</button>';
+        addForm += '<button type="button" id="msgTypeCustom" onclick="document.getElementById(\'lenderSendMessage\').style.display=\'block\';document.getElementById(\'lenderCannedPreview\').style.display=\'none\';this.style.background=\'#0D1E3D\';this.style.color=\'white\';document.getElementById(\'msgTypeCanned\').style.background=\'#F1F5F9\';document.getElementById(\'msgTypeCanned\').style.color=\'#475569\';document.getElementById(\'lenderMessageType\').value=\'custom\';" style="padding:6px 14px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Custom Message</button>';
+        addForm += '</div>';
+        addForm += '<input type="hidden" id="lenderMessageType" value="canned">';
+
+        // Canned message preview
+        addForm += '<div id="lenderCannedPreview" style="padding:10px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:4px;font-size:12px;color:#1E40AF;display:block;">';
+        addForm += '<strong>Standard message includes:</strong> Deal summary table (company, product, amount, province, industry, revenue, time in business), selected document download links, and Alliance Financing signature.';
+        addForm += '</div>';
+
+        // Custom message textarea
+        addForm += '<textarea id="lenderSendMessage" rows="5" placeholder="Write your custom message to the lender here. This will replace the standard deal summary section in the email.&#10;&#10;Example: Hi [Name], please find attached the credit application and bank statements for Nuport Robotics. They are looking for $65,000 in equipment leasing for a 2019 Ottawa Kalmar T2 Shunt truck. The business has been operating for 5+ years in Ontario..." style="display:none;padding:10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;resize:vertical;line-height:1.5;"></textarea>';
+        addForm += '</div>';
+
+        addForm += '<div style="display:flex;gap:8px;margin-top:14px;">';
+        addForm += '<button id="sendToLenderBtn" onclick="sendDealToLender(\'' + dealId + '\')" style="padding:10px 24px;background:#10B981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">📧 Send Package</button>';
+        addForm += '<button onclick="addLenderSubmission(\'' + dealId + '\')" style="padding:10px 16px;background:var(--gold);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Track Only (No Email)</button>';
         addForm += '</div></div></div>';
 
         var html = '<h3 style="color:var(--navy);font-size:16px;margin:25px 0 15px 0;padding-bottom:8px;border-bottom:2px solid var(--gold);">Credit Submissions</h3>';
@@ -17841,6 +17888,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var lenderId = document.getElementById('newLenderSubId').value;
         var contactSelect = document.getElementById('lenderContactForSend');
         var contactOption = contactSelect.options[contactSelect.selectedIndex];
+        var messageType = document.getElementById('lenderMessageType').value;
         var customMessage = document.getElementById('lenderSendMessage').value.trim();
         var btn = document.getElementById('sendToLenderBtn');
 
@@ -17850,35 +17898,44 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var contactName = contactOption ? contactOption.getAttribute('data-name') : '';
 
         if (!contactEmail) { alert('Please select a contact with an email address'); return; }
+        if (messageType === 'custom' && !customMessage) { alert('Please enter your custom message'); return; }
 
         btn.disabled = true;
-        btn.textContent = '⏳ Sending...';
+        btn.textContent = '⏳ Preparing package...';
 
         try {
             // 1. Get deal details
             var { data: deal } = await db.from('deals').select('*').eq('id', dealId).single();
             if (!deal) throw new Error('Deal not found');
 
-            // 2. Get documents for this deal
-            var { data: docs } = await db.from('documents')
-                .select('id, file_name, file_path, document_type, file_size_bytes')
-                .eq('deal_id', dealId);
+            // 2. Get SELECTED documents only
+            var selectedDocChecks = document.querySelectorAll('.lender-doc-check:checked');
+            var selectedDocIds = [];
+            for (var sc = 0; sc < selectedDocChecks.length; sc++) {
+                selectedDocIds.push(selectedDocChecks[sc].value);
+            }
 
-            // 3. Generate signed URLs for documents (valid for 7 days)
+            // 3. Generate signed URLs for selected documents (valid for 7 days)
+            btn.textContent = '⏳ Generating document links...';
             var docLinks = [];
-            if (docs && docs.length > 0) {
-                for (var d = 0; d < docs.length; d++) {
-                    try {
-                        var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(docs[d].file_path, 604800);
-                        if (urlData && urlData.signedUrl) {
-                            docLinks.push({
-                                name: docs[d].file_name,
-                                type: docs[d].document_type || 'Document',
-                                url: urlData.signedUrl,
-                                size: docs[d].file_size_bytes
-                            });
-                        }
-                    } catch(e) { console.log('Signed URL error for doc:', e); }
+            if (selectedDocIds.length > 0) {
+                var { data: selectedDocs } = await db.from('documents')
+                    .select('id, file_name, file_path, document_type, file_size_bytes')
+                    .in('id', selectedDocIds);
+                if (selectedDocs && selectedDocs.length > 0) {
+                    for (var d = 0; d < selectedDocs.length; d++) {
+                        try {
+                            var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(selectedDocs[d].file_path, 604800);
+                            if (urlData && urlData.signedUrl) {
+                                docLinks.push({
+                                    name: selectedDocs[d].file_name,
+                                    type: selectedDocs[d].document_type || 'Document',
+                                    url: urlData.signedUrl,
+                                    size: selectedDocs[d].file_size_bytes
+                                });
+                            }
+                        } catch(e) { console.log('Signed URL error for doc:', e); }
+                    }
                 }
             }
 
@@ -17887,12 +17944,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var lenderName = lenderObj ? lenderObj.name : 'Lender';
 
             // 5. Build email
+            btn.textContent = '⏳ Sending email...';
             var amount = deal.deal_amount ? '$' + Number(deal.deal_amount).toLocaleString() : 'TBD';
             var subject = 'Credit Submission — ' + (deal.company_name || 'New Deal') + ' — ' + (deal.product_type || 'Financing') + ' — ' + amount;
 
+            // Document links table
             var docLinksHtml = '';
             if (docLinks.length > 0) {
-                docLinksHtml = '<table style="width:100%;border-collapse:collapse;margin-top:15px;">';
+                docLinksHtml = '<h3 style="color:#0D1E3D;font-size:15px;margin:20px 0 8px;">Supporting Documents</h3>';
+                docLinksHtml += '<table style="width:100%;border-collapse:collapse;">';
                 docLinksHtml += '<tr style="background:#f8f9fa;"><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;font-size:13px;">Document</td><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;font-size:13px;">Type</td><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;font-size:13px;">Download</td></tr>';
                 for (var dl = 0; dl < docLinks.length; dl++) {
                     docLinksHtml += '<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:13px;">' + docLinks[dl].name + '</td>';
@@ -17903,32 +17963,46 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 docLinksHtml += '<p style="font-size:11px;color:#6B7280;margin-top:6px;">Document links expire in 7 days.</p>';
             }
 
-            var customNoteHtml = customMessage ? '<div style="background:#FEF3C7;padding:12px;border-radius:6px;margin:15px 0;font-size:14px;"><strong>Note from ' + (currentUserName || 'Alliance Financing') + ':</strong><br>' + customMessage.replace(/\n/g, '<br>') + '</div>' : '';
-
+            // Build the email body
             var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#1F2937;">';
             htmlBody += '<div style="background:#0D1E3D;padding:20px 25px;border-radius:8px 8px 0 0;">';
             htmlBody += '<h1 style="margin:0;color:#C9A84C;font-size:18px;">Alliance Financing Group</h1>';
             htmlBody += '<p style="margin:4px 0 0;color:#94A3B8;font-size:13px;">Credit Submission Package</p></div>';
             htmlBody += '<div style="padding:25px;background:white;border:1px solid #E5E7EB;border-top:none;border-radius:0 0 8px 8px;">';
             htmlBody += '<p style="font-size:14px;">Dear ' + (contactName || 'Credit Team') + ',</p>';
-            htmlBody += '<p style="font-size:14px;">Please find below a credit submission for your review:</p>';
 
-            htmlBody += '<table style="width:100%;border-collapse:collapse;margin:15px 0;">';
-            htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;width:40%;">Company Name</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + (deal.company_name || 'N/A') + '</td></tr>';
-            htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Product Type</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + (deal.product_type || 'N/A') + '</td></tr>';
-            htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Amount Requested</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + amount + ' ' + (deal.currency || 'CAD') + '</td></tr>';
-            if (deal.client_province) htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Province</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + deal.client_province + '</td></tr>';
-            if (deal.client_industry) htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Industry</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + deal.client_industry + '</td></tr>';
-            if (deal.client_annual_revenue) htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Annual Revenue</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">$' + Number(deal.client_annual_revenue).toLocaleString() + '</td></tr>';
-            if (deal.client_time_in_business) htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Time in Business</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + deal.client_time_in_business + '</td></tr>';
-            htmlBody += '</table>';
-
-            htmlBody += customNoteHtml;
-
-            if (docLinks.length > 0) {
-                htmlBody += '<h3 style="color:#0D1E3D;font-size:15px;margin:20px 0 8px;">Supporting Documents</h3>';
-                htmlBody += docLinksHtml;
+            if (messageType === 'custom') {
+                // Custom message replaces the standard summary
+                htmlBody += '<div style="font-size:14px;line-height:1.6;white-space:pre-wrap;">' + customMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') + '</div>';
             } else {
+                // Standard canned message with deal summary table
+                htmlBody += '<p style="font-size:14px;">Please find below a credit submission for your review:</p>';
+                htmlBody += '<table style="width:100%;border-collapse:collapse;margin:15px 0;">';
+                htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;width:40%;">Company Name</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + (deal.company_name || 'N/A') + '</td></tr>';
+                htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Product Type</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + (deal.product_type || 'N/A') + '</td></tr>';
+                htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Amount Requested</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + amount + ' ' + (deal.currency || 'CAD') + '</td></tr>';
+                if (deal.client_province) htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Province</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + deal.client_province + '</td></tr>';
+                if (deal.client_industry) htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Industry</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + deal.client_industry + '</td></tr>';
+                if (deal.client_annual_revenue) htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Annual Revenue</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">$' + Number(deal.client_annual_revenue).toLocaleString() + '</td></tr>';
+                if (deal.client_time_in_business) htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Time in Business</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + deal.client_time_in_business + '</td></tr>';
+                if (deal.client_credit_score) htmlBody += '<tr><td style="padding:8px 12px;background:#F1F5F9;border:1px solid #E5E7EB;font-weight:600;font-size:13px;">Credit Score</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-size:13px;">' + deal.client_credit_score + '</td></tr>';
+                htmlBody += '</table>';
+
+                // List included documents in the summary
+                if (docLinks.length > 0) {
+                    htmlBody += '<p style="font-size:14px;margin-top:15px;"><strong>Included in this package:</strong></p>';
+                    htmlBody += '<ul style="font-size:13px;color:#374151;margin:5px 0 0 0;padding-left:20px;">';
+                    for (var si = 0; si < docLinks.length; si++) {
+                        htmlBody += '<li style="margin-bottom:3px;">' + docLinks[si].name + (docLinks[si].type ? ' <span style="color:#6B7280;">(' + docLinks[si].type + ')</span>' : '') + '</li>';
+                    }
+                    htmlBody += '</ul>';
+                }
+            }
+
+            // Document download links (always included if documents selected)
+            htmlBody += docLinksHtml;
+
+            if (docLinks.length === 0 && messageType === 'canned') {
                 htmlBody += '<p style="font-size:13px;color:#6B7280;margin-top:15px;"><em>No supporting documents have been uploaded yet.</em></p>';
             }
 
@@ -17941,6 +18015,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             await sendEmailViaResend(contactEmail, subject, htmlBody, '', 'info@alliancefinancing.com');
 
             // 7. Create tracking record
+            var docNamesList = docLinks.map(function(d) { return d.name; }).join(', ');
             var { error: subError } = await db.from('lender_submissions').insert({
                 deal_id: dealId,
                 lender_id: lenderId,
@@ -17952,15 +18027,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             });
             if (subError) console.error('Tracking record error:', subError);
 
-            // 8. Add system note
-            await addDealSystemNote(dealId, '📧 Emailed deal package to ' + contactName + ' at ' + lenderName + ' (' + contactEmail + ')', false);
+            // 8. Add system note with document details
+            var noteText = '📧 Emailed deal package to ' + contactName + ' at ' + lenderName + ' (' + contactEmail + ')';
+            if (docLinks.length > 0) {
+                noteText += '\n📎 Documents included: ' + docNamesList;
+            }
+            if (messageType === 'custom') {
+                noteText += '\n💬 Custom message sent';
+            }
+            await addDealSystemNote(dealId, noteText, false);
 
-            alert('Deal package sent to ' + contactName + ' at ' + contactEmail + '!');
+            alert('Credit package sent to ' + contactName + ' at ' + lenderName + '!\n\n' + (docLinks.length > 0 ? docLinks.length + ' document(s) included.' : 'No documents included.'));
             await viewDeal(dealId);
         } catch (err) {
             alert('Error sending to lender: ' + err.message);
             btn.disabled = false;
-            btn.textContent = '📧 Send Email & Track';
+            btn.textContent = '📧 Send Package';
         }
     }
 
