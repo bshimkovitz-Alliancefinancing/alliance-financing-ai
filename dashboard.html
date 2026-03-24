@@ -18897,25 +18897,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             var summaryHtml = '<!DOCTYPE html><html><head><title>Lender Package - ' + (app.application_id || '') + '</title>' +
                 '<style>' +
-                'body{font-family:Arial,Helvetica,sans-serif;margin:40px;color:#333;line-height:1.6}' +
-                '.header{text-align:center;border-bottom:3px solid #1a365d;padding-bottom:20px;margin-bottom:30px}' +
-                '.header h1{color:#1a365d;margin:0;font-size:24px}' +
-                '.header p{color:#666;margin:5px 0 0}' +
-                '.section{margin-bottom:25px}' +
-                '.section h2{color:#1a365d;font-size:16px;border-bottom:2px solid #e2e8f0;padding-bottom:8px;margin-bottom:12px}' +
-                'table{width:100%;border-collapse:collapse;margin-bottom:15px}' +
-                'td{padding:8px 12px;border:1px solid #ddd;font-size:13px}' +
-                '.signature-box{background:#f0f7ff;border:2px solid #1a365d;border-radius:8px;padding:20px;margin-top:20px}' +
-                '.signature-box .sig-name{font-size:22px;font-style:italic;font-weight:700;color:#1a365d;margin:10px 0}' +
-                '.signature-box .sig-meta{font-size:12px;color:#64748b}' +
-                '.consent-text{font-size:11px;color:#666;margin-top:15px;padding:15px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;line-height:1.5}' +
-                '.footer{margin-top:40px;text-align:center;font-size:11px;color:#999;border-top:1px solid #e2e8f0;padding-top:15px}' +
-                '@media print{body{margin:20px}}' +
+                '*{box-sizing:border-box;}' +
+                'body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:30px;color:#333;line-height:1.6;width:100%;}' +
+                '.header{text-align:center;border-bottom:3px solid #1a365d;padding-bottom:15px;margin-bottom:25px}' +
+                '.header h1{color:#1a365d;margin:0;font-size:22px}' +
+                '.header p{color:#666;margin:4px 0 0;font-size:13px}' +
+                '.section{margin-bottom:20px}' +
+                '.section h2{color:#1a365d;font-size:15px;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin-bottom:10px}' +
+                'table{width:100%;border-collapse:collapse;margin-bottom:12px;table-layout:fixed;}' +
+                'td{padding:6px 10px;border:1px solid #ddd;font-size:12px;word-wrap:break-word;overflow-wrap:break-word;}' +
+                '.signature-box{background:#f0f7ff;border:2px solid #1a365d;border-radius:6px;padding:15px;margin-top:15px}' +
+                '.signature-box .sig-name{font-size:20px;font-style:italic;font-weight:700;color:#1a365d;margin:8px 0}' +
+                '.signature-box .sig-meta{font-size:11px;color:#64748b}' +
+                '.consent-text{font-size:10px;color:#666;margin-top:12px;padding:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;line-height:1.4}' +
+                '.footer{margin-top:30px;text-align:center;font-size:10px;color:#999;border-top:1px solid #e2e8f0;padding-top:12px}' +
                 '</style></head><body>' +
                 '<div class="header">' +
                 '<h1>Alliance Financing Group Ltd.</h1>' +
                 '<p>35+ Years of Commercial Financing Excellence</p>' +
-                '<p style="font-size:12px;color:#999">1-877-660-3660 ext. 222 | info@alliancefinancing.com | alliancefinancing.ai</p>' +
+                '<p style="font-size:11px;color:#999">1-877-660-3660 ext. 222 | info@alliancefinancing.com | alliancefinancing.ai</p>' +
                 '</div>' +
                 '<div style="text-align:center;margin-bottom:25px">' +
                 '<h2 style="color:#1a365d;font-size:20px;margin:0">Credit Application — ' + formTypeDisplay + '</h2>' +
@@ -19009,8 +19009,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             pdfIframe.style.position = 'absolute';
             pdfIframe.style.left = '-9999px';
             pdfIframe.style.top = '0';
-            pdfIframe.style.width = '816px';
-            pdfIframe.style.height = '1200px';
+            pdfIframe.style.width = '750px';
+            pdfIframe.style.height = '2000px';
             pdfIframe.style.border = 'none';
             document.body.appendChild(pdfIframe);
             try {
@@ -19018,13 +19018,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 pdfIframe.contentDocument.write(summaryHtml);
                 pdfIframe.contentDocument.close();
                 // Wait for iframe content to render
-                await new Promise(function(resolve) { setTimeout(resolve, 600); });
+                await new Promise(function(resolve) { setTimeout(resolve, 800); });
                 var pdfBlob = await html2pdf().set({
-                    margin: [10, 10, 10, 10],
+                    margin: [8, 5, 8, 5],
                     filename: 'Application_Summary.pdf',
-                    image: { type: 'jpeg', quality: 0.95 },
-                    html2canvas: { scale: 2, useCORS: true, width: 796, scrollY: 0 },
-                    jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: 750 },
+                    jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
+                    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
                 }).from(pdfIframe.contentDocument.body).outputPdf('blob');
                 zip.file('Application_Summary_' + (app.application_id || 'unknown') + '.pdf', pdfBlob);
             } catch(pdfErr) {
