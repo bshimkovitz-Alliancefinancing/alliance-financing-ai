@@ -13501,7 +13501,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         });
 
         tbody.innerHTML = data.map(deal => {
-            const afNumber = deal.applications?.application_id || deal.deal_number || 'N/A';
+            const dealNum = deal.deal_number || 'N/A';
+            const afNumber = deal.applications?.application_id || '';
             const afgNumber = deal.afg_number || '';
             const company = deal.company_name || 'N/A';
             const amount = formatCurrency(deal.deal_amount || 0) + ' ' + (deal.currency || 'USD');
@@ -13559,7 +13560,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             return `
                 <tr${highlightClass} style="${isArchived ? 'opacity:0.6;' : ''}${highlightStyle}">
-                    <td><strong style="font-family:'SF Mono','Cascadia Code','Consolas',monospace;letter-spacing:0.5px;">${afNumber}</strong></td>
+                    <td><strong style="font-family:'SF Mono','Cascadia Code','Consolas',monospace;letter-spacing:0.5px;">${dealNum}</strong>${afNumber ? '<div style="font-size:10px;color:#6B7280;font-family:SF Mono,Consolas,monospace;margin-top:2px;">' + afNumber + '</div>' : ''}</td>
                     <td style="font-size:12px;color:#6D28D9;font-weight:600;">${afgNumber ? afgNumber : '<span style="color:#ccc;font-weight:400;">—</span>'}</td>
                     <td>${company}${unreadDot}</td>
                     <td>${amount}</td>
@@ -13604,7 +13605,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (currentDealTab !== 'archived' && isArchived) return false;
             }
 
-            const afNumber = (deal.applications?.application_id || deal.deal_number || '').toLowerCase();
+            const dealNumSearch = (deal.deal_number || '').toLowerCase();
+            const afNumber = (deal.applications?.application_id || '').toLowerCase();
             const afgNumber = (deal.afg_number || '').toLowerCase();
             const company = (deal.company_name || '').toLowerCase();
             const product = (deal.product_type || '').toLowerCase();
@@ -13612,6 +13614,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const lenderName = (deal.lenders?.name || '').toLowerCase();
 
             const matchesSearch = !searchTerm ||
+                dealNumSearch.includes(searchTerm) ||
                 afNumber.includes(searchTerm) ||
                 afgNumber.includes(searchTerm) ||
                 company.includes(searchTerm) ||
@@ -16893,8 +16896,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <!-- Section 1: Header with Status -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: #F8FAFC; border-radius: 8px;">
                     <div>
-                        <span style="font-size: 13px; color: #64748b;">AF #</span>
-                        <div style="font-size: 18px; font-weight: 700; color: var(--navy); font-family: 'SF Mono','Cascadia Code','Consolas',monospace; letter-spacing: 0.5px;">${deal.applications?.application_id || deal.deal_number || 'N/A'}</div>
+                        <span style="font-size: 13px; color: #64748b;">Deal #</span>
+                        <div style="font-size: 18px; font-weight: 700; color: var(--navy); font-family: 'SF Mono','Cascadia Code','Consolas',monospace; letter-spacing: 0.5px;">${deal.deal_number || 'N/A'}</div>
+                        ${deal.applications?.application_id ? '<div style="font-size:12px;color:#6B7280;font-family:SF Mono,Consolas,monospace;margin-top:2px;">AF: ' + deal.applications.application_id + '</div>' : ''}
                     </div>
                     <div>
                         <span style="font-size: 13px; color: #64748b;">AFG # (Booking)</span>
