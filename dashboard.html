@@ -16878,6 +16878,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             const statusOptions = getDealStatusOptions(deal.status);
 
+            // Pre-build lender submissions HTML (async) before template literal
+            var _preBuiltLenderSubmissionsHtml = '';
+            if (!isAgentView) {
+                try { _preBuiltLenderSubmissionsHtml = await buildLenderSubmissionsHtml(dealId, lenderSubmissions); } catch(e) { console.warn('buildLenderSubmissionsHtml error:', e); }
+            }
+
             const modalBody = document.getElementById('dealModalBody');
             modalBody.innerHTML = `
                 <!-- Section 1: Header with Status -->
@@ -17353,7 +17359,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 ` : ''}
 
                 <!-- Section 6b: Credit Submissions (admin only) -->
-                ${!isAgentView ? buildLenderSubmissionsHtml(dealId, lenderSubmissions) : ''}
+                ${!isAgentView ? _preBuiltLenderSubmissionsHtml : ''}
 
                 <!-- Section 7: Client Contacts (sourced from Clients page) -->
                 <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Client Contacts</h3>
@@ -17653,7 +17659,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Multi-Lender Credit Submissions
     // ============================================
 
-    function buildLenderSubmissionsHtml(dealId, submissions) {
+    async function buildLenderSubmissionsHtml(dealId, submissions) {
         var subs = submissions || [];
         var rows = '';
         for (var i = 0; i < subs.length; i++) {
