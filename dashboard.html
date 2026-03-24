@@ -774,6 +774,17 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        @keyframes pulseHighlight {
+            0% { background-color: #F5F3FF; }
+            50% { background-color: #DDD6FE; }
+            100% { background-color: #F5F3FF; }
+        }
+
+        tr.highlight-new-deal {
+            background-color: #F5F3FF !important;
+            box-shadow: inset 4px 0 0 #8B5CF6;
+        }
     </style>
 </head>
 <body>
@@ -12168,6 +12179,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Navigation
     // ============================================
 
+    // Track application IDs to highlight in the deal pipeline
+    var _highlightApplicationIds = [];
+    var _pendingNewAppIds = [];
+
+    async function highlightNewApplicationsInPipeline() {
+        _highlightApplicationIds = _pendingNewAppIds.slice();
+        showPage('deals');
+        // After deals load, scroll to the first highlighted row
+        setTimeout(function() {
+            var highlighted = document.querySelector('tr.highlight-new-deal');
+            if (highlighted) {
+                highlighted.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            // Clear highlights after 6 seconds
+            setTimeout(function() {
+                _highlightApplicationIds = [];
+                document.querySelectorAll('tr.highlight-new-deal').forEach(function(row) {
+                    row.classList.remove('highlight-new-deal');
+                    row.style.animation = '';
+                    row.style.background = '';
+                });
+            }, 6000);
+        }, 800);
+    }
+
     function showPage(pageName) {
         // Mortgage brokers: redirect Team to subAgents (their team management page)
         if (pageName === 'team' && currentAgentType === 'mortgage_broker' && !['super_admin', 'admin'].includes(currentUserRole)) {
@@ -13112,7 +13148,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 3. Applications awaiting review
             var pendingApps = (applications || []).filter(function(a) { return a.status === 'Application Received'; });
             if (pendingApps.length > 0) {
-                alerts.push({ icon: '📋', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', label: 'New Applications', count: pendingApps.length, detail: 'Not yet reviewed', onclick: "showPage('deals')" });
+                _pendingNewAppIds = pendingApps.map(function(a) { return a.id; });
+                alerts.push({ icon: '📋', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', label: 'New Applications', count: pendingApps.length, detail: 'Not yet reviewed', onclick: "highlightNewApplicationsInPipeline()" });
             }
 
             // 4. Agents with Invited or Pending status (not yet active)
@@ -13514,8 +13551,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     : `<button class="btn btn-sm" onclick="toggleArchiveDeal('${deal.id}', true)" style="padding:3px 8px;font-size:11px;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:3px;cursor:pointer;" title="Archive this deal">Archive</button>`)
                 : '';
 
+            // Check if this deal should be highlighted (new application from dashboard)
+            const isHighlighted = _highlightApplicationIds.length > 0 && deal.application_id && _highlightApplicationIds.includes(deal.application_id);
+            const highlightClass = isHighlighted ? ' class="highlight-new-deal"' : '';
+            const highlightStyle = isHighlighted ? 'background: #F5F3FF; animation: pulseHighlight 1.5s ease-in-out 3;' : '';
+
             return `
-                <tr style="${isArchived ? 'opacity:0.6;' : ''}">
+                <tr${highlightClass} style="${isArchived ? 'opacity:0.6;' : ''}${highlightStyle}">
                     <td><strong>${afNumber}</strong></td>
                     <td style="font-size:12px;color:#6D28D9;font-weight:600;">${afgNumber ? afgNumber : '<span style="color:#ccc;font-weight:400;">—</span>'}</td>
                     <td>${company}${unreadDot}</td>
@@ -13781,6 +13823,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             // Create new deal with client profile fields populated
+            // If application was received (inbound), start at 'Info received' since we already have the application data
+            var initialDealStatus = (application.status === 'Application Received' || application.status === 'Under Review') ? 'Info received' : 'Prospect';
             const dealRecord = {
                 company_name: application.business_name,
                 deal_amount: dealAmount,
@@ -13790,7 +13834,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 source_agent_id: application.source_agent_id || null,
                 product_type: productType,
                 date_submitted: new Date().toLocaleDateString('en-CA'),
-                status: 'Prospect',
+                status: initialDealStatus,
                 client_id: pipelineClientId
             };
 
@@ -13824,6 +13868,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     .update({ deal_id: newDeal.id })
                     .eq('application_id', applicationId);
                 if (docLinkError) console.warn('Could not link documents to deal:', docLinkError);
+            }
+
+            // Auto-update matching applications_sent records to 'Returned'
+            if (application.email) {
+                try {
+                    await db.from('applications_sent')
+                        .update({ status: 'Returned' })
+                        .eq('recipient_email', application.email)
+                        .in('status', ['Sent', 'Opened', 'Follow-Up Needed']);
+                } catch(e) { console.warn('Auto-update applications_sent on pipeline move:', e); }
             }
 
             // Refresh dashboard and deals
@@ -22470,8 +22524,39 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             const [appResult, contactResult] = await Promise.all([appQuery, contactQuery]);
 
-            const apps = appResult.data || [];
+            var apps = appResult.data || [];
             const contacts = contactResult.data || [];
+
+            // Auto-clean: if any applications already have a deal in the pipeline, mark them as 'Moved to Pipeline'
+            if (apps.length > 0) {
+                var appIds = apps.map(function(a) { return a.id; });
+                var { data: linkedDeals } = await db.from('deals').select('application_id').in('application_id', appIds);
+                if (linkedDeals && linkedDeals.length > 0) {
+                    var dealAppIds = linkedDeals.map(function(d) { return d.application_id; });
+                    // Update status in database for these applications
+                    for (var di = 0; di < dealAppIds.length; di++) {
+                        try {
+                            await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', dealAppIds[di]);
+                        } catch(e) { console.warn('Auto-update app status:', e); }
+                    }
+                    // Also auto-update matching applications_sent records to 'Returned'
+                    for (var ri = 0; ri < dealAppIds.length; ri++) {
+                        try {
+                            var matchApp = apps.find(function(a) { return a.id === dealAppIds[ri]; });
+                            if (matchApp && matchApp.email) {
+                                await db.from('applications_sent')
+                                    .update({ status: 'Returned' })
+                                    .eq('recipient_email', matchApp.email)
+                                    .in('status', ['Sent', 'Opened', 'Follow-Up Needed']);
+                            }
+                        } catch(e) { console.warn('Auto-update applications_sent:', e); }
+                    }
+                    // Filter out these applications from the inbox display
+                    if (!showArchived) {
+                        apps = apps.filter(function(a) { return !dealAppIds.includes(a.id); });
+                    }
+                }
+            }
 
             // Resolve agent names
             const slugs = [...new Set(apps.filter(a => a.referral_slug).map(a => a.referral_slug))];
