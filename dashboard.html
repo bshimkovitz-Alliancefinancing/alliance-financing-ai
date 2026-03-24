@@ -19029,8 +19029,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function goToSendToLender(applicationId) {
         try {
-            // Find the deal linked to this application
-            var { data: linkedDeal } = await db.from('deals').select('id').eq('application_id', applicationId).maybeSingle();
+            // Find deals linked to this application (may be multiple — pick non-archived)
+            var { data: linkedDeals } = await db.from('deals').select('id, is_archived').eq('application_id', applicationId).order('created_at', { ascending: false });
+            var linkedDeal = null;
+            if (linkedDeals && linkedDeals.length > 0) {
+                // Prefer non-archived deal
+                linkedDeal = linkedDeals.find(function(d) { return !d.is_archived; }) || linkedDeals[0];
+            }
             if (linkedDeal && linkedDeal.id) {
                 closeApplicationModal();
                 setTimeout(function() { viewDeal(linkedDeal.id); }, 300);
@@ -19039,10 +19044,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (confirm('This application needs to be moved to the Deal Pipeline before sending to a lender. Move it now?')) {
                     await moveToPipeline(applicationId);
                     // After moving, find the new deal
-                    var { data: newDeal } = await db.from('deals').select('id').eq('application_id', applicationId).maybeSingle();
-                    if (newDeal && newDeal.id) {
+                    var { data: newDeals } = await db.from('deals').select('id').eq('application_id', applicationId).eq('is_archived', false).limit(1);
+                    if (newDeals && newDeals.length > 0) {
                         closeApplicationModal();
-                        setTimeout(function() { viewDeal(newDeal.id); }, 300);
+                        setTimeout(function() { viewDeal(newDeals[0].id); }, 300);
                     }
                 }
             }
