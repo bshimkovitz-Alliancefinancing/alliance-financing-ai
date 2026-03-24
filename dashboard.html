@@ -5307,14 +5307,20 @@
     // Branded One-Pager Viewer (Insurance, Accountants, Alliance Overview)
     // ============================================
 
-    function openBrandedOnePager(docKey, autoPrint) {
-        let contacts = [];
+    function getBrandedOnePagerContacts() {
         if (agentProfile) {
-            contacts = [{ name: agentProfile.full_name || 'Alliance Advisor', phone: agentProfile.phone ? 'M: ' + agentProfile.phone : '', email: agentProfile.email || '' }];
-        } else {
-            contacts = [{ name: 'Alliance Financing Group', phone: 'O: 905-660-3660', email: 'info@alliancefinancing.com' }];
+            return [{ name: agentProfile.full_name || 'Alliance Advisor', phone: agentProfile.phone ? 'M: ' + agentProfile.phone : '', email: agentProfile.email || '' }];
         }
-        var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+        return [{ name: 'Alliance Financing Group', phone: 'O: 905-660-3660', email: 'info@alliancefinancing.com' }];
+    }
+
+    function getBrandedOnePagerSlug() {
+        return (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+    }
+
+    function openBrandedOnePager(docKey, autoPrint) {
+        var contacts = getBrandedOnePagerContacts();
+        var agentSlug = getBrandedOnePagerSlug();
 
         if (docKey === 'insurance-brokers') {
             openInsuranceBrokersOnePager(contacts, agentSlug, autoPrint);
@@ -5327,7 +5333,7 @@
         }
     }
 
-    function openInsuranceBrokersOnePager(contacts, agentSlug, autoPrint) {
+    function openInsuranceBrokersOnePager(contacts, agentSlug, autoPrint, returnHtml) {
         const contactsHtml = contacts.map((c, i) => {
             let html = '';
             if (i > 0) html += '<div class="footer-divider"></div>';
@@ -5573,6 +5579,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 </body>
 </html>`;
 
+        if (returnHtml) return html;
         const newWindow = window.open('', '_blank');
         if (newWindow) {
             newWindow.document.write(html);
@@ -5582,7 +5589,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    function openAccountantsCFOsOnePager(contacts, agentSlug, autoPrint) {
+    function openAccountantsCFOsOnePager(contacts, agentSlug, autoPrint, returnHtml) {
         const contactsHtml = contacts.map((c, i) => {
             let html = '';
             if (i > 0) html += '<div class="footer-divider"></div>';
@@ -5826,6 +5833,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 </body>
 </html>`;
 
+        if (returnHtml) return html;
         const newWindow = window.open('', '_blank');
         if (newWindow) {
             newWindow.document.write(html);
@@ -5835,7 +5843,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    function openAllianceOverviewOnePager(contacts, agentSlug, autoPrint) {
+    function openAllianceOverviewOnePager(contacts, agentSlug, autoPrint, returnHtml) {
         const contactsHtml = contacts.map((c, i) => {
             let html = '';
             if (i > 0) html += '<div class="footer-divider"></div>';
@@ -6069,6 +6077,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 </body>
 </html>`;
 
+        if (returnHtml) return html;
         const newWindow = window.open('', '_blank');
         if (newWindow) {
             newWindow.document.write(html);
@@ -6076,6 +6085,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } else {
             alert('Please allow popups for this site to view the one-pager.');
         }
+    }
+
+    // Generate branded one-pager HTML without opening a window (for email sends)
+    function generateBrandedOnePagerHtml(docKey) {
+        var contacts = getBrandedOnePagerContacts();
+        var agentSlug = getBrandedOnePagerSlug();
+        if (docKey === 'insurance-brokers') {
+            return openInsuranceBrokersOnePager(contacts, agentSlug, false, true);
+        } else if (docKey === 'accountants-cfos') {
+            return openAccountantsCFOsOnePager(contacts, agentSlug, false, true);
+        } else if (docKey === 'alliance-overview') {
+            return openAllianceOverviewOnePager(contacts, agentSlug, false, true);
+        }
+        return null;
     }
 
     function showSendBrandedOnePagerModal(docKey, docLabel) {
@@ -6106,20 +6129,71 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var name = document.getElementById('brandedOnePagerName').value.trim();
         if (!email) { showToast('Please enter an email address', 'warning'); return; }
 
+        // Show loading state
+        var sendBtn = document.querySelector('#genericModal .btn-gold');
+        if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '⏳ Preparing & Sending...'; }
+
         try {
             var senderName = currentUserName || 'Alliance Financing';
             var senderEmail = (document.getElementById('userEmailDisplay') || {}).textContent || 'info@alliancefinancing.com';
+            var senderPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
             var firstName = name ? name.split(' ')[0] : '';
 
+            // Generate the branded one-pager HTML and upload to Supabase Storage
+            var onePagerHtml = generateBrandedOnePagerHtml(docKey);
+            var documentUrl = '';
+
+            if (onePagerHtml) {
+                try {
+                    var fileName = docKey + '-' + (currentUserId || 'anon') + '-' + Date.now() + '.html';
+                    var filePath = 'marketing-docs/' + fileName;
+                    var htmlBlob = new Blob([onePagerHtml], { type: 'text/html' });
+                    var htmlFile = new File([htmlBlob], fileName, { type: 'text/html' });
+                    await uploadToStorage('deal-documents', filePath, htmlFile);
+                    // Get a signed URL valid for 90 days
+                    var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(filePath, 90 * 24 * 3600);
+                    if (urlData && urlData.signedUrl) {
+                        documentUrl = urlData.signedUrl;
+                    }
+                } catch (uploadErr) {
+                    console.error('Document upload error (will send without link):', uploadErr);
+                }
+            }
+
             var subject = docLabel + ' — ' + senderName + ' | Alliance Financing Group';
+
+            // Build sender contact line
+            var contactLine = '';
+            if (senderPhone) contactLine += senderPhone + '<br>';
+            if (senderEmail) contactLine += '<a href="mailto:' + senderEmail + '" style="color:#3B82F6;">' + senderEmail + '</a><br>';
+
+            // Build email with document link button
+            var documentSection = '';
+            if (documentUrl) {
+                documentSection =
+                    '<div style="text-align:center;margin:24px 0;">' +
+                    '<a href="' + documentUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 36px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">📄 View ' + docLabel + '</a>' +
+                    '</div>' +
+                    '<p style="font-size:12px;color:#94A3B8;text-align:center;">Or copy this link: <a href="' + documentUrl + '" style="color:#3B82F6;word-break:break-all;">' + documentUrl.substring(0, 80) + '...</a></p>';
+            } else {
+                documentSection = '<p style="font-size:14px;color:#555;line-height:1.6;">I\'d be happy to share the document directly — please reply to this email and I\'ll send it over.</p>';
+            }
+
             var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
-                '<div style="background:#0D1E3D;padding:20px;text-align:center;"><h2 style="color:#C9A84C;margin:0;font-size:20px;">Alliance Financing Group</h2></div>' +
-                '<div style="padding:25px;background:#fff;border:1px solid #e2e8f0;">' +
-                '<p style="font-size:15px;color:#333;">Hi' + (firstName ? ' ' + firstName : '') + ',</p>' +
-                '<p style="font-size:14px;color:#555;line-height:1.6;">I wanted to share our <strong>' + docLabel + '</strong> with you. Alliance Financing Group helps businesses access a wide range of financing solutions including equipment leasing, working capital, MCA, and more.</p>' +
-                '<p style="font-size:14px;color:#555;line-height:1.6;">Please find the attached PDF for more details. I\'d love to discuss how we can help your clients.</p>' +
-                '<p style="font-size:14px;color:#555;margin-top:20px;">Best regards,<br><strong>' + senderName + '</strong><br>' + senderEmail + '</p>' +
-                '</div><div style="background:#f8f9fa;padding:15px;text-align:center;font-size:12px;color:#999;">Alliance Financing Group | 1-877-660-3660</div></div>';
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                '<p style="font-size:16px;color:#1E293B;">Hi' + (firstName ? ' ' + firstName : '') + ',</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">I wanted to share our <strong>' + docLabel + '</strong> with you. Alliance Financing Group helps businesses access a wide range of financing solutions including equipment leasing, working capital, MCA, and more.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">Please click the button below to view the document:</p>' +
+                documentSection +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">I\'d love to discuss how we can help your clients. Feel free to reach out anytime.</p>' +
+                '<p style="font-size:14px;color:#475569;margin-top:20px;">Best regards,<br><strong>' + senderName + '</strong><br>' +
+                contactLine +
+                'Alliance Financing Group Ltd.<br>1-877-660-3660 ext. 222</p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.ai</p></div></div>';
 
             await sendEmailViaResend(email, subject, htmlBody, null, senderEmail || 'info@alliancefinancing.com');
 
@@ -6131,7 +6205,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     prospect_email: email,
                     prospect_company: '',
                     prospect_type: 'prospect',
-                    materials_sent: [docLabel + ' One-Pager'],
+                    materials_sent: [docLabel],
                     sent_by_id: currentUserId || null,
                     sent_by_name: senderName,
                     sent_by_role: currentUserRole || null,
@@ -6143,14 +6217,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 console.warn('Failed to track branded one-pager outreach:', trackErr);
             }
 
-            // Marketing sends are tracked in prospect_outreach (not applications_sent,
-            // which has a CHECK constraint limiting application_type to Lease/MCA/etc.)
-
-            showToast(docLabel + ' sent to ' + email, 'success');
+            showToast(docLabel + ' sent to ' + email + (documentUrl ? ' with document link' : ''), 'success');
             closeModal('genericModal');
         } catch (err) {
             console.error('Send branded one-pager error:', err);
             showToast('Failed to send: ' + (err.message || err), 'error');
+            if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Email'; }
         }
     }
 
@@ -7085,11 +7157,44 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">I have put together some information for your review. Please find the materials below:</p>';
             htmlBody += '</td></tr>';
 
-            // Materials cards — all open in browser as "View"
+            // Upload branded HTML documents to Supabase Storage for reliable delivery
+            // Map marketing material IDs to branded one-pager doc keys
+            var brandedDocKeyMap = {
+                'company_overview': 'alliance-overview',
+                'accountants_cfos': 'accountants-cfos',
+                'insurance_brokers': 'insurance-brokers'
+            };
+
+            // Generate signed URLs for each material
+            var materialUrls = {};
+            for (var u = 0; u < selectedMaterials.length; u++) {
+                var matItem = selectedMaterials[u];
+                var brandedKey = brandedDocKeyMap[matItem.id];
+                if (brandedKey) {
+                    try {
+                        var docHtml = generateBrandedOnePagerHtml(brandedKey);
+                        if (docHtml) {
+                            var docFileName = brandedKey + '-' + (currentUserId || 'anon') + '-' + Date.now() + '.html';
+                            var docFilePath = 'marketing-docs/' + docFileName;
+                            var docBlob = new Blob([docHtml], { type: 'text/html' });
+                            var docFile = new File([docBlob], docFileName, { type: 'text/html' });
+                            await uploadToStorage('deal-documents', docFilePath, docFile);
+                            var { data: docUrlData } = await db.storage.from('deal-documents').createSignedUrl(docFilePath, 90 * 24 * 3600);
+                            if (docUrlData && docUrlData.signedUrl) {
+                                materialUrls[matItem.id] = docUrlData.signedUrl;
+                            }
+                        }
+                    } catch (docUploadErr) {
+                        console.warn('Could not upload branded doc for ' + matItem.id + ':', docUploadErr);
+                    }
+                }
+            }
+
+            // Materials cards — use uploaded URLs where available, fall back to website URL
             htmlBody += '<tr><td style="background:white;padding:0 48px 28px;">';
             for (var s = 0; s < selectedMaterials.length; s++) {
                 var mat = selectedMaterials[s];
-                var materialUrl = baseUrl + mat.file;
+                var materialUrl = materialUrls[mat.id] || (baseUrl + mat.file);
                 htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">';
                 htmlBody += '<tr><td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px 20px;">';
                 htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>';
