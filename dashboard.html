@@ -13875,7 +13875,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 try {
                     await db.from('applications_sent')
                         .update({ status: 'Returned' })
-                        .eq('recipient_email', application.email)
+                        .eq('applicant_email', application.email)
                         .in('status', ['Sent', 'Opened', 'Follow-Up Needed']);
                 } catch(e) { console.warn('Auto-update applications_sent on pipeline move:', e); }
             }
@@ -20624,6 +20624,44 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
+            // Auto-return: check if any active records have a matching application or deal
+            var activeRecords = data.filter(function(a) { return ['Sent', 'Follow-Up Needed', 'Opened'].includes(a.status); });
+            if (activeRecords.length > 0) {
+                // Collect emails and email domains for matching
+                var emailsToCheck = activeRecords.filter(function(r) { return r.applicant_email; }).map(function(r) { return r.applicant_email.toLowerCase(); });
+                var domainsToCheck = emailsToCheck.map(function(e) { var parts = e.split('@'); return parts[1] ? parts[1].split('.')[0] : ''; }).filter(function(d) { return d.length > 2; });
+
+                // Check applications table for email matches
+                var matchedEmails = {};
+                if (emailsToCheck.length > 0) {
+                    var { data: matchedApps } = await db.from('applications').select('email').in('email', emailsToCheck);
+                    if (matchedApps) matchedApps.forEach(function(a) { if (a.email) matchedEmails[a.email.toLowerCase()] = true; });
+                }
+
+                // Check deals table for company name matches against email domains
+                var matchedDomains = {};
+                if (domainsToCheck.length > 0) {
+                    var uniqueDomains = [...new Set(domainsToCheck)];
+                    for (var ddi = 0; ddi < uniqueDomains.length; ddi++) {
+                        var { data: domainDeals } = await db.from('deals').select('id, company_name').ilike('company_name', '%' + uniqueDomains[ddi] + '%').limit(1);
+                        if (domainDeals && domainDeals.length > 0) {
+                            matchedDomains[uniqueDomains[ddi]] = true;
+                        }
+                    }
+                }
+
+                // Update matching records to Returned
+                for (var ari = 0; ari < activeRecords.length; ari++) {
+                    var rec = activeRecords[ari];
+                    var recEmail = (rec.applicant_email || '').toLowerCase();
+                    var recDomain = recEmail.split('@')[1] ? recEmail.split('@')[1].split('.')[0] : '';
+                    if (matchedEmails[recEmail] || (recDomain && matchedDomains[recDomain])) {
+                        rec.status = 'Returned';
+                        try { await db.from('applications_sent').update({ status: 'Returned' }).eq('id', rec.id); } catch(e) {}
+                    }
+                }
+            }
+
             // Apply status filter client-side
             var filteredData = data;
             if (!statusFilter) {
@@ -20737,7 +20775,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // View a submitted application by looking up the client's email in the applications table
     async function viewAppSentSubmission(email, name) {
         try {
-            // Find the submitted application by matching email
+            // 1. Try matching by email first
             var { data: apps, error } = await db.from('applications')
                 .select('id, application_id, full_name, business_name, email, status, submitted_at, form_type')
                 .ilike('email', email)
@@ -20746,12 +20784,54 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
 
             if (apps && apps.length > 0) {
-                // Open the most recent matching application
                 viewApplication(apps[0].id);
-            } else {
-                // No submitted application found — show info message
-                alert('No submitted application found for ' + (name || email) + '. The client may not have completed the form yet.');
+                return;
             }
+
+            // 2. Try matching by email domain against business name
+            var emailDomain = email.split('@')[1];
+            var domainName = emailDomain ? emailDomain.split('.')[0] : '';
+            if (domainName && domainName.length > 2) {
+                var { data: bizApps } = await db.from('applications')
+                    .select('id, application_id, full_name, business_name, email, status, submitted_at, form_type')
+                    .ilike('business_name', '%' + domainName + '%')
+                    .order('submitted_at', { ascending: false })
+                    .limit(5);
+                if (bizApps && bizApps.length > 0) {
+                    viewApplication(bizApps[0].id);
+                    return;
+                }
+            }
+
+            // 3. Try finding a deal directly by company name matching the email domain
+            if (domainName && domainName.length > 2) {
+                var { data: deals } = await db.from('deals')
+                    .select('id, company_name, application_id')
+                    .ilike('company_name', '%' + domainName + '%')
+                    .order('date_submitted', { ascending: false })
+                    .limit(3);
+                if (deals && deals.length > 0) {
+                    // Found a matching deal — open it directly
+                    viewDeal(deals[0].id);
+                    return;
+                }
+            }
+
+            // 4. Try matching by applicant name against application full_name or business_name
+            if (name && name.length > 2) {
+                var { data: nameApps } = await db.from('applications')
+                    .select('id, application_id, full_name, business_name, email, status, submitted_at, form_type')
+                    .ilike('full_name', '%' + name + '%')
+                    .order('submitted_at', { ascending: false })
+                    .limit(5);
+                if (nameApps && nameApps.length > 0) {
+                    viewApplication(nameApps[0].id);
+                    return;
+                }
+            }
+
+            // No match found
+            alert('No submitted application found for ' + (name || email) + '. The client may not have completed the form yet.');
         } catch (err) {
             console.error('View app sent submission error:', err);
             alert('Error looking up application: ' + err.message);
@@ -22546,7 +22626,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             if (matchApp && matchApp.email) {
                                 await db.from('applications_sent')
                                     .update({ status: 'Returned' })
-                                    .eq('recipient_email', matchApp.email)
+                                    .eq('applicant_email', matchApp.email)
                                     .in('status', ['Sent', 'Opened', 'Follow-Up Needed']);
                             }
                         } catch(e) { console.warn('Auto-update applications_sent:', e); }
