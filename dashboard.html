@@ -8921,7 +8921,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 return;
             }
 
-            // 2. Look up source agent ID from referral slug (if any)
+            // 2. ── Duplicate vendor check ──
+            var dupes = await checkDuplicateVendor(lead.company_name);
+            if (dupes) {
+                var dupeList = dupes.map(function(d) { return '  • ' + d.name + ' (' + d.vendor_code + ') — ' + d.status; }).join('\n');
+                alert('⚠️ A similar vendor already exists:\n\n' + dupeList + '\n\nThis vendor cannot be added. Please contact admin at Info@alliancefinancing.com to confirm before proceeding.');
+                return;
+            }
+
+            // 3. Look up source agent ID from referral slug (if any)
             var sourceAgentId = null;
             if (lead.referral_slug) {
                 var { data: agent } = await db.from('users')
@@ -8931,7 +8939,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (agent) sourceAgentId = agent.id;
             }
 
-            // 3. Generate a vendor code (VND-XXXX)
+            // 4. Generate a vendor code (VND-XXXX)
             var vendorCode = 'VND-' + Math.random().toString(36).substring(2, 6).toUpperCase();
 
             // 4. Create the vendor record
@@ -25780,6 +25788,34 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // ── Duplicate Vendor Detection ──
+    async function checkDuplicateVendor(vendorName) {
+        if (!vendorName || vendorName.length < 2) return null;
+        var searchName = vendorName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        var { data: existing } = await db.from('vendors').select('id, name, vendor_code, status');
+        if (!existing || existing.length === 0) return null;
+        var matches = existing.filter(function(v) {
+            var eName = (v.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            // Exact match
+            if (eName === searchName) return true;
+            // One name contains the other
+            if (eName.length > 2 && searchName.length > 2 && (eName.indexOf(searchName) !== -1 || searchName.indexOf(eName) !== -1)) return true;
+            // Levenshtein-like: check if names differ by only a few characters
+            if (Math.abs(eName.length - searchName.length) <= 2) {
+                var shorter = eName.length <= searchName.length ? eName : searchName;
+                var longer = eName.length > searchName.length ? eName : searchName;
+                var diffs = 0;
+                for (var i = 0; i < longer.length; i++) {
+                    if (shorter[i] !== longer[i]) diffs++;
+                    if (diffs > 2) break;
+                }
+                if (diffs <= 2) return true;
+            }
+            return false;
+        });
+        return matches.length > 0 ? matches : null;
+    }
+
     async function handleAddVendor(event) {
         event.preventDefault();
 
@@ -25792,6 +25828,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var sendContactName = document.getElementById('vendorContactName').value.trim();
             var sendContactEmail = document.getElementById('vendorContactEmail').value.trim();
             var sendCompanyName = document.getElementById('vendorName').value.trim();
+
+            // ── Duplicate vendor check ──
+            var dupes = await checkDuplicateVendor(sendCompanyName);
+            if (dupes) {
+                var dupeList = dupes.map(function(d) { return '  • ' + d.name + ' (' + d.vendor_code + ') — ' + d.status; }).join('\n');
+                alert('⚠️ A similar vendor already exists:\n\n' + dupeList + '\n\nThis vendor cannot be added. Please contact admin at Info@alliancefinancing.com to confirm before proceeding.');
+                return;
+            }
 
             // Insert vendor with basic info — status defaults to "Requires Approval"
             // Retry logic for duplicate vendor_code conflicts
