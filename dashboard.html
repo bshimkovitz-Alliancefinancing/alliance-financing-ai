@@ -13112,7 +13112,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 3. Applications awaiting review
             var pendingApps = (applications || []).filter(function(a) { return a.status === 'Application Received'; });
             if (pendingApps.length > 0) {
-                alerts.push({ icon: '📋', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', label: 'New Applications', count: pendingApps.length, detail: 'Not yet reviewed', onclick: "showPage('inbox')" });
+                alerts.push({ icon: '📋', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', label: 'New Applications', count: pendingApps.length, detail: 'Not yet reviewed', onclick: "showPage('pipeline')" });
             }
 
             // 4. Agents with Invited or Pending status (not yet active)
@@ -22815,8 +22815,26 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     async function loadInboxTeamMembers() {
         if (inboxTeamMembers.length > 0) return;
         try {
-            const { data } = await db.from('team_members').select('id, full_name, role_title').eq('is_active', true).order('full_name');
-            if (data) inboxTeamMembers = data;
+            // Query team_members for display info, then match to users table by email to get the correct user UUID
+            // The applications.assigned_to foreign key references users.id, so we need users.id not team_members.id
+            const { data: tmData } = await db.from('team_members').select('id, full_name, role_title, email').eq('is_active', true).order('full_name');
+            if (tmData && tmData.length > 0) {
+                var emails = tmData.map(function(tm) { return tm.email; }).filter(Boolean);
+                if (emails.length > 0) {
+                    var { data: userData } = await db.from('users').select('id, email').in('email', emails);
+                    var emailToUserId = {};
+                    if (userData) userData.forEach(function(u) { emailToUserId[u.email] = u.id; });
+                    inboxTeamMembers = tmData.map(function(tm) {
+                        return {
+                            id: emailToUserId[tm.email] || tm.id, // Use users.id if found, fallback to team_members.id
+                            full_name: tm.full_name,
+                            role_title: tm.role_title
+                        };
+                    });
+                } else {
+                    inboxTeamMembers = tmData;
+                }
+            }
         } catch (err) {
             console.warn('Could not load team members for inbox:', err);
         }
