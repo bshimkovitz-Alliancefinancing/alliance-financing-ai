@@ -666,7 +666,8 @@
 
             // Approach 1: Search deals directly by deal_number or afg_number
             deals = await safeQuery('deals', {
-                'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,applications(application_id)',
+                'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,is_archived,applications(application_id)',
+                'is_archived': 'eq.false',
                 'or': '(deal_number.ilike.*' + rawId + '*,afg_number.ilike.*' + rawId + '*)',
                 'limit': '5'
             });
@@ -684,7 +685,8 @@
                     var appUuids = apps.map(function(a) { return a.id; });
                     for (var ai = 0; ai < appUuids.length && deals.length === 0; ai++) {
                         deals = await safeQuery('deals', {
-                            'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,applications(application_id)',
+                            'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,is_archived,applications(application_id)',
+                'is_archived': 'eq.false',
                             'application_id': 'eq.' + appUuids[ai],
                             'limit': '5'
                         });
@@ -699,7 +701,8 @@
             // Approach 3: Try searching by company name as last resort
             if (deals.length === 0) {
                 deals = await safeQuery('deals', {
-                    'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,applications(application_id)',
+                    'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,is_archived,applications(application_id)',
+                'is_archived': 'eq.false',
                     'company_name': 'ilike.*' + rawId + '*',
                     'limit': '5'
                 });
@@ -764,7 +767,8 @@
                     var appUuids = matched.map(function(a) { return a.id; });
                     for (var ai = 0; ai < appUuids.length && allDeals.length === 0; ai++) {
                         allDeals = await safeQuery('deals', {
-                            'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,applications(application_id)',
+                            'select': 'id,company_name,deal_amount,currency,product_type,status,deal_number,afg_number,date_submitted,created_at,source,is_archived,applications(application_id)',
+                'is_archived': 'eq.false',
                             'application_id': 'eq.' + appUuids[ai],
                             'order': 'date_submitted.desc',
                             'limit': '10'
