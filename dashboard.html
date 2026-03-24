@@ -1069,6 +1069,7 @@
                             <button class="deal-tab active" data-tab="active" onclick="switchDealTab('active')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:600;background:var(--navy);color:white;transition:all .2s;">Active <span id="dealCountActive" style="background:rgba(255,255,255,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                             <button class="deal-tab" data-tab="funded" onclick="switchDealTab('funded')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Funded <span id="dealCountFunded" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                             <button class="deal-tab" data-tab="declined" onclick="switchDealTab('declined')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Declined <span id="dealCountDeclined" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                            <button class="deal-tab" data-tab="archived" onclick="switchDealTab('archived')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Archived <span id="dealCountArchived" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                         </div>
                     </div>
                     <div id="dealsContentArea">
@@ -13457,9 +13458,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     function updateDealTabCounts() {
-        var prospects = 0, active = 0, funded = 0, declined = 0;
+        var prospects = 0, active = 0, funded = 0, declined = 0, archived = 0;
         (allDeals || []).forEach(function(d) {
-            if (d.is_archived) return;
+            if (d.is_archived) { archived++; return; }
             if (prospectStatuses.includes(d.status)) { prospects++; }
             else if (fundedStatuses.includes(d.status)) { funded++; }
             else if (declinedStatuses.includes(d.status)) { declined++; }
@@ -13469,6 +13470,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var elA = document.getElementById('dealCountActive'); if (elA) elA.textContent = active;
         var elF = document.getElementById('dealCountFunded'); if (elF) elF.textContent = funded;
         var elD = document.getElementById('dealCountDeclined'); if (elD) elD.textContent = declined;
+        var elAr = document.getElementById('dealCountArchived'); if (elAr) elAr.textContent = archived;
 
         // Apps Out count from applications_sent (updated when that tab loads)
     }
@@ -13586,7 +13588,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var isArchived = deal.is_archived;
             if (!statusFilter) {
                 // No specific status selected — apply tab filter
-                if (currentDealTab === 'prospects') {
+                if (currentDealTab === 'archived') {
+                    if (!isArchived) return false;
+                } else if (currentDealTab === 'prospects') {
                     if (isArchived || !prospectStatuses.includes(deal.status)) return false;
                 } else if (currentDealTab === 'funded') {
                     if (isArchived || !fundedStatuses.includes(deal.status)) return false;
@@ -13596,8 +13600,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     if (isArchived || !activeDealStatuses.includes(deal.status)) return false;
                 }
             } else {
-                // Specific status selected — exclude archived
-                if (isArchived) return false;
+                // Specific status selected — exclude archived unless on archived tab
+                if (currentDealTab !== 'archived' && isArchived) return false;
             }
 
             const afNumber = (deal.applications?.application_id || deal.deal_number || '').toLowerCase();
