@@ -1910,7 +1910,7 @@
                                     <div style="font-size: 11px; opacity: 0.85;">Select "Save as PDF" in print dialog</div>
                                 </div>
                             </button>
-                            <button onclick="openSendMarketingPackageModal('insurance_brokers')" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <button onclick="showSendInsuranceBrokersModal()" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
                                 <span style="font-size: 20px;">📧</span>
                                 <div style="text-align: left;">
                                     <div style="font-weight: 600; font-size: 13px;">Send to Prospect</div>
@@ -1943,7 +1943,7 @@
                                     <div style="font-size: 11px; opacity: 0.85;">Select "Save as PDF" in print dialog</div>
                                 </div>
                             </button>
-                            <button onclick="openSendMarketingPackageModal('accountants_cfos')" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <button onclick="showSendAccountantsCFOsModal()" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
                                 <span style="font-size: 20px;">📧</span>
                                 <div style="text-align: left;">
                                     <div style="font-weight: 600; font-size: 13px;">Send to Prospect</div>
@@ -1976,7 +1976,7 @@
                                     <div style="font-size: 11px; opacity: 0.85;">Select "Save as PDF" in print dialog</div>
                                 </div>
                             </button>
-                            <button onclick="openSendMarketingPackageModal('alliance_overview')" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <button onclick="showSendAllianceOverviewModal()" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
                                 <span style="font-size: 20px;">📧</span>
                                 <div style="text-align: left;">
                                     <div style="font-weight: 600; font-size: 13px;">Send to Prospect</div>
@@ -2009,7 +2009,7 @@
                                     <div style="font-size: 11px; opacity: 0.85;">Select "Save as PDF" in print dialog</div>
                                 </div>
                             </button>
-                            <button onclick="openSendMarketingPackageModal('mortgage_brokers')" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <button onclick="showSendMortgageBrokersModal()" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
                                 <span style="font-size: 20px;">📧</span>
                                 <div style="text-align: left;">
                                     <div style="font-weight: 600; font-size: 13px;">Send to Prospect</div>
@@ -7167,6 +7167,461 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             alert('Vendor Leasing Program sent to ' + recipientEmail + '!');
             document.getElementById('vlpSendModal').style.display = 'none';
+        } catch (err) {
+            alert('Error sending email: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = '📧 Send Email';
+        }
+    }
+
+    // ============================================
+    // DEDICATED SEND MODALS FOR BRANDED ONE-PAGERS
+    // ============================================
+
+    function showSendInsuranceBrokersModal() {
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var modalHtml = '<div style="padding:24px;">';
+        modalHtml += '<h3 style="color:var(--navy);margin:0 0 16px;">Send Insurance Brokers One-Pager</h3>';
+        modalHtml += '<p style="color:#64748b;font-size:13px;margin:0 0 16px;">Email the Alliance partnership overview to an insurance broker or agent.</p>';
+        modalHtml += '<div class="modal-row"><div class="modal-field"><label>Recipient Name</label>';
+        modalHtml += '<input type="text" id="ibSendName" placeholder="Broker / Agent name" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div>';
+        modalHtml += '<div class="modal-field"><label>Recipient Email</label>';
+        modalHtml += '<input type="email" id="ibSendEmail" placeholder="broker@company.com" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div></div>';
+        modalHtml += '<div class="modal-row"><div class="modal-field full"><label>Personal Message (optional)</label>';
+        modalHtml += '<textarea id="ibSendMessage" rows="3" placeholder="Add a personal note..." style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;resize:vertical;"></textarea></div></div>';
+        modalHtml += '<div style="display:flex;gap:10px;margin-top:16px;">';
+        modalHtml += '<button id="ibSendBtn" onclick="sendInsuranceBrokersEmail()" style="padding:10px 24px;background:#10B981;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">📧 Send Email</button>';
+        modalHtml += '<button onclick="document.getElementById(\'ibSendModal\').style.display=\'none\'" style="padding:10px 24px;background:#E5E7EB;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">Cancel</button>';
+        modalHtml += '</div></div>';
+        var existingModal = document.getElementById('ibSendModal');
+        if (existingModal) existingModal.remove();
+        var modal = document.createElement('div');
+        modal.id = 'ibSendModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = '<div style="background:white;border-radius:10px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' + modalHtml + '</div>';
+        modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+        document.body.appendChild(modal);
+    }
+
+    async function sendInsuranceBrokersEmail() {
+        var recipientName = document.getElementById('ibSendName').value.trim();
+        var recipientEmail = document.getElementById('ibSendEmail').value.trim();
+        var customMessage = document.getElementById('ibSendMessage').value.trim();
+        var btn = document.getElementById('ibSendBtn');
+        if (!recipientEmail) { alert('Please enter the recipient email'); return; }
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
+        var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
+        var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+        var partnerLink = 'https://alliancefinancing.ai/partner.html?ref=' + agentSlug;
+        btn.disabled = true;
+        btn.textContent = '⏳ Sending...';
+        try {
+            var greeting = recipientName ? 'Hi ' + recipientName + ',' : 'Hi there,';
+            var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
+            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+            var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
+            htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
+            htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
+            htmlBody += '<tr><td align="center">';
+            htmlBody += '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">';
+            // Header
+            htmlBody += '<tr><td style="background:#0D1E3D;padding:36px 48px;text-align:center;">';
+            htmlBody += '<img src="' + logoUrl + '" alt="Alliance Financing Group" width="220" style="display:block;margin:0 auto 16px;max-width:220px;height:auto;filter:brightness(0) invert(1);">';
+            htmlBody += '<p style="margin:0;color:#8A9BB0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">Turn Insurance Conversations Into Revenue</p>';
+            htmlBody += '</td></tr>';
+            // Greeting
+            htmlBody += '<tr><td style="background:white;padding:40px 48px 12px;">';
+            htmlBody += '<p style="font-size:16px;color:#1F2937;line-height:1.7;margin:0;">' + greeting + '</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += customNoteHtml;
+            // Body
+            htmlBody += '<tr><td style="background:white;padding:0 48px 20px;">';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">I wanted to share a partnership opportunity that could create a <strong style="color:#0D1E3D;">new revenue stream from your existing book of business</strong>.</p>';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0;">As a commercial insurance professional, you already know when your clients are growing — adding equipment, expanding locations, buying vehicles. Every one of those moments is also a financing opportunity. You refer them to Alliance, we handle everything, and you earn a referral fee.</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:8px 0;"></td></tr>';
+            // Benefits
+            htmlBody += '<tr><td style="background:white;padding:0 48px 12px;">';
+            htmlBody += '<h3 style="margin:0;color:#0D1E3D;font-size:17px;font-weight:700;">Why Insurance Brokers Partner With Alliance</h3>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 32px;">';
+            var benefits = [
+                ['💰', 'Earn Referral Fees', 'Passive revenue for every successful financing placement — no paperwork required on your end.'],
+                ['🤝', 'Deepen Client Relationships', 'Become the go-to advisor who helps with more than insurance — clients remember that.'],
+                ['🏦', '70+ Lender Network', 'We shop the market so your client doesn\'t have to. A, B, C, D credit all accepted.'],
+                ['⚡', 'Fast Decisions', 'Approvals in 48 hours. Funds by EFT within days. Your clients aren\'t left waiting.'],
+                ['📊', '$10K to $2M+ Available', 'Working capital, equipment financing, bridge loans, construction financing, and more.'],
+                ['🛡️', 'Zero Risk to You', 'Free program. No fees, no commitments. We handle the entire process from start to finish.']
+            ];
+            for (var h = 0; h < benefits.length; h++) {
+                htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="' + (h < benefits.length - 1 ? 'border-bottom:1px solid #F1F5F9;' : '') + '">';
+                htmlBody += '<tr><td style="padding:16px 16px 16px 0;vertical-align:top;width:40px;font-size:22px;">' + benefits[h][0] + '</td>';
+                htmlBody += '<td style="padding:16px 0;"><strong style="color:#0D1E3D;font-size:15px;display:block;margin-bottom:4px;">' + benefits[h][1] + '</strong>';
+                htmlBody += '<span style="color:#64748B;font-size:13px;line-height:1.6;">' + benefits[h][2] + '</span></td></tr></table>';
+            }
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:8px 0;"></td></tr>';
+            // CTA
+            htmlBody += '<tr><td style="background:white;padding:0 48px 20px;text-align:center;">';
+            htmlBody += '<a href="' + partnerLink + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;text-decoration:none;padding:16px 48px;border-radius:8px;font-weight:700;font-size:16px;">Start Referring Today →</a>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:4px 48px 36px;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">No commitments. Takes 30 seconds and we\'ll be in touch within 1 business day.</p>';
+            htmlBody += '</td></tr>';
+            // Signature
+            htmlBody += '<tr><td style="background:white;padding:0 48px 36px;">';
+            htmlBody += '<div style="border-top:1px solid #E2E8F0;padding-top:28px;">';
+            htmlBody += '<p style="font-size:15px;color:#1F2937;margin:0 0 4px;">Talk soon,</p>';
+            htmlBody += '<p style="font-size:16px;color:#0D1E3D;margin:0;font-weight:700;">' + agentName + '</p>';
+            if (agentEmailAddr) htmlBody += '<p style="font-size:13px;color:#64748B;margin:6px 0 0;"><a href="mailto:' + agentEmailAddr + '" style="color:#C9A84C;text-decoration:none;">' + agentEmailAddr + '</a></p>';
+            if (agentPhone) htmlBody += '<p style="font-size:13px;color:#64748B;margin:3px 0 0;">' + agentPhone + '</p>';
+            htmlBody += '</div></td></tr>';
+            // Footer
+            htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '</td></tr></table></td></tr></table></body></html>';
+            var subject = 'A New Revenue Stream From Your Insurance Book — Alliance Financing';
+            await sendEmailViaResend(recipientEmail, subject, htmlBody);
+            try {
+                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Insurance Brokers One-Pager', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null });
+            } catch(trackErr) { console.error('Track Insurance Brokers send:', trackErr); }
+            alert('Insurance Brokers One-Pager sent to ' + recipientEmail + '!');
+            document.getElementById('ibSendModal').style.display = 'none';
+        } catch (err) {
+            alert('Error sending email: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = '📧 Send Email';
+        }
+    }
+
+    function showSendAccountantsCFOsModal() {
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var modalHtml = '<div style="padding:24px;">';
+        modalHtml += '<h3 style="color:var(--navy);margin:0 0 16px;">Send Accountants & CFOs One-Pager</h3>';
+        modalHtml += '<p style="color:#64748b;font-size:13px;margin:0 0 16px;">Email the Alliance partnership overview to an accountant or fractional CFO.</p>';
+        modalHtml += '<div class="modal-row"><div class="modal-field"><label>Recipient Name</label>';
+        modalHtml += '<input type="text" id="acSendName" placeholder="Accountant / CFO name" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div>';
+        modalHtml += '<div class="modal-field"><label>Recipient Email</label>';
+        modalHtml += '<input type="email" id="acSendEmail" placeholder="accountant@firm.com" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div></div>';
+        modalHtml += '<div class="modal-row"><div class="modal-field full"><label>Personal Message (optional)</label>';
+        modalHtml += '<textarea id="acSendMessage" rows="3" placeholder="Add a personal note..." style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;resize:vertical;"></textarea></div></div>';
+        modalHtml += '<div style="display:flex;gap:10px;margin-top:16px;">';
+        modalHtml += '<button id="acSendBtn" onclick="sendAccountantsCFOsEmail()" style="padding:10px 24px;background:#10B981;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">📧 Send Email</button>';
+        modalHtml += '<button onclick="document.getElementById(\'acSendModal\').style.display=\'none\'" style="padding:10px 24px;background:#E5E7EB;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">Cancel</button>';
+        modalHtml += '</div></div>';
+        var existingModal = document.getElementById('acSendModal');
+        if (existingModal) existingModal.remove();
+        var modal = document.createElement('div');
+        modal.id = 'acSendModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = '<div style="background:white;border-radius:10px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' + modalHtml + '</div>';
+        modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+        document.body.appendChild(modal);
+    }
+
+    async function sendAccountantsCFOsEmail() {
+        var recipientName = document.getElementById('acSendName').value.trim();
+        var recipientEmail = document.getElementById('acSendEmail').value.trim();
+        var customMessage = document.getElementById('acSendMessage').value.trim();
+        var btn = document.getElementById('acSendBtn');
+        if (!recipientEmail) { alert('Please enter the recipient email'); return; }
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
+        var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
+        var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+        var partnerLink = 'https://alliancefinancing.ai/partner.html?ref=' + agentSlug;
+        btn.disabled = true;
+        btn.textContent = '⏳ Sending...';
+        try {
+            var greeting = recipientName ? 'Hi ' + recipientName + ',' : 'Hi there,';
+            var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
+            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+            var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
+            htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
+            htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
+            htmlBody += '<tr><td align="center">';
+            htmlBody += '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">';
+            htmlBody += '<tr><td style="background:#0D1E3D;padding:36px 48px;text-align:center;">';
+            htmlBody += '<img src="' + logoUrl + '" alt="Alliance Financing Group" width="220" style="display:block;margin:0 auto 16px;max-width:220px;height:auto;filter:brightness(0) invert(1);">';
+            htmlBody += '<p style="margin:0;color:#8A9BB0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">Your Financial Insight Is Worth More</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:40px 48px 12px;">';
+            htmlBody += '<p style="font-size:16px;color:#1F2937;line-height:1.7;margin:0;">' + greeting + '</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += customNoteHtml;
+            htmlBody += '<tr><td style="background:white;padding:0 48px 20px;">';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">As an accountant or CFO, you understand your clients\' financial challenges better than anyone. You see the <strong style="color:#0D1E3D;">growth opportunities, cash flow gaps, and expansion plans</strong> in the books every day.</p>';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0;">Alliance lets you turn that insight into passive revenue. You refer clients who need financing, we handle the entire process — qualification, lender matching, and funding — and you earn a referral fee for each successful placement.</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:8px 0;"></td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 12px;">';
+            htmlBody += '<h3 style="margin:0;color:#0D1E3D;font-size:17px;font-weight:700;">Why Accountants & CFOs Partner With Alliance</h3>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 32px;">';
+            var benefits = [
+                ['📊', 'Monetize Your Insight', 'You already see which clients need capital — now earn passive revenue for making the connection.'],
+                ['🏦', '70+ Lender Network', 'We match clients to the best lender. A, B, C, D credit all accepted — even bank-declined.'],
+                ['⚡', '48-Hour Decisions', 'Fast approvals and EFT funding within days. No long waits for your clients.'],
+                ['💰', '$10K to $2M+ Available', 'Working capital, equipment financing, bridge loans, tax credit advances, and more.'],
+                ['📋', 'Cash Flow Based Approvals', 'Approved on business performance, not credit score alone. Your clients qualify more often.'],
+                ['🤝', 'Zero Work for You', 'Free program. Just introduce the client — we handle everything from there.']
+            ];
+            for (var h = 0; h < benefits.length; h++) {
+                htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="' + (h < benefits.length - 1 ? 'border-bottom:1px solid #F1F5F9;' : '') + '">';
+                htmlBody += '<tr><td style="padding:16px 16px 16px 0;vertical-align:top;width:40px;font-size:22px;">' + benefits[h][0] + '</td>';
+                htmlBody += '<td style="padding:16px 0;"><strong style="color:#0D1E3D;font-size:15px;display:block;margin-bottom:4px;">' + benefits[h][1] + '</strong>';
+                htmlBody += '<span style="color:#64748B;font-size:13px;line-height:1.6;">' + benefits[h][2] + '</span></td></tr></table>';
+            }
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:8px 0;"></td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 20px;text-align:center;">';
+            htmlBody += '<a href="' + partnerLink + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;text-decoration:none;padding:16px 48px;border-radius:8px;font-weight:700;font-size:16px;">Start Referring Today →</a>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:4px 48px 36px;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">No commitments. Takes 30 seconds and we\'ll be in touch within 1 business day.</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 36px;">';
+            htmlBody += '<div style="border-top:1px solid #E2E8F0;padding-top:28px;">';
+            htmlBody += '<p style="font-size:15px;color:#1F2937;margin:0 0 4px;">Talk soon,</p>';
+            htmlBody += '<p style="font-size:16px;color:#0D1E3D;margin:0;font-weight:700;">' + agentName + '</p>';
+            if (agentEmailAddr) htmlBody += '<p style="font-size:13px;color:#64748B;margin:6px 0 0;"><a href="mailto:' + agentEmailAddr + '" style="color:#C9A84C;text-decoration:none;">' + agentEmailAddr + '</a></p>';
+            if (agentPhone) htmlBody += '<p style="font-size:13px;color:#64748B;margin:3px 0 0;">' + agentPhone + '</p>';
+            htmlBody += '</div></td></tr>';
+            htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '</td></tr></table></td></tr></table></body></html>';
+            var subject = 'Turn Financial Insight Into Revenue — Alliance Financing Partnership';
+            await sendEmailViaResend(recipientEmail, subject, htmlBody);
+            try {
+                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Accountants CFOs One-Pager', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null });
+            } catch(trackErr) { console.error('Track Accountants CFOs send:', trackErr); }
+            alert('Accountants & CFOs One-Pager sent to ' + recipientEmail + '!');
+            document.getElementById('acSendModal').style.display = 'none';
+        } catch (err) {
+            alert('Error sending email: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = '📧 Send Email';
+        }
+    }
+
+    function showSendAllianceOverviewModal() {
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var modalHtml = '<div style="padding:24px;">';
+        modalHtml += '<h3 style="color:var(--navy);margin:0 0 16px;">Send Alliance Overview</h3>';
+        modalHtml += '<p style="color:#64748b;font-size:13px;margin:0 0 16px;">Email the Alliance partnership overview to a potential partner or prospect.</p>';
+        modalHtml += '<div class="modal-row"><div class="modal-field"><label>Recipient Name</label>';
+        modalHtml += '<input type="text" id="aoSendName" placeholder="Partner / Prospect name" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div>';
+        modalHtml += '<div class="modal-field"><label>Recipient Email</label>';
+        modalHtml += '<input type="email" id="aoSendEmail" placeholder="partner@company.com" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div></div>';
+        modalHtml += '<div class="modal-row"><div class="modal-field full"><label>Personal Message (optional)</label>';
+        modalHtml += '<textarea id="aoSendMessage" rows="3" placeholder="Add a personal note..." style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;resize:vertical;"></textarea></div></div>';
+        modalHtml += '<div style="display:flex;gap:10px;margin-top:16px;">';
+        modalHtml += '<button id="aoSendBtn" onclick="sendAllianceOverviewEmail()" style="padding:10px 24px;background:#10B981;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">📧 Send Email</button>';
+        modalHtml += '<button onclick="document.getElementById(\'aoSendModal\').style.display=\'none\'" style="padding:10px 24px;background:#E5E7EB;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">Cancel</button>';
+        modalHtml += '</div></div>';
+        var existingModal = document.getElementById('aoSendModal');
+        if (existingModal) existingModal.remove();
+        var modal = document.createElement('div');
+        modal.id = 'aoSendModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = '<div style="background:white;border-radius:10px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' + modalHtml + '</div>';
+        modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+        document.body.appendChild(modal);
+    }
+
+    async function sendAllianceOverviewEmail() {
+        var recipientName = document.getElementById('aoSendName').value.trim();
+        var recipientEmail = document.getElementById('aoSendEmail').value.trim();
+        var customMessage = document.getElementById('aoSendMessage').value.trim();
+        var btn = document.getElementById('aoSendBtn');
+        if (!recipientEmail) { alert('Please enter the recipient email'); return; }
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
+        var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
+        var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+        var partnerLink = 'https://alliancefinancing.ai/partner.html?ref=' + agentSlug;
+        btn.disabled = true;
+        btn.textContent = '⏳ Sending...';
+        try {
+            var greeting = recipientName ? 'Hi ' + recipientName + ',' : 'Hi there,';
+            var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
+            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+            var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
+            htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
+            htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
+            htmlBody += '<tr><td align="center">';
+            htmlBody += '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">';
+            htmlBody += '<tr><td style="background:#0D1E3D;padding:36px 48px;text-align:center;">';
+            htmlBody += '<img src="' + logoUrl + '" alt="Alliance Financing Group" width="220" style="display:block;margin:0 auto 16px;max-width:220px;height:auto;filter:brightness(0) invert(1);">';
+            htmlBody += '<p style="margin:0;color:#8A9BB0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">Canada\'s Partner-First Finance Platform</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:40px 48px 12px;">';
+            htmlBody += '<p style="font-size:16px;color:#1F2937;line-height:1.7;margin:0;">' + greeting + '</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += customNoteHtml;
+            htmlBody += '<tr><td style="background:white;padding:0 48px 20px;">';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">I wanted to introduce you to <strong style="color:#0D1E3D;">Alliance Financing Group</strong> — Canada\'s partner-first commercial finance platform with 35 years of expertise and 70+ vetted lenders.</p>';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0;">We offer 15+ financial products covering nearly every business financing need. Our AI-powered lender matching finds the best fit in minutes — and our partners earn recurring revenue for every referral.</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:8px 0;"></td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 12px;">';
+            htmlBody += '<h3 style="margin:0;color:#0D1E3D;font-size:17px;font-weight:700;">The Alliance Advantage</h3>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 32px;">';
+            var benefits = [
+                ['🤖', 'AI Lender Matching', 'Analyzes 70+ lenders and finds the best fit in minutes — faster and smarter than shopping around.'],
+                ['⚡', 'Fast Approvals', 'Decisions in 48 hours, funds by EFT within days. Keep deals moving.'],
+                ['🏦', 'All Credit Profiles', 'A, B, C, D credit considered. Banks declined? We have solutions.'],
+                ['💰', 'Recurring Revenue', 'Passive income from referrals. No competition — you control your client relationships.'],
+                ['📦', '15+ Financial Products', 'Equipment leasing, working capital, MCA, bridge loans, construction financing, trade finance, and more.'],
+                ['🤝', 'Dedicated Support', 'Real people, not automation. Your own Alliance financing specialist from start to finish.']
+            ];
+            for (var h = 0; h < benefits.length; h++) {
+                htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="' + (h < benefits.length - 1 ? 'border-bottom:1px solid #F1F5F9;' : '') + '">';
+                htmlBody += '<tr><td style="padding:16px 16px 16px 0;vertical-align:top;width:40px;font-size:22px;">' + benefits[h][0] + '</td>';
+                htmlBody += '<td style="padding:16px 0;"><strong style="color:#0D1E3D;font-size:15px;display:block;margin-bottom:4px;">' + benefits[h][1] + '</strong>';
+                htmlBody += '<span style="color:#64748B;font-size:13px;line-height:1.6;">' + benefits[h][2] + '</span></td></tr></table>';
+            }
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:8px 0;"></td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 20px;text-align:center;">';
+            htmlBody += '<a href="' + partnerLink + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;text-decoration:none;padding:16px 48px;border-radius:8px;font-weight:700;font-size:16px;">Partner With Alliance →</a>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:4px 48px 36px;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">No commitments. Takes 30 seconds and we\'ll be in touch within 1 business day.</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 36px;">';
+            htmlBody += '<div style="border-top:1px solid #E2E8F0;padding-top:28px;">';
+            htmlBody += '<p style="font-size:15px;color:#1F2937;margin:0 0 4px;">Talk soon,</p>';
+            htmlBody += '<p style="font-size:16px;color:#0D1E3D;margin:0;font-weight:700;">' + agentName + '</p>';
+            if (agentEmailAddr) htmlBody += '<p style="font-size:13px;color:#64748B;margin:6px 0 0;"><a href="mailto:' + agentEmailAddr + '" style="color:#C9A84C;text-decoration:none;">' + agentEmailAddr + '</a></p>';
+            if (agentPhone) htmlBody += '<p style="font-size:13px;color:#64748B;margin:3px 0 0;">' + agentPhone + '</p>';
+            htmlBody += '</div></td></tr>';
+            htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '</td></tr></table></td></tr></table></body></html>';
+            var subject = 'Build a Thriving Referral Business — Alliance Financing Group';
+            await sendEmailViaResend(recipientEmail, subject, htmlBody);
+            try {
+                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Alliance Overview', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null });
+            } catch(trackErr) { console.error('Track Alliance Overview send:', trackErr); }
+            alert('Alliance Overview sent to ' + recipientEmail + '!');
+            document.getElementById('aoSendModal').style.display = 'none';
+        } catch (err) {
+            alert('Error sending email: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = '📧 Send Email';
+        }
+    }
+
+    function showSendMortgageBrokersModal() {
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var modalHtml = '<div style="padding:24px;">';
+        modalHtml += '<h3 style="color:var(--navy);margin:0 0 16px;">Send Mortgage Brokers One-Pager</h3>';
+        modalHtml += '<p style="color:#64748b;font-size:13px;margin:0 0 16px;">Email the Alliance partnership overview to a mortgage broker or agent.</p>';
+        modalHtml += '<div class="modal-row"><div class="modal-field"><label>Recipient Name</label>';
+        modalHtml += '<input type="text" id="mbSendName" placeholder="Broker / Agent name" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div>';
+        modalHtml += '<div class="modal-field"><label>Recipient Email</label>';
+        modalHtml += '<input type="email" id="mbSendEmail" placeholder="broker@brokerage.com" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div></div>';
+        modalHtml += '<div class="modal-row"><div class="modal-field full"><label>Personal Message (optional)</label>';
+        modalHtml += '<textarea id="mbSendMessage" rows="3" placeholder="Add a personal note..." style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;resize:vertical;"></textarea></div></div>';
+        modalHtml += '<div style="display:flex;gap:10px;margin-top:16px;">';
+        modalHtml += '<button id="mbSendBtn" onclick="sendMortgageBrokersEmail()" style="padding:10px 24px;background:#10B981;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">📧 Send Email</button>';
+        modalHtml += '<button onclick="document.getElementById(\'mbSendModal\').style.display=\'none\'" style="padding:10px 24px;background:#E5E7EB;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">Cancel</button>';
+        modalHtml += '</div></div>';
+        var existingModal = document.getElementById('mbSendModal');
+        if (existingModal) existingModal.remove();
+        var modal = document.createElement('div');
+        modal.id = 'mbSendModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = '<div style="background:white;border-radius:10px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' + modalHtml + '</div>';
+        modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+        document.body.appendChild(modal);
+    }
+
+    async function sendMortgageBrokersEmail() {
+        var recipientName = document.getElementById('mbSendName').value.trim();
+        var recipientEmail = document.getElementById('mbSendEmail').value.trim();
+        var customMessage = document.getElementById('mbSendMessage').value.trim();
+        var btn = document.getElementById('mbSendBtn');
+        if (!recipientEmail) { alert('Please enter the recipient email'); return; }
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
+        var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
+        var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+        var partnerLink = 'https://alliancefinancing.ai/partner.html?ref=' + agentSlug;
+        btn.disabled = true;
+        btn.textContent = '⏳ Sending...';
+        try {
+            var greeting = recipientName ? 'Hi ' + recipientName + ',' : 'Hi there,';
+            var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
+            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+            var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
+            htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
+            htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
+            htmlBody += '<tr><td align="center">';
+            htmlBody += '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">';
+            htmlBody += '<tr><td style="background:#0D1E3D;padding:36px 48px;text-align:center;">';
+            htmlBody += '<img src="' + logoUrl + '" alt="Alliance Financing Group" width="220" style="display:block;margin:0 auto 16px;max-width:220px;height:auto;filter:brightness(0) invert(1);">';
+            htmlBody += '<p style="margin:0;color:#8A9BB0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">Expand Your Mortgage Practice</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:40px 48px 12px;">';
+            htmlBody += '<p style="font-size:16px;color:#1F2937;line-height:1.7;margin:0;">' + greeting + '</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += customNoteHtml;
+            htmlBody += '<tr><td style="background:white;padding:0 48px 20px;">';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">Your mortgage clients need more than residential financing. They\'re buying equipment, expanding operations, bridging deals — and right now, that business is going elsewhere.</p>';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0;">Alliance lets you <strong style="color:#0D1E3D;">offer commercial financing solutions alongside your mortgage services</strong>. You refer the client, we handle everything, and you earn a referral fee for each successful funding.</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:8px 0;"></td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 12px;">';
+            htmlBody += '<h3 style="margin:0;color:#0D1E3D;font-size:17px;font-weight:700;">Why Mortgage Professionals Partner With Alliance</h3>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 32px;">';
+            var benefits = [
+                ['🏠', 'Expand Your Practice', 'Offer commercial financing alongside residential mortgages — become a full-service advisor.'],
+                ['💰', 'New Revenue Stream', 'Earn referral fees for every successful commercial financing placement. Passive income from existing clients.'],
+                ['🏦', '70+ Lender Network', 'AI matches clients to the best lender in minutes. A, B, C, D credit all accepted.'],
+                ['⚡', '48-Hour Decisions', 'Fast approvals and EFT funding within days. Keep your clients\' deals moving.'],
+                ['📦', 'Products Your Clients Need', 'Working capital, equipment financing, bridge loans, construction financing, commercial mortgages, and more.'],
+                ['🤝', 'Simple Referral Process', 'Just introduce the client. We handle qualification, lender matching, and funding — you get paid.']
+            ];
+            for (var h = 0; h < benefits.length; h++) {
+                htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="' + (h < benefits.length - 1 ? 'border-bottom:1px solid #F1F5F9;' : '') + '">';
+                htmlBody += '<tr><td style="padding:16px 16px 16px 0;vertical-align:top;width:40px;font-size:22px;">' + benefits[h][0] + '</td>';
+                htmlBody += '<td style="padding:16px 0;"><strong style="color:#0D1E3D;font-size:15px;display:block;margin-bottom:4px;">' + benefits[h][1] + '</strong>';
+                htmlBody += '<span style="color:#64748B;font-size:13px;line-height:1.6;">' + benefits[h][2] + '</span></td></tr></table>';
+            }
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:8px 0;"></td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 20px;text-align:center;">';
+            htmlBody += '<a href="' + partnerLink + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;text-decoration:none;padding:16px 48px;border-radius:8px;font-weight:700;font-size:16px;">Start Referring Today →</a>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:4px 48px 36px;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">No commitments. Takes 30 seconds and we\'ll be in touch within 1 business day.</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:0 48px 36px;">';
+            htmlBody += '<div style="border-top:1px solid #E2E8F0;padding-top:28px;">';
+            htmlBody += '<p style="font-size:15px;color:#1F2937;margin:0 0 4px;">Talk soon,</p>';
+            htmlBody += '<p style="font-size:16px;color:#0D1E3D;margin:0;font-weight:700;">' + agentName + '</p>';
+            if (agentEmailAddr) htmlBody += '<p style="font-size:13px;color:#64748B;margin:6px 0 0;"><a href="mailto:' + agentEmailAddr + '" style="color:#C9A84C;text-decoration:none;">' + agentEmailAddr + '</a></p>';
+            if (agentPhone) htmlBody += '<p style="font-size:13px;color:#64748B;margin:3px 0 0;">' + agentPhone + '</p>';
+            htmlBody += '</div></td></tr>';
+            htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '</td></tr></table></td></tr></table></body></html>';
+            var subject = 'Expand Your Practice With Commercial Financing — Alliance Financing';
+            await sendEmailViaResend(recipientEmail, subject, htmlBody);
+            try {
+                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Mortgage Brokers One-Pager', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null });
+            } catch(trackErr) { console.error('Track Mortgage Brokers send:', trackErr); }
+            alert('Mortgage Brokers One-Pager sent to ' + recipientEmail + '!');
+            document.getElementById('mbSendModal').style.display = 'none';
         } catch (err) {
             alert('Error sending email: ' + err.message);
             btn.disabled = false;
