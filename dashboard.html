@@ -16632,6 +16632,59 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 } catch(e) { console.log('Linked application not found:', e); }
             }
 
+            // Helper: auto-link a found application to this deal
+            async function autoLinkAppToDeal(app) {
+                try {
+                    var updateFields = { application_id: app.id };
+                    // Also auto-link client if deal doesn't have one
+                    if (!deal.client_id && app.business_name) {
+                        var bizName = app.business_name.trim();
+                        var { data: matchedClient } = await db.from('clients').select('id').ilike('company_name', bizName).limit(1);
+                        if (matchedClient && matchedClient.length > 0) {
+                            updateFields.client_id = matchedClient[0].id;
+                            deal.client_id = matchedClient[0].id;
+                        } else {
+                            // Create client record
+                            try {
+                                var { data: newClient } = await db.from('clients').insert([{
+                                    company_name: bizName,
+                                    status: 'Active',
+                                    country: 'Canada',
+                                    phone: app.phone || null,
+                                    annual_revenue: app.annual_revenue || null,
+                                    years_in_business: app.time_in_business || null
+                                }]).select('id').single();
+                                if (newClient) {
+                                    updateFields.client_id = newClient.id;
+                                    deal.client_id = newClient.id;
+                                }
+                            } catch(clientErr) { console.warn('Auto-create client:', clientErr); }
+                        }
+                        // Add contact person if we have client_id and applicant info
+                        if (deal.client_id && app.full_name) {
+                            try {
+                                var { data: existContact } = await db.from('client_contact_persons').select('id').eq('client_id', deal.client_id).ilike('full_name', app.full_name.trim()).limit(1);
+                                if (!existContact || existContact.length === 0) {
+                                    await db.from('client_contact_persons').insert([{
+                                        client_id: deal.client_id,
+                                        full_name: app.full_name.trim(),
+                                        email: app.email || null,
+                                        phone: app.phone || null,
+                                        role_title: 'Primary Contact',
+                                        status: 'Active'
+                                    }]);
+                                }
+                            } catch(contactErr) { console.warn('Auto-add contact:', contactErr); }
+                        }
+                    }
+                    await db.from('deals').update(updateFields).eq('id', dealId);
+                    deal.application_id = app.id;
+                    if (app.status !== 'Moved to Pipeline') {
+                        await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', app.id);
+                    }
+                } catch(linkErr) { console.warn('Auto-link application to deal:', linkErr); }
+            }
+
             // If no linked application found, try to find one by company name match
             if (!linkedApp && deal.company_name) {
                 try {
@@ -16642,15 +16695,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         .limit(1);
                     if (matchByBiz && matchByBiz.length > 0) {
                         linkedApp = matchByBiz[0];
-                        // Auto-link this application to the deal so it's connected going forward
-                        try {
-                            await db.from('deals').update({ application_id: linkedApp.id }).eq('id', dealId);
-                            deal.application_id = linkedApp.id;
-                            // Also mark the application as Moved to Pipeline
-                            if (linkedApp.status !== 'Moved to Pipeline') {
-                                await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', linkedApp.id);
-                            }
-                        } catch(linkErr) { console.warn('Auto-link application to deal:', linkErr); }
+                        await autoLinkAppToDeal(linkedApp);
                     }
                 } catch(e) { console.log('Business name application match failed:', e); }
             }
@@ -16658,7 +16703,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Still no match? Try fuzzy match by company name keywords
             if (!linkedApp && deal.company_name) {
                 try {
-                    // Extract first significant word from company name (e.g., "Nuport" from "Nuport Robotics")
                     var companyWords = deal.company_name.trim().split(/\s+/).filter(function(w) {
                         return w.length > 2 && !['inc', 'ltd', 'llc', 'corp', 'co', 'the', 'and', 'sales', 'group', 'distribution'].includes(w.toLowerCase().replace(/[.,]/g, ''));
                     });
@@ -16670,14 +16714,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             .limit(1);
                         if (fuzzyMatch && fuzzyMatch.length > 0) {
                             linkedApp = fuzzyMatch[0];
-                            // Auto-link
-                            try {
-                                await db.from('deals').update({ application_id: linkedApp.id }).eq('id', dealId);
-                                deal.application_id = linkedApp.id;
-                                if (linkedApp.status !== 'Moved to Pipeline') {
-                                    await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', linkedApp.id);
-                                }
-                            } catch(linkErr) { console.warn('Auto-link fuzzy application to deal:', linkErr); }
+                            await autoLinkAppToDeal(linkedApp);
                         }
                     }
                 } catch(e) { console.log('Fuzzy application match failed:', e); }
@@ -20900,10 +20937,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function archiveAppSent(id) {
         try {
-            await db.from('applications_sent').update({ status: 'Archived' }).eq('id', id);
-            loadApplicationsSent();
+            var { error } = await db.from('applications_sent').update({ status: 'Archived' }).eq('id', id);
+            if (error) {
+                console.error('Archive app sent DB error:', error);
+                alert('Could not archive: ' + error.message);
+                return;
+            }
+            // Reload the section to reflect the change
+            await loadApplicationsSent();
+            // Also refresh dashboard alerts if visible
+            if (document.getElementById('dashboardAlerts')) {
+                try { await loadDashboardAlerts(); } catch(e) {}
+            }
         } catch (err) {
             console.error('Archive app sent error:', err);
+            alert('Error archiving: ' + err.message);
         }
     }
 
