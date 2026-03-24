@@ -19007,36 +19007,241 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<p>Generated on: ' + new Date().toLocaleString() + '</p>' +
                 '</div></body></html>';
 
-            // Convert summary HTML to PDF using an iframe (so full <html>/<style> renders correctly)
+            // Convert summary to PDF using jsPDF direct rendering (no html2canvas)
             btn.textContent = '⏳ Converting to PDF...';
-            var pdfIframe = document.createElement('iframe');
-            pdfIframe.style.position = 'absolute';
-            pdfIframe.style.left = '-9999px';
-            pdfIframe.style.top = '0';
-            pdfIframe.style.width = '750px';
-            pdfIframe.style.height = '2000px';
-            pdfIframe.style.border = 'none';
-            document.body.appendChild(pdfIframe);
             try {
-                pdfIframe.contentDocument.open();
-                pdfIframe.contentDocument.write(summaryHtml);
-                pdfIframe.contentDocument.close();
-                // Wait for iframe content to render
-                await new Promise(function(resolve) { setTimeout(resolve, 800); });
-                var pdfBlob = await html2pdf().set({
-                    margin: [8, 5, 8, 5],
-                    filename: 'Application_Summary.pdf',
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: 750 },
-                    jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
-                    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-                }).from(pdfIframe.contentDocument.body).outputPdf('blob');
+                var { jsPDF: JsPDF } = window.jspdf;
+                var pdf = new JsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+                var PW = 612, PH = 792;
+                var PM = { top: 40, bottom: 40, left: 40, right: 40 };
+                var PCW = PW - PM.left - PM.right; // content width
+                var py = PM.top; // current y position
+
+                // Helper: check if we need a new page
+                function pdfCheckPage(needed) {
+                    if (py + needed > PH - PM.bottom) {
+                        pdf.addPage();
+                        py = PM.top;
+                    }
+                }
+
+                // Helper: draw a two-column table row
+                function pdfTableRow(label, value, isHeader) {
+                    var labelW = PCW * 0.35;
+                    var valueW = PCW * 0.65;
+                    var fontSize = 9;
+                    pdf.setFontSize(fontSize);
+                    var valLines = pdf.splitTextToSize(String(value || 'N/A'), valueW - 12);
+                    var rowH = Math.max(20, valLines.length * 12 + 8);
+                    pdfCheckPage(rowH);
+                    // Label cell background
+                    pdf.setFillColor(248, 249, 250);
+                    pdf.rect(PM.left, py, labelW, rowH, 'F');
+                    // Cell borders
+                    pdf.setDrawColor(200, 200, 200);
+                    pdf.setLineWidth(0.5);
+                    pdf.rect(PM.left, py, labelW, rowH, 'S');
+                    pdf.rect(PM.left + labelW, py, valueW, rowH, 'S');
+                    // Label text
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(fontSize);
+                    pdf.setTextColor(51, 51, 51);
+                    pdf.text(String(label || ''), PM.left + 6, py + 13);
+                    // Value text
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setTextColor(51, 51, 51);
+                    pdf.text(valLines, PM.left + labelW + 6, py + 13);
+                    py += rowH;
+                }
+
+                // Helper: draw a section heading
+                function pdfSectionHead(title) {
+                    pdfCheckPage(30);
+                    py += 8;
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(12);
+                    pdf.setTextColor(26, 54, 93);
+                    pdf.text(title, PM.left, py + 12);
+                    py += 16;
+                    pdf.setDrawColor(226, 232, 240);
+                    pdf.setLineWidth(1);
+                    pdf.line(PM.left, py, PM.left + PCW, py);
+                    py += 8;
+                }
+
+                // ===== HEADER =====
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(18);
+                pdf.setTextColor(26, 54, 93);
+                pdf.text('Alliance Financing Group Ltd.', PW / 2, py, { align: 'center' });
+                py += 16;
+                pdf.setFont('helvetica', 'normal');
+                pdf.setFontSize(10);
+                pdf.setTextColor(100, 100, 100);
+                pdf.text('35+ Years of Commercial Financing Excellence', PW / 2, py, { align: 'center' });
+                py += 13;
+                pdf.setFontSize(8);
+                pdf.setTextColor(150, 150, 150);
+                pdf.text('1-877-660-3660 ext. 222  |  info@alliancefinancing.com  |  alliancefinancing.ai', PW / 2, py, { align: 'center' });
+                py += 8;
+                pdf.setDrawColor(26, 54, 93);
+                pdf.setLineWidth(2);
+                pdf.line(PM.left, py, PM.left + PCW, py);
+                py += 18;
+
+                // ===== APPLICATION TITLE =====
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(15);
+                pdf.setTextColor(26, 54, 93);
+                pdf.text('Credit Application \u2014 ' + formTypeDisplay, PW / 2, py, { align: 'center' });
+                py += 16;
+                pdf.setFont('helvetica', 'normal');
+                pdf.setFontSize(9);
+                pdf.setTextColor(100, 100, 100);
+                var subLine = 'Application ID: ' + (app.application_id || 'N/A') + '  |  Submitted: ' + (app.submitted_at ? new Date(app.submitted_at).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}) : 'N/A');
+                pdf.text(subLine, PW / 2, py, { align: 'center' });
+                py += 20;
+
+                // ===== APPLICANT SUMMARY =====
+                pdfSectionHead('Applicant Summary');
+                pdfTableRow('Full Name', app.full_name);
+                pdfTableRow('Business Name', app.business_name);
+                pdfTableRow('Email', app.email);
+                pdfTableRow('Phone', app.phone);
+                pdfTableRow('Time in Business', app.time_in_business);
+                var fundingVal = app.funding_amount_text || (app.funding_amount_requested ? '$' + Number(app.funding_amount_requested).toLocaleString() : 'N/A');
+                pdfTableRow('Funding Requested', fundingVal);
+
+                // ===== COMPLETE APPLICATION DETAILS =====
+                pdfSectionHead('Complete Application Details');
+                // Parse formDataRows (HTML table rows) into label/value pairs
+                var tempDiv = document.createElement('div');
+                tempDiv.innerHTML = '<table>' + formDataRows + '</table>';
+                var formRows = tempDiv.querySelectorAll('tr');
+                for (var fri = 0; fri < formRows.length; fri++) {
+                    var cells = formRows[fri].querySelectorAll('td');
+                    if (cells.length >= 2) {
+                        pdfTableRow(cells[0].textContent.trim(), cells[1].textContent.trim());
+                    }
+                }
+
+                // ===== ELECTRONIC SIGNATURE =====
+                pdfSectionHead('Electronic Signature & Authorization');
+                pdfCheckPage(90);
+                // Signature box
+                pdf.setFillColor(240, 247, 255);
+                pdf.setDrawColor(26, 54, 93);
+                pdf.setLineWidth(1.5);
+                var sigBoxY = py;
+                var sigBoxH = 80;
+                pdf.roundedRect(PM.left, sigBoxY, PCW, sigBoxH, 4, 4, 'FD');
+                py += 16;
+                pdf.setFont('helvetica', 'normal');
+                pdf.setFontSize(9);
+                pdf.setTextColor(100, 116, 139);
+                pdf.text('The applicant has electronically signed this application:', PM.left + 12, py);
+                py += 18;
+                pdf.setFont('times', 'bolditalic');
+                pdf.setFontSize(16);
+                pdf.setTextColor(26, 54, 93);
+                pdf.text('"' + (app.signature_name || 'N/A') + '"', PM.left + 12, py);
+                py += 16;
+                pdf.setFont('helvetica', 'normal');
+                pdf.setFontSize(8);
+                pdf.setTextColor(100, 116, 139);
+                pdf.text('Date & Time: ' + sigDate, PM.left + 12, py);
+                py += 10;
+                pdf.text('Application ID: ' + (app.application_id || 'N/A'), PM.left + 12, py);
+                py += 10;
+                pdf.text('IP-based electronic signature captured at time of submission', PM.left + 12, py);
+                py = sigBoxY + sigBoxH + 10;
+
+                // Authorization text
+                pdfCheckPage(60);
+                pdf.setFillColor(249, 250, 251);
+                pdf.setDrawColor(229, 231, 235);
+                pdf.setLineWidth(0.5);
+                var authText = 'Authorization Statement: The applicant confirmed that the information provided is true and complete, and authorized Alliance Financing Group Ltd. and its partners to obtain credit reports, verify business information with banks, processors, and third parties, and to use this information to evaluate the application. This electronic signature is legally binding under the Personal Information Protection and Electronic Documents Act (PIPEDA) and applicable provincial and state laws.';
+                pdf.setFontSize(7.5);
+                var authLines = pdf.splitTextToSize(authText, PCW - 20);
+                var authBoxH = authLines.length * 10 + 16;
+                pdfCheckPage(authBoxH);
+                pdf.roundedRect(PM.left, py, PCW, authBoxH, 3, 3, 'FD');
+                pdf.setFont('helvetica', 'normal');
+                pdf.setTextColor(100, 100, 100);
+                pdf.text(authLines, PM.left + 10, py + 12);
+                py += authBoxH + 10;
+
+                // ===== SUPPORTING DOCUMENTS MANIFEST =====
+                if (fileList.length > 0) {
+                    pdfSectionHead('Supporting Documents (' + fileList.length + ' files included in this ZIP)');
+                    // Header row
+                    var docColW1 = PCW * 0.45, docColW2 = PCW * 0.25, docColW3 = PCW * 0.30;
+                    pdfCheckPage(22);
+                    pdf.setFillColor(248, 249, 250);
+                    pdf.rect(PM.left, py, docColW1, 18, 'FD');
+                    pdf.rect(PM.left + docColW1, py, docColW2, 18, 'FD');
+                    pdf.rect(PM.left + docColW1 + docColW2, py, docColW3, 18, 'FD');
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(51, 51, 51);
+                    pdf.text('File Name in ZIP', PM.left + 4, py + 12);
+                    pdf.text('Document Type', PM.left + docColW1 + 4, py + 12);
+                    pdf.text('Original File Name', PM.left + docColW1 + docColW2 + 4, py + 12);
+                    py += 18;
+                    // Data rows
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(7.5);
+                    fileList.forEach(function(f) {
+                        pdfCheckPage(18);
+                        pdf.setDrawColor(200, 200, 200);
+                        pdf.setLineWidth(0.5);
+                        pdf.rect(PM.left, py, docColW1, 16, 'S');
+                        pdf.rect(PM.left + docColW1, py, docColW2, 16, 'S');
+                        pdf.rect(PM.left + docColW1 + docColW2, py, docColW3, 16, 'S');
+                        pdf.setTextColor(51, 51, 51);
+                        var fn = pdf.splitTextToSize('Supporting_Documents/' + f.name, docColW1 - 8);
+                        pdf.text(fn[0] || '', PM.left + 4, py + 11);
+                        var typeDisp = f.type ? f.type.replace(/_/g, ' ').replace(/\b\w/g, function(l){return l.toUpperCase();}) : 'Other';
+                        pdf.text(typeDisp, PM.left + docColW1 + 4, py + 11);
+                        var origN = pdf.splitTextToSize(f.originalName, docColW3 - 8);
+                        pdf.text(origN[0] || '', PM.left + docColW1 + docColW2 + 4, py + 11);
+                        py += 16;
+                    });
+                    py += 6;
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(100, 100, 100);
+                    pdf.text('All supporting documents are included in the Supporting_Documents folder within this ZIP file.', PM.left, py);
+                    py += 14;
+                } else {
+                    pdfSectionHead('Supporting Documents');
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(9);
+                    pdf.setTextColor(100, 100, 100);
+                    pdf.text('No supporting documents have been uploaded for this application yet.', PM.left, py + 4);
+                    py += 18;
+                }
+
+                // ===== FOOTER =====
+                // Add footer to every page
+                var totalPages = pdf.internal.getNumberOfPages();
+                for (var pi = 1; pi <= totalPages; pi++) {
+                    pdf.setPage(pi);
+                    pdf.setDrawColor(226, 232, 240);
+                    pdf.setLineWidth(0.5);
+                    pdf.line(PM.left, PH - 32, PM.left + PCW, PH - 32);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(7);
+                    pdf.setTextColor(150, 150, 150);
+                    pdf.text('This document was generated by Alliance Financing Group Ltd. \u2014 Confidential Lender Package', PW / 2, PH - 22, { align: 'center' });
+                    pdf.text('Generated on: ' + new Date().toLocaleString() + '  |  Page ' + pi + ' of ' + totalPages, PW / 2, PH - 13, { align: 'center' });
+                }
+
+                var pdfBlob = pdf.output('blob');
                 zip.file('Application_Summary_' + (app.application_id || 'unknown') + '.pdf', pdfBlob);
             } catch(pdfErr) {
                 console.warn('PDF conversion failed, falling back to HTML:', pdfErr);
                 zip.file('Application_Summary_' + (app.application_id || 'unknown') + '.html', summaryHtml);
-            } finally {
-                document.body.removeChild(pdfIframe);
             }
 
             // Generate and download ZIP
