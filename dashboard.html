@@ -4095,11 +4095,15 @@
                     <label style="display: block; font-weight: 600; color: var(--navy); margin-bottom: 6px;">Email the form to a client:</label>
                     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                         <input type="email" id="sendAppClientEmail" placeholder="client@company.com" style="flex: 1; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
-                        <input type="text" id="sendAppClientName" placeholder="Client name (optional)" style="flex: 1; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
+                        <input type="text" id="sendAppClientName" placeholder="Client name (optional)" oninput="updateSendAppEmailPreview()" style="flex: 1; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <label style="display: block; font-size: 12px; color: var(--text-light); margin-bottom: 4px;">Personal message (optional):</label>
-                        <textarea id="sendAppPersonalMsg" placeholder="Add a personal note to the client..." rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+                        <label style="display: block; font-size: 12px; color: var(--text-light); margin-bottom: 4px;">Personal message (optional — replaces the default template below):</label>
+                        <textarea id="sendAppPersonalMsg" placeholder="Leave blank to use the default template, or type a custom message to replace it..." oninput="updateSendAppEmailPreview()" rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--navy); margin-bottom: 6px;">Email Preview:</label>
+                        <div id="sendAppEmailPreview" style="background:white;border:1px solid var(--border-gray);border-radius:6px;padding:16px;max-height:300px;overflow-y:auto;font-size:13px;"></div>
                     </div>
                     <button class="btn btn-gold btn-sm" onclick="emailSendAppLink()" style="width:100%;padding:10px;font-weight:600;" id="sendAppEmailBtn">Send via Email</button>
                     <div id="sendAppEmailStatus" style="display:none;margin-top:8px;padding:8px 12px;border-radius:4px;font-size:13px;text-align:center;"></div>
@@ -18035,6 +18039,79 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (quoteSection) {
             quoteSection.style.display = (type === 'leasing') ? 'block' : 'none';
         }
+
+        // Update email preview
+        updateSendAppEmailPreview();
+    }
+
+    function buildSendAppPreviewHtml(clientName, personalMsg, typeName, tokenizedLink, coVendorName, senderName, senderContactLine) {
+        var emailHeader, emailIntro, emailSignature, emailFooter;
+
+        if (coVendorName) {
+            emailHeader = '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#ffffff;margin:0;font-size:24px;">' + coVendorName + '</h1>' +
+                '<p style="color:#C9A84C;margin:6px 0 0;font-size:13px;letter-spacing:0.5px;">Financing powered by Alliance Financing Group</p></div>';
+            emailSignature = '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>' + coVendorName + '<br>' + senderContactLine + '</p>';
+            emailFooter = '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">' + coVendorName + ' &middot; Financing by Alliance Financing Group Ltd.</p></div></div>';
+        } else {
+            emailHeader = '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>';
+            emailSignature = '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>' + senderContactLine + 'Alliance Financing Group Ltd.<br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>';
+            emailFooter = '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+        }
+
+        var bodyContent;
+        if (personalMsg && personalMsg.trim()) {
+            // Personal message replaces the template
+            bodyContent = '<div style="font-size:14px;color:#475569;line-height:1.6;white-space:pre-line;">' + personalMsg.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+        } else {
+            // Default template
+            emailIntro = coVendorName
+                ? '<p style="font-size:14px;color:#475569;line-height:1.6;"><strong>' + coVendorName + '</strong> has partnered with Alliance Financing Group to offer you convenient equipment financing.</p>'
+                : '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your interest in financing with Alliance Financing Group.</p>';
+            bodyContent = emailIntro +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete our <strong>' + typeName + '</strong> application using the button below:</p>';
+        }
+
+        return '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+            emailHeader +
+            '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+            '<p style="font-size:16px;color:#1E293B;">Hi ' + clientName + ',</p>' +
+            bodyContent +
+            '<div style="text-align:center;margin:25px 0;">' +
+            '<a href="#" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Complete Application</a></div>' +
+            '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, please don\'t hesitate to reach out.</p>' +
+            emailSignature +
+            '</div>' +
+            emailFooter;
+    }
+
+    function updateSendAppEmailPreview() {
+        var previewEl = document.getElementById('sendAppEmailPreview');
+        if (!previewEl || !selectedSendAppType) return;
+
+        var clientName = (document.getElementById('sendAppClientName').value || '').trim() || 'there';
+        var personalMsg = (document.getElementById('sendAppPersonalMsg').value || '').trim();
+        var typeNames = { leasing: 'Equipment Leasing', mca: 'Merchant Cash Advance', wc: 'Working Capital & Factoring', general: 'Financing' };
+        var typeName = typeNames[selectedSendAppType] || 'Financing';
+        var link = document.getElementById('sendAppLinkUrl').value || '#';
+
+        var senderName = currentUserName || document.getElementById('userEmailDisplay').textContent || 'Alliance Financing Group';
+        var senderEmail = (agentProfile && agentProfile.email) ? agentProfile.email : '';
+        var senderPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
+        var senderContactLine = '';
+        if (senderPhone) senderContactLine += senderPhone + '<br>';
+        if (senderEmail) senderContactLine += '<a href="mailto:' + senderEmail + '" style="color:#3B82F6;">' + senderEmail + '</a><br>';
+
+        var coVendorName = '';
+        var coVendorEl = document.getElementById('sendAppVendorTrack');
+        if (coVendorEl && coVendorEl.value) {
+            coVendorName = coVendorEl.options[coVendorEl.selectedIndex].text;
+        }
+
+        previewEl.innerHTML = buildSendAppPreviewHtml(clientName, personalMsg, typeName, link, coVendorName, senderName, senderContactLine);
     }
 
     function toggleQuoteMethod(method) {
@@ -18216,10 +18293,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
         }
 
-        // Build personal message paragraph if provided
-        var personalParagraph = personalMsg
-            ? '<p style="font-size:14px;color:#475569;line-height:1.6;background:#FFFBEB;padding:12px;border-radius:6px;border-left:3px solid #C9A84C;">' + personalMsg.replace(/\n/g, '<br>') + '</p>'
-            : '';
+        // personalMsg replaces the template when provided (handled below in body building)
 
         // Get sender name and contact info for sign-off
         var senderName = currentUserName || document.getElementById('userEmailDisplay').textContent || 'Alliance Financing Group';
@@ -18280,15 +18354,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
         }
 
+        // Build body content — personal message replaces template when provided
+        var bodyContent;
+        if (personalMsg) {
+            bodyContent = '<div style="font-size:14px;color:#475569;line-height:1.6;white-space:pre-line;">' + personalMsg.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') + '</div>' + quoteHtml;
+        } else {
+            bodyContent = emailIntro + quoteHtml +
+            '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete our <strong>' + typeName + '</strong> application using the button below:</p>';
+        }
+
         var htmlBody =
             '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
             emailHeader +
             '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
             '<p style="font-size:16px;color:#1E293B;">Hi ' + clientName + ',</p>' +
-            personalParagraph +
-            emailIntro +
-            quoteHtml +
-            '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete our <strong>' + typeName + '</strong> application using the button below:</p>' +
+            bodyContent +
             '<div style="text-align:center;margin:25px 0;">' +
             '<a href="' + tokenizedLink + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Complete Application</a></div>' +
             '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + tokenizedLink + '" style="color:#3B82F6;">' + tokenizedLink + '</a></p>' +
