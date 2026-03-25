@@ -25630,11 +25630,42 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // ============================================
     // Send Vendor Application Form via Email
     // ============================================
+    // Default canned message for vendor applications
+    var VENDOR_APP_CANNED_MESSAGE = 'We are pleased to invite you to apply for our Vendor Equipment Leasing Program. Our program provides your customers with flexible equipment leasing and financing options, helping you close more sales and grow your business. Please complete the application below — it typically takes 10–15 minutes.';
+
     function showSendVendorAppModal() {
         var existingModal = document.getElementById('sendVendorAppModal');
         if (existingModal) existingModal.remove();
 
-        var senderName = currentUserName || 'Alliance Financing Group';
+        // Build "From" options: current user, admins, onboarding team, and the vendor's primary agent
+        var fromOptions = [];
+        // Always include Onboarding Team
+        fromOptions.push({ label: 'Onboarding Team', value: 'Onboarding Team' });
+        // Add admin team members (Bernie, Carrie, and anyone with admin/super_admin role)
+        var adminNames = ['Bernie Shimkovitz', 'Carrie Biggs'];
+        adminNames.forEach(function(name) {
+            if (!fromOptions.find(function(o) { return o.value === name; })) {
+                fromOptions.push({ label: name, value: name });
+            }
+        });
+        // Add current user if not already in list
+        if (currentUserName && !fromOptions.find(function(o) { return o.value === currentUserName; })) {
+            fromOptions.unshift({ label: currentUserName + ' (You)', value: currentUserName });
+        }
+        // Add team members (agents) from cache
+        if (cachedTeamMembers && cachedTeamMembers.length > 0) {
+            cachedTeamMembers.forEach(function(t) {
+                if (t.full_name && !fromOptions.find(function(o) { return o.value === t.full_name; })) {
+                    fromOptions.push({ label: t.full_name, value: t.full_name });
+                }
+            });
+        }
+
+        var fromSelectHtml = '<select id="vendorAppSendFrom" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">';
+        fromOptions.forEach(function(opt) {
+            fromSelectHtml += '<option value="' + opt.value + '">' + opt.label + '</option>';
+        });
+        fromSelectHtml += '</select>';
 
         var modalHtml = '<div style="padding:24px;">';
         modalHtml += '<h3 style="color:var(--navy);margin:0 0 6px;">Send Vendor Application</h3>';
@@ -25645,10 +25676,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         modalHtml += '<input type="email" id="vendorAppSendEmail" placeholder="contact@vendor.com" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div></div>';
         modalHtml += '<div class="modal-row"><div class="modal-field"><label>Company Name</label>';
         modalHtml += '<input type="text" id="vendorAppSendCompany" placeholder="Vendor company name" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div>';
-        modalHtml += '<div class="modal-field"><label>From</label>';
-        modalHtml += '<input type="text" id="vendorAppSendFrom" value="' + senderName + '" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;background:#f8f9fa;" readonly></div></div>';
-        modalHtml += '<div class="modal-row"><div class="modal-field full"><label>Personal Message (optional)</label>';
-        modalHtml += '<textarea id="vendorAppSendMessage" rows="3" placeholder="Add a personal note..." style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;resize:vertical;"></textarea></div></div>';
+        modalHtml += '<div class="modal-field"><label>Send From</label>';
+        modalHtml += fromSelectHtml + '</div></div>';
+        modalHtml += '<div class="modal-row"><div class="modal-field full"><label>Message <span style="font-size:11px;color:#94A3B8;font-weight:400;">(edit to customize or leave as default)</span></label>';
+        modalHtml += '<textarea id="vendorAppSendMessage" rows="4" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;resize:vertical;line-height:1.5;">' + VENDOR_APP_CANNED_MESSAGE + '</textarea></div></div>';
         modalHtml += '<div style="display:flex;gap:10px;margin-top:16px;">';
         modalHtml += '<button id="vendorAppSendBtn" onclick="sendVendorAppEmail()" style="padding:10px 24px;background:#10B981;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">Send Vendor Application</button>';
         modalHtml += '<button onclick="document.getElementById(\'sendVendorAppModal\').remove()" style="padding:10px 24px;background:#E5E7EB;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">Cancel</button>';
@@ -25666,13 +25697,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var contactName = document.getElementById('vendorAppSendName').value.trim();
         var contactEmail = document.getElementById('vendorAppSendEmail').value.trim();
         var companyName = document.getElementById('vendorAppSendCompany').value.trim();
-        var personalMsg = document.getElementById('vendorAppSendMessage').value.trim();
+        var messageBody = document.getElementById('vendorAppSendMessage').value.trim();
+        var senderName = document.getElementById('vendorAppSendFrom').value;
         var btn = document.getElementById('vendorAppSendBtn');
 
         if (!contactName) { alert('Please enter the contact name.'); return; }
         if (!contactEmail) { alert('Please enter the contact email.'); return; }
 
-        var senderName = currentUserName || 'Alliance Financing Group';
+        // Determine if message was customized or left as default
+        var isCustomMessage = messageBody && messageBody !== VENDOR_APP_CANNED_MESSAGE;
         var greeting = contactName ? 'Dear ' + contactName + ',' : 'Hello,';
         var companyLine = companyName ? ' for <strong>' + companyName + '</strong>' : '';
 
@@ -25682,23 +25715,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         try {
             // Look up vendor ID by company name to include in application link
             var vendorAppUrl = window.location.origin + '/vendor-application.html';
+            var matchedVendorId = null;
             if (companyName) {
                 var { data: matchVendor } = await db.from('vendors').select('id').ilike('name', '%' + companyName + '%').limit(1);
                 if (matchVendor && matchVendor.length > 0) {
-                    vendorAppUrl += '?id=' + matchVendor[0].id;
+                    matchedVendorId = matchVendor[0].id;
+                    vendorAppUrl += '?id=' + matchedVendorId;
                 }
             }
 
             var subject = 'Alliance Financing Group — Vendor Program Application';
 
+            // Build email body — use the message field content (whether canned or customized)
             var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
                 '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
                 '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1>' +
                 '<p style="color:#8A9BB0;font-size:12px;margin:6px 0 0;">Vendor Program Application</p></div>' +
                 '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
                 '<p style="font-size:16px;color:#1E293B;">' + greeting + '</p>' +
-                (personalMsg ? '<p style="font-size:14px;color:#475569;line-height:1.6;background:#F8FAFC;padding:12px 16px;border-left:3px solid #C9A84C;border-radius:4px;margin:16px 0;">' + personalMsg + '</p>' : '') +
-                '<p style="font-size:14px;color:#475569;line-height:1.6;">We are pleased to invite you to apply for a Vendor Program' + companyLine + ' with Alliance Financing Group. Our vendor financing program provides your customers with flexible equipment leasing and financing options, helping you close more sales.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">' + (messageBody || VENDOR_APP_CANNED_MESSAGE).replace(/\n/g, '<br>') + '</p>' +
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">To get started, please complete the Vendor Profile Application by clicking the button below. The application includes company information, business references, and equipment details.</p>' +
                 '<div style="text-align:center;margin:25px 0;">' +
                 '<a href="' + vendorAppUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Complete Vendor Application</a></div>' +
@@ -25712,6 +25747,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<li>Equipment/machinery descriptions and pricing</li>' +
                 '<li>Sales volume and customer information</li>' +
                 '</ul></div>' +
+                '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:14px;margin:20px 0;">' +
+                '<p style="font-size:13px;color:#92400E;margin:0;font-weight:600;">Next Steps:</p>' +
+                '<ol style="font-size:13px;color:#78350F;margin:8px 0 0;padding-left:20px;line-height:1.8;">' +
+                '<li>Complete and submit the Vendor Application</li>' +
+                '<li>Our team will review your application within 1–2 business days</li>' +
+                '<li>Once approved, we will set up your vendor portal access</li>' +
+                '<li>You can then begin submitting financing applications for your customers</li>' +
+                '</ol></div>' +
                 '<p style="font-size:14px;color:#475569;">If you have any questions, please do not hesitate to reach out.</p>' +
                 '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>Alliance Financing Group Ltd.<br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>' +
                 '</div>' +
@@ -25728,7 +25771,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     direction: 'outbound',
                     subject: subject,
                     recipient_email: contactEmail,
-                    body: 'Vendor Application Form sent to ' + (contactName || contactEmail) + (companyName ? ' at ' + companyName : ''),
+                    body: 'Vendor Application Form sent to ' + (contactName || contactEmail) + (companyName ? ' at ' + companyName : '') + ' | Sent by: ' + senderName,
                     status: 'sent',
                     sent_at: new Date().toISOString()
                 });
@@ -25736,7 +25779,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 console.warn('Could not log vendor app send:', logErr);
             }
 
-            // Also add a note on any matching vendor record
+            // Add detailed note on matching vendor record
             try {
                 if (companyName) {
                     var { data: matchingVendors } = await db.from('vendors').select('id, admin_notes, name').ilike('name', '%' + companyName + '%').limit(1);
@@ -25746,13 +25789,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         try { vNotes = vend.admin_notes ? JSON.parse(vend.admin_notes) : []; } catch(e) { vNotes = []; }
                         var now = new Date();
                         var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                        var userEmail = document.getElementById('userEmailDisplay') ? document.getElementById('userEmailDisplay').textContent : 'System';
+                        var sentBy = currentUserName || 'System';
+                        var noteText = '📧 Vendor Application SENT\n' +
+                            '• To: ' + contactName + ' (' + contactEmail + ')\n' +
+                            '• From: ' + senderName + '\n' +
+                            '• Sent by: ' + sentBy + '\n' +
+                            (isCustomMessage ? '• Custom message: ' + messageBody.substring(0, 200) + (messageBody.length > 200 ? '...' : '') + '\n' : '• Default message used\n') +
+                            '• Application link: ' + vendorAppUrl + '\n' +
+                            '─── Next Steps ───\n' +
+                            '1. Follow up in 2–3 business days if application not received\n' +
+                            '2. Review application upon receipt\n' +
+                            '3. Set up vendor portal access once approved';
                         vNotes.unshift({
-                            text: '📧 Vendor Application Form SENT to ' + contactName + ' (' + contactEmail + ')' + (personalMsg ? '\nMessage: ' + personalMsg : ''),
-                            author: userEmail,
+                            text: noteText,
+                            author: sentBy,
                             date: dateStr
                         });
-                        await db.from('vendors').update({ admin_notes: JSON.stringify(vNotes) }).eq('id', vend.id);
+                        await db.from('vendors').update({ admin_notes: JSON.stringify(vNotes), updated_at: new Date().toISOString() }).eq('id', vend.id);
                     }
                 }
             } catch(noteErr) {
@@ -25772,12 +25825,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 } catch(e) { console.warn('Status update optional:', e); }
             }
 
-            btn.textContent = 'Sent!';
+            btn.textContent = '✓ Sent!';
             btn.style.background = '#10B981';
             setTimeout(async function() {
                 var modal = document.getElementById('sendVendorAppModal');
                 if (modal) modal.remove();
-                // Refresh vendor list to update pending count
                 await loadVendors();
             }, 1500);
         } catch (err) {
