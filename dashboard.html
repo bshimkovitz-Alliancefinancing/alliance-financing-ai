@@ -16948,7 +16948,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Pre-build lender submissions HTML (async) before template literal
             var _preBuiltLenderSubmissionsHtml = '';
             if (!isAgentView) {
-                try { _preBuiltLenderSubmissionsHtml = await buildLenderSubmissionsHtml(dealId, lenderSubmissions); } catch(e) { console.warn('buildLenderSubmissionsHtml error:', e); }
+                try { _preBuiltLenderSubmissionsHtml = await buildLenderSubmissionsHtml(dealId, lenderSubmissions, deal); } catch(e) { console.warn('buildLenderSubmissionsHtml error:', e); }
             }
 
             const modalBody = document.getElementById('dealModalBody');
@@ -17507,15 +17507,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // If coming from "Send to Lender" button, scroll down to Credit Submissions
             if (window._scrollToSendToLender) {
                 window._scrollToSendToLender = false;
-                setTimeout(function() {
-                    var modalBody = document.getElementById('dealModalBody');
+                var _scrollAttempts = 0;
+                var _scrollInterval = setInterval(function() {
+                    _scrollAttempts++;
                     var el = document.getElementById('newLenderSubId');
-                    if (modalBody && el) {
-                        // Scroll within the modal's scrollable body
-                        var elTop = el.offsetTop;
-                        modalBody.closest('.modal-content').scrollTop = elTop - 100;
+                    if (el) {
+                        clearInterval(_scrollInterval);
+                        var scrollContainer = el.closest('.modal-content') || el.closest('[style*="overflow"]') || document.getElementById('dealModalBody');
+                        if (scrollContainer) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        // Flash highlight the credit submissions area
+                        el.style.outline = '3px solid #F59E0B';
+                        el.style.outlineOffset = '4px';
+                        setTimeout(function() { el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
                     }
-                }, 400);
+                    if (_scrollAttempts > 20) clearInterval(_scrollInterval);
+                }, 200);
             }
 
             // Load referring agent info banner
@@ -17753,7 +17761,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Multi-Lender Credit Submissions
     // ============================================
 
-    async function buildLenderSubmissionsHtml(dealId, submissions) {
+    async function buildLenderSubmissionsHtml(dealId, submissions, deal) {
+        deal = deal || {};
         var subs = submissions || [];
         var rows = '';
         for (var i = 0; i < subs.length; i++) {
