@@ -17862,6 +17862,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         addForm += '<option value="">Loading contacts...</option>';
         addForm += '</select></div></div>';
         addForm += '<div id="sendToLenderActions" style="display:none;margin-top:12px;">';
+        addForm += '<div class="modal-row" style="margin-bottom:10px;"><div class="modal-field full">';
+        addForm += '<label>CC <span style="font-size:11px;color:#94A3B8;font-weight:400;">(optional — separate multiple with commas)</span></label>';
+        addForm += '<input type="text" id="lenderSendCC" placeholder="e.g. agent@email.com, analyst@email.com" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;">';
+        addForm += '</div></div>';
 
         // Document selection
         addForm += docChecklistHtml;
@@ -17875,9 +17879,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         addForm += '</div>';
         addForm += '<input type="hidden" id="lenderMessageType" value="canned">';
 
-        // Canned message preview
-        addForm += '<div id="lenderCannedPreview" style="padding:10px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:4px;font-size:12px;color:#1E40AF;display:block;">';
-        addForm += '<strong>Standard message includes:</strong> Deal summary table (company, product, amount, province, industry, revenue, time in business), selected document download links, and Alliance Financing signature.';
+        // Canned message preview — auto-generated from deal data
+        var cannedPreviewHtml = '<div style="font-size:12px;color:#1E40AF;line-height:1.6;">';
+        cannedPreviewHtml += '<strong style="color:#0D1E3D;">📋 Auto-Generated Deal Summary (sent to lender):</strong><br><br>';
+        cannedPreviewHtml += '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+        if (deal.company_name) cannedPreviewHtml += '<tr><td style="padding:4px 8px;font-weight:600;color:#374151;width:40%;border-bottom:1px solid #DBEAFE;">Company</td><td style="padding:4px 8px;border-bottom:1px solid #DBEAFE;">' + deal.company_name + '</td></tr>';
+        if (deal.product_type) cannedPreviewHtml += '<tr><td style="padding:4px 8px;font-weight:600;color:#374151;border-bottom:1px solid #DBEAFE;">Product Type</td><td style="padding:4px 8px;border-bottom:1px solid #DBEAFE;">' + deal.product_type + '</td></tr>';
+        if (deal.deal_amount) cannedPreviewHtml += '<tr><td style="padding:4px 8px;font-weight:600;color:#374151;border-bottom:1px solid #DBEAFE;">Amount Requested</td><td style="padding:4px 8px;border-bottom:1px solid #DBEAFE;">$' + Number(deal.deal_amount).toLocaleString() + ' ' + (deal.currency || 'CAD') + '</td></tr>';
+        if (deal.client_province) cannedPreviewHtml += '<tr><td style="padding:4px 8px;font-weight:600;color:#374151;border-bottom:1px solid #DBEAFE;">Province</td><td style="padding:4px 8px;border-bottom:1px solid #DBEAFE;">' + deal.client_province + '</td></tr>';
+        if (deal.client_industry) cannedPreviewHtml += '<tr><td style="padding:4px 8px;font-weight:600;color:#374151;border-bottom:1px solid #DBEAFE;">Industry</td><td style="padding:4px 8px;border-bottom:1px solid #DBEAFE;">' + deal.client_industry + '</td></tr>';
+        if (deal.client_annual_revenue) cannedPreviewHtml += '<tr><td style="padding:4px 8px;font-weight:600;color:#374151;border-bottom:1px solid #DBEAFE;">Annual Revenue</td><td style="padding:4px 8px;border-bottom:1px solid #DBEAFE;">$' + Number(deal.client_annual_revenue).toLocaleString() + '</td></tr>';
+        if (deal.client_time_in_business) cannedPreviewHtml += '<tr><td style="padding:4px 8px;font-weight:600;color:#374151;border-bottom:1px solid #DBEAFE;">Time in Business</td><td style="padding:4px 8px;border-bottom:1px solid #DBEAFE;">' + deal.client_time_in_business + '</td></tr>';
+        if (deal.client_credit_score) cannedPreviewHtml += '<tr><td style="padding:4px 8px;font-weight:600;color:#374151;border-bottom:1px solid #DBEAFE;">Credit Score</td><td style="padding:4px 8px;border-bottom:1px solid #DBEAFE;">' + deal.client_credit_score + '</td></tr>';
+        if (deal.description) cannedPreviewHtml += '<tr><td style="padding:4px 8px;font-weight:600;color:#374151;border-bottom:1px solid #DBEAFE;">Description</td><td style="padding:4px 8px;border-bottom:1px solid #DBEAFE;">' + deal.description + '</td></tr>';
+        cannedPreviewHtml += '</table>';
+        cannedPreviewHtml += '<div style="margin-top:8px;font-size:11px;color:#6B7280;">+ Selected document download links + Alliance Financing signature</div>';
+        cannedPreviewHtml += '</div>';
+
+        addForm += '<div id="lenderCannedPreview" style="padding:12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:4px;display:block;">';
+        addForm += cannedPreviewHtml;
         addForm += '</div>';
 
         // Custom message textarea
@@ -17976,6 +17996,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var contactOption = contactSelect.options[contactSelect.selectedIndex];
         var messageType = document.getElementById('lenderMessageType').value;
         var customMessage = document.getElementById('lenderSendMessage').value.trim();
+        var ccField = document.getElementById('lenderSendCC');
+        var ccEmails = ccField ? ccField.value.trim() : '';
         var btn = document.getElementById('sendToLenderBtn');
 
         if (!lenderId) { alert('Please select a lender'); return; }
@@ -18097,8 +18119,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '<p style="font-size:13px;color:#6B7280;">Alliance Financing Group | <a href="https://alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a></p>';
             htmlBody += '</div></div>';
 
-            // 6. Send email
-            await sendEmailViaResend(contactEmail, subject, htmlBody, '', 'info@alliancefinancing.com');
+            // 6. Send email (with optional CC)
+            await sendEmailViaResend(contactEmail, subject, htmlBody, '', 'info@alliancefinancing.com', ccEmails || undefined);
 
             // 7. Create tracking record
             var docNamesList = docLinks.map(function(d) { return d.name; }).join(', ');
@@ -19343,21 +19365,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var { data: linkedDeals } = await db.from('deals').select('id, is_archived').eq('application_id', applicationId).order('created_at', { ascending: false });
             var linkedDeal = null;
             if (linkedDeals && linkedDeals.length > 0) {
-                // Prefer non-archived deal
                 linkedDeal = linkedDeals.find(function(d) { return !d.is_archived; }) || linkedDeals[0];
             }
             if (linkedDeal && linkedDeal.id) {
                 closeApplicationModal();
-                setTimeout(function() { viewDeal(linkedDeal.id); }, 300);
+                setTimeout(function() {
+                    viewDeal(linkedDeal.id);
+                    // Scroll to the Credit Submissions / Send Credit Package section
+                    setTimeout(function() {
+                        var sendSection = document.getElementById('newLenderSubId');
+                        if (sendSection) sendSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 600);
+                }, 300);
             } else {
-                // No deal yet — need to move to pipeline first
                 if (confirm('This application needs to be moved to the Deal Pipeline before sending to a lender. Move it now?')) {
                     await moveToPipeline(applicationId);
-                    // After moving, find the new deal
                     var { data: newDeals } = await db.from('deals').select('id').eq('application_id', applicationId).eq('is_archived', false).limit(1);
                     if (newDeals && newDeals.length > 0) {
                         closeApplicationModal();
-                        setTimeout(function() { viewDeal(newDeals[0].id); }, 300);
+                        setTimeout(function() {
+                            viewDeal(newDeals[0].id);
+                            setTimeout(function() {
+                                var sendSection = document.getElementById('newLenderSubId');
+                                if (sendSection) sendSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 600);
+                        }, 300);
                     }
                 }
             }
@@ -21714,7 +21746,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Send Email via Supabase Edge Function
     // ============================================
 
-    async function sendEmailViaResend(to, subject, htmlBody, textBody, replyTo) {
+    async function sendEmailViaResend(to, subject, htmlBody, textBody, replyTo, cc) {
         try {
             // Build reply-to address: use agent's email so replies go to their inbox
             // Falls back to info@ for admin-sent emails
@@ -21733,6 +21765,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 text: textBody || '',
                 reply_to: effectiveReplyTo
             };
+            if (cc) payload.cc = cc;
 
             var response = await fetch(EMAIL_FUNCTION_URL, {
                 method: 'POST',
