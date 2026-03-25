@@ -18958,17 +18958,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         '</div></div>';
                 })() : ''}
                 ${signatureHtml}
-                ${['super_admin','admin'].includes(currentUserRole) && app.signature_name ? `
-                <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button onclick="generateLenderPackage('${app.id}')" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
-                        📋 Generate Lender Package (Print / PDF)
-                    </button>
-                    <button onclick="downloadLenderZip('${app.id}')" id="zipDownloadBtn" style="background: #059669; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
-                        📦 Download Complete Package (ZIP)
-                    </button>
-                    <button onclick="goToSendToLender('${app.id}')" style="background: #2563EB; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
-                        📧 Send to Lender
-                    </button>
+                ${['super_admin','admin'].includes(currentUserRole) ? `
+                <div style="margin-top: 16px; padding: 14px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: ${app.signature_name ? '12px' : '0'};">
+                        <label style="font-size: 12px; font-weight: 600; color: #64748B;">Status:</label>
+                        <select id="appStatusSelect_${app.id}" onchange="updateApplicationStatus('${app.id}', this.value)" style="padding: 6px 12px; border: 1px solid #CBD5E1; border-radius: 4px; font-size: 13px; cursor: pointer;">
+                            <option value="Application Received" ${app.status === 'Application Received' ? 'selected' : ''}>Application Received</option>
+                            <option value="Under Review" ${app.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
+                            <option value="Approved" ${app.status === 'Approved' ? 'selected' : ''}>Approved</option>
+                            <option value="Declined" ${app.status === 'Declined' ? 'selected' : ''}>Declined</option>
+                            <option value="Withdrawn" ${app.status === 'Withdrawn' ? 'selected' : ''}>Withdrawn</option>
+                            <option value="Archived" ${app.status === 'Archived' ? 'selected' : ''}>Archived</option>
+                        </select>
+                        <button onclick="if(confirm('Are you sure you want to permanently delete this application? This cannot be undone.')){deleteApplication('${app.id}')}" style="padding: 6px 14px; background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; margin-left: auto;">🗑️ Delete</button>
+                    </div>
+                    ${app.signature_name ? `<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button onclick="generateLenderPackage('${app.id}')" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                            📋 Generate Lender Package (Print / PDF)
+                        </button>
+                        <button onclick="downloadLenderZip('${app.id}')" id="zipDownloadBtn" style="background: #059669; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                            📦 Download Complete Package (ZIP)
+                        </button>
+                        <button onclick="goToSendToLender('${app.id}')" style="background: #2563EB; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                            📧 Send to Lender
+                        </button>
+                    </div>` : ''}
                 </div>` : ''}
                 ${fullDataHtml}
                 ${buildDocumentsHtml(allAppDocuments || [], null, appId)}
@@ -18981,6 +18995,65 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (error) {
             console.error('View application error:', error);
             alert('Error loading application details');
+        }
+    }
+
+    // ============================================
+    // Update Application Status
+    // ============================================
+    async function updateApplicationStatus(appId, newStatus) {
+        try {
+            var { error } = await db.from('applications')
+                .update({ status: newStatus })
+                .eq('id', appId);
+            if (error) throw error;
+
+            showNotification('Application status updated to "' + newStatus + '"', 'success');
+
+            // Refresh the new-apps badge count
+            if (typeof loadNewApplicationsCount === 'function') loadNewApplicationsCount();
+        } catch (err) {
+            console.error('Update application status error:', err);
+            alert('Failed to update status: ' + (err.message || 'Unknown error'));
+            // Revert the dropdown — reopen the modal to get correct state
+        }
+    }
+
+    // ============================================
+    // Delete Application
+    // ============================================
+    async function deleteApplication(appId) {
+        try {
+            // 1. Delete associated documents from storage & table
+            var { data: docs } = await db.from('documents')
+                .select('id, file_path')
+                .eq('application_id', appId);
+            if (docs && docs.length > 0) {
+                var filePaths = docs.map(function(d) { return d.file_path; }).filter(Boolean);
+                if (filePaths.length > 0) {
+                    await db.storage.from('deal-documents').remove(filePaths);
+                }
+                var docIds = docs.map(function(d) { return d.id; });
+                await db.from('documents').delete().in('id', docIds);
+            }
+
+            // 2. Delete the application record itself
+            var { error } = await db.from('applications')
+                .delete()
+                .eq('id', appId);
+            if (error) throw error;
+
+            showNotification('Application deleted successfully', 'success');
+
+            // Close the modal
+            document.getElementById('applicationModal').classList.remove('active');
+
+            // Refresh new-apps badge and pipeline
+            if (typeof loadNewApplicationsCount === 'function') loadNewApplicationsCount();
+            if (typeof loadPipelineDeals === 'function') loadPipelineDeals();
+        } catch (err) {
+            console.error('Delete application error:', err);
+            alert('Failed to delete application: ' + (err.message || 'Unknown error'));
         }
     }
 
