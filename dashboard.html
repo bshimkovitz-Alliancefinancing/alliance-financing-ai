@@ -17923,8 +17923,26 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         addForm += cannedPreviewHtml;
         addForm += '</div>';
 
-        // Custom message textarea
-        addForm += '<textarea id="lenderSendMessage" rows="5" placeholder="Write your custom message to the lender here. This will replace the standard deal summary section in the email.&#10;&#10;Example: Hi [Name], please find attached the credit application and bank statements for Nuport Robotics. They are looking for $65,000 in equipment leasing for a 2019 Ottawa Kalmar T2 Shunt truck. The business has been operating for 5+ years in Ontario..." style="display:none;padding:10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;resize:vertical;line-height:1.5;"></textarea>';
+        // Custom message textarea — pre-filled with AI-generated deal summary
+        var customDraft = 'Hi,\n\n';
+        customDraft += 'Please find attached the credit application and supporting documents for ' + (deal.company_name || 'the applicant') + '.';
+        if (deal.product_type || deal.deal_amount) {
+            customDraft += ' They are looking for';
+            if (deal.deal_amount) customDraft += ' $' + Number(deal.deal_amount).toLocaleString() + ' ' + (deal.currency || 'CAD');
+            if (deal.product_type) customDraft += ' in ' + deal.product_type;
+            customDraft += '.';
+        }
+        if (deal.description) customDraft += ' ' + deal.description + '.';
+        customDraft += '\n\n';
+        var bizDetails = [];
+        if (deal.client_time_in_business) bizDetails.push('The business has been operating for ' + deal.client_time_in_business + ' years');
+        if (deal.client_province) bizDetails.push('located in ' + deal.client_province);
+        if (deal.client_industry) bizDetails.push('in the ' + deal.client_industry + ' industry');
+        if (deal.client_annual_revenue) bizDetails.push('with annual revenue of $' + Number(deal.client_annual_revenue).toLocaleString());
+        if (bizDetails.length > 0) customDraft += bizDetails.join(', ') + '.\n\n';
+        customDraft += 'Please let me know if you need any additional information.\n\nBest regards,\n' + (currentUserName || 'Alliance Financing Group');
+
+        addForm += '<textarea id="lenderSendMessage" rows="8" style="display:none;padding:10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:100%;resize:vertical;line-height:1.5;">' + customDraft.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea>';
         addForm += '</div>';
 
         addForm += '<div style="display:flex;gap:8px;margin-top:14px;">';
@@ -19094,7 +19112,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var fileList = [];
             try {
                 btn.textContent = '⏳ Fetching documents...';
+                // Fetch application-level documents
                 var { data: docs } = await db.from('documents').select('*').eq('application_id', app.id).order('uploaded_at', { ascending: false });
+                docs = docs || [];
+                // Also fetch deal-level documents (uploaded via document request links)
+                try {
+                    var { data: linkedDeals } = await db.from('deals').select('id').eq('application_id', app.id);
+                    if (linkedDeals && linkedDeals.length > 0) {
+                        var dealIds = linkedDeals.map(function(d) { return d.id; });
+                        var { data: dealDocs } = await db.from('documents').select('*').in('deal_id', dealIds).order('uploaded_at', { ascending: false });
+                        if (dealDocs && dealDocs.length > 0) {
+                            var existingIds = new Set(docs.map(function(d) { return d.id; }));
+                            dealDocs.forEach(function(dd) {
+                                if (!existingIds.has(dd.id)) docs.push(dd);
+                            });
+                        }
+                    }
+                } catch(e) { console.warn('Could not fetch deal-linked documents for ZIP:', e); }
                 if (docs && docs.length > 0) {
                     for (var di = 0; di < docs.length; di++) {
                         var doc = docs[di];
