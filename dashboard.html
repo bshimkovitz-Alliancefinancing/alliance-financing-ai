@@ -12211,24 +12211,41 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     var _pendingNewAppIds = [];
 
     async function highlightNewApplicationsInPipeline() {
-        _highlightApplicationIds = _pendingNewAppIds.slice();
-        showPage('deals');
-        // After deals load, scroll to the first highlighted row
-        setTimeout(function() {
-            var highlighted = document.querySelector('tr.highlight-new-deal');
-            if (highlighted) {
-                highlighted.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Check if any pending applications have deals in the pipeline
+        // If not, open the first application directly instead of going to an empty pipeline
+        if (_pendingNewAppIds.length > 0) {
+            try {
+                var { data: linkedDeals } = await db.from('deals').select('id, application_id').in('application_id', _pendingNewAppIds);
+                var dealsWithApps = linkedDeals && linkedDeals.length > 0;
+
+                if (dealsWithApps) {
+                    // Applications have deals — highlight them in the pipeline
+                    _highlightApplicationIds = _pendingNewAppIds.slice();
+                    showPage('deals');
+                    setTimeout(function() {
+                        var highlighted = document.querySelector('tr.highlight-new-deal');
+                        if (highlighted) {
+                            highlighted.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        setTimeout(function() {
+                            _highlightApplicationIds = [];
+                            document.querySelectorAll('tr.highlight-new-deal').forEach(function(row) {
+                                row.classList.remove('highlight-new-deal');
+                                row.style.animation = '';
+                                row.style.background = '';
+                            });
+                        }, 6000);
+                    }, 800);
+                } else {
+                    // No deals yet — open the first new application directly
+                    viewApplication(_pendingNewAppIds[0]);
+                }
+            } catch(e) {
+                console.warn('highlightNewApplicationsInPipeline error:', e);
+                // Fallback: just open the first application
+                viewApplication(_pendingNewAppIds[0]);
             }
-            // Clear highlights after 6 seconds
-            setTimeout(function() {
-                _highlightApplicationIds = [];
-                document.querySelectorAll('tr.highlight-new-deal').forEach(function(row) {
-                    row.classList.remove('highlight-new-deal');
-                    row.style.animation = '';
-                    row.style.background = '';
-                });
-            }, 6000);
-        }, 800);
+        }
     }
 
     function showPage(pageName) {
