@@ -17843,16 +17843,65 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         // Build document checklist for the deal
         var docChecklistHtml = '';
         try {
+            // Fetch deal-level documents
             var { data: dealDocs } = await db.from('documents')
                 .select('id, file_name, document_type, file_path, file_size_bytes')
                 .eq('deal_id', dealId)
                 .order('uploaded_at', { ascending: false });
-            if (dealDocs && dealDocs.length > 0) {
+            dealDocs = dealDocs || [];
+
+            // Also fetch application-level documents (uploaded with the original application)
+            var creditAppEntry = null;
+            if (deal.application_id) {
+                try {
+                    var { data: appDocs } = await db.from('documents')
+                        .select('id, file_name, document_type, file_path, file_size_bytes')
+                        .eq('application_id', deal.application_id)
+                        .order('uploaded_at', { ascending: false });
+                    if (appDocs && appDocs.length > 0) {
+                        var existingDocIds = new Set(dealDocs.map(function(d) { return d.id; }));
+                        appDocs.forEach(function(ad) {
+                            if (!existingDocIds.has(ad.id)) dealDocs.push(ad);
+                        });
+                    }
+                } catch(e) { console.warn('Could not fetch application-level docs for checklist:', e); }
+
+                // Fetch the credit application form data to offer as a document
+                try {
+                    var { data: creditApp } = await db.from('applications')
+                        .select('id, application_id, form_type, full_name, business_name, submitted_at, form_data')
+                        .eq('id', deal.application_id)
+                        .single();
+                    if (creditApp && creditApp.form_data) {
+                        var formTypeLabels = { 'leasing': 'Equipment Leasing', 'merchant-advance': 'Merchant Cash Advance', 'working-capital': 'Working Capital & Factoring' };
+                        creditAppEntry = {
+                            id: '__credit_app__',
+                            application_id: creditApp.application_id,
+                            file_name: 'Credit Application — ' + (creditApp.business_name || creditApp.full_name || creditApp.application_id || 'Application') + ' (' + (formTypeLabels[creditApp.form_type] || creditApp.form_type || 'Standard') + ')',
+                            document_type: 'credit_application',
+                            submitted_at: creditApp.submitted_at
+                        };
+                    }
+                } catch(e) { console.warn('Could not fetch credit application for checklist:', e); }
+            }
+
+            var hasItems = dealDocs.length > 0 || creditAppEntry;
+            if (hasItems) {
                 docChecklistHtml = '<div style="margin-top:12px;">';
                 docChecklistHtml += '<label style="font-weight:600;color:var(--navy);font-size:13px;display:block;margin-bottom:8px;">Select Documents to Include</label>';
                 docChecklistHtml += '<div style="display:flex;align-items:center;margin-bottom:6px;padding:4px 0;">';
                 docChecklistHtml += '<input type="checkbox" id="lenderDocSelectAll" onchange="document.querySelectorAll(\'.lender-doc-check\').forEach(function(c){c.checked=this.checked}.bind(this))" style="margin-right:8px;cursor:pointer;">';
                 docChecklistHtml += '<label for="lenderDocSelectAll" style="font-size:12px;font-weight:600;color:#64748B;cursor:pointer;">Select All</label></div>';
+
+                // Credit Application form entry (special — generated from form_data, not a file)
+                if (creditAppEntry) {
+                    docChecklistHtml += '<div style="display:flex;align-items:center;padding:6px 10px;background:#FEF3C7;border:1px solid #F59E0B;border-radius:4px;margin-bottom:4px;">';
+                    docChecklistHtml += '<input type="checkbox" class="lender-doc-check" value="__credit_app__" data-path="" data-name="' + creditAppEntry.file_name.replace(/"/g, '&quot;') + '" data-type="credit_application" checked style="margin-right:10px;cursor:pointer;">';
+                    docChecklistHtml += '<span style="font-size:13px;color:var(--navy);flex:1;font-weight:600;">📋 ' + creditAppEntry.file_name + '</span>';
+                    docChecklistHtml += '<span style="font-size:11px;color:#92400E;margin:0 8px;">Completed Application</span>';
+                    docChecklistHtml += '</div>';
+                }
+
                 for (var di = 0; di < dealDocs.length; di++) {
                     var doc = dealDocs[di];
                     var sizeStr = doc.file_size_bytes ? '(' + (doc.file_size_bytes / 1024 < 1024 ? Math.round(doc.file_size_bytes / 1024) + ' KB' : (doc.file_size_bytes / 1048576).toFixed(1) + ' MB') + ')' : '';
@@ -18060,13 +18109,108 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 2. Get SELECTED documents only
             var selectedDocChecks = document.querySelectorAll('.lender-doc-check:checked');
             var selectedDocIds = [];
+            var includeCreditApp = false;
             for (var sc = 0; sc < selectedDocChecks.length; sc++) {
-                selectedDocIds.push(selectedDocChecks[sc].value);
+                if (selectedDocChecks[sc].value === '__credit_app__') {
+                    includeCreditApp = true;
+                } else {
+                    selectedDocIds.push(selectedDocChecks[sc].value);
+                }
+            }
+
+            // 2b. If credit application selected, generate summary HTML and upload to storage
+            var creditAppLink = null;
+            if (includeCreditApp && deal.application_id) {
+                try {
+                    btn.textContent = '⏳ Generating credit application...';
+                    var { data: creditApp } = await db.from('applications').select('*').eq('id', deal.application_id).single();
+                    if (creditApp && creditApp.form_data) {
+                        var caFd = creditApp.form_data;
+                        var caFormTypeLabels = { 'merchant-advance': 'Merchant Cash Advance', 'leasing': 'Equipment Leasing', 'working-capital': 'Working Capital & Factoring' };
+                        var caFormType = caFormTypeLabels[creditApp.form_type] || creditApp.form_type || 'N/A';
+                        var caLabelMap = {
+                            advanceAmount:'Advance Amount Requested',fundsPurpose:'Purpose of Funds',legalName:'Legal Business Name',tradeName:'Trade Name / DBA',
+                            bizAddress:'Business Address',bizCity:'City',bizProv:'Province/State',bizPostal:'Postal/Zip',bizCountry:'Country',bizPhone:'Business Phone',
+                            bizEmail:'Business Email',gstFedId:'GST / Federal ID Number',taxId:'GST / Federal ID Number',industry:'Industry',timeInBusiness:'Time in Business',
+                            numEmployees:'Number of Employees',monthlyRevenue:'Monthly Revenue',cardSales:'Monthly Card Sales',annualRevenue:'Annual Revenue',
+                            processor:'Credit Card Processor',bankName:'Bank Name',currentMCA:'Current MCA?',mcaBalance:'MCA Balance',existingLoans:'Existing Loans?',
+                            loanPayment:'Loan Payment',taxLiens:'Tax Liens?',taxArrears:'Tax Arrears?',
+                            ownerName:'Owner Full Name',ownerTitle:'Owner Title',ownerPct:'Ownership %',ownerDOB:'Date of Birth',ownerPhone:'Phone',
+                            ownerAddress:'Home Address',ownerEmail:'Email',ownerSinSsn:'SIN / SSN',
+                            owner2Name:'Second Owner Name',owner2Title:'Second Owner Title',owner2Pct:'Second Owner %',owner2DOB:'Second Owner DOB',owner2Phone:'Second Owner Phone',
+                            equipmentDescription:'Equipment Description',equipmentCost:'Equipment Cost',vendorName:'Vendor Name',equipmentCondition:'Condition',
+                            businessLegalName:'Legal Business Name',businessPhone:'Business Phone',businessEmail:'Business Email',
+                            contactName:'Contact Name',bizDescription:'Business Description',businessStartDate:'Business Start Date',
+                            principal1Name:'Principal 1 Name',principal1Title:'Principal 1 Title',principal1Ownership:'Principal 1 Ownership %',
+                            principal1DOB:'Principal 1 DOB',principal1Phone:'Principal 1 Phone',principal1Address:'Principal 1 Address',
+                            principal1City:'Principal 1 City',principal1Prov:'Principal 1 Province/State',principal1Postal:'Principal 1 Postal/Zip',
+                            principal1SinSsn:'Principal 1 SIN / SSN',
+                            financingType:'Financing Type',amountRequested:'Amount Requested',useOfFunds:'Use of Funds',
+                            o1Name:'Owner 1 Name',o1Title:'Owner 1 Title',o1Pct:'Owner 1 Ownership %',o1Phone:'Owner 1 Phone',
+                            o1DOB:'Owner 1 DOB',o1Address:'Owner 1 Address',o1SinSsn:'Owner 1 SIN / SSN',
+                            dateIncorporated:'Date Incorporated',yrsOwner:'Years as Owner',annualSales:'Annual Sales',
+                            arOutstanding:'AR Outstanding',arTerms:'AR Terms',arMonthlySales:'AR Monthly Sales',
+                            structure:'Business Structure',ownerHomeStatus:'Home Status'
+                        };
+                        var caSkipFields = ['formType','applicationId','submittedAt','referralSource','signatureName','signatureTimestamp'];
+                        var caFormRows = '';
+                        Object.entries(caFd).filter(function(e) { return e[1] && e[1].toString().trim() && !caSkipFields.includes(e[0]); })
+                        .forEach(function(e) {
+                            var label = caLabelMap[e[0]] || e[0].replace(/([A-Z])/g, ' $1').replace(/^./, function(s){return s.toUpperCase();});
+                            caFormRows += '<tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;width:35%;background:#f8f9fa;">' + label + '</td><td style="padding:8px 12px;border:1px solid #ddd;">' + e[1] + '</td></tr>';
+                        });
+                        var caSigDate = creditApp.signature_timestamp ? new Date(creditApp.signature_timestamp).toLocaleString('en-US', {
+                            year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZoneName:'short'
+                        }) : 'N/A';
+                        var caSummaryHtml = '<!DOCTYPE html><html><head><title>Credit Application - ' + (creditApp.application_id || '') + '</title>' +
+                            '<style>*{box-sizing:border-box;}body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:30px;color:#333;line-height:1.6;width:100%;}.header{text-align:center;border-bottom:3px solid #1a365d;padding-bottom:15px;margin-bottom:25px}.header h1{color:#1a365d;margin:0;font-size:22px}.header p{color:#666;margin:4px 0 0;font-size:13px}.section{margin-bottom:20px}.section h2{color:#1a365d;font-size:15px;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin-bottom:10px}table{width:100%;border-collapse:collapse;margin-bottom:12px;table-layout:fixed;}td{padding:6px 10px;border:1px solid #ddd;font-size:12px;word-wrap:break-word;overflow-wrap:break-word;}.signature-box{background:#f0f7ff;border:2px solid #1a365d;border-radius:6px;padding:15px;margin-top:15px}.signature-box .sig-name{font-size:20px;font-style:italic;font-weight:700;color:#1a365d;margin:8px 0}.signature-box .sig-meta{font-size:11px;color:#64748b}.footer{margin-top:30px;text-align:center;font-size:10px;color:#999;border-top:1px solid #e2e8f0;padding-top:12px}</style></head><body>' +
+                            '<div class="header"><h1>Alliance Financing Group Ltd.</h1><p>35+ Years of Commercial Financing Excellence</p><p style="font-size:11px;color:#999">1-877-660-3660 ext. 222 | info@alliancefinancing.com | alliancefinancing.ai</p></div>' +
+                            '<div style="text-align:center;margin-bottom:25px"><h2 style="color:#1a365d;font-size:20px;margin:0">Credit Application — ' + caFormType + '</h2>' +
+                            '<p style="color:#666;margin:5px 0">Application ID: <strong>' + (creditApp.application_id || 'N/A') + '</strong> | Submitted: <strong>' + (creditApp.submitted_at ? new Date(creditApp.submitted_at).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}) : 'N/A') + '</strong></p></div>' +
+                            '<div class="section"><h2>Applicant Summary</h2><table>' +
+                            '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Full Name</td><td style="border:1px solid #ddd;padding:8px 12px">' + (creditApp.full_name || 'N/A') + '</td></tr>' +
+                            '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Business Name</td><td style="border:1px solid #ddd;padding:8px 12px">' + (creditApp.business_name || 'N/A') + '</td></tr>' +
+                            '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Email</td><td style="border:1px solid #ddd;padding:8px 12px">' + (creditApp.email || 'N/A') + '</td></tr>' +
+                            '<tr><td style="font-weight:600;width:35%;background:#f8f9fa;border:1px solid #ddd;padding:8px 12px">Phone</td><td style="border:1px solid #ddd;padding:8px 12px">' + (creditApp.phone || 'N/A') + '</td></tr>' +
+                            '</table></div>' +
+                            '<div class="section"><h2>Complete Application Details</h2><table>' + caFormRows + '</table></div>' +
+                            '<div class="section"><h2>Electronic Signature & Authorization</h2>' +
+                            '<div class="signature-box"><p style="margin:0;font-size:13px;color:#64748b">The applicant has electronically signed this application:</p>' +
+                            '<div class="sig-name">"' + (creditApp.signature_name || 'N/A') + '"</div>' +
+                            '<div class="sig-meta">Date & Time: ' + caSigDate + '</div>' +
+                            '<div class="sig-meta">Application ID: ' + (creditApp.application_id || 'N/A') + '</div>' +
+                            '<div class="sig-meta">IP-based electronic signature captured at time of submission</div></div></div>' +
+                            '<div class="footer">Generated by Alliance Financing Group Ltd. | alliancefinancing.ai</div></body></html>';
+
+                        // Upload the HTML to Supabase storage as a temporary file
+                        var caBlob = new Blob([caSummaryHtml], { type: 'text/html' });
+                        var caFileName = 'credit-app-' + (creditApp.application_id || dealId) + '-' + Date.now() + '.html';
+                        var caPath = 'lender-packages/' + caFileName;
+                        var { data: uploadData, error: uploadError } = await db.storage.from('deal-documents').upload(caPath, caBlob, { contentType: 'text/html', upsert: true });
+                        if (!uploadError) {
+                            var { data: caUrlData } = await db.storage.from('deal-documents').createSignedUrl(caPath, 604800);
+                            if (caUrlData && caUrlData.signedUrl) {
+                                creditAppLink = {
+                                    name: 'Credit Application — ' + (creditApp.business_name || creditApp.application_id || 'Application') + '.html',
+                                    type: 'Completed Credit Application',
+                                    url: caUrlData.signedUrl,
+                                    size: caBlob.size
+                                };
+                            }
+                        } else {
+                            console.warn('Failed to upload credit app HTML:', uploadError);
+                        }
+                    }
+                } catch(e) { console.warn('Credit app generation error:', e); }
             }
 
             // 3. Generate signed URLs for selected documents (valid for 7 days)
             btn.textContent = '⏳ Generating document links...';
             var docLinks = [];
+            // Add credit application link first if present
+            if (creditAppLink) {
+                docLinks.push(creditAppLink);
+            }
             if (selectedDocIds.length > 0) {
                 var { data: selectedDocs } = await db.from('documents')
                     .select('id, file_name, file_path, document_type, file_size_bytes')
