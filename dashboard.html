@@ -17504,6 +17504,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             document.getElementById('dealModal').classList.add('active');
 
+            // If coming from "Send to Lender" button, scroll to the credit package section
+            if (window._scrollToSendToLender) {
+                window._scrollToSendToLender = false;
+                setTimeout(function() {
+                    var el = document.getElementById('newLenderSubId');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+            }
+
             // Load referring agent info banner
             if (deal.source_agent_id) {
                 (async function() {
@@ -19376,44 +19385,36 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         document.getElementById('applicationModal').classList.remove('active');
     }
 
-    function scrollToLenderSendSection() {
-        // Poll until the "Prepare & Send Credit Package" section appears in the DOM
-        var attempts = 0;
-        var poller = setInterval(function() {
-            var el = document.getElementById('newLenderSubId');
-            if (el) {
-                clearInterval(poller);
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-            attempts++;
-            if (attempts > 30) clearInterval(poller); // give up after 6s
-        }, 200);
-    }
-
     async function goToSendToLender(applicationId) {
         try {
-            // Find deals linked to this application (may be multiple — pick non-archived)
+            // Find deals linked to this application
             var { data: linkedDeals } = await db.from('deals').select('id, is_archived').eq('application_id', applicationId).order('created_at', { ascending: false });
             var linkedDeal = null;
             if (linkedDeals && linkedDeals.length > 0) {
                 linkedDeal = linkedDeals.find(function(d) { return !d.is_archived; }) || linkedDeals[0];
             }
-            if (linkedDeal && linkedDeal.id) {
-                closeApplicationModal();
-                await viewDeal(linkedDeal.id);
-                scrollToLenderSendSection();
-            } else {
-                if (confirm('This application needs to be moved to the Deal Pipeline before sending to a lender. Move it now?')) {
-                    await moveToPipeline(applicationId);
-                    var { data: newDeals } = await db.from('deals').select('id').eq('application_id', applicationId).eq('is_archived', false).limit(1);
-                    if (newDeals && newDeals.length > 0) {
-                        closeApplicationModal();
-                        await viewDeal(newDeals[0].id);
-                        scrollToLenderSendSection();
-                    }
-                }
+
+            if (!linkedDeal) {
+                if (!confirm('This application needs to be moved to the Deal Pipeline before sending to a lender. Move it now?')) return;
+                await moveToPipeline(applicationId);
+                var { data: newDeals } = await db.from('deals').select('id').eq('application_id', applicationId).eq('is_archived', false).limit(1);
+                if (!newDeals || newDeals.length === 0) { alert('Could not find the new deal.'); return; }
+                linkedDeal = newDeals[0];
             }
+
+            // Close the application modal first
+            document.getElementById('applicationModal').classList.remove('active');
+
+            // Set a flag so viewDeal knows to scroll to the send section
+            window._scrollToSendToLender = true;
+
+            // Small delay to let the app modal close, then open the deal
+            setTimeout(function() {
+                viewDeal(linkedDeal.id);
+            }, 200);
+
         } catch (err) {
+            console.error('goToSendToLender error:', err);
             alert('Error: ' + err.message);
         }
     }
