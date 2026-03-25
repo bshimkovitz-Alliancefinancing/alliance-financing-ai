@@ -18549,12 +18549,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
-            // Fetch documents for this application
+            // Fetch documents for this application AND any linked deal
             const { data: appDocuments } = await db
                 .from('documents')
                 .select('*')
                 .eq('application_id', appId)
                 .order('uploaded_at', { ascending: false });
+
+            // Also fetch documents uploaded via deal document request link (have deal_id but no application_id)
+            var allAppDocuments = appDocuments || [];
+            try {
+                var { data: linkedDeals } = await db.from('deals').select('id').eq('application_id', appId);
+                if (linkedDeals && linkedDeals.length > 0) {
+                    var dealIds = linkedDeals.map(function(d) { return d.id; });
+                    var { data: dealDocs } = await db.from('documents').select('*').in('deal_id', dealIds).order('uploaded_at', { ascending: false });
+                    if (dealDocs && dealDocs.length > 0) {
+                        // Merge, avoiding duplicates (some docs may have both deal_id and application_id)
+                        var existingIds = new Set(allAppDocuments.map(function(d) { return d.id; }));
+                        dealDocs.forEach(function(dd) {
+                            if (!existingIds.has(dd.id)) allAppDocuments.push(dd);
+                        });
+                    }
+                }
+            } catch(e) { console.warn('Could not fetch deal-linked documents:', e); }
 
             // Format form type display
             const formTypeLabels = {
@@ -18752,7 +18769,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </button>
                 </div>` : ''}
                 ${fullDataHtml}
-                ${buildDocumentsHtml(appDocuments || [], null, appId)}
+                ${buildDocumentsHtml(allAppDocuments || [], null, appId)}
             `;
 
             // Store app data for lender package generation
@@ -19359,6 +19376,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         document.getElementById('applicationModal').classList.remove('active');
     }
 
+    function scrollToLenderSendSection() {
+        // Poll until the "Prepare & Send Credit Package" section appears in the DOM
+        var attempts = 0;
+        var poller = setInterval(function() {
+            var el = document.getElementById('newLenderSubId');
+            if (el) {
+                clearInterval(poller);
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            attempts++;
+            if (attempts > 30) clearInterval(poller); // give up after 6s
+        }, 200);
+    }
+
     async function goToSendToLender(applicationId) {
         try {
             // Find deals linked to this application (may be multiple — pick non-archived)
@@ -19369,27 +19400,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
             if (linkedDeal && linkedDeal.id) {
                 closeApplicationModal();
-                setTimeout(function() {
-                    viewDeal(linkedDeal.id);
-                    // Scroll to the Credit Submissions / Send Credit Package section
-                    setTimeout(function() {
-                        var sendSection = document.getElementById('newLenderSubId');
-                        if (sendSection) sendSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 600);
-                }, 300);
+                await viewDeal(linkedDeal.id);
+                scrollToLenderSendSection();
             } else {
                 if (confirm('This application needs to be moved to the Deal Pipeline before sending to a lender. Move it now?')) {
                     await moveToPipeline(applicationId);
                     var { data: newDeals } = await db.from('deals').select('id').eq('application_id', applicationId).eq('is_archived', false).limit(1);
                     if (newDeals && newDeals.length > 0) {
                         closeApplicationModal();
-                        setTimeout(function() {
-                            viewDeal(newDeals[0].id);
-                            setTimeout(function() {
-                                var sendSection = document.getElementById('newLenderSubId');
-                                if (sendSection) sendSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }, 600);
-                        }, 300);
+                        await viewDeal(newDeals[0].id);
+                        scrollToLenderSendSection();
                     }
                 }
             }
@@ -20197,15 +20217,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var bgColor = isAdmin && !doc.visible_to_agent ? '#F9FAFB' : '#F8FAFC';
                 var borderColor = isAdmin && !doc.visible_to_agent ? '#E5E7EB' : '#E2E8F0';
 
-                return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:6px;margin-bottom:8px;">' +
-                    '<div style="flex:1">' +
-                    '<div style="font-weight:600;font-size:13px;color:var(--navy);">' + doc.file_name + visBadge + '</div>' +
-                    '<div style="font-size:11px;color:#64748b;margin-top:3px;">' +
+                return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:6px;margin-bottom:8px;gap:8px;">' +
+                    '<div style="flex:1;min-width:0;overflow:hidden;">' +
+                    '<div style="font-weight:600;font-size:13px;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + doc.file_name + visBadge + '</div>' +
+                    '<div style="font-size:11px;color:#64748b;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
                     '<span style="background:#EFF6FF;color:#3B82F6;padding:1px 6px;border-radius:8px;font-weight:600;margin-right:6px;">' + typeLabel + '</span>' +
                     sizeMB + (uploaded ? ' • ' + uploaded : '') + ' • by ' + uploader +
                     (doc.notes ? ' • <em>' + doc.notes + '</em>' : '') +
                     '</div></div>' +
-                    '<div style="display:flex;gap:6px;margin-left:10px;flex-shrink:0;">' +
+                    '<div style="display:flex;gap:6px;flex-shrink:0;">' +
                     '<button onclick="downloadDocument(\'' + doc.file_path + '\', \'' + doc.file_name + '\')" style="padding:4px 10px;background:#3B82F6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Download</button>' +
                     visToggle + deleteBtn +
                     '</div></div>';
