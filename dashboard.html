@@ -21192,6 +21192,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<input type="checkbox" name="reqDoc" value="' + opt.value + '"> ' + opt.label + '</label>';
         }).join('');
 
+        // Special fillable form option — PNW sends an online form, not just an upload request
+        checkboxes += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;font-size:13px;background:#F5F3FF;padding:4px 6px;border-radius:4px;border:1px dashed #C4B5FD;">' +
+            '<input type="checkbox" name="reqDoc" value="personal_net_worth_form"> 📝 Personal Net Worth Statement <span style="font-size:10px;color:#7C3AED;font-weight:600;">(fillable form)</span></label>';
+
         return '<div style="margin-top:16px;padding:16px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="var el=document.getElementById(\'reqDocsBody\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';">' +
                 '<div style="font-weight:700;font-size:14px;color:#0C4A6E;">📧 Request Documents from Applicant</div>' +
@@ -21265,12 +21269,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 financial_statements: 'Financial Statements', equipment_quote: 'Equipment Quote / Invoice',
                 tax_return: 'Tax Returns', processing_statement: 'Processing Statements',
                 ap_ar_aging: 'AP / AR Aging Report', photo_id: 'Photo ID',
-                void_cheque: 'Void Cheque', business_license: 'Business License'
+                void_cheque: 'Void Cheque', business_license: 'Business License',
+                personal_net_worth: 'Personal Net Worth Statement',
+                personal_net_worth_form: 'Personal Net Worth Statement'
             };
+
+            // Separate PNW form request from regular upload docs
+            var includePnwForm = selectedDocs.includes('personal_net_worth_form');
+            var uploadDocs = selectedDocs.filter(function(d) { return d !== 'personal_net_worth_form'; });
 
             var docListText = selectedDocs.map(function(d) { return '  - ' + (docTypeLabels[d] || d); }).join('\n');
             var docListHtml = selectedDocs.map(function(d) {
-                return '<li style="padding:4px 0;color:#1E293B;">' + (docTypeLabels[d] || d) + '</li>';
+                return '<li style="padding:4px 0;color:#1E293B;">' + (docTypeLabels[d] || d) + (d === 'personal_net_worth_form' ? ' <span style="color:#7C3AED;font-size:12px;">(online form)</span>' : '') + '</li>';
             }).join('');
 
             // Get deal info for the email
@@ -21289,11 +21299,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">To continue processing your application, we need the following documents:</p>' +
                 '<ul style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px 12px 12px 30px;margin:15px 0;">' + docListHtml + '</ul>' +
                 (message ? '<div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:12px 15px;margin:15px 0;"><strong style="color:#92400E;">Note from our team:</strong><p style="color:#78350F;margin:5px 0 0 0;font-size:14px;">' + message + '</p></div>' : '') +
-                '<p style="font-size:14px;color:#475569;line-height:1.6;">Please click the button below to securely upload your documents:</p>' +
-                '<div style="text-align:center;margin:25px 0;">' +
-                '<a href="' + uploadUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Upload Documents</a></div>' +
-                '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + uploadUrl + '" style="color:#3B82F6;">' + uploadUrl + '</a></p>' +
-                '<p style="font-size:12px;color:#94A3B8;">This link is valid for 30 days. You can use it multiple times if you need to upload documents separately.</p>' +
+                (includePnwForm ? (
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete the following online form:</p>' +
+                    '<div style="text-align:center;margin:20px 0;">' +
+                    '<a href="' + baseUrl + '/personal-net-worth.html?deal=' + dealId + '&ref=' + (dealRef || '') + '" style="display:inline-block;background:#7C3AED;color:#ffffff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">📝 Complete Personal Net Worth Statement</a></div>'
+                ) : '') +
+                (uploadDocs.length > 0 ? (
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">' + (includePnwForm ? 'Additionally, please' : 'Please') + ' click the button below to securely upload your documents:</p>' +
+                    '<div style="text-align:center;margin:25px 0;">' +
+                    '<a href="' + uploadUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Upload Documents</a></div>' +
+                    '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + uploadUrl + '" style="color:#3B82F6;">' + uploadUrl + '</a></p>'
+                ) : (
+                    '<p style="font-size:13px;color:#64748B;">Form link: <a href="' + baseUrl + '/personal-net-worth.html?deal=' + dealId + '&ref=' + (dealRef || '') + '" style="color:#7C3AED;">' + baseUrl + '/personal-net-worth.html</a></p>'
+                )) +
+                '<p style="font-size:12px;color:#94A3B8;">Links are valid for 30 days.</p>' +
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, please don\'t hesitate to reach out.</p>' +
                 '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a> | 1-877-660-3660</p>' +
                 '</div>' +
