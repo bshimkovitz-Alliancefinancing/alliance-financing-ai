@@ -624,36 +624,56 @@ async function submitPNW() {
                 // Upload HTML to Supabase storage
                 var pnwBlob = new Blob([pnwHtml], { type: 'text/html' });
                 var storagePath = 'pnw/' + dealId + '/' + appId + '.html';
+                var uploadSuccess = false;
+                var finalPath = storagePath;
+
+                // Try primary path
                 var { error: uploadErr } = await db.storage.from('deal-documents').upload(storagePath, pnwBlob, { contentType: 'text/html', upsert: true });
 
                 if (!uploadErr) {
-                    // Create document record pointing to the uploaded HTML file
+                    uploadSuccess = true;
+                } else {
+                    console.warn('PNW upload attempt 1 failed:', uploadErr);
+                    // Retry with deals/ prefix path format
+                    var altPath = 'deals/' + dealId + '/' + appId + '.html';
+                    var { error: retryErr } = await db.storage.from('deal-documents').upload(altPath, pnwBlob, { contentType: 'text/html', upsert: true });
+                    if (!retryErr) {
+                        uploadSuccess = true;
+                        finalPath = altPath;
+                    } else {
+                        console.warn('PNW upload attempt 2 failed:', retryErr);
+                    }
+                }
+
+                var netWorthText = document.getElementById('netWorthDisplay').textContent;
+                if (uploadSuccess) {
                     await db.from('documents').insert([{
                         deal_id: dealId,
                         application_id: appData[0].id,
                         file_name: 'Personal Net Worth Statement - ' + name + '.html',
-                        file_path: storagePath,
+                        file_path: finalPath,
                         file_type: 'text/html',
                         file_size_bytes: pnwBlob.size,
                         document_type: 'personal_net_worth',
                         uploaded_by_name: name,
-                        notes: 'Personal Net Worth Statement submitted online. Net Worth: ' + document.getElementById('netWorthDisplay').textContent,
+                        notes: 'Personal Net Worth Statement submitted online. Net Worth: ' + netWorthText,
                         visible_to_agent: true
                     }]);
                 } else {
-                    console.warn('PNW upload error:', uploadErr);
-                    // Fallback: still create a document record even if upload fails
+                    console.warn('All PNW upload attempts failed. Saving record with HTML content embedded.');
+                    // Store the HTML content directly in a metadata field so the data is not lost
                     await db.from('documents').insert([{
                         deal_id: dealId,
                         application_id: appData[0].id,
                         file_name: 'Personal Net Worth Statement - ' + name + '.html',
-                        file_path: storagePath,
+                        file_path: '',
                         file_type: 'text/html',
                         file_size_bytes: pnwBlob.size,
                         document_type: 'personal_net_worth',
                         uploaded_by_name: name,
-                        notes: 'Personal Net Worth Statement submitted online. Net Worth: ' + document.getElementById('netWorthDisplay').textContent + ' (Upload may have failed)',
-                        visible_to_agent: true
+                        notes: 'Personal Net Worth Statement submitted online. Net Worth: ' + netWorthText + ' — FILE UPLOAD FAILED. Content stored below.',
+                        visible_to_agent: true,
+                        content_html: pnwHtml
                     }]);
                 }
             } catch(docErr) {

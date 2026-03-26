@@ -20412,59 +20412,63 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    async function resolveStorageUrl(filePath) {
+        // Try the primary path first
+        var { data, error } = await db.storage.from('deal-documents').createSignedUrl(filePath, 604800);
+        if (!error && data) return data.signedUrl;
+
+        // Try URL-decoded path (handles encoded characters)
+        var decodedPath = decodeURIComponent(filePath);
+        if (decodedPath !== filePath) {
+            var retry = await db.storage.from('deal-documents').createSignedUrl(decodedPath, 604800);
+            if (!retry.error && retry.data) return retry.data.signedUrl;
+        }
+
+        // Try with leading slash stripped
+        if (filePath.startsWith('/')) {
+            var stripped = await db.storage.from('deal-documents').createSignedUrl(filePath.substring(1), 604800);
+            if (!stripped.error && stripped.data) return stripped.data.signedUrl;
+        }
+
+        // Try swapping path prefix: pnw/{id}/file -> deals/{id}/file and vice versa
+        var altPath = null;
+        if (filePath.startsWith('pnw/')) {
+            altPath = 'deals/' + filePath.substring(4);
+        } else if (filePath.startsWith('deals/')) {
+            altPath = filePath.substring(6); // try without prefix
+        } else if (!filePath.startsWith('applications/') && !filePath.startsWith('agent-marketing/')) {
+            altPath = 'deals/' + filePath; // try with deals/ prefix
+        }
+        if (altPath) {
+            var alt = await db.storage.from('deal-documents').createSignedUrl(altPath, 604800);
+            if (!alt.error && alt.data) return alt.data.signedUrl;
+        }
+
+        return null;
+    }
+
     async function downloadDocument(filePath, fileName) {
         try {
-            if (!filePath) throw new Error('No file path found for this document');
-            var { data, error } = await db.storage
-                .from('deal-documents')
-                .createSignedUrl(filePath, 604800);
-            if (error) {
-                // Try URL-decoded path as fallback (handles encoded characters in storage paths)
-                var decodedPath = decodeURIComponent(filePath);
-                if (decodedPath !== filePath) {
-                    var retry = await db.storage.from('deal-documents').createSignedUrl(decodedPath, 604800);
-                    if (!retry.error && retry.data) { window.open(retry.data.signedUrl, '_blank'); return; }
-                }
-                // Try with leading slash stripped if present
-                if (filePath.startsWith('/')) {
-                    var stripped = await db.storage.from('deal-documents').createSignedUrl(filePath.substring(1), 604800);
-                    if (!stripped.error && stripped.data) { window.open(stripped.data.signedUrl, '_blank'); return; }
-                }
-                throw error;
-            }
-            window.open(data.signedUrl, '_blank');
+            if (!filePath) throw new Error('No file path found for this document. The file may not have uploaded successfully.');
+            var url = await resolveStorageUrl(filePath);
+            if (!url) throw new Error('File not found in storage. The original upload may have failed.');
+            window.open(url, '_blank');
         } catch (error) {
             console.error('Download error:', error, 'filePath:', filePath);
-            alert('Error downloading document: ' + (error.message || 'Unknown error') + '\n\nFile path: ' + filePath + '\n\nThe file may have been moved or deleted from storage.');
+            alert('Error downloading document: ' + (error.message || 'Unknown error') + (filePath ? '\n\nFile path: ' + filePath : '') + '\n\nThe file may need to be re-uploaded.');
         }
     }
 
     async function viewDocument(filePath, fileName) {
         try {
-            if (!filePath) throw new Error('No file path found for this document');
-            var { data, error } = await db.storage
-                .from('deal-documents')
-                .createSignedUrl(filePath, 604800);
-            if (error) {
-                var decodedPath = decodeURIComponent(filePath);
-                if (decodedPath !== filePath) {
-                    var retry = await db.storage.from('deal-documents').createSignedUrl(decodedPath, 604800);
-                    if (!retry.error && retry.data) { data = retry.data; error = null; }
-                }
-                if (error && filePath.startsWith('/')) {
-                    var stripped = await db.storage.from('deal-documents').createSignedUrl(filePath.substring(1), 604800);
-                    if (!stripped.error && stripped.data) { data = stripped.data; error = null; }
-                }
-                if (error) throw error;
-            }
-            // Open in a viewer modal instead of downloading
+            if (!filePath) throw new Error('No file path found for this document. The file may not have uploaded successfully.');
+            var viewerUrl = await resolveStorageUrl(filePath);
+            if (!viewerUrl) throw new Error('File not found in storage. The original upload may have failed.');
+
             var ext = (fileName || filePath || '').split('.').pop().toLowerCase();
-            var viewerUrl = data.signedUrl;
             if (['pdf'].includes(ext)) {
-                // PDFs render natively in browser
                 window.open(viewerUrl, '_blank');
             } else if (['png','jpg','jpeg','gif','bmp','webp','svg'].includes(ext)) {
-                // Show image in a modal
                 var modal = document.createElement('div');
                 modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:10001;display:flex;align-items:center;justify-content:center;cursor:pointer;';
                 modal.onclick = function() { document.body.removeChild(modal); };
@@ -20477,12 +20481,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '</div>';
                 document.body.appendChild(modal);
             } else {
-                // For other file types, open in new tab (browser will decide to render or download)
                 window.open(viewerUrl, '_blank');
             }
         } catch (error) {
             console.error('View error:', error, 'filePath:', filePath);
-            alert('Error viewing document: ' + (error.message || 'Unknown error') + '\n\nFile path: ' + filePath);
+            alert('Error viewing document: ' + (error.message || 'Unknown error') + (filePath ? '\n\nFile path: ' + filePath : '') + '\n\nThe file may need to be re-uploaded.');
         }
     }
 
