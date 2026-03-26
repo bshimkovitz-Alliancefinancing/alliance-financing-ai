@@ -4799,8 +4799,8 @@
                 }
             });
 
-            // Load dashboard
-            loadDashboard();
+            // Load dashboard (await to prevent race conditions with subsequent navigation)
+            await loadDashboard();
         } catch (error) {
             errorEl.textContent = error.message || 'Login failed';
         }
@@ -16587,9 +16587,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await loadDashboard();
                 break;
             case 'deals':
-                await loadDeals();
-                // Always load and show Applications Sent section below deals table
-                await loadApplicationsSent();
+                // Load deals and applications sent in parallel so one doesn't block the other
+                await Promise.all([
+                    loadDeals().catch(function(e) { console.error('loadDeals error:', e); }),
+                    loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
+                ]);
                 break;
             case 'applications':
                 // Redirect applications to deals
@@ -21597,7 +21599,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch(e) { console.warn('Apps out count error:', e); }
     }
 
-    async function loadApplicationsSent() {
+    async function loadApplicationsSent(retryCount) {
+        retryCount = retryCount || 0;
         const tbody = document.getElementById('applicationsSentBody');
         if (!tbody) return;
         const statusFilter = document.getElementById('appSentStatusFilter')?.value || '';
@@ -21644,7 +21647,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     query = query.eq('sent_by', currentUserName);
                 }
             }
-            const { data, error } = await query;
+            // Add timeout to prevent query from hanging indefinitely on first login
+            var queryResult = await Promise.race([
+                query,
+                new Promise(function(_, reject) { setTimeout(function() { reject(new Error('Query timed out — retrying')); }, 15000); })
+            ]);
+            var data = queryResult.data;
+            var error = queryResult.error;
             if (error) throw error;
             if (!data || data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No applications sent yet.</td></tr>';
@@ -21805,8 +21814,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<td style="white-space:nowrap;">' + viewBtnHtml + actionHtml + '</td></tr>';
             }).join('');
         } catch (err) {
-            console.error('Load applications sent error:', err);
-            tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Error loading applications.</td></tr>';
+            console.error('Load applications sent error (attempt ' + (retryCount + 1) + '):', err);
+            if (retryCount < 2) {
+                // Retry after a short delay — session may not be fully ready on first login
+                console.log('Retrying loadApplicationsSent in 2 seconds...');
+                setTimeout(function() { loadApplicationsSent(retryCount + 1); }, 2000);
+            } else {
+                tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Error loading applications. <a href="#" onclick="loadApplicationsSent();return false;" style="color:#0EA5E9;text-decoration:underline;">Retry</a></td></tr>';
+            }
         }
     }
 
@@ -30622,7 +30637,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     showPage('vendorPortal');
                     loadPageData('vendorPortal');
                 } else {
-                    loadDashboard();
+                    await loadDashboard();
                 }
                 return;
             }
