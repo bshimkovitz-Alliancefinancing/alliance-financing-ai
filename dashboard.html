@@ -1067,6 +1067,52 @@
                 </div>
 
                 <!-- Unified Inbox moved to dedicated Inbox page — dashboard uses alert cards only -->
+
+                <!-- Applications Sent Tracking (on Dashboard for admins) -->
+                <div class="table-container" id="applicationsSentSection" style="margin-top: 20px;">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
+                        <div class="table-title">Applications Sent</div>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <select id="appSentStatusFilter" onchange="loadApplicationsSent()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <option value="">Active Only</option>
+                                <option value="all">All Status</option>
+                                <option value="Sent">Sent</option>
+                                <option value="Follow-Up Needed">Follow-Up Needed</option>
+                                <option value="Returned">Returned</option>
+                                <option value="Opened">Opened</option>
+                                <option value="Expired">Expired</option>
+                                <option value="Archived">Archived</option>
+                            </select>
+                            <!-- Admin-only: filter by agent -->
+                            <select id="appSentAgentFilter" onchange="loadApplicationsSent()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; display: none;">
+                                <option value="">All Agents</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Summary Stats -->
+                    <div id="appSentSummary" style="display:none;gap:12px;padding:12px 20px;flex-wrap:wrap;"></div>
+                    <div style="overflow-x:auto;">
+                    <table style="min-width:900px;">
+                        <thead>
+                            <tr>
+                                <th>Applicant</th>
+                                <th>Email</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Sent By</th>
+                                <th>Referred By</th>
+                                <th>Sent Date</th>
+                                <th>Expires</th>
+                                <th>Follow-Up</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="applicationsSentBody">
+                            <tr><td colspan="10" class="empty-state">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
             </div>
 
             <!-- Deal Pipeline Page -->
@@ -1169,51 +1215,6 @@
                     </div><!-- close dealsContentArea -->
                 </div>
 
-                <!-- Applications Sent Tracking -->
-                <div class="table-container" id="applicationsSentSection" style="margin-top: 20px;">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Applications Sent</div>
-                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                            <select id="appSentStatusFilter" onchange="loadApplicationsSent()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                                <option value="">Active Only</option>
-                                <option value="all">All Status</option>
-                                <option value="Sent">Sent</option>
-                                <option value="Follow-Up Needed">Follow-Up Needed</option>
-                                <option value="Returned">Returned</option>
-                                <option value="Opened">Opened</option>
-                                <option value="Expired">Expired</option>
-                                <option value="Archived">Archived</option>
-                            </select>
-                            <!-- Admin-only: filter by agent -->
-                            <select id="appSentAgentFilter" onchange="loadApplicationsSent()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; display: none;">
-                                <option value="">All Agents</option>
-                            </select>
-                        </div>
-                    </div>
-                    <!-- Summary Stats -->
-                    <div id="appSentSummary" style="display:none;gap:12px;padding:12px 20px;flex-wrap:wrap;"></div>
-                    <div style="overflow-x:auto;">
-                    <table style="min-width:900px;">
-                        <thead>
-                            <tr>
-                                <th>Applicant</th>
-                                <th>Email</th>
-                                <th>Type</th>
-                                <th>Status</th>
-                                <th>Sent By</th>
-                                <th>Referred By</th>
-                                <th>Sent Date</th>
-                                <th>Expires</th>
-                                <th>Follow-Up</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="applicationsSentBody">
-                            <tr><td colspan="10" class="empty-state">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                    </div>
-                </div>
             </div>
 
             <!-- Agents Page -->
@@ -4799,8 +4800,11 @@
                 }
             });
 
-            // Load dashboard (await to prevent race conditions with subsequent navigation)
-            await loadDashboard();
+            // Load dashboard and applications sent in parallel
+            await Promise.all([
+                loadDashboard(),
+                loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
+            ]);
         } catch (error) {
             errorEl.textContent = error.message || 'Login failed';
         }
@@ -16584,7 +16588,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     async function loadPageData(pageName) {
         switch (pageName) {
             case 'dashboard':
-                await loadDashboard();
+                await Promise.all([
+                    loadDashboard().catch(function(e) { console.error('loadDashboard error:', e); }),
+                    loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
+                ]);
                 break;
             case 'deals':
                 // Load deals and applications sent in parallel so one doesn't block the other
@@ -30637,7 +30644,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     showPage('vendorPortal');
                     loadPageData('vendorPortal');
                 } else {
-                    await loadDashboard();
+                    await Promise.all([
+                        loadDashboard(),
+                        loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
+                    ]);
                 }
                 return;
             }
