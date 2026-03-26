@@ -21300,9 +21300,30 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             '</div>' +
             '<div id="reqDocsBody" style="display:none;margin-top:14px;">' +
                 '<p style="font-size:13px;color:#475569;margin-bottom:12px;">Select the documents you need and we\'ll generate an email with a secure upload link for the applicant.</p>' +
+
+                // Standard document checkboxes
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;padding:12px;background:#fff;border-radius:6px;border:1px solid #E2E8F0;">' +
                     checkboxes +
                 '</div>' +
+
+                // Custom items section — for lender info requests, syndication items, etc.
+                '<div style="margin-bottom:14px;padding:14px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:6px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+                        '<label style="font-size:13px;font-weight:600;color:#9A3412;">📋 Custom Information Requests</label>' +
+                        '<span style="font-size:11px;color:#C2410C;">For lender info requests, syndication items, etc.</span>' +
+                    '</div>' +
+                    '<div id="customReqItemsList"></div>' +
+                    '<div style="display:flex;gap:8px;margin-top:8px;">' +
+                        '<input type="text" id="customReqItemInput" placeholder="e.g., Corporate organizational chart, Insurance certificates..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();addCustomReqItem();}" style="flex:1;padding:8px 10px;border:1px solid #FDBA74;border-radius:4px;font-size:13px;font-family:Arial,sans-serif;">' +
+                        '<button type="button" onclick="addCustomReqItem()" style="padding:8px 14px;background:#EA580C;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;">+ Add</button>' +
+                    '</div>' +
+                    '<div style="margin-top:8px;display:flex;gap:6px;">' +
+                        '<button type="button" onclick="addBulkCustomReqItems()" style="padding:5px 10px;background:#fff;color:#9A3412;border:1px solid #FDBA74;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">📄 Paste Multiple Items</button>' +
+                        '<span style="font-size:11px;color:#C2410C;align-self:center;">Add items one at a time or paste a list</span>' +
+                    '</div>' +
+                '</div>' +
+
+                // Personal message
                 '<div style="margin-bottom:12px;">' +
                     '<label style="font-size:13px;font-weight:600;color:#0C4A6E;display:block;margin-bottom:6px;">Message to Applicant (optional)</label>' +
                     '<textarea id="reqDocsMessage" placeholder="e.g., Please provide your most recent 6 months of bank statements..." style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:50px;resize:vertical;font-family:Arial,sans-serif;"></textarea>' +
@@ -21316,13 +21337,59 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         '</div>';
     }
 
+    // Custom document request items management
+    var customReqItems = [];
+
+    function addCustomReqItem(itemText) {
+        var input = document.getElementById('customReqItemInput');
+        var text = itemText || (input ? input.value.trim() : '');
+        if (!text) return;
+
+        customReqItems.push(text);
+        if (input && !itemText) input.value = '';
+        renderCustomReqItems();
+    }
+
+    function removeCustomReqItem(index) {
+        customReqItems.splice(index, 1);
+        renderCustomReqItems();
+    }
+
+    function renderCustomReqItems() {
+        var container = document.getElementById('customReqItemsList');
+        if (!container) return;
+        if (customReqItems.length === 0) { container.innerHTML = ''; return; }
+
+        var html = '';
+        for (var i = 0; i < customReqItems.length; i++) {
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border:1px solid #FED7AA;border-radius:4px;margin-bottom:4px;">' +
+                '<span style="font-size:12px;color:#9A3412;font-weight:700;min-width:20px;">' + (i + 1) + '.</span>' +
+                '<span style="flex:1;font-size:13px;color:#1E293B;">' + customReqItems[i].replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>' +
+                '<button type="button" onclick="removeCustomReqItem(' + i + ')" style="background:none;border:none;color:#DC2626;cursor:pointer;font-size:16px;padding:0 4px;line-height:1;" title="Remove">✕</button>' +
+            '</div>';
+        }
+        html += '<div style="font-size:11px;color:#9A3412;margin-top:4px;font-weight:600;">' + customReqItems.length + ' custom item' + (customReqItems.length !== 1 ? 's' : '') + ' added</div>';
+        container.innerHTML = html;
+    }
+
+    function addBulkCustomReqItems() {
+        var text = prompt('Paste your list of items below.\\nEach line becomes a separate request item.\\n\\nExample:\\nCorporate organizational chart\\n3 years of audited financial statements\\nInsurance certificates\\nEquipment maintenance records');
+        if (!text) return;
+        var lines = text.split('\\n').map(function(l) { return l.replace(/^\\s*[-•\\d.]+\\s*/, '').trim(); }).filter(function(l) { return l.length > 0; });
+        for (var i = 0; i < lines.length; i++) {
+            customReqItems.push(lines[i]);
+        }
+        renderCustomReqItems();
+    }
+
     async function sendDocumentRequest(dealId) {
         var selectedDocs = Array.from(document.querySelectorAll('input[name="reqDoc"]:checked')).map(function(cb) { return cb.value; });
         var message = (document.getElementById('reqDocsMessage').value || '').trim();
         var email = (document.getElementById('reqDocsEmail').value || '').trim();
+        var customItems = (typeof customReqItems !== 'undefined') ? customReqItems.slice() : [];
 
-        if (selectedDocs.length === 0) {
-            alert('Please select at least one document type to request.');
+        if (selectedDocs.length === 0 && customItems.length === 0) {
+            alert('Please select at least one document type or add custom items to request.');
             return;
         }
 
@@ -21344,14 +21411,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var { error } = await db.from('document_requests').insert([{
                 deal_id: dealId,
                 token: token,
-                requested_documents: selectedDocs,
+                requested_documents: selectedDocs.concat(customItems.length > 0 ? ['custom_items'] : []),
                 message: message || null,
                 applicant_email: email || null,
                 requested_by: currentUserId,
                 requested_by_name: currentUserName || userEmail,
                 expires_at: expiresAt.toISOString(),
                 is_active: true,
-                upload_log: []
+                upload_log: [],
+                custom_items: customItems.length > 0 ? customItems : null
             }]);
 
             if (error) throw error;
@@ -21378,9 +21446,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var uploadDocs = selectedDocs.filter(function(d) { return d !== 'personal_net_worth_form'; });
 
             var docListText = selectedDocs.map(function(d) { return '  - ' + (docTypeLabels[d] || d); }).join('\n');
+            if (customItems.length > 0) {
+                docListText += '\n\nAdditional Information Requested:\n' + customItems.map(function(item, idx) { return '  ' + (idx + 1) + '. ' + item; }).join('\n');
+            }
             var docListHtml = selectedDocs.map(function(d) {
                 return '<li style="padding:4px 0;color:#1E293B;">' + (docTypeLabels[d] || d) + (d === 'personal_net_worth_form' ? ' <span style="color:#7C3AED;font-size:12px;">(online form)</span>' : '') + '</li>';
             }).join('');
+
+            // Build custom items HTML for the email
+            var customItemsHtml = '';
+            if (customItems.length > 0) {
+                customItemsHtml = '<div style="margin:15px 0;">' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;font-weight:600;">Additional Information Requested:</p>' +
+                    '<ol style="background:#FFF7ED;border:1px solid #FDBA74;border-radius:6px;padding:12px 12px 12px 30px;margin:8px 0;">' +
+                    customItems.map(function(item) {
+                        return '<li style="padding:4px 0;color:#1E293B;font-size:14px;">' + item.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</li>';
+                    }).join('') +
+                    '</ol></div>';
+            }
 
             // Get deal info for the email
             var { data: dealInfo } = await db.from('deals').select('company_name, deal_number, applications(application_id)').eq('id', dealId).single();
@@ -21395,15 +21478,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
                 '<p style="font-size:16px;color:#1E293B;">Hello,</p>' +
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your application with Alliance Financing Group' + (dealRef ? ' (Ref: <strong>' + dealRef + '</strong>)' : '') + '.</p>' +
-                '<p style="font-size:14px;color:#475569;line-height:1.6;">To continue processing your application, we need the following documents:</p>' +
-                '<ul style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px 12px 12px 30px;margin:15px 0;">' + docListHtml + '</ul>' +
+                (selectedDocs.length > 0 ? (
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">To continue processing your application, we need the following documents:</p>' +
+                    '<ul style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px 12px 12px 30px;margin:15px 0;">' + docListHtml + '</ul>'
+                ) : (
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">To continue processing your application, we require the following information:</p>'
+                )) +
+                customItemsHtml +
                 (message ? '<div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:12px 15px;margin:15px 0;"><strong style="color:#92400E;">Note from our team:</strong><p style="color:#78350F;margin:5px 0 0 0;font-size:14px;">' + message + '</p></div>' : '') +
                 (includePnwForm ? (
                     '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete the following online form:</p>' +
                     '<div style="text-align:center;margin:20px 0;">' +
                     '<a href="' + baseUrl + '/personal-net-worth.html?deal=' + dealId + '&ref=' + (dealRef || '') + '" style="display:inline-block;background:#7C3AED;color:#ffffff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">📝 Complete Personal Net Worth Statement</a></div>'
                 ) : '') +
-                (uploadDocs.length > 0 ? (
+                ((uploadDocs.length > 0 || customItems.length > 0) ? (
                     '<p style="font-size:14px;color:#475569;line-height:1.6;">' + (includePnwForm ? 'Additionally, please' : 'Please') + ' click the button below to securely upload your documents:</p>' +
                     '<div style="text-align:center;margin:25px 0;">' +
                     '<a href="' + uploadUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Upload Documents</a></div>' +
@@ -21424,8 +21512,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             try { notes = deal.notes ? JSON.parse(deal.notes) : []; } catch(e) { notes = []; }
             var now = new Date();
             var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var noteItems = selectedDocs.map(function(d) { return docTypeLabels[d] || d; });
+            if (customItems.length > 0) noteItems.push(customItems.length + ' custom item' + (customItems.length !== 1 ? 's' : ''));
             notes.push({
-                text: '📧 Document request sent' + (email ? ' to ' + email : '') + '. Requested: ' + selectedDocs.map(function(d) { return docTypeLabels[d] || d; }).join(', ') + '.',
+                text: '📧 Document request sent' + (email ? ' to ' + email : '') + '. Requested: ' + noteItems.join(', ') + '.',
                 author: currentUserName || userEmail,
                 date: dateStr,
                 visible_to_agent: true
@@ -21459,6 +21549,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             btn.textContent = '✓ Link Generated';
             btn.style.background = '#10B981';
+
+            // Clear custom items after successful send
+            customReqItems = [];
 
             // Refresh deal view
             setTimeout(function() { viewDeal(dealId); }, 1500);
