@@ -21288,9 +21288,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             { value: 'ap_ar_aging', label: 'AP / AR Aging Report' },
             { value: 'photo_id', label: 'Photo ID' },
             { value: 'void_cheque', label: 'Void Cheque' },
-            { value: 'business_license', label: 'Business License' },
-            { value: 'lender_info_response', label: 'Lender Information Request Response' },
-            { value: 'syndication_package', label: 'Syndication Package' }
+            { value: 'business_license', label: 'Business License' }
         ];
 
         var checkboxes = docOptions.map(function(opt) {
@@ -21332,14 +21330,37 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '</div>' +
                 '</div>' +
 
-                // Personal message
-                '<div style="margin-bottom:12px;">' +
-                    '<label style="font-size:13px;font-weight:600;color:#0C4A6E;display:block;margin-bottom:6px;">Message to Applicant (optional)</label>' +
-                    '<textarea id="reqDocsMessage" placeholder="e.g., Please provide your most recent 6 months of bank statements..." style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:50px;resize:vertical;font-family:Arial,sans-serif;"></textarea>' +
+                // Email Message Type Toggle
+                '<div style="margin-bottom:14px;">' +
+                    '<label style="font-size:13px;font-weight:600;color:#0C4A6E;display:block;margin-bottom:8px;">Email Message</label>' +
+                    '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
+                        '<button type="button" id="reqMsgTypeCanned" onclick="document.getElementById(\'reqDocsCustomMessage\').style.display=\'none\';document.getElementById(\'reqDocsCannedPreview\').style.display=\'block\';this.style.background=\'#0D1E3D\';this.style.color=\'white\';document.getElementById(\'reqMsgTypeCustom\').style.background=\'#F1F5F9\';document.getElementById(\'reqMsgTypeCustom\').style.color=\'#475569\';document.getElementById(\'reqDocsMessageType\').value=\'canned\';" style="padding:6px 14px;background:#0D1E3D;color:white;border:1px solid #CBD5E1;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Standard Request</button>' +
+                        '<button type="button" id="reqMsgTypeCustom" onclick="document.getElementById(\'reqDocsCustomMessage\').style.display=\'block\';document.getElementById(\'reqDocsCannedPreview\').style.display=\'none\';this.style.background=\'#0D1E3D\';this.style.color=\'white\';document.getElementById(\'reqMsgTypeCanned\').style.background=\'#F1F5F9\';document.getElementById(\'reqMsgTypeCanned\').style.color=\'#475569\';document.getElementById(\'reqDocsMessageType\').value=\'custom\';" style="padding:6px 14px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Custom Message</button>' +
+                    '</div>' +
+                    '<input type="hidden" id="reqDocsMessageType" value="canned">' +
+                    '<div id="reqDocsCannedPreview" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px;font-size:12px;color:#64748B;line-height:1.5;">' +
+                        '<em>Auto-generated email will include:</em><br>' +
+                        '• Alliance Financing branded header<br>' +
+                        '• List of selected documents & custom items<br>' +
+                        '• Secure upload link (valid 30 days)<br>' +
+                        '• Your contact information' +
+                    '</div>' +
+                    '<div id="reqDocsCustomMessage" style="display:none;">' +
+                        '<textarea id="reqDocsMessage" placeholder="Write your personalized message here. This will replace the standard email body.&#10;&#10;Example:&#10;Hi [Name],&#10;&#10;As part of our syndication process, we require the following information and documents. Please upload them using the secure link below at your earliest convenience.&#10;&#10;Thank you for your prompt attention to this matter." style="width:100%;padding:10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:120px;resize:vertical;font-family:Arial,sans-serif;line-height:1.5;"></textarea>' +
+                        '<p style="font-size:11px;color:#64748B;margin-top:4px;">Your message will be wrapped in Alliance branding with the upload link appended automatically.</p>' +
+                    '</div>' +
                 '</div>' +
-                '<div style="margin-bottom:12px;">' +
-                    '<label style="font-size:13px;font-weight:600;color:#0C4A6E;display:block;margin-bottom:6px;">Applicant Email</label>' +
-                    '<input type="email" id="reqDocsEmail" placeholder="applicant@email.com" value="' + applicantEmail + '" style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
+
+                // Applicant Email + CC
+                '<div class="modal-row" style="display:flex;gap:12px;margin-bottom:12px;">' +
+                    '<div style="flex:1;">' +
+                        '<label style="font-size:13px;font-weight:600;color:#0C4A6E;display:block;margin-bottom:6px;">Applicant Email</label>' +
+                        '<input type="email" id="reqDocsEmail" placeholder="applicant@email.com" value="' + applicantEmail + '" style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
+                    '</div>' +
+                    '<div style="flex:1;">' +
+                        '<label style="font-size:13px;font-weight:600;color:#0C4A6E;display:block;margin-bottom:6px;">CC <span style="font-size:11px;color:#94A3B8;font-weight:400;">(optional — comma-separated)</span></label>' +
+                        '<input type="text" id="reqDocsCC" placeholder="e.g. lee@alliancefinancing.com, analyst@email.com" style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
+                    '</div>' +
                 '</div>' +
                 '<button id="reqDocsBtn" onclick="sendDocumentRequest(\'' + dealId + '\')" style="padding:8px 20px;background:#0EA5E9;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s;">📧 Generate Upload Link & Email</button>' +
             '</div>' +
@@ -21393,12 +21414,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function sendDocumentRequest(dealId) {
         var selectedDocs = Array.from(document.querySelectorAll('input[name="reqDoc"]:checked')).map(function(cb) { return cb.value; });
-        var message = (document.getElementById('reqDocsMessage').value || '').trim();
+        var messageType = (document.getElementById('reqDocsMessageType') || {}).value || 'canned';
+        var message = (document.getElementById('reqDocsMessage') ? document.getElementById('reqDocsMessage').value : '').trim();
         var email = (document.getElementById('reqDocsEmail').value || '').trim();
+        var ccRaw = (document.getElementById('reqDocsCC') ? document.getElementById('reqDocsCC').value : '').trim();
+        var ccEmails = ccRaw ? ccRaw.split(',').map(function(e) { return e.trim(); }).filter(function(e) { return e.length > 0; }) : [];
         var customItems = (typeof customReqItems !== 'undefined') ? customReqItems.slice() : [];
 
         if (selectedDocs.length === 0 && customItems.length === 0) {
             alert('Please select at least one document type or add custom items to request.');
+            return;
+        }
+
+        if (messageType === 'custom' && !message) {
+            alert('Please enter your custom message or switch back to Standard Request.');
             return;
         }
 
@@ -21480,21 +21509,38 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             var emailSubject = 'Document Request ' + (dealRef ? '(Ref: ' + dealRef + ') ' : '') + '- Alliance Financing';
 
+            // Build custom message body (replace paragraphs with <br> for email)
+            var customMessageHtml = '';
+            if (messageType === 'custom' && message) {
+                customMessageHtml = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+            }
+
             var htmlBody =
                 '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
                 '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
                 '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
                 '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
-                '<p style="font-size:16px;color:#1E293B;">Hello,</p>' +
-                '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your application with Alliance Financing Group' + (dealRef ? ' (Ref: <strong>' + dealRef + '</strong>)' : '') + '.</p>' +
-                (selectedDocs.length > 0 ? (
-                    '<p style="font-size:14px;color:#475569;line-height:1.6;">To continue processing your application, we need the following documents:</p>' +
-                    '<ul style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px 12px 12px 30px;margin:15px 0;">' + docListHtml + '</ul>'
+                (messageType === 'custom' ? (
+                    // Custom message — user's personalized text replaces the standard body
+                    '<div style="font-size:14px;color:#1E293B;line-height:1.7;">' + customMessageHtml + '</div>' +
+                    (selectedDocs.length > 0 ? (
+                        '<div style="margin-top:20px;">' +
+                        '<p style="font-size:14px;color:#475569;line-height:1.6;font-weight:600;">Documents Requested:</p>' +
+                        '<ul style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px 12px 12px 30px;margin:8px 0;">' + docListHtml + '</ul></div>'
+                    ) : '') +
+                    customItemsHtml
                 ) : (
-                    '<p style="font-size:14px;color:#475569;line-height:1.6;">To continue processing your application, we require the following information:</p>'
+                    // Standard canned message
+                    '<p style="font-size:16px;color:#1E293B;">Hello,</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">Thank you for your application with Alliance Financing Group' + (dealRef ? ' (Ref: <strong>' + dealRef + '</strong>)' : '') + '.</p>' +
+                    (selectedDocs.length > 0 ? (
+                        '<p style="font-size:14px;color:#475569;line-height:1.6;">To continue processing your application, we need the following documents:</p>' +
+                        '<ul style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px 12px 12px 30px;margin:15px 0;">' + docListHtml + '</ul>'
+                    ) : (
+                        '<p style="font-size:14px;color:#475569;line-height:1.6;">To continue processing your application, we require the following information:</p>'
+                    )) +
+                    customItemsHtml
                 )) +
-                customItemsHtml +
-                (message ? '<div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:12px 15px;margin:15px 0;"><strong style="color:#92400E;">Note from our team:</strong><p style="color:#78350F;margin:5px 0 0 0;font-size:14px;">' + message + '</p></div>' : '') +
                 (includePnwForm ? (
                     '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete the following online form:</p>' +
                     '<div style="text-align:center;margin:20px 0;">' +
@@ -21523,8 +21569,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             var noteItems = selectedDocs.map(function(d) { return docTypeLabels[d] || d; });
             if (customItems.length > 0) noteItems.push(customItems.length + ' custom item' + (customItems.length !== 1 ? 's' : ''));
+            var noteText = '📧 Document request sent' + (email ? ' to ' + email : '');
+            if (ccEmails.length > 0) noteText += ' (CC: ' + ccEmails.join(', ') + ')';
+            noteText += '. ' + (messageType === 'custom' ? 'Custom message. ' : '') + 'Requested: ' + noteItems.join(', ') + '.';
             notes.push({
-                text: '📧 Document request sent' + (email ? ' to ' + email : '') + '. Requested: ' + noteItems.join(', ') + '.',
+                text: noteText,
                 author: currentUserName || userEmail,
                 date: dateStr,
                 visible_to_agent: true
@@ -21535,13 +21584,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var emailSent = false;
             if (email) {
                 try {
-                    await sendEmailViaResend(email, emailSubject, htmlBody);
+                    await sendEmailViaResend(email, emailSubject, htmlBody, null, null, ccEmails.length > 0 ? ccEmails : undefined);
                     emailSent = true;
                 } catch (emailErr) {
                     console.error('Resend error, falling back to mailto:', emailErr);
                     var subject = encodeURIComponent(emailSubject);
-                    var body = encodeURIComponent('Hello,\n\nWe need the following documents:\n\n' + docListText + '\n\nUpload here: ' + uploadUrl + '\n\nBest regards,\nAlliance Financing Group');
-                    window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
+                    var mailtoBody = messageType === 'custom' ? message : 'Hello,\n\nWe need the following documents:\n\n' + docListText;
+                    var body = encodeURIComponent(mailtoBody + '\n\nUpload here: ' + uploadUrl + '\n\nBest regards,\nAlliance Financing Group');
+                    var ccParam = ccEmails.length > 0 ? '&cc=' + ccEmails.join(',') : '';
+                    window.open('mailto:' + email + '?subject=' + subject + ccParam + '&body=' + body);
                 }
             }
 
