@@ -4700,8 +4700,16 @@
     function toggleTestMode(enabled) {
         isTestMode = enabled;
         updateTestModeUI();
-        // Reload all visible data with new filter
-        refreshCurrentPage();
+        // In test mode, reset vendor/agent status filters so archived/declined test records show
+        if (isTestMode) {
+            var vendorStatusFilter = document.getElementById('vendorStatusFilter');
+            if (vendorStatusFilter) vendorStatusFilter.value = '__all';
+        } else {
+            var vendorStatusFilter = document.getElementById('vendorStatusFilter');
+            if (vendorStatusFilter) vendorStatusFilter.value = '';
+        }
+        // Reload current page data directly (skip auth refresh to preserve state)
+        loadPageData(currentPage || 'dashboard');
     }
 
     function updateTestModeUI() {
@@ -32353,6 +32361,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
                 document.getElementById('currentUser').textContent = displayName + ' (' + roleLabel + ')';
                 applyRoleAccess();
+                // Show Test Mode toggle for super_admin on auto-login
+                if (currentUserRole === 'super_admin') {
+                    document.getElementById('testModeToggle').style.display = 'inline-block';
+                    updateTestModeUI();
+                }
                 // Route vendor users to vendor portal (but not admin users)
                 if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !['super_admin', 'admin'].includes(currentUserRole)) {
                     showPage('vendorPortal');
