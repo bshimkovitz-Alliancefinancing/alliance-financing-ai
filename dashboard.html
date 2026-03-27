@@ -886,7 +886,8 @@
                 <span>Website Inquiries</span>
                 <span id="inboxNavBadge" class="inbox-count-badge" style="display:none;"></span>
             </div>
-            <div class="nav-item" id="documentsNav" onclick="showPage('documents')">
+            <!-- Documents nav hidden — documents accessible within each deal -->
+            <div class="nav-item" id="documentsNav" onclick="showPage('documents')" style="display:none;">
                 <span class="nav-icon">📁</span>
                 <span>Documents</span>
             </div>
@@ -970,19 +971,10 @@
                         <div id="notifEmpty" style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">No new notifications</div>
                     </div>
                 </div>
-                <span id="testModeToggle" style="display:none;margin-right:12px;">
-                    <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:12px;font-weight:600;transition:all 0.2s;" id="testModeLabel">
-                        <input type="checkbox" id="testModeCheckbox" onchange="toggleTestMode(this.checked)" style="cursor:pointer;width:14px;height:14px;">
-                        <span id="testModeText">🧪 Test Mode</span>
-                    </label>
-                </span>
                 <span id="currentUser" style="color: var(--text-light); font-size: 14px;"></span>
             </div>
         </div>
 
-        <div id="testModeBanner" style="display:none;background:#FEE2E2;border:1px solid #FECACA;border-radius:6px;padding:8px 16px;margin:0 20px 12px 20px;text-align:center;font-size:13px;font-weight:600;color:#DC2626;">
-            🧪 TEST MODE ACTIVE — Showing test records only. Production data is hidden.
-        </div>
         <div class="content-area">
 
             <!-- Stats & Reports Page -->
@@ -4693,80 +4685,6 @@
     let currentSendAppRef = null;   // tracks ref context for Send Application modal
 
     // ============================================
-    // Test Mode
-    // ============================================
-    let isTestMode = false;
-
-    function toggleTestMode(enabled) {
-        isTestMode = enabled;
-        updateTestModeUI();
-        // In test mode, reset vendor/agent status filters so archived/declined test records show
-        if (isTestMode) {
-            var vendorStatusFilter = document.getElementById('vendorStatusFilter');
-            if (vendorStatusFilter) vendorStatusFilter.value = '__all';
-        } else {
-            var vendorStatusFilter = document.getElementById('vendorStatusFilter');
-            if (vendorStatusFilter) vendorStatusFilter.value = '';
-        }
-        // Reload current page data directly (skip auth refresh to preserve state)
-        loadPageData(currentPage || 'dashboard');
-    }
-
-    function updateTestModeUI() {
-        var label = document.getElementById('testModeLabel');
-        var text = document.getElementById('testModeText');
-        var checkbox = document.getElementById('testModeCheckbox');
-        if (!label) return;
-        if (isTestMode) {
-            label.style.background = '#FEE2E2';
-            label.style.color = '#DC2626';
-            label.style.border = '1px solid #FECACA';
-            text.textContent = '🧪 TEST MODE';
-        } else {
-            label.style.background = '#F1F5F9';
-            label.style.color = '#64748B';
-            label.style.border = '1px solid #E2E8F0';
-            text.textContent = '🧪 Test Mode';
-        }
-        checkbox.checked = isTestMode;
-
-        // Show/hide the global test mode banner
-        var banner = document.getElementById('testModeBanner');
-        if (banner) banner.style.display = isTestMode ? 'block' : 'none';
-    }
-
-    // Filter helper: strips test records from an array unless Test Mode is on
-    function filterTestRecords(arr) {
-        if (isTestMode) return arr.filter(r => r.is_test === true);
-        return arr.filter(r => r.is_test !== true);
-    }
-
-    // Returns HTML for a "Mark as Test" toggle badge (super_admin only)
-    function getTestBadgeHtml(entityTable, entityId, isTest) {
-        if (currentUserRole !== 'super_admin') return '';
-        var checked = isTest ? 'checked' : '';
-        var style = isTest
-            ? 'background:#FEE2E2;color:#DC2626;border:1px solid #FECACA;'
-            : 'background:#F1F5F9;color:#94A3B8;border:1px solid #E2E8F0;';
-        return '<label style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;cursor:pointer;' + style + '">' +
-            '<input type="checkbox" ' + checked + ' onchange="toggleEntityTest(\'' + entityTable + '\', \'' + entityId + '\', this.checked)" style="cursor:pointer;width:12px;height:12px;">' +
-            '🧪 Test' +
-            '</label>';
-    }
-
-    async function toggleEntityTest(table, id, isTest) {
-        try {
-            var { error } = await db.from(table).update({ is_test: isTest }).eq('id', id);
-            if (error) throw error;
-            // Visual feedback
-            showToast(isTest ? 'Marked as test record' : 'Unmarked as test record', isTest ? 'warning' : 'success');
-        } catch(err) {
-            console.error('Toggle test error:', err);
-            alert('Failed to update test flag: ' + err.message);
-        }
-    }
-
-    // ============================================
     // Utility Functions
     // ============================================
 
@@ -4906,12 +4824,6 @@
                 roleLabel = getAgentTypeLabel(currentAgentType);
             }
             document.getElementById('currentUser').textContent = `${displayName} (${roleLabel})`;
-
-            // Show Test Mode toggle for super_admin only
-            if (currentUserRole === 'super_admin') {
-                document.getElementById('testModeToggle').style.display = 'inline-block';
-                updateTestModeUI();
-            }
 
             // Apply role-based access
             applyRoleAccess();
@@ -13126,7 +13038,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
             const { data: allApps, error: appError } = await appQuery;
 
-            const applications = filterTestRecords(allApps || []);
+            const applications = (allApps || []);
 
             // Load lenders
             const { data: lenders, error: lendersError } = await db
@@ -13353,11 +13265,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var alerts = [];
 
             // 1. Stale deals (no activity in 7+ days, still active)
-            var { data: staleDeals } = await db.from('deals').select('id, contact_name, status, updated_at, is_test')
+            var { data: staleDeals } = await db.from('deals').select('id, contact_name, status, updated_at')
                 .not('status', 'in', '(Funded,Declined,Withdrawn,Closed,Lost)')
                 .order('updated_at', { ascending: true }).limit(50);
             if (staleDeals) {
-                staleDeals = filterTestRecords(staleDeals);
                 var sevenDaysAgo = Date.now() - 7 * 86400000;
                 var stale = staleDeals.filter(function(d) { return d.updated_at && new Date(d.updated_at).getTime() < sevenDaysAgo; });
                 if (stale.length > 0) {
@@ -13379,8 +13290,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             // 4. Agents with Invited or Pending status (not yet active)
-            var { data: pendingAgents } = await db.from('users').select('id, is_test').eq('role', 'agent').in('agent_status', ['Invited', 'Pending']);
-            pendingAgents = filterTestRecords(pendingAgents || []);
+            var { data: pendingAgents } = await db.from('users').select('id').eq('role', 'agent').in('agent_status', ['Invited', 'Pending']);
+            pendingAgents = (pendingAgents || []);
             if (pendingAgents.length > 0) {
                 alerts.push({ icon: '👥', color: '#0D9488', bg: '#F0FDFA', border: '#99F6E4', label: 'Pending Agents', count: pendingAgents.length, detail: 'Invited or pending, not yet active', onclick: "document.getElementById('agentStatusFilter').value='Pending';showPage('agents');setTimeout(function(){renderAgentsTable();},300);" });
             }
@@ -13419,8 +13330,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var todayStr = today.toISOString().split('T')[0];
 
                 // Check agents notes for follow-ups
-                var { data: agentsWithNotes } = await db.from('users').select('id, full_name, notes, is_test').eq('role', 'agent').not('notes', 'is', null);
-                filterTestRecords(agentsWithNotes || []).forEach(function(a) {
+                var { data: agentsWithNotes } = await db.from('users').select('id, full_name, notes').eq('role', 'agent').not('notes', 'is', null);
+                (agentsWithNotes || []).forEach(function(a) {
                     try {
                         var notes = JSON.parse(a.notes || '[]');
                         notes.forEach(function(n, nIdx) {
@@ -13436,8 +13347,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 });
 
                 // Check vendors admin_notes for follow-ups
-                var { data: vendorsWithNotes } = await db.from('vendors').select('id, name, admin_notes, is_test').not('admin_notes', 'is', null);
-                filterTestRecords(vendorsWithNotes || []).forEach(function(v) {
+                var { data: vendorsWithNotes } = await db.from('vendors').select('id, name, admin_notes').not('admin_notes', 'is', null);
+                (vendorsWithNotes || []).forEach(function(v) {
                     try {
                         var notes = JSON.parse(v.admin_notes || '[]');
                         notes.forEach(function(n, nIdx) {
@@ -13453,8 +13364,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 });
 
                 // Check lenders admin_notes for follow-ups
-                var { data: lendersWithNotes } = await db.from('lenders').select('id, name, admin_notes, is_test').not('admin_notes', 'is', null);
-                filterTestRecords(lendersWithNotes || []).forEach(function(l) {
+                var { data: lendersWithNotes } = await db.from('lenders').select('id, name, admin_notes').not('admin_notes', 'is', null);
+                (lendersWithNotes || []).forEach(function(l) {
                     try {
                         var notes = JSON.parse(l.admin_notes || '[]');
                         notes.forEach(function(n, nIdx) {
@@ -13470,8 +13381,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 });
 
                 // Check clients admin_notes for follow-ups
-                var { data: clientsWithNotes } = await db.from('clients').select('id, company_name, admin_notes, is_test').not('admin_notes', 'is', null);
-                filterTestRecords(clientsWithNotes || []).forEach(function(c) {
+                var { data: clientsWithNotes } = await db.from('clients').select('id, company_name, admin_notes').not('admin_notes', 'is', null);
+                (clientsWithNotes || []).forEach(function(c) {
                     try {
                         var notes = JSON.parse(c.admin_notes || '[]');
                         notes.forEach(function(n, nIdx) {
@@ -13513,9 +13424,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             // 9. Credit Responses (applications with credit decision pending review)
-            var { data: creditResponses } = await db.from('applications').select('id, is_test')
+            var { data: creditResponses } = await db.from('applications').select('id')
                 .in('status', ['Credit Approved', 'Credit Declined', 'Conditional Approval']).limit(50);
-            creditResponses = filterTestRecords(creditResponses || []);
+            creditResponses = (creditResponses || []);
             if (creditResponses.length > 0) {
                 alerts.push({ icon: '💳', color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC', label: 'Credit Responses', count: creditResponses.length, detail: 'Decisions ready for review', onclick: "showPage('deals')" });
             }
@@ -13929,7 +13840,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
-            allDeals = filterTestRecords(data || []);
+            allDeals = (data || []);
             // Resolve assigned_to names for display
             var tmMap = {};
             cachedTeamMembers.forEach(function(t) { tmMap[t.id] = t.full_name; });
@@ -14717,7 +14628,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 .order('full_name', { ascending: true });
 
             if (error) throw error;
-            allAgentsData = filterTestRecords(data || []);
+            allAgentsData = (data || []);
 
             // Update summary counts
             const counts = { super_agent: 0, referring_agent: 0, syndication_desk: 0, vendor_program: 0, mortgage_broker: 0, mortgage_agent: 0 };
@@ -14748,7 +14659,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
-            allLenders = filterTestRecords(data || []);
+            allLenders = (data || []);
             renderLendersTable(allLenders);
         } catch (error) {
             console.error('Load lenders error:', error);
@@ -14972,7 +14883,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
-            allVendors = filterTestRecords(data || []);
+            allVendors = (data || []);
             filterVendors();
         } catch (error) {
             console.error('Load vendors error:', error);
@@ -17465,7 +17376,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: #F8FAFC; border-radius: 8px;">
                     <div>
                         <span style="font-size: 13px; color: #64748b;">Deal #</span>
-                        <div style="font-size: 18px; font-weight: 700; color: var(--navy); font-family: 'SF Mono','Cascadia Code','Consolas',monospace; letter-spacing: 0.5px;">${deal.deal_number || 'N/A'} ${getTestBadgeHtml('deals', dealId, deal.is_test)}</div>
+                        <div style="font-size: 18px; font-weight: 700; color: var(--navy); font-family: 'SF Mono','Cascadia Code','Consolas',monospace; letter-spacing: 0.5px;">${deal.deal_number || 'N/A'}</div>
                         ${deal.applications?.application_id ? '<div style="font-size:12px;color:#6B7280;font-family:SF Mono,Consolas,monospace;margin-top:2px;">AF: ' + deal.applications.application_id + '</div>' : ''}
                     </div>
                     <div>
@@ -19383,7 +19294,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             const modalBody = document.getElementById('applicationModalBody');
             modalBody.innerHTML = `
-                <div style="margin-bottom:10px;">${getTestBadgeHtml('applications', appId, app.is_test)}</div>
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Application ID</label>
@@ -25650,7 +25560,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             document.getElementById('agentDetailTitle').textContent = agent.full_name || 'Agent Details';
             const modalBody = document.getElementById('agentModalBody');
             modalBody.innerHTML = `
-                <div style="margin-bottom: 16px;">${getAgentTypeBadge(agent.agent_type || 'referring_agent')} ${agent.onboarding_status === 'invited' ? '<span style="display:inline-block;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:6px;">⏳ Invite Pending</span>' : agent.onboarding_status === 'pending_setup' ? '<span style="display:inline-block;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:6px;">📋 Pending Setup</span>' : ''} ${agent.company_name ? '<span style="color:var(--text-light);font-size:13px;margin-left:8px;">' + agent.company_name + '</span>' : ''} ${getTestBadgeHtml('users', agentId, agent.is_test)}</div>
+                <div style="margin-bottom: 16px;">${getAgentTypeBadge(agent.agent_type || 'referring_agent')} ${agent.onboarding_status === 'invited' ? '<span style="display:inline-block;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:6px;">⏳ Invite Pending</span>' : agent.onboarding_status === 'pending_setup' ? '<span style="display:inline-block;background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:6px;">📋 Pending Setup</span>' : ''} ${agent.company_name ? '<span style="color:var(--text-light);font-size:13px;margin-left:8px;">' + agent.company_name + '</span>' : ''}</div>
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Full Name</label>
@@ -27649,7 +27559,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             document.getElementById('vendorDetailTitle').textContent = (vendor.vendor_code ? vendor.vendor_code + ' — ' : '') + (vendor.name || 'Vendor Details');
 
             modalBody.innerHTML = `
-                <div style="margin-bottom:10px;">${getTestBadgeHtml('vendors', vendorId, vendor.is_test)}</div>
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Name</label>
@@ -29225,7 +29134,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const dealCounts = {};
             (dealLinks || []).forEach(d => { dealCounts[d.client_id] = (dealCounts[d.client_id] || 0) + 1; });
 
-            let clientList = filterTestRecords((data || []).map(c => ({ ...c, deals_count: dealCounts[c.id] || 0 })));
+            let clientList = (data || []).map(c => ({ ...c, deals_count: dealCounts[c.id] || 0 }));
 
             // Filter to agent's clients only
             if (agentClientIds) {
@@ -29681,7 +29590,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (isAdmin) {
                 // ADMIN VIEW — full editable form
                 modalBody.innerHTML = `
-                <div style="margin-bottom:10px;">${getTestBadgeHtml('clients', clientId, client.is_test)}</div>
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Company Name</label>
@@ -30792,7 +30700,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             document.getElementById('lenderDetailTitle').textContent = lender.name || 'Lender Details';
 
             modalBody.innerHTML = `
-                <div style="margin-bottom:10px;">${getTestBadgeHtml('lenders', lenderId, lender.is_test)}</div>
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Name</label>
@@ -32367,11 +32274,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
                 document.getElementById('currentUser').textContent = displayName + ' (' + roleLabel + ')';
                 applyRoleAccess();
-                // Show Test Mode toggle for super_admin on auto-login
-                if (currentUserRole === 'super_admin') {
-                    document.getElementById('testModeToggle').style.display = 'inline-block';
-                    updateTestModeUI();
-                }
                 // Route vendor users to vendor portal (but not admin users)
                 if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !['super_admin', 'admin'].includes(currentUserRole)) {
                     showPage('vendorPortal');
