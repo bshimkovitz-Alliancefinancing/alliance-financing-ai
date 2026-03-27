@@ -24305,6 +24305,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var apps = appResult.data || [];
             const contacts = contactResult.data || [];
 
+            // Filter out document submissions tied to existing deals (referral_slug starts with 'deal-')
+            // These are responses to "Request Documents from Applicant" — not new inbound applications
+            apps = apps.filter(function(a) {
+                return !a.referral_slug || !a.referral_slug.startsWith('deal-');
+            });
+
             // Auto-clean: if any applications already have a deal in the pipeline, mark them as 'Moved to Pipeline'
             if (apps.length > 0) {
                 var appIds = apps.map(function(a) { return a.id; });
