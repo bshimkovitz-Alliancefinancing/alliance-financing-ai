@@ -28794,9 +28794,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                     <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${statusColor}; color: white;">${contactStatus}</span>
                                 </div>
                                 <div style="font-size: 13px; color: var(--text-light); margin-top: 4px;">
-                                    ${c.email ? `<div>Email: <a href="mailto:${c.email}">${c.email}</a></div>` : ''}
-                                    ${c.phone ? `<div>Phone: ${c.phone}</div>` : ''}
+                                    ${c.title ? `<div style="font-weight:500;color:#475569;">Title: ${c.title}</div>` : ''}
                                     ${c.role_title ? `<div>Role: ${c.role_title}</div>` : ''}
+                                    ${c.email ? `<div>Email: <a href="mailto:${c.email}">${c.email}</a></div>` : ''}
+                                    ${c.cell_phone ? `<div>Cell: ${c.cell_phone}</div>` : (c.phone ? `<div>Phone: ${c.phone}</div>` : '')}
+                                    ${c.office_phone ? `<div>Office: ${c.office_phone}</div>` : ''}
+                                    ${c.whatsapp ? `<div>WhatsApp: ${c.whatsapp}</div>` : ''}
+                                    ${c.linkedin ? '<div>LinkedIn: <a href="' + (c.linkedin.startsWith('http') ? c.linkedin : 'https://' + c.linkedin) + '" target="_blank" style="color:#0A66C2;">' + c.linkedin.replace(/^https?:\/\//, '').substring(0, 40) + '</a></div>' : ''}
                                 </div>
                             </div>
                             ${isAdmin ? `<div style="display: flex; gap: 4px;">
@@ -29184,21 +29188,34 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     function openAddClientContactForm(clientId) {
         const html = `
-            <div style="background: white; padding: 12px; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 10px;">
+            <div style="background: white; padding: 14px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 10px;">
+                <div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #E2E8F0;">New Contact Person</div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                    <input type="text" id="newContactName_${clientId}" placeholder="Name" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                    <input type="email" id="newContactEmail_${clientId}" placeholder="Email" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    <input type="text" id="newContactName_${clientId}" placeholder="Full Name *" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    <input type="text" id="newContactTitle_${clientId}" placeholder="Title (e.g. CEO, CFO, VP Sales)" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                    <input type="text" id="newContactPhone_${clientId}" placeholder="Phone" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    <input type="email" id="newContactEmail_${clientId}" placeholder="Email" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
                     <select id="newContactRole_${clientId}" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
                         <option value="">Select Role</option>
-                        <option value="Admin">Admin</option>
+                        <option value="Decision Maker">Decision Maker</option>
+                        <option value="Owner">Owner</option>
+                        <option value="Guarantor">Guarantor</option>
                         <option value="Accounting">Accounting</option>
                         <option value="Operations">Operations</option>
-                        <option value="Owner">Owner</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Authorized Signatory">Authorized Signatory</option>
+                        <option value="Primary Contact">Primary Contact</option>
                         <option value="Other">Other</option>
                     </select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <input type="text" id="newContactCell_${clientId}" placeholder="Cell Phone" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    <input type="text" id="newContactOffice_${clientId}" placeholder="Office Phone" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                    <input type="text" id="newContactWhatsapp_${clientId}" placeholder="WhatsApp" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                    <input type="text" id="newContactLinkedin_${clientId}" placeholder="LinkedIn URL" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button onclick="addClientContact('${clientId}')" style="padding: 6px 12px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">Save Contact</button>
@@ -29224,14 +29241,40 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
 
         try {
-            const { error } = await db.from('client_contact_persons').insert({
+            const cellPhone = document.getElementById('newContactCell_' + clientId)?.value.trim() || null;
+            const officePhone = document.getElementById('newContactOffice_' + clientId)?.value.trim() || null;
+            // Use cell as primary phone if available, otherwise office
+            const primaryPhone = cellPhone || officePhone || null;
+
+            const insertObj = {
                 client_id: clientId,
                 full_name: name,
+                title: document.getElementById('newContactTitle_' + clientId)?.value.trim() || null,
                 email: document.getElementById('newContactEmail_' + clientId).value.trim() || null,
-                phone: document.getElementById('newContactPhone_' + clientId).value.trim() || null,
+                phone: primaryPhone,
+                cell_phone: cellPhone,
+                office_phone: officePhone,
+                whatsapp: document.getElementById('newContactWhatsapp_' + clientId)?.value.trim() || null,
+                linkedin: document.getElementById('newContactLinkedin_' + clientId)?.value.trim() || null,
                 role_title: document.getElementById('newContactRole_' + clientId).value || null,
                 status: 'Active'
-            });
+            };
+
+            let { error } = await db.from('client_contact_persons').insert(insertObj);
+
+            // If new columns don't exist yet, retry with only base fields
+            if (error && error.message && (error.message.includes('title') || error.message.includes('cell_phone') || error.message.includes('office_phone') || error.message.includes('whatsapp') || error.message.includes('linkedin'))) {
+                console.warn('Some contact columns missing, retrying with base fields:', error.message);
+                var retry = await db.from('client_contact_persons').insert({
+                    client_id: clientId,
+                    full_name: name,
+                    email: document.getElementById('newContactEmail_' + clientId).value.trim() || null,
+                    phone: primaryPhone,
+                    role_title: document.getElementById('newContactRole_' + clientId).value || null,
+                    status: 'Active'
+                });
+                error = retry.error;
+            }
 
             if (error) throw error;
 
