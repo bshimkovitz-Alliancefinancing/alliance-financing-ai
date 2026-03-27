@@ -1113,6 +1113,23 @@
                     </table>
                     </div>
                 </div>
+
+                <!-- Follow-up Reminders Detail Panel -->
+                <div id="followUpDetailPanel" style="display:none;margin-top:20px;">
+                    <div class="table-container" style="border-radius:12px;overflow:hidden;">
+                        <div style="padding:16px 20px;background:linear-gradient(135deg,#FEF2F2,#FFFBEB);border-bottom:1px solid #FDE68A;display:flex;justify-content:space-between;align-items:center;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span style="font-size:20px;">⏰</span>
+                                <div>
+                                    <h3 style="margin:0;font-size:16px;font-weight:700;color:#0D1E3D;" id="followUpPanelTitle">Follow-up Reminders</h3>
+                                    <p style="margin:2px 0 0;font-size:12px;color:#64748B;">Review and resolve pending follow-ups across all entities</p>
+                                </div>
+                            </div>
+                            <button onclick="document.getElementById('followUpDetailPanel').style.display='none'" style="padding:6px 14px;background:white;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">✕ Close</button>
+                        </div>
+                        <div id="followUpDetailBody" style="padding:12px 20px;max-height:500px;overflow-y:auto;"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Deal Pipeline Page -->
@@ -4676,14 +4693,16 @@
         var now = new Date();
         var diff = now - d;
         var mins = Math.floor(diff / 60000);
-        if (mins < 1) return 'Just now';
-        if (mins < 60) return mins + 'm ago';
+        if (mins < 1) return '<span style="color:#10B981;font-weight:600;">Just now</span>';
+        if (mins < 60) return '<span style="color:#10B981;font-weight:600;">' + mins + 'm ago</span>';
         var hours = Math.floor(mins / 60);
-        if (hours < 24) return hours + 'h ago';
+        if (hours < 24) return '<span style="color:#10B981;font-weight:600;">' + hours + 'h ago</span>';
         var days = Math.floor(hours / 24);
-        if (days < 7) return days + 'd ago';
-        if (days < 30) return Math.floor(days / 7) + 'w ago';
-        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (days < 7) return '<span style="color:#10B981;font-weight:600;">' + days + 'd ago</span>';
+        if (days < 14) return '<span style="color:#22C55E;">' + Math.floor(days / 7) + 'w ago</span>';
+        if (days < 30) return '<span style="color:#F59E0B;font-weight:600;">' + Math.floor(days / 7) + 'w ago</span>';
+        if (days < 60) return '<span style="color:#EF4444;font-weight:600;">' + Math.floor(days / 30) + 'mo ago</span>';
+        return '<span style="color:#DC2626;font-weight:600;">' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>';
     }
 
     // ============================================
@@ -13313,12 +13332,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 (agentsWithNotes || []).forEach(function(a) {
                     try {
                         var notes = JSON.parse(a.notes || '[]');
-                        notes.forEach(function(n) {
+                        notes.forEach(function(n, nIdx) {
                             if (n.followup_date) {
                                 var fDate = new Date(n.followup_date);
                                 fDate.setHours(0, 0, 0, 0);
                                 if (fDate <= today) {
-                                    followUpAlerts.push({ entity: 'Agent', name: a.full_name || 'Unknown', date: n.followup_date, isOverdue: fDate < today, entityType: 'agents', id: a.id });
+                                    followUpAlerts.push({ entity: 'Agent', name: a.full_name || 'Unknown', date: n.followup_date, isOverdue: fDate < today, entityType: 'agents', id: a.id, noteText: n.text || '', noteIdx: nIdx, noteReason: n.followup_reason || '' });
                                 }
                             }
                         });
@@ -13330,12 +13349,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 (vendorsWithNotes || []).forEach(function(v) {
                     try {
                         var notes = JSON.parse(v.admin_notes || '[]');
-                        notes.forEach(function(n) {
+                        notes.forEach(function(n, nIdx) {
                             if (n.followup_date) {
                                 var fDate = new Date(n.followup_date);
                                 fDate.setHours(0, 0, 0, 0);
                                 if (fDate <= today) {
-                                    followUpAlerts.push({ entity: 'Vendor', name: v.name || 'Unknown', date: n.followup_date, isOverdue: fDate < today, entityType: 'vendors', id: v.id });
+                                    followUpAlerts.push({ entity: 'Vendor', name: v.name || 'Unknown', date: n.followup_date, isOverdue: fDate < today, entityType: 'vendors', id: v.id, noteText: n.text || '', noteIdx: nIdx, noteReason: n.followup_reason || '' });
                                 }
                             }
                         });
@@ -13347,12 +13366,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 (lendersWithNotes || []).forEach(function(l) {
                     try {
                         var notes = JSON.parse(l.admin_notes || '[]');
-                        notes.forEach(function(n) {
+                        notes.forEach(function(n, nIdx) {
                             if (n.followup_date) {
                                 var fDate = new Date(n.followup_date);
                                 fDate.setHours(0, 0, 0, 0);
                                 if (fDate <= today) {
-                                    followUpAlerts.push({ entity: 'Lender', name: l.name || 'Unknown', date: n.followup_date, isOverdue: fDate < today, entityType: 'lenders', id: l.id });
+                                    followUpAlerts.push({ entity: 'Lender', name: l.name || 'Unknown', date: n.followup_date, isOverdue: fDate < today, entityType: 'lenders', id: l.id, noteText: n.text || '', noteIdx: nIdx, noteReason: n.followup_reason || '' });
                                 }
                             }
                         });
@@ -13364,12 +13383,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 (clientsWithNotes || []).forEach(function(c) {
                     try {
                         var notes = JSON.parse(c.admin_notes || '[]');
-                        notes.forEach(function(n) {
+                        notes.forEach(function(n, nIdx) {
                             if (n.followup_date) {
                                 var fDate = new Date(n.followup_date);
                                 fDate.setHours(0, 0, 0, 0);
                                 if (fDate <= today) {
-                                    followUpAlerts.push({ entity: 'Client', name: c.company_name || 'Unknown', date: n.followup_date, isOverdue: fDate < today, entityType: 'clients', id: c.id });
+                                    followUpAlerts.push({ entity: 'Client', name: c.company_name || 'Unknown', date: n.followup_date, isOverdue: fDate < today, entityType: 'clients', id: c.id, noteText: n.text || '', noteIdx: nIdx, noteReason: n.followup_reason || '' });
                                 }
                             }
                         });
@@ -13379,15 +13398,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var overdueComms = followUpAlerts.filter(function(f) { return f.isOverdue; });
                 var dueTodayComms = followUpAlerts.filter(function(f) { return !f.isOverdue; });
 
+                // Store globally so the detail panel can use it
+                window._followUpAlerts = followUpAlerts;
+
                 if (overdueComms.length > 0) {
                     var detail = overdueComms.slice(0, 3).map(function(f) { return f.entity + ': ' + f.name; }).join(', ');
                     if (overdueComms.length > 3) detail += ' +' + (overdueComms.length - 3) + ' more';
-                    alerts.push({ icon: '🔴', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', label: 'Overdue Comms Follow-ups', count: overdueComms.length, detail: detail, onclick: "showPage('clients')" });
+                    alerts.push({ icon: '🔴', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', label: 'Overdue Comms Follow-ups', count: overdueComms.length, detail: detail, onclick: "showFollowUpPanel('overdue')" });
                 }
                 if (dueTodayComms.length > 0) {
                     var detail2 = dueTodayComms.slice(0, 3).map(function(f) { return f.entity + ': ' + f.name; }).join(', ');
                     if (dueTodayComms.length > 3) detail2 += ' +' + (dueTodayComms.length - 3) + ' more';
-                    alerts.push({ icon: '📅', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', label: 'Follow-ups Due Today', count: dueTodayComms.length, detail: detail2, onclick: "showPage('clients')" });
+                    alerts.push({ icon: '📅', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', label: 'Follow-ups Due Today', count: dueTodayComms.length, detail: detail2, onclick: "showFollowUpPanel('today')" });
                 }
             } catch(fuErr) {
                 console.error('Follow-up alerts error:', fuErr);
@@ -13431,6 +13453,210 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }).join('');
         } catch (e) {
             console.error('Dashboard alerts error:', e);
+        }
+    }
+
+    function showFollowUpPanel(filter) {
+        var panel = document.getElementById('followUpDetailPanel');
+        var body = document.getElementById('followUpDetailBody');
+        var title = document.getElementById('followUpPanelTitle');
+        if (!panel || !body) return;
+
+        var items = window._followUpAlerts || [];
+        if (filter === 'overdue') {
+            items = items.filter(function(f) { return f.isOverdue; });
+            if (title) title.textContent = 'Overdue Follow-up Reminders';
+        } else if (filter === 'today') {
+            items = items.filter(function(f) { return !f.isOverdue; });
+            if (title) title.textContent = 'Follow-ups Due Today';
+        }
+
+        if (items.length === 0) {
+            body.innerHTML = '<p style="color:#64748B;font-size:14px;text-align:center;padding:20px;">No follow-up reminders found.</p>';
+            panel.style.display = 'block';
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+
+        var entityIcons = { Agent: '👤', Vendor: '🏭', Lender: '🏦', Client: '🏢' };
+        var viewFunctions = { agents: 'viewAgent', vendors: 'viewVendor', lenders: 'viewLender', clients: 'viewClient' };
+
+        body.innerHTML = items.map(function(item, idx) {
+            var icon = entityIcons[item.entity] || '📋';
+            var fDate = new Date(item.date);
+            var daysOverdue = item.isOverdue ? Math.floor((new Date() - fDate) / 86400000) : 0;
+            var urgencyColor = daysOverdue > 7 ? '#DC2626' : daysOverdue > 3 ? '#F59E0B' : '#D97706';
+            var urgencyLabel = item.isOverdue ? (daysOverdue + ' day' + (daysOverdue !== 1 ? 's' : '') + ' overdue') : 'Due today';
+            var viewFn = viewFunctions[item.entityType] || 'viewClient';
+            var notePreview = item.noteText ? (item.noteText.length > 80 ? item.noteText.substring(0, 80) + '...' : item.noteText) : '';
+
+            return '<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid #F1F5F9;" id="followUpRow_' + idx + '">' +
+                '<div style="font-size:24px;flex-shrink:0;">' + icon + '</div>' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+                        '<span style="font-weight:600;color:var(--navy);font-size:14px;">' + (item.name || 'Unknown') + '</span>' +
+                        '<span style="padding:2px 8px;border-radius:4px;background:#F1F5F9;color:#64748B;font-size:11px;font-weight:600;">' + item.entity + '</span>' +
+                        '<span style="padding:2px 8px;border-radius:4px;background:' + urgencyColor + '15;color:' + urgencyColor + ';font-size:11px;font-weight:600;">⏰ ' + urgencyLabel + '</span>' +
+                    '</div>' +
+                    (item.noteReason ? '<div style="font-size:12px;color:#475569;margin-top:3px;font-weight:500;">📋 ' + item.noteReason.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' : '') +
+                    (notePreview ? '<div style="font-size:11px;color:#94A3B8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + notePreview.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' : '') +
+                    '<div style="font-size:11px;color:#94A3B8;margin-top:2px;">Follow-up date: ' + fDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + '</div>' +
+                '</div>' +
+                '<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">' +
+                    '<button onclick="' + viewFn + '(\'' + item.id + '\')" style="padding:6px 12px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'0.85\'" onmouseout="this.style.opacity=\'1\'">View</button>' +
+                    '<button onclick="snoozeFollowUp(\'' + item.entityType + '\', \'' + item.id + '\', \'' + item.date + '\', 1, ' + idx + ')" style="padding:6px 10px;background:#F59E0B;color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'0.85\'" onmouseout="this.style.opacity=\'1\'" title="Snooze 1 day">+1d</button>' +
+                    '<button onclick="snoozeFollowUp(\'' + item.entityType + '\', \'' + item.id + '\', \'' + item.date + '\', 3, ' + idx + ')" style="padding:6px 10px;background:#D97706;color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'0.85\'" onmouseout="this.style.opacity=\'1\'" title="Snooze 3 days">+3d</button>' +
+                    '<button onclick="markFollowUpReviewed(\'' + item.entityType + '\', \'' + item.id + '\', \'' + item.date + '\', ' + idx + ')" style="padding:6px 12px;background:#10B981;color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'0.85\'" onmouseout="this.style.opacity=\'1\'">✓ Done</button>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        panel.style.display = 'block';
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function snoozeFollowUp(entityType, entityId, followupDate, days, rowIdx) {
+        try {
+            var table, field;
+            if (entityType === 'agents') { table = 'users'; field = 'notes'; }
+            else if (entityType === 'vendors') { table = 'vendors'; field = 'admin_notes'; }
+            else if (entityType === 'lenders') { table = 'lenders'; field = 'admin_notes'; }
+            else { table = 'clients'; field = 'admin_notes'; }
+
+            var { data: record } = await db.from(table).select(field).eq('id', entityId).single();
+            if (!record) { alert('Record not found.'); return; }
+
+            var notes = [];
+            try { notes = JSON.parse(record[field] || '[]'); } catch(e) { notes = []; }
+
+            var newDate = new Date();
+            newDate.setDate(newDate.getDate() + days);
+            var newDateStr = newDate.toISOString().split('T')[0];
+
+            var found = false;
+            notes.forEach(function(n) {
+                if (n.followup_date === followupDate && !found) {
+                    n.followup_date = newDateStr;
+                    found = true;
+                }
+            });
+
+            var updateObj = {};
+            updateObj[field] = JSON.stringify(notes);
+            await db.from(table).update(updateObj).eq('id', entityId);
+
+            // Fade out the row
+            var row = document.getElementById('followUpRow_' + rowIdx);
+            if (row) {
+                row.style.transition = 'opacity 0.3s, transform 0.3s';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(function() { row.style.display = 'none'; }, 300);
+            }
+
+            // Remove from global list
+            if (window._followUpAlerts) {
+                window._followUpAlerts = window._followUpAlerts.filter(function(f) {
+                    return !(f.entityType === entityType && f.id === entityId && f.date === followupDate);
+                });
+            }
+
+            // Check if panel is now empty
+            setTimeout(function() {
+                var remaining = document.querySelectorAll('#followUpDetailBody > div[id^="followUpRow_"]');
+                var visibleCount = 0;
+                remaining.forEach(function(r) { if (r.style.display !== 'none') visibleCount++; });
+                if (visibleCount === 0) {
+                    document.getElementById('followUpDetailBody').innerHTML = '<p style="color:#10B981;font-size:14px;text-align:center;padding:20px;font-weight:600;">✓ All follow-ups handled! Refreshing alerts...</p>';
+                    setTimeout(function() {
+                        document.getElementById('followUpDetailPanel').style.display = 'none';
+                        loadDashboardAlerts();
+                    }, 1500);
+                }
+            }, 400);
+
+            showToast('Snoozed ' + days + ' day' + (days > 1 ? 's' : '') + ' — rescheduled to ' + newDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        } catch(err) {
+            console.error('Snooze follow-up error:', err);
+            alert('Error snoozing follow-up: ' + err.message);
+        }
+    }
+
+    async function markFollowUpReviewed(entityType, entityId, followupDate, rowIdx) {
+        try {
+            // Determine table and field
+            var table, field;
+            if (entityType === 'agents') { table = 'users'; field = 'notes'; }
+            else if (entityType === 'vendors') { table = 'vendors'; field = 'admin_notes'; }
+            else if (entityType === 'lenders') { table = 'lenders'; field = 'admin_notes'; }
+            else { table = 'clients'; field = 'admin_notes'; }
+
+            // Fetch current notes
+            var { data: record } = await db.from(table).select(field).eq('id', entityId).single();
+            if (!record) { alert('Record not found.'); return; }
+
+            var notes = [];
+            try { notes = JSON.parse(record[field] || '[]'); } catch(e) { notes = []; }
+
+            // Find and clear the matching follow-up date
+            var found = false;
+            notes.forEach(function(n) {
+                if (n.followup_date === followupDate && !found) {
+                    n.followup_date = null;
+                    found = true;
+                }
+            });
+
+            if (!found) {
+                // If exact match not found, clear any overdue/today follow-ups for this entity
+                var today = new Date(); today.setHours(0, 0, 0, 0);
+                notes.forEach(function(n) {
+                    if (n.followup_date) {
+                        var fd = new Date(n.followup_date); fd.setHours(0, 0, 0, 0);
+                        if (fd <= today) { n.followup_date = null; found = true; }
+                    }
+                });
+            }
+
+            // Save back
+            var updateObj = {};
+            updateObj[field] = JSON.stringify(notes);
+            await db.from(table).update(updateObj).eq('id', entityId);
+
+            // Fade out the row
+            var row = document.getElementById('followUpRow_' + rowIdx);
+            if (row) {
+                row.style.transition = 'opacity 0.3s, transform 0.3s';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(function() { row.style.display = 'none'; }, 300);
+            }
+
+            // Remove from global list
+            if (window._followUpAlerts) {
+                window._followUpAlerts = window._followUpAlerts.filter(function(f) {
+                    return !(f.entityType === entityType && f.id === entityId && f.date === followupDate);
+                });
+            }
+
+            // Check if panel is now empty
+            setTimeout(function() {
+                var remaining = document.querySelectorAll('#followUpDetailBody > div[id^="followUpRow_"]');
+                var visibleCount = 0;
+                remaining.forEach(function(r) { if (r.style.display !== 'none') visibleCount++; });
+                if (visibleCount === 0) {
+                    document.getElementById('followUpDetailBody').innerHTML = '<p style="color:#10B981;font-size:14px;text-align:center;padding:20px;font-weight:600;">✓ All follow-ups reviewed! Refreshing alerts...</p>';
+                    setTimeout(function() {
+                        document.getElementById('followUpDetailPanel').style.display = 'none';
+                        loadDashboardAlerts();
+                    }, 1500);
+                }
+            }, 400);
+
+            showToast('Follow-up marked as reviewed');
+        } catch(err) {
+            console.error('Mark follow-up reviewed error:', err);
+            alert('Error clearing follow-up: ' + err.message);
         }
     }
 
@@ -25545,6 +25771,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         </select>
                     </div>
                     <textarea id="entityComposeBody_agent_${agentId}" placeholder="Type your message..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
+                    <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+                        <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;font-size:11px;color:#475569;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#E2E8F0'" onmouseout="this.style.background='#F1F5F9'">
+                            📎 Attach File
+                            <input type="file" id="entityComposeFile_agent_${agentId}" style="display:none;" onchange="handleEntityFileSelect(this, 'agent', '${agentId}')">
+                        </label>
+                        <span id="entityComposeFileName_agent_${agentId}" style="font-size:11px;color:#64748B;"></span>
+                    </div>
                     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                         <div style="display:flex;gap:12px;flex-wrap:wrap;">
                             <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;">
@@ -25557,6 +25790,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 <input type="checkbox" id="entityComposeFollowup_agent_${agentId}"> Follow-up
                             </label>
                             <input type="date" id="entityComposeFollowupDate_agent_${agentId}" style="display:none;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+                            <input type="text" id="entityComposeFollowupReason_agent_${agentId}" placeholder="Reason for follow-up..." style="display:none;padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:180px;">
                         </div>
                         <div style="display:flex;gap:6px;">
                             <button onclick="document.getElementById('entityComposeForm_agent_${agentId}').style.display='none'" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Cancel</button>
@@ -25819,6 +26053,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var fuColor = isOverdue ? '#DC2626' : isDueToday ? '#D97706' : '#2563EB';
                 var fuLabel = isOverdue ? 'Overdue' : isDueToday ? 'Due Today' : 'Follow-up: ' + fDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 followupBadge = '<span style="background:' + fuColor + '15;color:' + fuColor + ';padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:4px;">⏰ ' + fuLabel + '</span>';
+                if (n.followup_reason) {
+                    followupBadge += '<span style="background:#F1F5F9;color:#475569;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:3px;">📋 ' + n.followup_reason + '</span>';
+                }
             }
 
             var emailMeta = '';
@@ -25830,12 +26067,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 emailMeta += '</div>';
             }
 
+            var attachmentHtml = '';
+            if (n.attachment) {
+                attachmentHtml = '<div style="margin-top:6px;"><a href="' + n.attachment.url + '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:4px;font-size:11px;color:#2563EB;text-decoration:none;font-weight:500;transition:background 0.2s;" onmouseover="this.style.background=\'#DBEAFE\'" onmouseout="this.style.background=\'#EFF6FF\'">📎 ' + n.attachment.name + ' <span style="color:#94A3B8;">(' + (n.attachment.size / 1048576).toFixed(1) + ' MB)</span></a></div>';
+            }
+
             return '<div style="background:' + bgColor + ';border-left:3px solid ' + borderColor + ';padding:10px 12px;margin-bottom:8px;border-radius:0 4px 4px 0;">' +
                 '<div style="font-size:12px;color:var(--text-light);margin-bottom:4px;">' +
                 '<span style="margin-right:4px;">' + icon + '</span>' +
                 '<strong>' + (n.author || 'Admin') + '</strong> — ' + (n.date || 'N/A') + ' ' + badge + categoryBadge + pinBadge + followupBadge +
                 '</div>' +
                 emailMeta +
+                attachmentHtml +
                 '<div style="font-size:14px;color:var(--text-dark);white-space:pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
                 '</div>';
         }).join('');
@@ -25864,6 +26107,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (followupCheck) {
             followupCheck.onchange = function() {
                 if (followupDate) followupDate.style.display = this.checked ? 'inline-block' : 'none';
+                var reasonInput = document.getElementById('entityComposeFollowupReason_' + key);
+                if (reasonInput) reasonInput.style.display = this.checked ? 'inline-block' : 'none';
             };
         }
 
@@ -25875,6 +26120,53 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (emailFields) emailFields.style.display = 'none';
             if (header) header.textContent = 'Internal Note';
             if (sendBtn) sendBtn.textContent = 'Add Note';
+        }
+    }
+
+    function handleEntityFileSelect(input, entityType, entityId) {
+        var file = input.files[0];
+        var nameSpan = document.getElementById('entityComposeFileName_' + entityType + '_' + entityId);
+        if (file && nameSpan) {
+            var sizeMB = (file.size / 1048576).toFixed(1);
+            nameSpan.innerHTML = file.name + ' <span style="color:#94A3B8;">(' + sizeMB + ' MB)</span> <span onclick="clearEntityFile(\'' + entityType + '\', \'' + entityId + '\')" style="color:#EF4444;cursor:pointer;font-weight:600;" title="Remove">✕</span>';
+        }
+    }
+
+    function handleClientFileSelect(input, clientId) {
+        var file = input.files[0];
+        var nameSpan = document.getElementById('clientComposeFileName_' + clientId);
+        if (file && nameSpan) {
+            var sizeMB = (file.size / 1048576).toFixed(1);
+            nameSpan.innerHTML = file.name + ' <span style="color:#94A3B8;">(' + sizeMB + ' MB)</span> <span onclick="clearClientFile(\'' + clientId + '\')" style="color:#EF4444;cursor:pointer;font-weight:600;" title="Remove">✕</span>';
+        }
+    }
+
+    function clearEntityFile(entityType, entityId) {
+        var input = document.getElementById('entityComposeFile_' + entityType + '_' + entityId);
+        var nameSpan = document.getElementById('entityComposeFileName_' + entityType + '_' + entityId);
+        if (input) input.value = '';
+        if (nameSpan) nameSpan.innerHTML = '';
+    }
+
+    function clearClientFile(clientId) {
+        var input = document.getElementById('clientComposeFile_' + clientId);
+        var nameSpan = document.getElementById('clientComposeFileName_' + clientId);
+        if (input) input.value = '';
+        if (nameSpan) nameSpan.innerHTML = '';
+    }
+
+    async function uploadCommFile(file, entityType, entityId) {
+        try {
+            var timestamp = Date.now();
+            var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            var path = 'comms/' + entityType + '/' + entityId + '/' + timestamp + '_' + safeName;
+            var { data, error } = await db.storage.from('deal-documents').upload(path, file);
+            if (error) throw error;
+            var { data: urlData } = db.storage.from('deal-documents').getPublicUrl(path);
+            return { name: file.name, url: urlData.publicUrl, size: file.size, path: path };
+        } catch(err) {
+            console.error('File upload error:', err);
+            throw err;
         }
     }
 
@@ -25904,7 +26196,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 is_audit_log: false,
                 category: categorySelect ? categorySelect.value : 'General',
                 pinned: pinCheck ? pinCheck.checked : false,
-                followup_date: (followupCheck && followupCheck.checked && followupDate && followupDate.value) ? followupDate.value : null
+                followup_date: (followupCheck && followupCheck.checked && followupDate && followupDate.value) ? followupDate.value : null,
+                followup_reason: (followupCheck && followupCheck.checked) ? (document.getElementById('entityComposeFollowupReason_' + key) || {}).value || '' : ''
             };
 
             // Handle email sending
@@ -25950,6 +26243,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 table = 'clients'; field = 'admin_notes'; idField = 'id';
             } else {
                 table = 'website_contacts'; field = 'admin_notes'; idField = 'id';
+            }
+
+            // Handle file attachment
+            var fileInput = document.getElementById('entityComposeFile_' + key);
+            if (fileInput && fileInput.files[0]) {
+                try {
+                    var fileData = await uploadCommFile(fileInput.files[0], entityType, entityId);
+                    newEntry.attachment = fileData;
+                } catch(uploadErr) {
+                    alert('File upload failed: ' + uploadErr.message);
+                    return;
+                }
             }
 
             // Fetch current notes
@@ -27573,12 +27878,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 </select>
                             </div>
                             <textarea id="entityComposeBody_vendor_${vendorId}" placeholder="Type your message..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
+                            <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+                                <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;font-size:11px;color:#475569;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#E2E8F0'" onmouseout="this.style.background='#F1F5F9'">
+                                    📎 Attach File
+                                    <input type="file" id="entityComposeFile_vendor_${vendorId}" style="display:none;" onchange="handleEntityFileSelect(this, 'vendor', '${vendorId}')">
+                                </label>
+                                <span id="entityComposeFileName_vendor_${vendorId}" style="font-size:11px;color:#64748B;"></span>
+                            </div>
                             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
                                     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;"><input type="checkbox" id="entityComposeVisible_vendor_${vendorId}" checked> Visible to Agent</label>
                                     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;"><input type="checkbox" id="entityComposePin_vendor_${vendorId}"> 📌 Pin</label>
                                     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;"><input type="checkbox" id="entityComposeFollowup_vendor_${vendorId}"> Follow-up</label>
                                     <input type="date" id="entityComposeFollowupDate_vendor_${vendorId}" style="display:none;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+                                    <input type="text" id="entityComposeFollowupReason_vendor_${vendorId}" placeholder="Reason for follow-up..." style="display:none;padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:180px;">
                                 </div>
                                 <div style="display:flex;gap:6px;">
                                     <button onclick="document.getElementById('entityComposeForm_vendor_${vendorId}').style.display='none'" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Cancel</button>
@@ -29539,6 +29852,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                         <textarea id="clientComposeBody_${clientId}" placeholder="Type your message..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
 
+                        <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+                            <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;font-size:11px;color:#475569;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#E2E8F0'" onmouseout="this.style.background='#F1F5F9'">
+                                📎 Attach File
+                                <input type="file" id="clientComposeFile_${clientId}" style="display:none;" onchange="handleClientFileSelect(this, '${clientId}')">
+                            </label>
+                            <span id="clientComposeFileName_${clientId}" style="font-size:11px;color:#64748B;"></span>
+                        </div>
+
                         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                             <div style="display:flex;gap:12px;flex-wrap:wrap;">
                                 <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;">
@@ -29548,9 +29869,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                     <input type="checkbox" id="clientComposePin_${clientId}"> 📌 Pin
                                 </label>
                                 <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;">
-                                    <input type="checkbox" id="clientComposeFollowup_${clientId}" onchange="document.getElementById('clientComposeFollowupDate_${clientId}').style.display=this.checked?'inline-block':'none'"> Follow-up
+                                    <input type="checkbox" id="clientComposeFollowup_${clientId}" onchange="document.getElementById('clientComposeFollowupDate_${clientId}').style.display=this.checked?'inline-block':'none';document.getElementById('clientComposeFollowupReason_${clientId}').style.display=this.checked?'inline-block':'none'"> Follow-up
                                 </label>
                                 <input type="date" id="clientComposeFollowupDate_${clientId}" style="display:none;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+                                <input type="text" id="clientComposeFollowupReason_${clientId}" placeholder="Reason for follow-up..." style="display:none;padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:180px;">
                             </div>
                             <div style="display:flex;gap:6px;">
                                 <button onclick="document.getElementById('clientComposeForm_${clientId}').style.display='none'" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Cancel</button>
@@ -30049,7 +30371,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 is_audit_log: false,
                 category: categorySelect ? categorySelect.value : 'General',
                 pinned: pinCheck ? pinCheck.checked : false,
-                followup_date: (followupCheck && followupCheck.checked && followupDateInput && followupDateInput.value) ? followupDateInput.value : null
+                followup_date: (followupCheck && followupCheck.checked && followupDateInput && followupDateInput.value) ? followupDateInput.value : null,
+                followup_reason: (followupCheck && followupCheck.checked) ? (document.getElementById('clientComposeFollowupReason_' + clientId) || {}).value || '' : ''
             };
 
             // Handle email sending
@@ -30106,6 +30429,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 newEntry.email_subject = subject;
 
                 showToast('Email sent successfully!');
+            }
+
+            // Handle file attachment
+            var clientFileInput = document.getElementById('clientComposeFile_' + clientId);
+            if (clientFileInput && clientFileInput.files[0]) {
+                try {
+                    var fileData = await uploadCommFile(clientFileInput.files[0], 'client', clientId);
+                    newEntry.attachment = fileData;
+                } catch(uploadErr) {
+                    alert('File upload failed: ' + uploadErr.message);
+                    return;
+                }
             }
 
             // Save to admin_notes JSON
@@ -30616,11 +30951,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 </select>
                             </div>
                             <textarea id="entityComposeBody_lender_${lenderId}" placeholder="Type your message..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
+                            <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+                                <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;font-size:11px;color:#475569;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#E2E8F0'" onmouseout="this.style.background='#F1F5F9'">
+                                    📎 Attach File
+                                    <input type="file" id="entityComposeFile_lender_${lenderId}" style="display:none;" onchange="handleEntityFileSelect(this, 'lender', '${lenderId}')">
+                                </label>
+                                <span id="entityComposeFileName_lender_${lenderId}" style="font-size:11px;color:#64748B;"></span>
+                            </div>
                             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
                                     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;"><input type="checkbox" id="entityComposePin_lender_${lenderId}"> 📌 Pin</label>
                                     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;"><input type="checkbox" id="entityComposeFollowup_lender_${lenderId}"> Follow-up</label>
                                     <input type="date" id="entityComposeFollowupDate_lender_${lenderId}" style="display:none;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+                                    <input type="text" id="entityComposeFollowupReason_lender_${lenderId}" placeholder="Reason for follow-up..." style="display:none;padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:180px;">
                                 </div>
                                 <div style="display:flex;gap:6px;">
                                     <button onclick="document.getElementById('entityComposeForm_lender_${lenderId}').style.display='none'" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Cancel</button>
