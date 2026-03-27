@@ -4350,8 +4350,26 @@
             <div class="modal-row">
                 <div class="modal-field">
                     <label>Country</label>
-                    <input type="text" id="addClientCountry" placeholder="Country" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                    <select id="addClientCountry" onchange="updateAddClientProvinceState()" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                        <option value="">Select Country</option>
+                        <option value="Canada">Canada</option>
+                        <option value="United States">United States</option>
+                        <option value="United Kingdom">United Kingdom</option>
+                        <option value="Australia">Australia</option>
+                        <option value="Mexico">Mexico</option>
+                        <option value="Other">Other</option>
+                    </select>
                 </div>
+                <div class="modal-field">
+                    <label>Province / State</label>
+                    <div id="addClientProvinceStateContainer">
+                        <select id="addClientProvinceState" disabled style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;background:#f8fafc;">
+                            <option value="">Select country first</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-row">
                 <div class="modal-field">
                     <label>Status</label>
                     <select id="addClientStatus" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
@@ -4360,16 +4378,31 @@
                         <option value="Prospect">Prospect</option>
                     </select>
                 </div>
-            </div>
-            <div class="modal-row">
                 <div class="modal-field">
                     <label>Phone</label>
                     <input type="text" id="addClientPhone" placeholder="Phone number" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
                 </div>
+            </div>
+            <div class="modal-row">
                 <div class="modal-field">
                     <label>Website</label>
                     <input type="text" id="addClientWebsite" placeholder="www.example.com" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
                 </div>
+                <div class="modal-field">
+                    <label>Source Agent</label>
+                    <select id="addClientSourceAgent" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                        <option value="">None</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-row">
+                <div class="modal-field">
+                    <label>Source ISO / Vendor</label>
+                    <select id="addClientSourceVendor" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                        <option value="">None</option>
+                    </select>
+                </div>
+                <div class="modal-field"></div>
             </div>
         </div>
         <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding:15px 20px;border-top:1px solid #e2e8f0;">
@@ -28481,6 +28514,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         document.getElementById('addClientStatus').value = 'Active';
         document.getElementById('addClientPhone').value = '';
         document.getElementById('addClientWebsite').value = '';
+        // Reset province/state
+        updateAddClientProvinceState();
+        // Populate agent and vendor dropdowns
+        populateAddClientSourceDropdowns();
         document.getElementById('addClientModal').classList.add('active');
     }
 
@@ -28492,16 +28529,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
 
         try {
+            const selectedCountry = document.getElementById('addClientCountry').value || null;
+            const provinceStateEl = document.getElementById('addClientProvinceState');
+            const provinceState = provinceStateEl ? (provinceStateEl.value || null) : null;
+            const sourceAgentId = document.getElementById('addClientSourceAgent').value || currentUserId;
+            const sourceVendorId = document.getElementById('addClientSourceVendor').value || null;
+
             const { data, error } = await db.from('clients').insert({
                 company_name: name,
                 legal_name: document.getElementById('addClientLegalName').value.trim() || null,
                 industry: document.getElementById('addClientIndustry').value || null,
                 business_type: document.getElementById('addClientBusinessType').value || null,
-                country: document.getElementById('addClientCountry').value.trim() || null,
+                country: selectedCountry,
+                province_state: provinceState,
                 status: document.getElementById('addClientStatus').value || 'Active',
                 phone: document.getElementById('addClientPhone').value.trim() || null,
                 website: document.getElementById('addClientWebsite').value.trim() || null,
-                source_agent_id: currentUserId
+                source_agent_id: sourceAgentId,
+                source_vendor_id: sourceVendorId
             }).select();
 
             if (error) throw error;
@@ -28515,14 +28560,111 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // ── Province/State cascading dropdown data ──
+    const canadianProvinces = [
+        'Alberta', 'British Columbia', 'Manitoba', 'New Brunswick',
+        'Newfoundland and Labrador', 'Northwest Territories', 'Nova Scotia',
+        'Nunavut', 'Ontario', 'Prince Edward Island', 'Quebec', 'Saskatchewan', 'Yukon'
+    ];
+    const usStates = [
+        'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado',
+        'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho',
+        'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana',
+        'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota',
+        'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada',
+        'New Hampshire', 'New Jersey', 'New Mexico', 'New York',
+        'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon',
+        'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
+        'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington',
+        'West Virginia', 'Wisconsin', 'Wyoming'
+    ];
+
+    function updateAddClientProvinceState() {
+        const country = document.getElementById('addClientCountry').value;
+        const container = document.getElementById('addClientProvinceStateContainer');
+        if (!container) return;
+        if (country === 'Canada') {
+            container.innerHTML = '<select id="addClientProvinceState" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;"><option value="">Select Province</option>' +
+                canadianProvinces.map(p => '<option value="' + p + '">' + p + '</option>').join('') + '</select>';
+        } else if (country === 'United States') {
+            container.innerHTML = '<select id="addClientProvinceState" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;"><option value="">Select State</option>' +
+                usStates.map(s => '<option value="' + s + '">' + s + '</option>').join('') + '</select>';
+        } else if (country && country !== '') {
+            container.innerHTML = '<input type="text" id="addClientProvinceState" placeholder="Province / State" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">';
+        } else {
+            container.innerHTML = '<select id="addClientProvinceState" disabled style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;background:#f8fafc;"><option value="">Select country first</option></select>';
+        }
+    }
+
+    async function populateAddClientSourceDropdowns() {
+        // Ensure agents cached
+        if (cachedAgents.length === 0) {
+            const { data: agts } = await db.from('users').select('id, full_name, email').eq('role', 'agent');
+            cachedAgents = agts || [];
+        }
+        if (cachedVendors.length === 0) {
+            const { data: vList } = await db.from('vendors').select('id, name').order('name');
+            cachedVendors = vList || [];
+        }
+        const agentSelect = document.getElementById('addClientSourceAgent');
+        if (agentSelect) {
+            agentSelect.innerHTML = '<option value="">None</option>' +
+                cachedAgents.map(a => '<option value="' + a.id + '">' + (a.full_name || a.email) + '</option>').join('');
+        }
+        const vendorSelect = document.getElementById('addClientSourceVendor');
+        if (vendorSelect) {
+            vendorSelect.innerHTML = '<option value="">None</option>' +
+                cachedVendors.map(v => '<option value="' + v.id + '">' + v.name + '</option>').join('');
+        }
+    }
+
+    function getProvinceStateDropdownHtml(clientId, currentCountry, currentValue) {
+        const escaped = (currentValue || '').replace(/"/g, '&quot;');
+        if (currentCountry === 'Canada') {
+            return '<select id="clientDetailProvinceState" onchange="updateClientField(\'' + clientId + '\', \'province_state\', this.value)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">' +
+                '<option value="">Select Province</option>' +
+                canadianProvinces.map(p => '<option value="' + p + '"' + (currentValue === p ? ' selected' : '') + '>' + p + '</option>').join('') + '</select>';
+        } else if (currentCountry === 'United States') {
+            return '<select id="clientDetailProvinceState" onchange="updateClientField(\'' + clientId + '\', \'province_state\', this.value)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">' +
+                '<option value="">Select State</option>' +
+                usStates.map(s => '<option value="' + s + '"' + (currentValue === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>';
+        } else {
+            return '<input type="text" id="clientDetailProvinceState" value="' + escaped + '" onblur="updateClientField(\'' + clientId + '\', \'province_state\', this.value)" placeholder="Province / State" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;">';
+        }
+    }
+
+    async function onClientCountryChange(clientId, selectEl) {
+        const newCountry = selectEl.value;
+        await updateClientField(clientId, 'country', newCountry);
+        // Reset province_state when country changes
+        await updateClientField(clientId, 'province_state', null);
+        // Rebuild the province/state dropdown
+        const psContainer = document.getElementById('clientDetailProvinceStateContainer');
+        if (psContainer) {
+            psContainer.innerHTML = getProvinceStateDropdownHtml(clientId, newCountry, '');
+        }
+    }
+
+    async function onClientSourceAgentChange(clientId, selectEl) {
+        await updateClientField(clientId, 'source_agent_id', selectEl.value || null);
+    }
+
+    async function onClientSourceVendorChange(clientId, selectEl) {
+        await updateClientField(clientId, 'source_vendor_id', selectEl.value || null);
+    }
+
     async function viewClient(clientId) {
         try {
             const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
-            // Ensure agents are cached
+            // Ensure agents and vendors are cached
             if (cachedAgents.length === 0) {
                 const { data: agts } = await db.from('users').select('id, full_name, email').eq('role', 'agent');
                 cachedAgents = agts || [];
+            }
+            if (cachedVendors.length === 0) {
+                const { data: vList } = await db.from('vendors').select('id, name').order('name');
+                cachedVendors = vList || [];
             }
 
             // Fetch client details
@@ -28755,10 +28897,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </div>
                     <div class="modal-field">
                         <label>Province / State</label>
-                        <input type="text" value="${(client.province_state || '').replace(/"/g, '&quot;')}"
-                            onblur="updateClientField('${clientId}', 'province_state', this.value)"
-                            placeholder="Ontario"
-                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                        <div id="clientDetailProvinceStateContainer">
+                            ${getProvinceStateDropdownHtml(clientId, client.country, client.province_state)}
+                        </div>
                     </div>
                 </div>
                 <div class="modal-row">
@@ -28771,10 +28912,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </div>
                     <div class="modal-field">
                         <label>Country</label>
-                        <input type="text" id="clientDetailCountry" value="${(client.country || '').replace(/"/g, '&quot;')}"
-                            data-original="${(client.country || '').replace(/"/g, '&quot;')}"
-                            onblur="updateClientTrackedField('${clientId}', 'country', this)"
-                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                        <select id="clientDetailCountry" onchange="onClientCountryChange('${clientId}', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">
+                            <option value="">Select Country</option>
+                            <option value="Canada" ${(client.country || '') === 'Canada' ? 'selected' : ''}>Canada</option>
+                            <option value="United States" ${(client.country || '') === 'United States' ? 'selected' : ''}>United States</option>
+                            <option value="United Kingdom" ${(client.country || '') === 'United Kingdom' ? 'selected' : ''}>United Kingdom</option>
+                            <option value="Australia" ${(client.country || '') === 'Australia' ? 'selected' : ''}>Australia</option>
+                            <option value="Mexico" ${(client.country || '') === 'Mexico' ? 'selected' : ''}>Mexico</option>
+                            <option value="Other" ${(client.country && !['Canada','United States','United Kingdom','Australia','Mexico'].includes(client.country)) ? 'selected' : ''}>Other</option>
+                        </select>
                     </div>
                 </div>
 
@@ -28809,6 +28955,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             data-original="${client.credit_score || ''}"
                             onblur="updateClientTrackedField('${clientId}', 'credit_score', this)"
                             style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+
+                <h3 style="color: var(--navy); font-size: 14px; margin: 20px 0 10px 0; padding-bottom: 6px; border-bottom: 1px solid #E2E8F0;">Source / Association</h3>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Source Agent</label>
+                        <select onchange="onClientSourceAgentChange('${clientId}', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">
+                            <option value="">None</option>
+                            ${cachedAgents.map(a => '<option value="' + a.id + '"' + (client.source_agent_id === a.id ? ' selected' : '') + '>' + (a.full_name || a.email) + '</option>').join('')}
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>Source ISO / Vendor</label>
+                        <select onchange="onClientSourceVendorChange('${clientId}', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">
+                            <option value="">None</option>
+                            ${cachedVendors.map(v => '<option value="' + v.id + '"' + (client.source_vendor_id === v.id ? ' selected' : '') + '>' + v.name + '</option>').join('')}
+                        </select>
                     </div>
                 </div>
 
@@ -28862,18 +29026,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </div>
                 <div class="modal-row">
                     ${roField('Country', client.country || '')}
+                    ${roField('Province / State', client.province_state || '')}
+                </div>
+                <div class="modal-row">
                     <div class="modal-field">
                         <label>Status</label>
                         <div style="padding:6px 10px;"><span style="padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;${statusStyle}">${client.status || 'Active'}</span></div>
                     </div>
-                </div>
-                <div class="modal-row">
                     ${roField('Phone', client.phone || '')}
-                    ${roField('Website', client.website ? '<a href="' + (client.website.startsWith('http') ? '' : 'https://') + client.website + '" target="_blank">' + (client.website || '').replace(/</g, '&lt;') + '</a>' : '')}
                 </div>
                 <div class="modal-row">
+                    ${roField('Website', client.website ? '<a href="' + (client.website.startsWith('http') ? '' : 'https://') + client.website + '" target="_blank">' + (client.website || '').replace(/</g, '&lt;') + '</a>' : '')}
                     ${roField('Years in Business', client.years_in_business || '')}
-                    <div class="modal-field"></div>
+                </div>
+                <div class="modal-row">
+                    ${roField('Source Agent', client.source_agent_id ? (cachedAgents.find(a => a.id === client.source_agent_id) || {}).full_name || 'N/A' : '')}
+                    ${roField('Source ISO / Vendor', client.source_vendor_id ? (cachedVendors.find(v => v.id === client.source_vendor_id) || {}).name || 'N/A' : '')}
                 </div>
 
                 <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
