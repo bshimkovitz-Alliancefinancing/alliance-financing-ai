@@ -4390,7 +4390,7 @@
                 </div>
                 <div class="modal-field">
                     <label>Source Agent</label>
-                    <select id="addClientSourceAgent" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
+                    <select id="addClientSourceAgent" onchange="onAddClientAgentChange()" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:14px;">
                         <option value="">None</option>
                     </select>
                 </div>
@@ -28535,7 +28535,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const sourceAgentId = document.getElementById('addClientSourceAgent').value || currentUserId;
             const sourceVendorId = document.getElementById('addClientSourceVendor').value || null;
 
-            const { data, error } = await db.from('clients').insert({
+            const insertObj = {
                 company_name: name,
                 legal_name: document.getElementById('addClientLegalName').value.trim() || null,
                 industry: document.getElementById('addClientIndustry').value || null,
@@ -28547,7 +28547,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 website: document.getElementById('addClientWebsite').value.trim() || null,
                 source_agent_id: sourceAgentId,
                 source_vendor_id: sourceVendorId
-            }).select();
+            };
+
+            let { data, error } = await db.from('clients').insert(insertObj).select();
+
+            // If source_vendor_id column doesn't exist yet, retry without it
+            if (error && error.message && error.message.includes('source_vendor_id')) {
+                delete insertObj.source_vendor_id;
+                var retry = await db.from('clients').insert(insertObj).select();
+                data = retry.data;
+                error = retry.error;
+            }
 
             if (error) throw error;
 
@@ -28603,7 +28613,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
         }
         if (cachedVendors.length === 0) {
-            const { data: vList } = await db.from('vendors').select('id, name').order('name');
+            const { data: vList } = await db.from('vendors').select('id, name, source_agent_id').order('name');
             cachedVendors = (vList || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         }
         const agentSelect = document.getElementById('addClientSourceAgent');
@@ -28611,11 +28621,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             agentSelect.innerHTML = '<option value="">None</option>' +
                 cachedAgents.map(a => '<option value="' + a.id + '">' + (a.full_name || a.email) + '</option>').join('');
         }
+        // Start with empty vendor list until agent is selected
+        updateAddClientVendorDropdown();
+    }
+
+    function updateAddClientVendorDropdown(selectedVendorId) {
+        const agentSelect = document.getElementById('addClientSourceAgent');
         const vendorSelect = document.getElementById('addClientSourceVendor');
-        if (vendorSelect) {
-            vendorSelect.innerHTML = '<option value="">None</option>' +
-                cachedVendors.map(v => '<option value="' + v.id + '">' + v.name + '</option>').join('');
+        if (!vendorSelect) return;
+        const agentId = agentSelect ? agentSelect.value : '';
+        if (!agentId) {
+            vendorSelect.innerHTML = '<option value="">Select an agent first</option>';
+            vendorSelect.disabled = true;
+            vendorSelect.style.background = '#f8fafc';
+            return;
         }
+        const filtered = cachedVendors.filter(v => v.source_agent_id === agentId);
+        vendorSelect.disabled = false;
+        vendorSelect.style.background = '';
+        vendorSelect.innerHTML = '<option value="">None</option>' +
+            filtered.map(v => '<option value="' + v.id + '"' + (selectedVendorId === v.id ? ' selected' : '') + '>' + v.name + '</option>').join('');
+    }
+
+    function onAddClientAgentChange() {
+        // Reset vendor when agent changes
+        updateAddClientVendorDropdown();
     }
 
     function getProvinceStateDropdownHtml(clientId, currentCountry, currentValue) {
@@ -28646,11 +28676,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     async function onClientSourceAgentChange(clientId, selectEl) {
-        await updateClientField(clientId, 'source_agent_id', selectEl.value || null);
+        const agentId = selectEl.value || null;
+        await updateClientField(clientId, 'source_agent_id', agentId);
+        // Clear vendor when agent changes & refresh vendor dropdown
+        try { await updateClientField(clientId, 'source_vendor_id', null); } catch(e) {}
+        const vendorContainer = document.getElementById('clientDetailVendorContainer');
+        if (vendorContainer) {
+            const filtered = cachedVendors.filter(v => v.source_agent_id === agentId);
+            if (!agentId) {
+                vendorContainer.innerHTML = '<select disabled style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;background:#f8fafc;"><option value="">Select an agent first</option></select>';
+            } else {
+                vendorContainer.innerHTML = '<select onchange="onClientSourceVendorChange(\'' + clientId + '\', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"><option value="">None</option>' +
+                    filtered.map(v => '<option value="' + v.id + '">' + v.name + '</option>').join('') + '</select>';
+            }
+        }
     }
 
     async function onClientSourceVendorChange(clientId, selectEl) {
-        await updateClientField(clientId, 'source_vendor_id', selectEl.value || null);
+        try {
+            await updateClientField(clientId, 'source_vendor_id', selectEl.value || null);
+        } catch(e) {
+            console.warn('source_vendor_id column may not exist yet:', e);
+            showToast('Note: source_vendor_id column needs to be added to clients table', 'warning');
+        }
     }
 
     async function viewClient(clientId) {
@@ -28663,7 +28711,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
             }
             if (cachedVendors.length === 0) {
-                const { data: vList } = await db.from('vendors').select('id, name').order('name');
+                const { data: vList } = await db.from('vendors').select('id, name, source_agent_id').order('name');
                 cachedVendors = (vList || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             }
 
@@ -28969,10 +29017,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </div>
                     <div class="modal-field">
                         <label>Source ISO / Vendor</label>
-                        <select onchange="onClientSourceVendorChange('${clientId}', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">
-                            <option value="">None</option>
-                            ${cachedVendors.map(v => '<option value="' + v.id + '"' + (client.source_vendor_id === v.id ? ' selected' : '') + '>' + v.name + '</option>').join('')}
-                        </select>
+                        <div id="clientDetailVendorContainer">
+                            ${client.source_agent_id ? (() => {
+                                const filtered = cachedVendors.filter(v => v.source_agent_id === client.source_agent_id);
+                                return '<select onchange="onClientSourceVendorChange(\'' + clientId + '\', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"><option value="">None</option>' +
+                                    filtered.map(v => '<option value="' + v.id + '"' + (client.source_vendor_id === v.id ? ' selected' : '') + '>' + v.name + '</option>').join('') + '</select>';
+                            })() : '<select disabled style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;background:#f8fafc;"><option value="">Select an agent first</option></select>'}
+                        </div>
                     </div>
                 </div>
 
