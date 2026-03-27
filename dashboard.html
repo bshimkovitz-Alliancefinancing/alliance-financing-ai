@@ -29054,13 +29054,52 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </div>
 
                 <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
-                    <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--navy);">Activity Notes</h3>
-                    <div id="clientNotes_${clientId}" style="margin-bottom: 12px;">
-                        ${notesHtml}
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--navy);">Communications</h3>
+                        <div style="display: flex; gap: 6px;">
+                            <button onclick="toggleClientCompose('${clientId}', 'note')" style="padding: 4px 12px; background: var(--navy); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">+ Note</button>
+                            <button onclick="toggleClientCompose('${clientId}', 'email')" style="padding: 4px 12px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">✉ Send Email</button>
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 8px;">
-                        <textarea id="clientNoteInput_${clientId}" placeholder="Add a note..." rows="2" style="flex: 1; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
-                        <button onclick="addClientNote('${clientId}')" style="padding: 8px 14px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; height: fit-content;">Add Note</button>
+
+                    <div id="clientComposeForm_${clientId}" style="display:none; background:#F8FAFC; padding:14px; border-radius:8px; margin-bottom:14px; border:1px solid #E2E8F0;">
+                        <div id="clientComposeHeader_${clientId}" style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:10px;">New Note</div>
+
+                        <div id="clientEmailFields_${clientId}" style="display:none; margin-bottom:10px;">
+                            <div style="margin-bottom:8px;">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">To (Client Email)</label>
+                                <select id="clientEmailTo_${clientId}" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                                    <option value="">Select recipient</option>
+                                    ${(contacts || []).filter(c => c.email).map(c => '<option value="' + c.email + '">' + (c.full_name || '') + ' &lt;' + c.email + '&gt;</option>').join('')}
+                                </select>
+                            </div>
+                            <div style="margin-bottom:8px;">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">CC (team members — hold Ctrl/Cmd to select multiple)</label>
+                                <select id="clientEmailCc_${clientId}" multiple style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;min-height:60px;">
+                                    ${cachedAgents.map(a => '<option value="' + (a.email || '') + '">' + (a.full_name || a.email) + '</option>').join('')}
+                                </select>
+                            </div>
+                            <div style="margin-bottom:8px;">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Subject</label>
+                                <input type="text" id="clientEmailSubject_${clientId}" placeholder="Email subject" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                            </div>
+                        </div>
+
+                        <textarea id="clientComposeBody_${clientId}" placeholder="Type your message..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
+
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#475569;cursor:pointer;">
+                                <input type="checkbox" id="clientComposeVisible_${clientId}"> Visible to ISO / Agent
+                            </label>
+                            <div style="display:flex;gap:6px;">
+                                <button onclick="document.getElementById('clientComposeForm_${clientId}').style.display='none'" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Cancel</button>
+                                <button id="clientComposeSend_${clientId}" onclick="submitClientCommunication('${clientId}')" style="padding:6px 12px;background:var(--gold);color:white;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Add Note</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="clientComms_${clientId}" style="max-height: 400px; overflow-y: auto; margin-bottom: 12px;">
+                        ${buildClientCommsHtml(notes, isAdmin)}
                     </div>
                 </div>
                 `;
@@ -29112,13 +29151,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </div>
 
                 <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
-                    <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--navy);">Activity Notes</h3>
-                    <div id="clientNotes_${clientId}" style="margin-bottom: 12px;">
-                        ${notesHtml}
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--navy);">Communications</h3>
+                        <button onclick="toggleClientCompose('${clientId}', 'agent_note')" style="padding: 4px 12px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">+ Add Note</button>
                     </div>
-                    <div style="display: flex; gap: 8px;">
-                        <textarea id="clientNoteInput_${clientId}" placeholder="Add a note for admin..." rows="2" style="flex: 1; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; resize: vertical;"></textarea>
-                        <button onclick="addClientNote('${clientId}', true)" style="padding: 8px 14px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; height: fit-content;">Add Note</button>
+
+                    <div id="clientComposeForm_${clientId}" style="display:none; background:#F8FAFC; padding:14px; border-radius:8px; margin-bottom:14px; border:1px solid #E2E8F0;">
+                        <div style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:8px;">Note for Admin</div>
+                        <textarea id="clientComposeBody_${clientId}" placeholder="Type your message for admin..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
+                        <input type="hidden" id="clientComposeType_${clientId}" value="agent_note">
+                        <div style="display:flex;gap:6px;justify-content:flex-end;">
+                            <button onclick="document.getElementById('clientComposeForm_${clientId}').style.display='none'" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Cancel</button>
+                            <button onclick="submitClientCommunication('${clientId}')" style="padding:6px 12px;background:var(--gold);color:white;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Send Note</button>
+                        </div>
+                    </div>
+
+                    <div id="clientComms_${clientId}" style="max-height: 400px; overflow-y: auto; margin-bottom: 12px;">
+                        ${buildClientCommsHtml(notes, false)}
                     </div>
                 </div>
                 `;
@@ -29299,6 +29348,204 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (error) {
             console.error('Delete client contact error:', error);
             alert('Error deleting contact: ' + error.message);
+        }
+    }
+
+    function buildClientCommsHtml(notes, isAdmin) {
+        if (!notes || notes.length === 0) return '<p style="color: var(--text-light); font-size: 14px;">No communications yet.</p>';
+
+        // Show newest first
+        var sorted = notes.slice().reverse();
+        if (!isAdmin) {
+            sorted = sorted.filter(function(n) { return n.from_agent || n.visible_to_agent; });
+        }
+        if (sorted.length === 0) return '<p style="color: var(--text-light); font-size: 14px;">No communications yet.</p>';
+
+        return sorted.map(function(n) {
+            var isEmail = n.type === 'email';
+            var isAudit = n.is_audit_log === true;
+            var isAgentNote = n.from_agent === true;
+
+            // Color coding
+            var bgColor, borderColor, icon, badge;
+            if (isEmail) {
+                bgColor = '#FFFBEB';
+                borderColor = '#F59E0B';
+                icon = '✉';
+                badge = '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Email Sent</span>';
+            } else if (isAudit) {
+                bgColor = '#F5F3FF';
+                borderColor = '#7C3AED';
+                icon = '⟳';
+                badge = '<span style="background:#EDE9FE;color:#6D28D9;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Change Log</span>';
+            } else if (isAgentNote) {
+                bgColor = '#EFF6FF';
+                borderColor = '#3B82F6';
+                icon = '💬';
+                badge = '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Agent Note</span>';
+            } else if (n.visible_to_agent) {
+                bgColor = '#F0FDF4';
+                borderColor = '#22C55E';
+                icon = '📝';
+                badge = '<span style="background:#DCFCE7;color:#166534;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Shared</span>';
+            } else {
+                bgColor = '#F8FAFC';
+                borderColor = '#94A3B8';
+                icon = '📝';
+                badge = '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>';
+            }
+
+            var emailMeta = '';
+            if (isEmail) {
+                emailMeta = '<div style="font-size:11px;color:#64748B;margin-top:2px;">';
+                if (n.email_to) emailMeta += 'To: ' + n.email_to;
+                if (n.email_cc) emailMeta += ' | CC: ' + n.email_cc;
+                if (n.email_subject) emailMeta += '<div style="font-weight:500;color:#475569;">Subject: ' + n.email_subject + '</div>';
+                emailMeta += '</div>';
+            }
+
+            return '<div style="background:' + bgColor + ';border-left:3px solid ' + borderColor + ';padding:10px 12px;margin-bottom:8px;border-radius:0 4px 4px 0;">' +
+                '<div style="font-size:12px;color:var(--text-light);margin-bottom:4px;">' +
+                '<span style="margin-right:4px;">' + icon + '</span>' +
+                '<strong>' + (n.author || 'Admin') + '</strong> — ' + (n.date || 'N/A') + ' ' + badge +
+                '</div>' +
+                emailMeta +
+                '<div style="font-size:14px;color:var(--text-dark);white-space:pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    var _clientComposeType = {};
+
+    function toggleClientCompose(clientId, type) {
+        var form = document.getElementById('clientComposeForm_' + clientId);
+        var emailFields = document.getElementById('clientEmailFields_' + clientId);
+        var header = document.getElementById('clientComposeHeader_' + clientId);
+        var sendBtn = document.getElementById('clientComposeSend_' + clientId);
+        var body = document.getElementById('clientComposeBody_' + clientId);
+
+        _clientComposeType[clientId] = type;
+
+        if (form.style.display === 'block' && _clientComposeType[clientId] === type) {
+            form.style.display = 'none';
+            return;
+        }
+
+        form.style.display = 'block';
+        if (body) body.value = '';
+
+        if (type === 'email') {
+            if (emailFields) emailFields.style.display = 'block';
+            if (header) header.textContent = 'Send Email to Client';
+            if (sendBtn) sendBtn.textContent = 'Send Email';
+        } else if (type === 'agent_note') {
+            if (emailFields) emailFields.style.display = 'none';
+            if (header) header.textContent = 'Note for Admin';
+            if (sendBtn) sendBtn.textContent = 'Send Note';
+        } else {
+            if (emailFields) emailFields.style.display = 'none';
+            if (header) header.textContent = 'Internal Note';
+            if (sendBtn) sendBtn.textContent = 'Add Note';
+        }
+    }
+
+    async function submitClientCommunication(clientId) {
+        var type = _clientComposeType[clientId] || 'note';
+        var body = document.getElementById('clientComposeBody_' + clientId).value.trim();
+
+        // For agent notes, override from hidden field if present
+        var hiddenType = document.getElementById('clientComposeType_' + clientId);
+        if (hiddenType) type = hiddenType.value;
+
+        if (!body) {
+            alert('Please enter a message.');
+            return;
+        }
+
+        try {
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var userEmail = document.getElementById('userEmailDisplay').textContent;
+            var isAgent = type === 'agent_note';
+            var visibleCheckbox = document.getElementById('clientComposeVisible_' + clientId);
+            var visibleToAgent = isAgent ? true : (visibleCheckbox ? visibleCheckbox.checked : false);
+
+            var newEntry = {
+                text: body,
+                author: userEmail,
+                date: dateStr,
+                type: type === 'email' ? 'email' : 'note',
+                visible_to_agent: visibleToAgent,
+                from_agent: isAgent,
+                is_audit_log: false
+            };
+
+            // Handle email sending
+            if (type === 'email') {
+                var toSelect = document.getElementById('clientEmailTo_' + clientId);
+                var ccSelect = document.getElementById('clientEmailCc_' + clientId);
+                var subjectInput = document.getElementById('clientEmailSubject_' + clientId);
+
+                var toEmail = toSelect ? toSelect.value : '';
+                if (!toEmail) {
+                    alert('Please select a recipient.');
+                    return;
+                }
+                var subject = subjectInput ? subjectInput.value.trim() : '';
+                if (!subject) {
+                    alert('Please enter a subject.');
+                    return;
+                }
+
+                // Gather CC emails
+                var ccEmails = [];
+                if (ccSelect) {
+                    for (var i = 0; i < ccSelect.options.length; i++) {
+                        if (ccSelect.options[i].selected && ccSelect.options[i].value) {
+                            ccEmails.push(ccSelect.options[i].value);
+                        }
+                    }
+                }
+
+                // Build HTML email body with Alliance branding
+                var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                    '<div style="background:#0D1E3D;padding:20px;text-align:center;">' +
+                    '<h2 style="color:#C9A84C;margin:0;">Alliance Financing Group</h2>' +
+                    '</div>' +
+                    '<div style="padding:24px;background:#ffffff;border:1px solid #e2e8f0;">' +
+                    '<p style="font-size:14px;color:#334155;line-height:1.6;white-space:pre-wrap;">' + body.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>' +
+                    '</div>' +
+                    '<div style="padding:12px;text-align:center;font-size:11px;color:#94A3B8;">' +
+                    'Alliance Financing Group | alliancefinancing.ai' +
+                    '</div></div>';
+
+                // Send the email
+                await sendEmailViaResend(toEmail, subject, htmlBody, body, null, ccEmails.length > 0 ? ccEmails : undefined);
+
+                // Store email metadata in the note
+                newEntry.email_to = toEmail;
+                newEntry.email_cc = ccEmails.join(', ');
+                newEntry.email_subject = subject;
+
+                showToast('Email sent successfully!');
+            }
+
+            // Save to admin_notes JSON
+            var { data: client } = await db.from('clients').select('admin_notes').eq('id', clientId).single();
+            var notes = [];
+            try {
+                notes = client.admin_notes ? JSON.parse(client.admin_notes) : [];
+            } catch(e) { notes = []; }
+
+            notes.push(newEntry);
+            var { error } = await db.from('clients').update({ admin_notes: JSON.stringify(notes) }).eq('id', clientId);
+            if (error) throw error;
+
+            if (type !== 'email') showToast('Note added');
+            await viewClient(clientId);
+        } catch (error) {
+            console.error('Submit client communication error:', error);
+            alert('Error: ' + error.message);
         }
     }
 
