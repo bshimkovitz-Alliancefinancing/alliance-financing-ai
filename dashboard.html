@@ -31894,30 +31894,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // Check for new document uploads (polling — runs every 60s)
+    // Only notifies for docs uploaded by agents/clients/external users — NOT the current admin
     var _lastDocCheck = new Date().toISOString();
-    async function checkForNewDocUploads() {
-        if (!['super_admin', 'admin'].includes(currentUserRole)) return;
-        try {
-            var { data: newDocs } = await db.from('documents')
-                .select('id, file_name, document_type, deal_id, application_id, uploaded_by_name, uploaded_at, deals(company_name, deal_number)')
-                .gt('uploaded_at', _lastDocCheck)
-                .order('uploaded_at', { ascending: false })
-                .limit(10);
-            if (newDocs && newDocs.length > 0) {
-                _lastDocCheck = new Date().toISOString();
-                newDocs.forEach(function(doc) {
-                    // Skip docs uploaded by current user (admin uploaded it themselves)
-                    if (doc.uploaded_by_name && doc.uploaded_by_name.toLowerCase().includes('admin')) return;
-                    var company = (doc.deals && doc.deals.company_name) || 'Unknown';
-                    var dealNum = (doc.deals && doc.deals.deal_number) || '';
-                    var docType = (doc.document_type || 'document').replace(/_/g, ' ');
-                    var text = '<strong>' + company + '</strong>' + (dealNum ? ' (' + dealNum + ')' : '') + ' — New ' + docType + ' uploaded';
-                    if (doc.uploaded_by_name) text += ' by ' + doc.uploaded_by_name;
-                    addNotification(text, doc.deal_id, 'doc_upload');
-                });
-            }
-        } catch(e) { console.warn('Doc upload check failed:', e); }
-    }
 
     // ── Check for returned/completed vendor applications ──
     var _lastVendorAppCheck = new Date().toISOString();
@@ -31976,9 +31954,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch(e) { console.warn('Credit decision check failed:', e); }
     }
 
-    // ── Enhanced document upload check — include action prompt ──
-    var _origCheckForNewDocUploads = checkForNewDocUploads;
-    checkForNewDocUploads = async function() {
+    // ── Document upload notification check — only alerts for agent/external uploads ──
+    async function checkForNewDocUploads() {
         if (!['super_admin', 'admin'].includes(currentUserRole)) return;
         try {
             var { data: newDocs } = await db.from('documents')
@@ -31989,7 +31966,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (newDocs && newDocs.length > 0) {
                 _lastDocCheck = new Date().toISOString();
                 newDocs.forEach(function(doc) {
-                    if (doc.uploaded_by_name && doc.uploaded_by_name.toLowerCase().includes('admin')) return;
+                    // Skip docs uploaded by current user (admin/super_admin uploaded it themselves)
+                    if (doc.uploaded_by_name && currentUserName && doc.uploaded_by_name.toLowerCase() === currentUserName.toLowerCase()) return;
                     var company = (doc.deals && doc.deals.company_name) || 'Unknown';
                     var dealNum = (doc.deals && doc.deals.deal_number) || '';
                     var docType = (doc.document_type || 'document').replace(/_/g, ' ');
