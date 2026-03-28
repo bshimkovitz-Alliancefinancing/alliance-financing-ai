@@ -13845,10 +13845,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 });
             }
 
+            // Fetch returned application emails so we can flag deals with pending reviews
+            var _returnedEmails = new Set();
+            try {
+                var { data: returnedApps } = await db.from('applications_sent')
+                    .select('applicant_email')
+                    .eq('status', 'Returned');
+                if (returnedApps) {
+                    returnedApps.forEach(function(a) { if (a.applicant_email) _returnedEmails.add(a.applicant_email.toLowerCase()); });
+                }
+            } catch(e) { console.warn('Returned apps lookup failed:', e); }
+
             // Fetch deals with role-based filtering
             let dealsQuery = db
                 .from('deals')
-                .select('*, applications(application_id, full_name), lenders(name)')
+                .select('*, applications(application_id, full_name, email), lenders(name)')
                 .order('date_submitted', { ascending: false });
 
             if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
@@ -13880,6 +13891,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             cachedTeamMembers.forEach(function(t) { tmMap[t.id] = t.full_name; });
             allDeals.forEach(function(d) {
                 d._assignedToName = d.assigned_to ? (tmMap[d.assigned_to] || '') : '';
+                // Flag deals where the linked application's email has a "Returned" record in applications_sent
+                var appEmail = d.applications && d.applications.email ? d.applications.email.toLowerCase() : '';
+                d._hasReturnedApp = appEmail && _returnedEmails.has(appEmail);
             });
             // Resolve source names for agent views (ISO sees who sourced each deal)
             var isAdminUser = ['super_admin', 'admin'].includes(currentUserRole);
@@ -14057,6 +14071,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     : `<button class="btn btn-sm" onclick="toggleArchiveDeal('${deal.id}', true)" style="padding:3px 8px;font-size:11px;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:3px;cursor:pointer;" title="Archive this deal">Archive</button>`)
                 : '';
 
+            // Returned application badge — shows when applicant has submitted their application
+            const returnedBadge = deal._hasReturnedApp
+                ? '<div style="margin-top:3px;"><span style="display:inline-block;background:#ECFDF5;color:#059669;border:1px solid #A7F3D0;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;letter-spacing:0.3px;">📋 APP RETURNED</span></div>'
+                : '';
+
             // Check if this deal should be highlighted (new application from dashboard)
             const isHighlighted = _highlightApplicationIds.length > 0 && deal.application_id && _highlightApplicationIds.includes(deal.application_id);
             const highlightClass = isHighlighted ? ' class="highlight-new-deal"' : '';
@@ -14066,7 +14085,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <tr${highlightClass} style="${isArchived ? 'opacity:0.6;' : ''}${highlightStyle}">
                     <td><strong style="font-family:'SF Mono','Cascadia Code','Consolas',monospace;letter-spacing:0.5px;">${dealNum}</strong>${afNumber ? '<div style="font-size:10px;color:#6B7280;font-family:SF Mono,Consolas,monospace;margin-top:2px;">' + afNumber + '</div>' : ''}</td>
                     <td style="font-size:12px;color:#6D28D9;font-weight:600;">${afgNumber ? afgNumber : '<span style="color:#ccc;font-weight:400;">—</span>'}</td>
-                    <td>${company}${unreadDot}</td>
+                    <td>${company}${unreadDot}${returnedBadge}</td>
                     <td>${amount}</td>
                     <td>${productHtml}</td>
                     <td>${sourceHtml}</td>
