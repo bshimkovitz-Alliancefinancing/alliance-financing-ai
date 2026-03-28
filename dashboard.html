@@ -1240,7 +1240,7 @@
                                 <th style="min-width:140px;" class="lender-col">Lender</th>
                                 <th style="min-width:130px;">Assigned To</th>
                                 <th style="min-width:140px;">Status</th>
-                                <th>Days</th>
+                                <th title="Days since deal was created or status last changed">Age</th>
                                 <th>Date</th>
                                 <th>Actions</th>
                             </tr>
@@ -13826,6 +13826,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 const { data: tmList } = await db.from('team_members').select('id, full_name, role_title').eq('is_active', true).order('full_name');
                 cachedTeamMembers = tmList || [];
             }
+            // Map current user to their team_member ID for "My Deals" filter
+            if (!window._currentTeamMemberId) {
+                var myTm = cachedTeamMembers.find(function(t) {
+                    return t.full_name && currentUserName && t.full_name.toLowerCase() === currentUserName.toLowerCase();
+                });
+                window._currentTeamMemberId = myTm ? myTm.id : null;
+            }
+
             // Populate the analyst filter dropdown
             var assignedFilterEl = document.getElementById('dealAssignedFilter');
             if (assignedFilterEl && assignedFilterEl.options.length <= 2) {
@@ -14033,12 +14041,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Assigned To column - admin can assign team members
             const assignedName = deal._assignedToName || '';
+            const isUnassigned = !deal.assigned_to;
+            const assignedBorder = isUnassigned ? 'border:1px solid #F59E0B;background:#FFFBEB;' : 'border:1px solid #d1d5db;background:#fff;';
             const assignedToHtml = isAdmin
-                ? `<select class="pipeline-select" onchange="updateDealField('${deal.id}', 'assigned_to', this.value || null)" style="padding:5px 10px;border-radius:4px;border:1px solid #d1d5db;font-size:13px;cursor:pointer;min-width:120px;background:#fff;color:#1f2937;font-weight:500;appearance:auto;">
-                    <option value="">Unassigned</option>
+                ? `<select class="pipeline-select" onchange="updateDealField('${deal.id}', 'assigned_to', this.value || null)" style="padding:5px 10px;border-radius:4px;${assignedBorder}font-size:13px;cursor:pointer;min-width:120px;color:#1f2937;font-weight:500;appearance:auto;">
+                    <option value="">${isUnassigned ? '⚠ Unassigned' : 'Unassigned'}</option>
                     ${cachedTeamMembers.map(t => `<option value="${t.id}" ${deal.assigned_to === t.id ? 'selected' : ''}>${t.full_name}</option>`).join('')}
                 </select>`
-                : `<span style="font-size:13px;font-weight:500;color:#1f2937;">${assignedName || '<span style="color:#ccc;">—</span>'}</span>`;
+                : `<span style="font-size:13px;font-weight:500;color:#1f2937;">${assignedName || '<span style="color:#F59E0B;font-weight:600;">⚠ Unassigned</span>'}</span>`;
 
             // Archive button for admins
             const archiveBtn = isAdmin
@@ -14065,9 +14075,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <td>${isAdmin ? `<select class="pipeline-select" onchange="updateDealField('${deal.id}', 'status', this.value)" style="padding:5px 10px;border-radius:4px;border:1px solid #d1d5db;font-size:13px;cursor:pointer;min-width:130px;background:#fff;color:#1f2937;font-weight:500;appearance:auto;">${getDealStatusOptions(deal.status)}</select>` : getStatusBadge(deal.status)}</td>
                     <td>${(function() {
                         var daysInStage = '';
-                        var updatedDate = deal.updated_at || deal.created_at;
-                        if (updatedDate) {
-                            var days = Math.floor((new Date() - new Date(updatedDate)) / (1000 * 60 * 60 * 24));
+                        var refDate = deal.status_changed_at || deal.created_at;
+                        if (refDate) {
+                            var days = Math.floor((new Date() - new Date(refDate)) / (1000 * 60 * 60 * 24));
                             var dayColor = days <= 3 ? '#10B981' : days <= 7 ? '#F59E0B' : '#EF4444';
                             daysInStage = '<span style="font-weight:600;color:' + dayColor + ';">' + days + 'd</span>';
                         }
@@ -14085,7 +14095,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     function updateDealStats() {
         try {
-            var activeStatuses = ['Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
+            var activeStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
             var activeDeals = (allDeals || []).filter(function(d) { return activeStatuses.includes(d.status); });
             var totalValue = activeDeals.reduce(function(sum, d) { return sum + (parseFloat(d.deal_amount) || 0); }, 0);
             var avgSize = activeDeals.length > 0 ? totalValue / activeDeals.length : 0;
@@ -14100,8 +14110,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             var sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             var stale = activeDeals.filter(function(d) {
-                var updated = d.updated_at || d.created_at;
-                return updated && new Date(updated) < sevenDaysAgo;
+                var ref = d.status_changed_at || d.created_at;
+                return ref && new Date(ref) < sevenDaysAgo;
             }).length;
 
             var el;
@@ -14166,9 +14176,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const matchesStatus = !statusFilter || deal.status === statusFilter;
             const matchesSource = !sourceFilter || deal.source === sourceFilter;
             const matchesProduct = !productFilter || deal.product_type === productFilter;
-            const matchesAssigned = !assignedFilter || (assignedFilter === '__mine__' ? deal.assigned_to === currentUserId : deal.assigned_to === assignedFilter);
+            const matchesAssigned = !assignedFilter || (assignedFilter === '__mine__' ? deal.assigned_to === window._currentTeamMemberId : deal.assigned_to === assignedFilter);
 
             return matchesSearch && matchesStatus && matchesSource && matchesProduct && matchesAssigned;
+        });
+
+        // Sort by status priority — deals closest to funding at top, then by age (oldest first)
+        var statusPriority = {
+            'In funding': 1, 'Docs out for signing': 2, 'Docs requested': 3,
+            'Approval sent': 4, 'Approved': 5, 'In Credit': 6,
+            'Info received': 7, 'Quote sent': 8, 'Quote Requested': 9,
+            'Application Sent': 10, 'Prospect': 11,
+            'Funded': 12, 'Declined': 13, 'Withdrawn': 14, 'Lost': 15
+        };
+        filtered.sort(function(a, b) {
+            var pa = statusPriority[a.status] || 99;
+            var pb = statusPriority[b.status] || 99;
+            if (pa !== pb) return pa - pb;
+            // Same status — older deals first (need attention sooner)
+            var da = new Date(a.status_changed_at || a.created_at || 0);
+            var db2 = new Date(b.status_changed_at || b.created_at || 0);
+            return da - db2;
         });
 
         renderDealsTable(filtered);
@@ -14442,9 +14470,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function updateDealField(dealId, field, value) {
         try {
+            var updateObj = { [field]: value || null };
+            // Track when status changes so "Age" column reflects time in current stage
+            if (field === 'status') {
+                updateObj.status_changed_at = new Date().toISOString();
+            }
             const { error } = await db
                 .from('deals')
-                .update({ [field]: value || null })
+                .update(updateObj)
                 .eq('id', dealId);
 
             if (error) throw error;
