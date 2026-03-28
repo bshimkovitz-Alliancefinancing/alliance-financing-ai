@@ -21103,6 +21103,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     }
                 }
 
+                // Email button — lets admin email a document internally or to agent/client with tracking
+                var emailDocBtn = isAdmin && doc.file_path
+                    ? '<button onclick="showEmailDocModal(\'' + doc.id + '\', \'' + (doc.file_name || '').replace(/'/g, "\\'") + '\', \'' + doc.file_path + '\', ' +
+                      (parentDealId ? "'" + parentDealId + "'" : 'null') + ', ' +
+                      (parentAppId ? "'" + parentAppId + "'" : 'null') +
+                      ')" style="padding:4px 10px;background:#F0FDF4;color:#166534;border:1px solid #86EFAC;border-radius:4px;cursor:pointer;font-size:11px;" title="Email this document">📧 Email</button>'
+                    : '';
+
                 var editBtn = isAdmin
                     ? '<button onclick="showEditDocumentModal(\'' + doc.id + '\', \'' + (doc.file_name || '').replace(/'/g, "\\'") + '\', \'' + (doc.document_type || 'other') + '\', ' +
                       (parentDealId ? "'" + parentDealId + "'" : 'null') + ', ' +
@@ -21133,7 +21141,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<button onclick="viewDocument(\'' + doc.file_path + '\', \'' + doc.file_name + '\')" style="padding:4px 10px;background:#8B5CF6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;">View</button>' +
                     '<button onclick="downloadDocument(\'' + doc.file_path + '\', \'' + doc.file_name + '\')" style="padding:4px 10px;background:#3B82F6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Download</button>'
                     : '<span style="padding:4px 10px;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:4px;font-size:11px;font-weight:600;">⚠️ Upload Failed — Re-upload Needed</span>') +
-                    editBtn + visToggle + deleteBtn +
+                    editBtn + emailDocBtn + visToggle + deleteBtn +
                     '</div></div>';
             }).join('');
         } else {
@@ -21146,6 +21154,152 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             '<label style="font-size:15px;font-weight:600;color:var(--navy);">Documents (' + countLabel + ')</label>' +
             addBtnHtml +
             '</div>' + docsRows + '</div>';
+    }
+
+    // ============================================
+    // Email Document — send internally or to agent/client with tracking
+    // ============================================
+    function showEmailDocModal(docId, fileName, filePath, parentDealId, parentAppId) {
+        // Get deal info to pre-fill recipient
+        var deal = parentDealId ? allDeals.find(function(d) { return d.id === parentDealId; }) : null;
+        var agentEmail = '';
+        var agentName = '';
+        var dealCompany = deal ? deal.company_name : '';
+
+        // Try to find the agent linked to this deal
+        if (deal && deal.source_agent_id) {
+            var agentUser = (allAgentsData || []).find(function(a) { return a.id === deal.source_agent_id; });
+            if (agentUser) {
+                agentEmail = agentUser.email || '';
+                agentName = agentUser.full_name || '';
+            }
+        }
+
+        var defaultSubject = dealCompany ? (dealCompany + ' — ' + fileName) : fileName;
+        var defaultMessage = 'Hi,\n\nPlease find the attached document: ' + fileName +
+            (dealCompany ? '\nRe: ' + dealCompany : '') +
+            '\n\nPlease review and let me know if you have any questions.\n\nBest regards,\n' +
+            (currentUserName || 'Alliance Financing Group');
+
+        var modalHtml = '<div id="emailDocModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;">' +
+            '<div style="background:white;border-radius:12px;padding:28px;width:520px;max-width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">' +
+            '<h3 style="margin:0;color:var(--navy);font-size:16px;">📧 Email Document</h3>' +
+            '<button onclick="document.getElementById(\'emailDocModal\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;">✕</button>' +
+            '</div>' +
+            '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 14px;margin-bottom:16px;">' +
+            '<div style="font-size:12px;color:#166534;font-weight:600;">Document: ' + fileName + '</div>' +
+            '</div>' +
+            '<div style="margin-bottom:14px;">' +
+            '<label style="font-size:13px;font-weight:600;color:var(--navy);display:block;margin-bottom:4px;">To (email address)</label>' +
+            '<input type="email" id="emailDocTo" value="' + agentEmail + '" placeholder="recipient@example.com" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">' +
+            (agentName ? '<div style="font-size:11px;color:#64748b;margin-top:2px;">Agent: ' + agentName + '</div>' : '') +
+            '</div>' +
+            '<div style="margin-bottom:14px;">' +
+            '<label style="font-size:13px;font-weight:600;color:var(--navy);display:block;margin-bottom:4px;">CC (optional)</label>' +
+            '<input type="text" id="emailDocCC" placeholder="cc@example.com, another@example.com" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">' +
+            '</div>' +
+            '<div style="margin-bottom:14px;">' +
+            '<label style="font-size:13px;font-weight:600;color:var(--navy);display:block;margin-bottom:4px;">Subject</label>' +
+            '<input type="text" id="emailDocSubject" value="' + defaultSubject.replace(/"/g, '&quot;') + '" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">' +
+            '</div>' +
+            '<div style="margin-bottom:14px;">' +
+            '<label style="font-size:13px;font-weight:600;color:var(--navy);display:block;margin-bottom:4px;">Message</label>' +
+            '<textarea id="emailDocMessage" rows="6" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;resize:vertical;line-height:1.5;box-sizing:border-box;">' + defaultMessage.replace(/</g, '&lt;') + '</textarea>' +
+            '</div>' +
+            '<div style="margin-bottom:18px;">' +
+            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#374151;">' +
+            '<input type="checkbox" id="emailDocShareWithAgent" checked> Also make document visible to agent' +
+            '</label>' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
+            '<button onclick="document.getElementById(\'emailDocModal\').remove()" style="padding:8px 20px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">Cancel</button>' +
+            '<button id="emailDocSendBtn" onclick="sendDocumentEmail(\'' + docId + '\', \'' + filePath + '\', \'' + fileName.replace(/'/g, "\\'") + '\', ' +
+            (parentDealId ? "'" + parentDealId + "'" : 'null') + ', ' +
+            (parentAppId ? "'" + parentAppId + "'" : 'null') +
+            ')" style="padding:8px 24px;background:#10B981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">📧 Send Email</button>' +
+            '</div>' +
+            '</div></div>';
+
+        // Remove existing modal if any
+        var existing = document.getElementById('emailDocModal');
+        if (existing) existing.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    async function sendDocumentEmail(docId, filePath, fileName, parentDealId, parentAppId) {
+        var toEmail = document.getElementById('emailDocTo').value.trim();
+        var ccEmails = document.getElementById('emailDocCC').value.trim();
+        var subject = document.getElementById('emailDocSubject').value.trim();
+        var message = document.getElementById('emailDocMessage').value.trim();
+        var shareWithAgent = document.getElementById('emailDocShareWithAgent').checked;
+        var btn = document.getElementById('emailDocSendBtn');
+
+        if (!toEmail) { alert('Please enter a recipient email address'); return; }
+        if (!subject) { alert('Please enter a subject'); return; }
+
+        btn.disabled = true;
+        btn.textContent = '⏳ Sending...';
+
+        try {
+            // 1. Generate a temporary signed URL for the document
+            var { data: signedUrlData, error: signedUrlError } = await db.storage.from('deal-documents').createSignedUrl(filePath, 604800); // 7-day link
+            if (signedUrlError) throw signedUrlError;
+            var downloadUrl = signedUrlData.signedUrl;
+
+            // 2. Build the email HTML
+            var messageHtml = message.replace(/\n/g, '<br>');
+            var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:20px 30px;border-radius:8px 8px 0 0;">' +
+                '<h2 style="margin:0;color:#C9A84C;font-size:18px;">Alliance Financing Group</h2></div>' +
+                '<div style="padding:24px 30px;background:#ffffff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;">' +
+                '<div style="font-size:14px;color:#1f2937;line-height:1.6;">' + messageHtml + '</div>' +
+                '<div style="margin-top:24px;padding:16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;">' +
+                '<div style="font-size:13px;font-weight:600;color:#166534;margin-bottom:8px;">📎 Attached Document</div>' +
+                '<a href="' + downloadUrl + '" style="display:inline-block;padding:8px 20px;background:#10B981;color:white;text-decoration:none;border-radius:6px;font-weight:600;font-size:13px;">Download ' + fileName + '</a>' +
+                '<div style="font-size:11px;color:#64748b;margin-top:6px;">This link expires in 7 days.</div>' +
+                '</div></div>' +
+                '<div style="padding:12px 30px;text-align:center;font-size:11px;color:#94a3b8;">Alliance Financing Group — This is an internal communication.</div></div>';
+
+            // 3. Send via Resend
+            await sendEmailViaResend(toEmail, subject, htmlBody, null, 'info@alliancefinancing.com', ccEmails || undefined);
+
+            // 4. Auto-share with agent if checked
+            if (shareWithAgent) {
+                await db.from('documents').update({ visible_to_agent: true }).eq('id', docId);
+            }
+
+            // 5. Log a note on the deal for audit trail
+            if (parentDealId) {
+                var deal = allDeals.find(function(d) { return d.id === parentDealId; });
+                if (deal) {
+                    var { data: dealFull } = await db.from('deals').select('notes').eq('id', parentDealId).single();
+                    var notes = [];
+                    try { notes = JSON.parse(dealFull.notes || '[]'); } catch(e) { notes = []; }
+                    var noteText = '📧 Document emailed: "' + fileName + '" sent to ' + toEmail;
+                    if (ccEmails) noteText += ' (CC: ' + ccEmails + ')';
+                    notes.push({
+                        text: noteText,
+                        author: currentUserName || 'Admin',
+                        date: new Date().toLocaleString(),
+                        visible_to_agent: false
+                    });
+                    await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', parentDealId);
+                }
+            }
+
+            // 6. Close modal and refresh
+            document.getElementById('emailDocModal').remove();
+            showNotification('Document emailed to ' + toEmail, 'success');
+            if (parentDealId) viewDeal(parentDealId);
+            else if (parentAppId) viewApplication(parentAppId);
+
+        } catch (err) {
+            console.error('Email document error:', err);
+            alert('Error sending email: ' + (err.message || 'Unknown error'));
+            btn.disabled = false;
+            btn.textContent = '📧 Send Email';
+        }
     }
 
     // ============================================
