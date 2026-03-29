@@ -1140,14 +1140,18 @@
 
             <!-- Notifications Page -->
             <div id="notifications" class="page-section">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <div>
-                        <h2 style="margin:0;color:var(--navy);font-size:20px;">Notifications</h2>
-                        <p style="margin:4px 0 0;color:#64748B;font-size:13px;">Everything that needs your attention in one place.</p>
-                    </div>
-                    <div style="display:flex;gap:8px;">
-                        <button onclick="loadNotifications()" class="btn btn-secondary btn-sm" style="font-size:12px;">↻ Refresh</button>
-                        <button onclick="markAllNotificationsRead()" class="btn btn-secondary btn-sm" style="font-size:12px;">✓ Mark All Read</button>
+                <div style="background:linear-gradient(135deg,#0D1E3D 0%,#1a3a6b 100%);border-radius:14px;padding:24px 28px;margin-bottom:20px;color:white;position:relative;overflow:hidden;">
+                    <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;background:rgba(201,168,76,0.1);border-radius:50%;"></div>
+                    <div style="position:absolute;bottom:-30px;right:60px;width:80px;height:80px;background:rgba(201,168,76,0.08);border-radius:50%;"></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;position:relative;">
+                        <div>
+                            <h2 id="notifGreeting" style="margin:0 0 4px;font-size:22px;font-weight:700;">Hi there 👋</h2>
+                            <p id="notifSummary" style="margin:0;color:rgba(255,255,255,0.75);font-size:14px;">Checking your notifications...</p>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button onclick="loadNotifications()" class="btn btn-sm" style="font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:7px 14px;">↻ Refresh</button>
+                            <button onclick="markAllNotificationsRead()" class="btn btn-sm" style="font-size:12px;background:rgba(201,168,76,0.2);color:#C9A84C;border:1px solid rgba(201,168,76,0.4);border-radius:8px;padding:7px 14px;">✓ Mark All Read</button>
+                        </div>
                     </div>
                 </div>
                 <div id="notificationsFilterBar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
@@ -8570,8 +8574,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var notifications = [];
         var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
+        // 1. Overdue outreach follow-ups (3+ days, not archived)
         try {
-            // 1. Overdue outreach follow-ups (3+ days, not archived)
             var outreachQuery = db.from('prospect_outreach').select('id, prospect_name, prospect_email, created_at, status, last_contact_date, updated_at').eq('is_archived', false);
             if (!isAdmin) outreachQuery = outreachQuery.eq('sent_by_id', currentUserId);
             var { data: outreach } = await outreachQuery;
@@ -8614,7 +8618,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 });
             }
 
+        } catch(e) { console.warn('Notifications: outreach load error', e); }
+
             // 2. Deal status changes (recent activity on agent's deals)
+        try {
             var dealsQuery = db.from('deals').select('id, company_name, status, status_changed_at, deal_amount, product_type, application_id').order('status_changed_at', { ascending: false }).limit(20);
             if (!isAdmin) dealsQuery = dealsQuery.eq('source_agent_id', currentUserId);
             var { data: deals } = await dealsQuery;
@@ -8656,7 +8663,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 });
             }
 
+        } catch(e) { console.warn('Notifications: deals load error', e); }
+
             // 3. Application status updates (sent applications)
+        try {
             var appsQuery = db.from('applications_sent').select('id, applicant_name, applicant_email, application_type, status, follow_up_date, sent_at, updated_at');
             if (!isAdmin) appsQuery = appsQuery.eq('sent_by_id', currentUserId);
             appsQuery = appsQuery.order('updated_at', { ascending: false }).limit(20);
@@ -8698,7 +8708,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 });
             }
 
+        } catch(e) { console.warn('Notifications: applications load error', e); }
+
             // 4. Follow-up reminders from notes (agents, vendors, lenders, clients)
+        try {
             if (isAdmin) {
                 var entities = [
                     { table: 'users', nameCol: 'full_name', label: 'Agent', filter: { role: 'agent' } },
@@ -8747,9 +8760,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
-        } catch(err) {
-            console.error('loadNotifications error:', err);
-        }
+        } catch(e) { console.warn('Notifications: follow-up reminders load error', e); }
 
         // Sort: priority first, then newest first
         notifications.sort(function(a, b) {
@@ -8765,6 +8776,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     function renderNotifications(notifications) {
         var container = document.getElementById('notificationsList');
         if (!container) return;
+
+        // Update personalized greeting
+        var greetEl = document.getElementById('notifGreeting');
+        var summaryEl = document.getElementById('notifSummary');
+        if (greetEl) {
+            var firstName = (currentUserName || '').split(' ')[0] || 'there';
+            var hour = new Date().getHours();
+            var greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+            greetEl.textContent = greeting + ', ' + firstName + ' 👋';
+        }
+        if (summaryEl) {
+            var actionCount = notifications.filter(function(n) { return n.category === 'action'; }).length;
+            var totalCount = notifications.length;
+            if (totalCount === 0) {
+                summaryEl.textContent = "You're all caught up — no notifications right now.";
+            } else if (actionCount > 0) {
+                summaryEl.textContent = 'You have ' + totalCount + ' notification' + (totalCount !== 1 ? 's' : '') + ', ' + actionCount + ' requiring action.';
+            } else {
+                summaryEl.textContent = 'You have ' + totalCount + ' notification' + (totalCount !== 1 ? 's' : '') + ' — nothing urgent.';
+            }
+        }
 
         var filtered = notifications;
         if (_currentNotifFilter !== 'all') {
@@ -33039,10 +33071,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         _notifications.unshift(notif);
         if (_notifications.length > 50) _notifications = _notifications.slice(0, 50);
         localStorage.setItem('afg_notifications', JSON.stringify(_notifications));
-        renderNotifications();
+        renderNotificationsLegacy();
     }
 
-    function renderNotifications() {
+    function renderNotificationsLegacy() {
         var badge = document.getElementById('notifBadge');
         var list = document.getElementById('notifList');
         var empty = document.getElementById('notifEmpty');
@@ -33083,14 +33115,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     function markNotifRead(notifId) {
         _notifications.forEach(function(n) { if (n.id === notifId) n.read = true; });
         localStorage.setItem('afg_notifications', JSON.stringify(_notifications));
-        renderNotifications();
+        renderNotificationsLegacy();
     }
 
     function clearNotifications(e) {
         if (e) e.stopPropagation();
         _notifications = [];
         localStorage.setItem('afg_notifications', JSON.stringify(_notifications));
-        renderNotifications();
+        renderNotificationsLegacy();
     }
 
     function timeAgo(dateStr) {
@@ -33201,7 +33233,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Initial check after 5s (let page load first)
     setTimeout(runAllNotificationChecks, 5000);
     // Render any stored notifications on load
-    renderNotifications();
+    renderNotificationsLegacy();
     // ===== END NOTIFICATION SYSTEM =====
 
     function formatCurrency(value) {
