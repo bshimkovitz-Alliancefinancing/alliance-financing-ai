@@ -26710,11 +26710,88 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (emailFields) emailFields.style.display = 'block';
             if (header) header.textContent = 'Send Email';
             if (sendBtn) sendBtn.textContent = 'Send Email';
+            // Reset contact checkboxes and manual entries
+            var toCheckboxes = document.querySelectorAll('input[name="entityEmailToContact_' + key + '"]');
+            toCheckboxes.forEach(function(cb) { cb.checked = false; if (cb.parentElement) cb.parentElement.style.background = '#F1F5F9'; });
+            var manualList = document.getElementById('entityEmailToManualList_' + key);
+            if (manualList) manualList.innerHTML = '';
+            var manualInput = document.getElementById('entityEmailToManual_' + key);
+            if (manualInput) manualInput.value = '';
+            var hiddenTo = document.getElementById('entityEmailTo_' + key);
+            if (hiddenTo) hiddenTo.value = '';
+            // Reset CC quick-add buttons
+            var ccContactBtns = document.getElementById('entityEmailCcContacts_' + key);
+            if (ccContactBtns) {
+                ccContactBtns.querySelectorAll('button').forEach(function(btn) {
+                    btn.disabled = false;
+                    btn.style.background = '#F8FAFC';
+                    btn.style.borderColor = '#E2E8F0';
+                    btn.style.color = '#475569';
+                    var origName = btn.getAttribute('title');
+                    if (origName) btn.textContent = '+ ' + origName.replace('Add ', '').replace(' to CC', '');
+                });
+            }
         } else {
             if (emailFields) emailFields.style.display = 'none';
             if (header) header.textContent = 'Internal Note';
             if (sendBtn) sendBtn.textContent = 'Add Note';
         }
+    }
+
+    // Update hidden To field with all selected contact emails + manual entries
+    function updateVendorEmailToDisplay(entityType, entityId) {
+        var key = entityType + '_' + entityId;
+        var checkboxes = document.querySelectorAll('input[name="entityEmailToContact_' + key + '"]:checked');
+        var emails = [];
+        checkboxes.forEach(function(cb) { if (cb.value) emails.push(cb.value); });
+        // Also add manual entries
+        var manualList = document.getElementById('entityEmailToManualList_' + key);
+        if (manualList) {
+            manualList.querySelectorAll('[data-email]').forEach(function(el) { emails.push(el.getAttribute('data-email')); });
+        }
+        var hiddenInput = document.getElementById('entityEmailTo_' + key);
+        if (hiddenInput) hiddenInput.value = emails.join(', ');
+    }
+
+    // Add a manually typed email to the To recipients
+    function addManualEmailRecipient(entityType, entityId, field) {
+        var key = entityType + '_' + entityId;
+        var input = document.getElementById('entityEmailToManual_' + key);
+        if (!input || !input.value.trim()) return;
+        var email = input.value.trim();
+        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) { alert('Please enter a valid email address.'); return; }
+        var listDiv = document.getElementById('entityEmailToManualList_' + key);
+        if (!listDiv) return;
+        // Check for duplicates
+        if (listDiv.querySelector('[data-email="' + email + '"]')) { input.value = ''; return; }
+        var chip = document.createElement('span');
+        chip.setAttribute('data-email', email);
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#DBEAFE;border:1px solid #93C5FD;border-radius:12px;font-size:12px;color:#1E40AF;';
+        chip.innerHTML = email + ' <span onclick="this.parentElement.remove();updateVendorEmailToDisplay(\'' + entityType + '\',\'' + entityId + '\')" style="cursor:pointer;font-weight:bold;color:#3B82F6;font-size:14px;">&times;</span>';
+        listDiv.appendChild(chip);
+        input.value = '';
+        updateVendorEmailToDisplay(entityType, entityId);
+    }
+
+    // Quick-add a vendor contact to the CC field
+    function addCcFromContact(btn, entityType, entityId, email, name) {
+        var key = entityType + '_' + entityId;
+        var ccInput = document.getElementById('entityEmailCc_' + key);
+        if (!ccInput) return;
+        var currentCc = ccInput.value.trim();
+        // Check if already in CC
+        if (currentCc.toLowerCase().includes(email.toLowerCase())) {
+            showToast(name + ' is already in CC');
+            return;
+        }
+        ccInput.value = currentCc ? currentCc + ', ' + email : email;
+        btn.style.background = '#DBEAFE';
+        btn.style.borderColor = '#93C5FD';
+        btn.style.color = '#1E40AF';
+        btn.textContent = '✓ ' + (name || email);
+        btn.disabled = true;
+        showToast(name + ' added to CC');
     }
 
     function handleEntityFileSelect(input, entityType, entityId) {
@@ -26796,14 +26873,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Handle email sending
             if (type === 'email') {
+                // Rebuild To from checkboxes + manual entries for vendor emails
+                if (entityType === 'vendor') {
+                    updateVendorEmailToDisplay(entityType, entityId);
+                }
                 var toInput = document.getElementById('entityEmailTo_' + key);
                 var ccInput = document.getElementById('entityEmailCc_' + key);
                 var subjectInput = document.getElementById('entityEmailSubject_' + key);
 
-                var toEmail = toInput ? toInput.value.trim() : '';
-                if (!toEmail) { alert('No email address found.'); return; }
+                var toEmailRaw = toInput ? toInput.value.trim() : '';
+                if (!toEmailRaw) { alert('Please select at least one recipient.'); return; }
                 var subject = subjectInput ? subjectInput.value.trim() : '';
                 if (!subject) { alert('Please enter a subject.'); return; }
+
+                // Parse multiple To recipients
+                var toEmails = [];
+                toEmailRaw.split(',').forEach(function(e) { var t = e.trim(); if (t) toEmails.push(t); });
 
                 var ccEmails = [];
                 if (ccInput && ccInput.value.trim()) {
@@ -26817,12 +26902,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<p style="font-size:14px;color:#334155;line-height:1.6;white-space:pre-wrap;">' + body.value.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>' +
                     '</div><div style="padding:12px;text-align:center;font-size:11px;color:#94A3B8;">Alliance Financing Group | alliancefinancing.ai</div></div>';
 
-                await sendEmailViaResend(toEmail, subject, htmlBody, body.value.trim(), null, ccEmails.length > 0 ? ccEmails : undefined);
+                // Send to primary recipient with all others in To as well
+                // Resend supports array of recipients — send to first, put rest in CC along with explicit CC
+                var primaryTo = toEmails[0];
+                var additionalTo = toEmails.slice(1);
+                var allCc = additionalTo.concat(ccEmails);
 
-                newEntry.email_to = toEmail;
+                await sendEmailViaResend(primaryTo, subject, htmlBody, body.value.trim(), null, allCc.length > 0 ? allCc : undefined);
+
+                // Build readable recipient names for the log
+                var toNames = [];
+                if (entityType === 'vendor' && window._currentVendorContacts) {
+                    toEmails.forEach(function(email) {
+                        var contact = window._currentVendorContacts.find(function(c) { return c.email === email; });
+                        toNames.push(contact ? (contact.contact_name + ' <' + email + '>') : email);
+                    });
+                } else {
+                    toNames = toEmails;
+                }
+
+                newEntry.email_to = toNames.join(', ');
                 newEntry.email_cc = ccEmails.join(', ');
                 newEntry.email_subject = subject;
-                showToast('Email sent!');
+                showToast('Email sent to ' + toEmails.length + ' recipient' + (toEmails.length > 1 ? 's' : '') + '!');
             }
 
             // Determine table and field based on entity type
@@ -28004,6 +28106,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (contactsError) console.warn('Could not load contacts:', contactsError);
 
+            // Store contacts globally for email form access
+            window._currentVendorContacts = contacts || [];
+
             // Fetch deals linked to this vendor's salespeople
             let spDeals = [];
             try {
@@ -28470,12 +28575,33 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             <div id="entityComposeHeader_vendor_${vendorId}" style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:10px;">New Note</div>
                             <div id="entityEmailFields_vendor_${vendorId}" style="display:none; margin-bottom:10px;">
                                 <div style="margin-bottom:8px;">
-                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">To</label>
-                                    <input type="text" id="entityEmailTo_vendor_${vendorId}" value="${vendor.source_agent_id ? ((cachedAgents.find(a => a.id === vendor.source_agent_id) || {}).email || '') : ''}" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">To <span style="font-weight:400;color:#94A3B8;">(select contacts)</span></label>
+                                    <div id="entityEmailToContacts_vendor_${vendorId}" style="display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 10px;border:1px solid #ccc;border-radius:4px;background:white;min-height:36px;margin-bottom:4px;">
+                                        ${(contacts || []).filter(c => c.email && (!c.status || c.status === 'Active')).map(c =>
+                                            '<label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;padding:2px 8px;border-radius:12px;background:#F1F5F9;border:1px solid #E2E8F0;transition:all 0.2s;" onmouseover="this.style.background=\'#E2E8F0\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.background=\'#F1F5F9\';else this.style.background=\'#DBEAFE\'">' +
+                                            '<input type="checkbox" name="entityEmailToContact_vendor_' + vendorId + '" value="' + (c.email || '').replace(/"/g, '&quot;') + '" data-name="' + (c.contact_name || '').replace(/"/g, '&quot;') + '" onchange="updateVendorEmailToDisplay(\'vendor\',\'' + vendorId + '\');if(this.checked)this.parentElement.style.background=\'#DBEAFE\';else this.parentElement.style.background=\'#F1F5F9\'">' +
+                                            '<span>' + (c.contact_name || 'Unknown') + '</span>' +
+                                            '<span style="font-size:11px;color:#64748B;">(' + (c.email || '') + ')</span>' +
+                                            '</label>'
+                                        ).join('') || '<span style="font-size:12px;color:#94A3B8;font-style:italic;">No contacts with email addresses</span>'}
+                                    </div>
+                                    <div style="display:flex;gap:6px;align-items:center;">
+                                        <input type="text" id="entityEmailToManual_vendor_${vendorId}" placeholder="Or type an email address..." style="flex:1;padding:5px 8px;border:1px solid #E2E8F0;border-radius:4px;font-size:12px;color:#475569;">
+                                        <button onclick="addManualEmailRecipient('vendor','${vendorId}','to')" style="padding:5px 10px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;font-size:11px;cursor:pointer;white-space:nowrap;">+ Add</button>
+                                    </div>
+                                    <div id="entityEmailToManualList_vendor_${vendorId}" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;"></div>
+                                    <input type="hidden" id="entityEmailTo_vendor_${vendorId}" value="">
                                 </div>
                                 <div style="margin-bottom:8px;">
-                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">CC (comma-separated)</label>
-                                    <input type="text" id="entityEmailCc_vendor_${vendorId}" placeholder="e.g. john@example.com" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">CC <span style="font-weight:400;color:#94A3B8;">(add from contacts or type manually)</span></label>
+                                    <div style="display:flex;flex-wrap:wrap;gap:4px 8px;margin-bottom:4px;" id="entityEmailCcContacts_vendor_${vendorId}">
+                                        ${(contacts || []).filter(c => c.email && (!c.status || c.status === 'Active')).map(c =>
+                                            '<button type="button" onclick="addCcFromContact(this,\'vendor\',\'' + vendorId + '\',\'' + (c.email || '').replace(/'/g, "\\'") + '\',\'' + (c.contact_name || '').replace(/'/g, "\\'") + '\')" style="padding:2px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;font-size:11px;cursor:pointer;color:#475569;transition:all 0.2s;" onmouseover="this.style.background=\'#E2E8F0\'" onmouseout="this.style.background=\'#F8FAFC\'" title="Add ' + (c.contact_name || '') + ' to CC">' +
+                                            '+ ' + (c.contact_name || c.email || '') +
+                                            '</button>'
+                                        ).join('')}
+                                    </div>
+                                    <input type="text" id="entityEmailCc_vendor_${vendorId}" placeholder="e.g. john@example.com (comma-separated)" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
                                 </div>
                                 <div style="margin-bottom:8px;">
                                     <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Subject</label>
