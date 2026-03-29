@@ -1404,6 +1404,7 @@
                                 <option value="">All Types</option>
                                 <option value="Lender">Lender</option>
                                 <option value="Broker">Broker</option>
+                                <option value="Family Office">Family Office</option>
                             </select>
                             <select id="lenderCountryFilter" onchange="filterLenders()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
                                 <option value="">All Countries</option>
@@ -3816,6 +3817,7 @@
                             <option value="">Select Type</option>
                             <option value="Lender">Lender</option>
                             <option value="Broker">Broker</option>
+                            <option value="Family Office">Family Office</option>
                         </select>
                     </div>
                     <div class="modal-field">
@@ -14867,7 +14869,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         const typeStyles = {
             'Lender': { bg: '#DBEAFE', color: '#1E40AF', icon: '🏦' },
-            'Broker': { bg: '#FEF3C7', color: '#92400E', icon: '🤝' }
+            'Broker': { bg: '#FEF3C7', color: '#92400E', icon: '🤝' },
+            'Family Office': { bg: '#DDD6FE', color: '#6D28D9', icon: '💰' }
         };
 
         const avatarColors = ['#0D1E3D', '#1E40AF', '#7C3AED', '#059669', '#B45309', '#DC2626', '#0891B2', '#6D28D9'];
@@ -14934,6 +14937,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         const inactive = allLenders.filter(l => l.status === 'Inactive').length;
         const lenders = allLenders.filter(l => l.lender_type === 'Lender').length;
         const brokers = allLenders.filter(l => l.lender_type === 'Broker').length;
+        const familyOffices = allLenders.filter(l => l.lender_type === 'Family Office').length;
         const canada = allLenders.filter(l => (l.country || '').includes('Canada')).length;
         const us = allLenders.filter(l => (l.country || '').includes('United States')).length;
 
@@ -14943,6 +14947,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             { label: 'Inactive', value: inactive, color: '#991B1B', bg: '#FEE2E2' },
             { label: 'Lenders', value: lenders, color: '#1E40AF', bg: '#DBEAFE' },
             { label: 'Brokers', value: brokers, color: '#92400E', bg: '#FEF3C7' },
+            { label: 'Family Offices', value: familyOffices, color: '#6D28D9', bg: '#DDD6FE' },
             { label: '🇨🇦 Canada', value: canada, color: '#0D1E3D', bg: '#F0F9FF' },
             { label: '🇺🇸 United States', value: us, color: '#0D1E3D', bg: '#FFF7ED' }
         ];
@@ -15617,6 +15622,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // 5. Create users record
             var slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            // Ensure slug is unique
+            var { data: existingSlugs } = await db.from('users').select('id').eq('referral_slug', slug);
+            if (existingSlugs && existingSlugs.length > 0) {
+                slug = slug + '-' + Math.random().toString(36).substring(2, 6);
+            }
             var { data: newUser, error: userError } = await db.from('users').insert([{
                 full_name: name,
                 email: email,
@@ -25875,7 +25885,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         event.preventDefault();
 
         try {
-            const referralSlug = document.getElementById('agentSlug').value;
+            let referralSlug = document.getElementById('agentSlug').value;
             if (!referralSlug) {
                 alert('Please enter an agent name to generate the referral slug');
                 return;
@@ -25922,6 +25932,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Generate unique agent code
             const agentCode = await generateAgentCode(selectedAgentType);
+
+            // Ensure referral slug is unique
+            if (referralSlug) {
+                const { data: existingSlugs } = await db.from('users').select('id').eq('referral_slug', referralSlug);
+                if (existingSlugs && existingSlugs.length > 0) {
+                    // Append random suffix to make it unique
+                    const suffix = Math.random().toString(36).substring(2, 6);
+                    const originalSlug = referralSlug;
+                    document.getElementById('agentSlug').value = referralSlug + '-' + suffix;
+                    alert('The referral slug "' + originalSlug + '" is already taken. It has been updated to "' + referralSlug + '-' + suffix + '". You can edit it if needed.');
+                    referralSlug = referralSlug + '-' + suffix;
+                }
+            }
 
             // Check if invite will be sent
             const sendInviteEl = document.getElementById('sendInviteEmail');
@@ -26581,6 +26604,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function updateAgentField(agentId, field, value) {
         try {
+            // If updating referral_slug, check uniqueness first
+            if (field === 'referral_slug' && value) {
+                const { data: existingSlugs } = await db.from('users').select('id').eq('referral_slug', value).neq('id', agentId);
+                if (existingSlugs && existingSlugs.length > 0) {
+                    alert('The referral slug "' + value + '" is already taken by another agent. Please choose a different one.');
+                    await viewAgent(agentId);
+                    return;
+                }
+            }
             const update = {};
             update[field] = value;
             const { error } = await db
@@ -31553,7 +31585,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <label>Type</label>
                         <select onchange="updateLenderField('${lenderId}', 'lender_type', this.value)" style="padding:5px 8px;border-radius:4px;border:1px solid #ccc;font-size:14px;cursor:pointer;width:100%;">
                             <option value="">Select Type</option>
-                            ${'Lender,Broker,Bank,Credit Union,MCA,SRED,Other'.split(',').map(t => '<option value="' + t + '" ' + ((lender.lender_type || '') === t ? 'selected' : '') + '>' + t + '</option>').join('')}
+                            ${'Lender,Broker,Family Office,Bank,Credit Union,MCA,SRED,Other'.split(',').map(t => '<option value="' + t + '" ' + ((lender.lender_type || '') === t ? 'selected' : '') + '>' + t + '</option>').join('')}
                         </select>
                     </div>
                     <div class="modal-field">
