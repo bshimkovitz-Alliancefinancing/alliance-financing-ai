@@ -8490,9 +8490,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 mktHtml += '</div>';
             }
             if (overdueCount > 0) {
-                mktHtml += '<div style="background:linear-gradient(135deg,#FEE2E2,#FECACA);padding:10px 20px;border-left:4px solid #EF4444;display:flex;align-items:center;gap:8px;">';
+                mktHtml += '<div onclick="showPage(\'subAgents\')" style="background:linear-gradient(135deg,#FEE2E2,#FECACA);padding:10px 20px;border-left:4px solid #EF4444;display:flex;align-items:center;justify-content:space-between;cursor:pointer;">';
+                mktHtml += '<div style="display:flex;align-items:center;gap:8px;">';
                 mktHtml += '<span style="font-size:13px;">⏰</span>';
                 mktHtml += '<span style="font-size:12px;font-weight:600;color:#991B1B;">' + overdueCount + ' overdue for follow-up</span>';
+                mktHtml += '</div>';
+                mktHtml += '<span style="font-size:12px;font-weight:600;color:#991B1B;text-decoration:underline;">View Outreach →</span>';
                 mktHtml += '</div>';
             }
             mktHtml += '</div>';
@@ -14172,17 +14175,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     function updateDealStats() {
         try {
             var activeStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
-            var activeDeals = (allDeals || []).filter(function(d) { return activeStatuses.includes(d.status); });
+            var activeDeals = (allDeals || []).filter(function(d) { return !d.is_archived && activeStatuses.includes(d.status); });
             var totalValue = activeDeals.reduce(function(sum, d) { return sum + (parseFloat(d.deal_amount) || 0); }, 0);
             var avgSize = activeDeals.length > 0 ? totalValue / activeDeals.length : 0;
 
             var now = new Date();
             var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
             var fundedThisMonth = (allDeals || []).filter(function(d) {
-                return d.status === 'Funded' && d.origination_date && new Date(d.origination_date) >= monthStart;
+                return !d.is_archived && d.status === 'Funded' && d.origination_date && new Date(d.origination_date) >= monthStart;
             }).length;
 
-            var inCredit = (allDeals || []).filter(function(d) { return d.status === 'In Credit'; }).length;
+            var inCredit = (allDeals || []).filter(function(d) { return !d.is_archived && d.status === 'In Credit'; }).length;
 
             var sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             var stale = activeDeals.filter(function(d) {
