@@ -1044,7 +1044,7 @@
                             <input type="text" id="agentDealSearch" placeholder="Search company, product, status..."
                                 oninput="filterAgentDeals()"
                                 style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; min-width: 250px;">
-                            <button class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ Add Application</button>
+                            <button class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ New Deal (Existing Client)</button>
                         </div>
                     </div>
                     <table>
@@ -3396,12 +3396,12 @@
 <div id="addDealModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Add Application</h2>
+            <h2 id="addDealModalTitle">Add Application</h2>
             <button class="modal-close" onclick="closeAddDealModal()">✕</button>
         </div>
         <div class="modal-body" id="addDealModalBody">
-            <div style="padding:10px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;margin-bottom:16px;font-size:13px;color:#0369A1;line-height:1.5;">
-                <strong>For existing clients</strong> who need a new application. For new clients, use <a href="#" onclick="closeAddDealModal();showPage('applicationHub');return false;" style="color:#0369A1;font-weight:600;text-decoration:underline;">Application Hub</a> to send a branded application form.
+            <div id="addDealModalDescription" style="padding:10px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;margin-bottom:16px;font-size:13px;color:#0369A1;line-height:1.5;">
+                <strong>For existing clients</strong> who need additional financing or a new product. Select your client below, or use <a href="#" onclick="closeAddDealModal();showPage('applicationHub');return false;" style="color:#0369A1;font-weight:600;text-decoration:underline;">Application Hub</a> to send a branded application to a new prospect.
             </div>
             <form id="addDealForm" onsubmit="handleAddDeal(event)">
                 <div class="modal-row">
@@ -19445,6 +19445,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             clientSelect.innerHTML = defaultOption +
                 clientList.map(c => `<option value="${c.id}">${c.company_name}</option>`).join('');
         }
+
+        // Set title and description based on role
+        var titleEl = document.getElementById('addDealModalTitle');
+        var descEl = document.getElementById('addDealModalDescription');
+        if (titleEl) titleEl.textContent = isAdmin ? 'Add Application' : 'New Deal (Existing Client)';
+        if (descEl) descEl.style.display = isAdmin ? 'none' : 'block';
 
         document.getElementById('addDealModal').classList.add('active');
     }
