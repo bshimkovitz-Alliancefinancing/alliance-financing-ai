@@ -3400,6 +3400,9 @@
             <button class="modal-close" onclick="closeAddDealModal()">✕</button>
         </div>
         <div class="modal-body" id="addDealModalBody">
+            <div style="padding:10px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;margin-bottom:16px;font-size:13px;color:#0369A1;line-height:1.5;">
+                <strong>For existing clients</strong> who need a new application. For new clients, use <a href="#" onclick="closeAddDealModal();showPage('applicationHub');return false;" style="color:#0369A1;font-weight:600;text-decoration:underline;">Application Hub</a> to send a branded application form.
+            </div>
             <form id="addDealForm" onsubmit="handleAddDeal(event)">
                 <div class="modal-row">
                     <div class="modal-field">
@@ -19420,12 +19423,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 cachedLenders.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
         }
 
-        // Populate client dropdown
-        const { data: clientList } = await db.from('clients').select('id, company_name').order('company_name');
+        // Populate client dropdown — agents only see their own clients
+        let clientList = [];
+        if (isAdmin) {
+            const { data } = await db.from('clients').select('id, company_name').order('company_name');
+            clientList = data || [];
+        } else if (currentUserId) {
+            // Get client IDs from agent's existing deals
+            const { data: agentDeals } = await db.from('deals').select('client_id').eq('source_agent_id', currentUserId).not('client_id', 'is', null);
+            const clientIds = [...new Set((agentDeals || []).map(d => d.client_id))];
+            if (clientIds.length > 0) {
+                const { data } = await db.from('clients').select('id, company_name').in('id', clientIds).order('company_name');
+                clientList = data || [];
+            }
+        }
         const clientSelect = document.getElementById('dealClientLink');
         if (clientSelect) {
-            clientSelect.innerHTML = '<option value="">— New client will be created —</option>' +
-                (clientList || []).map(c => `<option value="${c.id}">${c.company_name}</option>`).join('');
+            var defaultOption = clientList.length > 0
+                ? '<option value="">— New client will be created —</option>'
+                : '<option value="">— No existing clients —</option>';
+            clientSelect.innerHTML = defaultOption +
+                clientList.map(c => `<option value="${c.id}">${c.company_name}</option>`).join('');
         }
 
         document.getElementById('addDealModal').classList.add('active');
