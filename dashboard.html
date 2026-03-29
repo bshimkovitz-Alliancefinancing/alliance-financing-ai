@@ -1225,7 +1225,7 @@
                                 <option value="Dead approval">Dead approval</option>
                                 <option value="Withdrawn">Withdrawn</option>
                             </select>
-                            <select id="dealSourceFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                            <select id="dealSourceFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;" class="admin-or-iso-filter">
                                 <option value="">All Sources</option>
                                 <option value="Online">Online</option>
                                 <option value="Agent Referral">Agent Referral</option>
@@ -1255,6 +1255,10 @@
                                 <option value="">All Analysts</option>
                                 <option value="__mine__">My Deals</option>
                             </select>
+                            <select id="dealSourcedByFilter" onchange="filterDeals()" style="display:none; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                <option value="">All Deals</option>
+                                <option value="__mine__">My Deals</option>
+                            </select>
                         </div>
                         <div style="display: flex; gap: 8px; padding: 0 20px 12px;">
                             <button class="btn btn-secondary btn-sm" onclick="exportDeals()">Export CSV</button>
@@ -1271,7 +1275,8 @@
                                 <th style="min-width:150px;">Product</th>
                                 <th style="min-width:130px;">Source</th>
                                 <th style="min-width:140px;" class="lender-col">Lender</th>
-                                <th style="min-width:130px;">Assigned To</th>
+                                <th style="min-width:130px;" class="assigned-col">Assigned To</th>
+                                <th style="min-width:130px; display:none;" class="sourced-by-col">Sourced By</th>
                                 <th style="min-width:140px;">Status</th>
                                 <th title="Days since deal was created or status last changed">Age</th>
                                 <th>Date</th>
@@ -1280,7 +1285,7 @@
                         </thead>
                         <tbody id="dealsBody">
                             <tr>
-                                <td colspan="11" class="empty-state">Loading...</td>
+                                <td colspan="12" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -4933,13 +4938,13 @@
                 loadPageData('vendorPortal');
             }
 
-            // Route ISO partners and mortgage brokers directly to Deal Pipeline (their main operational view)
+            // Route ISO partners and mortgage brokers directly to Notifications hub (their home page)
             if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') && !['super_admin', 'admin'].includes(currentUserRole)) {
-                showPage('deals');
-                loadPageData('deals');
+                showPage('notifications');
+                loadPageData('notifications');
                 // Pre-load outreach data in background so Marketing badge/banner appear immediately
                 loadOutreachHistory().catch(function(e) { console.warn('Background outreach load:', e); });
-                // Pre-load notifications for badge count
+                // Pre-load notifications
                 loadNotifications().catch(function(e) { console.warn('Background notifications load:', e); });
             }
 
@@ -5147,7 +5152,7 @@
             }
         });
 
-        // ISO Partners and Mortgage Brokers: hide Dashboard nav item (they use Deal Pipeline as home)
+        // ISO Partners and Mortgage Brokers: hide Dashboard nav item (they use Notifications as home)
         if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') && !isAdmin) {
             navItems.forEach(function(item) {
                 var spans = item.querySelectorAll('span');
@@ -13496,9 +13501,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await loadReferralDashboard();
                 return;
             }
-            // ISO partners and mortgage brokers use Deal Pipeline as home — redirect if they somehow land on dashboard
+            // ISO partners and mortgage brokers use Notifications as home — redirect if they somehow land on dashboard
             if (!['super_admin', 'admin'].includes(currentUserRole) && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker')) {
-                showPage('deals');
+                showPage('notifications');
                 return;
             }
 
@@ -14285,15 +14290,80 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 window._currentTeamMemberId = myTm ? myTm.id : null;
             }
 
-            // Populate the analyst filter dropdown
+            // Populate the analyst/sourced-by filter dropdown based on role
+            var isAdminForFilter = ['super_admin', 'admin'].includes(currentUserRole);
             var assignedFilterEl = document.getElementById('dealAssignedFilter');
-            if (assignedFilterEl && assignedFilterEl.options.length <= 2) {
-                cachedTeamMembers.forEach(function(t) {
-                    var opt = document.createElement('option');
-                    opt.value = t.id;
-                    opt.textContent = t.full_name;
-                    assignedFilterEl.appendChild(opt);
-                });
+            var sourcedByFilterEl = document.getElementById('dealSourcedByFilter');
+
+            if (isAdminForFilter) {
+                // Admins see "All Analysts" dropdown
+                if (assignedFilterEl) assignedFilterEl.style.display = '';
+                if (sourcedByFilterEl) sourcedByFilterEl.style.display = 'none';
+                if (assignedFilterEl && assignedFilterEl.options.length <= 2) {
+                    cachedTeamMembers.forEach(function(t) {
+                        var opt = document.createElement('option');
+                        opt.value = t.id;
+                        opt.textContent = t.full_name;
+                        assignedFilterEl.appendChild(opt);
+                    });
+                }
+            } else {
+                // Agents: hide the All Analysts dropdown
+                if (assignedFilterEl) assignedFilterEl.style.display = 'none';
+
+                // For ISO Partners / Mortgage Brokers, show "Sourced By" dropdown with sub-agents
+                if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') && sourcedByFilterEl) {
+                    if (sourcedByFilterEl.options.length <= 2) {
+                        try {
+                            var { data: subAgentsForFilter } = await db.from('users').select('id, full_name').eq('parent_agent_id', currentUserId).eq('role', 'agent').order('full_name');
+                            if (subAgentsForFilter && subAgentsForFilter.length > 0) {
+                                // Show the Sourced By dropdown
+                                sourcedByFilterEl.style.display = '';
+                                // Add "Team Deals" option
+                                var teamOpt = document.createElement('option');
+                                teamOpt.value = '__team__';
+                                teamOpt.textContent = 'Team Deals';
+                                sourcedByFilterEl.appendChild(teamOpt);
+                                // Add each sub-agent
+                                subAgentsForFilter.forEach(function(sa) {
+                                    var opt = document.createElement('option');
+                                    opt.value = sa.id;
+                                    opt.textContent = sa.full_name;
+                                    sourcedByFilterEl.appendChild(opt);
+                                });
+                                // Cache sub-agent IDs for filtering
+                                window._subAgentIds = subAgentsForFilter.map(function(sa) { return sa.id; });
+                            } else {
+                                // No sub-agents — hide the dropdown
+                                sourcedByFilterEl.style.display = 'none';
+                            }
+                        } catch(e) {
+                            console.warn('Sub-agent filter populate failed:', e);
+                            sourcedByFilterEl.style.display = 'none';
+                        }
+                    }
+                } else if (sourcedByFilterEl) {
+                    // Regular agents — hide Sourced By (they only see their own deals)
+                    sourcedByFilterEl.style.display = 'none';
+                }
+            }
+
+            // Hide "All Sources" filter for basic agents (not useful — most only have one source type)
+            if (!isAdminForFilter && currentAgentType !== 'super_agent' && currentAgentType !== 'mortgage_broker') {
+                var srcFilterEl = document.getElementById('dealSourceFilter');
+                if (srcFilterEl) srcFilterEl.style.display = 'none';
+            }
+
+            // Show/hide Assigned To vs Sourced By columns based on role
+            if (!isAdminForFilter) {
+                document.querySelectorAll('.assigned-col').forEach(function(el) { el.style.display = 'none'; });
+                // Show Sourced By for ISO Partners with sub-agents
+                if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') && window._subAgentIds && window._subAgentIds.length > 0) {
+                    document.querySelectorAll('.sourced-by-col').forEach(function(el) { el.style.display = ''; });
+                }
+            } else {
+                document.querySelectorAll('.assigned-col').forEach(function(el) { el.style.display = ''; });
+                document.querySelectorAll('.sourced-by-col').forEach(function(el) { el.style.display = 'none'; });
             }
 
             // Fetch returned application emails so we can flag deals with pending reviews
@@ -14444,7 +14514,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     function renderDealsTable(data) {
         const tbody = document.getElementById('dealsBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No deals found in this view.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="empty-state">No deals found in this view.</td></tr>';
             return;
         }
 
@@ -14541,7 +14611,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <td>${productHtml}</td>
                     <td>${sourceHtml}</td>
                     <td class="lender-col" style="${isAdmin ? '' : 'display:none;'}">${lenderHtml}</td>
-                    <td>${assignedToHtml}</td>
+                    <td class="assigned-col" style="${isAdmin ? '' : 'display:none;'}">${assignedToHtml}</td>
+                    <td class="sourced-by-col" style="display:none;"><span style="font-size:13px;font-weight:500;color:#1f2937;">${deal._sourcedByName || (deal.source_agent_id === currentUserId ? 'Me' : '')}</span></td>
                     <td>${isAdmin ? `<select class="pipeline-select" onchange="updateDealField('${deal.id}', 'status', this.value)" style="padding:5px 10px;border-radius:4px;border:1px solid #d1d5db;font-size:13px;cursor:pointer;min-width:130px;background:#fff;color:#1f2937;font-weight:500;appearance:auto;">${getDealStatusOptions(deal.status)}</select>` : getStatusBadge(deal.status)}</td>
                     <td>${(function() {
                         var daysInStage = '';
@@ -14604,6 +14675,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         const sourceFilter = document.getElementById('dealSourceFilter')?.value || '';
         const productFilter = document.getElementById('dealProductFilter')?.value || '';
         const assignedFilter = document.getElementById('dealAssignedFilter')?.value || '';
+        const sourcedByFilter = document.getElementById('dealSourcedByFilter')?.value || '';
 
         const filtered = allDeals.filter(deal => {
             // Tab filter — skip if a specific status is selected (search across all tabs)
@@ -14648,7 +14720,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const matchesProduct = !productFilter || deal.product_type === productFilter;
             const matchesAssigned = !assignedFilter || (assignedFilter === '__mine__' ? deal.assigned_to === window._currentTeamMemberId : deal.assigned_to === assignedFilter);
 
-            return matchesSearch && matchesStatus && matchesSource && matchesProduct && matchesAssigned;
+            // "Sourced By" filter for agents (ISO Partners)
+            var matchesSourcedBy = true;
+            if (sourcedByFilter) {
+                if (sourcedByFilter === '__mine__') {
+                    matchesSourcedBy = deal.source_agent_id === currentUserId;
+                } else if (sourcedByFilter === '__team__') {
+                    matchesSourcedBy = deal.source_agent_id !== currentUserId && (window._subAgentIds || []).includes(deal.source_agent_id);
+                } else {
+                    matchesSourcedBy = deal.source_agent_id === sourcedByFilter;
+                }
+            }
+
+            return matchesSearch && matchesStatus && matchesSource && matchesProduct && matchesAssigned && matchesSourcedBy;
         });
 
         // Sort by status priority — deals closest to funding at top, then by age (oldest first)
@@ -14671,6 +14755,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         renderDealsTable(filtered);
         updateDealStats();
+
+        // Re-apply column visibility after table rebuild
+        var isAdminUser = ['super_admin', 'admin'].includes(currentUserRole);
+        if (!isAdminUser) {
+            document.querySelectorAll('#dealsTable .assigned-col').forEach(function(el) { el.style.display = 'none'; });
+            if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') && window._subAgentIds && window._subAgentIds.length > 0) {
+                document.querySelectorAll('#dealsTable .sourced-by-col').forEach(function(el) { el.style.display = ''; });
+            }
+        }
     }
 
     async function toggleArchiveDeal(dealId, archive) {
