@@ -1631,7 +1631,7 @@
                                 <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Industry</th>
                                 <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Country</th>
                                 <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:center;">Deals</th>
-                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Acct Manager</th>
+                                <th id="clientMgrHeader" style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Acct Manager</th>
                                 <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Last Contacted</th>
                                 <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Status</th>
                                 <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:right;">Actions</th>
@@ -4941,11 +4941,9 @@
             // Route ISO partners and mortgage brokers directly to Notifications hub (their home page)
             if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') && !['super_admin', 'admin'].includes(currentUserRole)) {
                 showPage('notifications');
-                loadPageData('notifications');
+                loadPageData('notifications'); // calls loadNotifications()
                 // Pre-load outreach data in background so Marketing badge/banner appear immediately
                 loadOutreachHistory().catch(function(e) { console.warn('Background outreach load:', e); });
-                // Pre-load notifications
-                loadNotifications().catch(function(e) { console.warn('Background notifications load:', e); });
             }
 
             // Pre-load notifications for all users (if not already loaded by ISO routing above)
@@ -8579,10 +8577,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var notifications = [];
         var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
+        // Build agent IDs list for ISO Partners (include sub-agents)
+        var _notifAgentIds = [currentUserId];
+        if (!isAdmin && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker')) {
+            try {
+                var { data: _subAgentsNotif } = await db.from('users').select('id').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                if (_subAgentsNotif && _subAgentsNotif.length > 0) {
+                    _notifAgentIds = _notifAgentIds.concat(_subAgentsNotif.map(function(s) { return s.id; }));
+                }
+            } catch(e) { console.warn('Sub-agent lookup for notifications failed:', e); }
+        }
+
         // 1. Overdue outreach follow-ups (3+ days, not archived)
         try {
-            var outreachQuery = db.from('prospect_outreach').select('id, prospect_name, prospect_email, created_at, status, last_contact_date, updated_at').eq('is_archived', false);
-            if (!isAdmin) outreachQuery = outreachQuery.eq('sent_by_id', currentUserId);
+            var outreachQuery = db.from('prospect_outreach').select('id, prospect_name, prospect_email, created_at, status, last_contact_date, updated_at, sent_by_id').eq('is_archived', false);
+            if (!isAdmin) outreachQuery = outreachQuery.in('sent_by_id', _notifAgentIds);
             var { data: outreach } = await outreachQuery;
             if (outreach) {
                 var threeDaysAgo = Date.now() - 3 * 86400000;
@@ -8627,8 +8636,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // 2. Deal status changes (recent activity on agent's deals)
         try {
-            var dealsQuery = db.from('deals').select('id, company_name, status, status_changed_at, deal_amount, product_type, application_id').order('status_changed_at', { ascending: false }).limit(20);
-            if (!isAdmin) dealsQuery = dealsQuery.eq('source_agent_id', currentUserId);
+            var dealsQuery = db.from('deals').select('id, company_name, status, status_changed_at, deal_amount, product_type, application_id, source_agent_id').order('status_changed_at', { ascending: false }).limit(20);
+            if (!isAdmin) dealsQuery = dealsQuery.in('source_agent_id', _notifAgentIds);
             var { data: deals } = await dealsQuery;
             if (deals) {
                 var sevenDaysAgo = Date.now() - 7 * 86400000;
@@ -8672,8 +8681,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // 3. Application status updates (sent applications)
         try {
-            var appsQuery = db.from('applications_sent').select('id, applicant_name, applicant_email, application_type, status, follow_up_date, sent_at, updated_at');
-            if (!isAdmin) appsQuery = appsQuery.eq('sent_by_id', currentUserId);
+            var appsQuery = db.from('applications_sent').select('id, applicant_name, applicant_email, application_type, status, follow_up_date, sent_at, updated_at, sent_by_id');
+            if (!isAdmin) appsQuery = appsQuery.in('sent_by_id', _notifAgentIds);
             appsQuery = appsQuery.order('updated_at', { ascending: false }).limit(20);
             var { data: apps } = await appsQuery;
             if (apps) {
@@ -30489,10 +30498,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const { data: ccData } = await db.from('client_contact_persons').select('id, client_id, full_name, status');
             cachedClientContacts = ccData || [];
 
-            // For agents: only show clients linked to their deals
+            // For agents: only show clients linked to their deals (ISO Partners include sub-agent deals)
             let agentClientIds = null;
             if (!isAdmin && currentUserId) {
-                const { data: agentDeals } = await db.from('deals').select('client_id').eq('source_agent_id', currentUserId).not('client_id', 'is', null);
+                var clientAgentIds = [currentUserId];
+                if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
+                    try {
+                        var { data: subForClients } = await db.from('users').select('id').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                        if (subForClients && subForClients.length > 0) {
+                            clientAgentIds = clientAgentIds.concat(subForClients.map(function(s) { return s.id; }));
+                        }
+                    } catch(e) { console.warn('Sub-agent lookup for clients failed:', e); }
+                }
+                const { data: agentDeals } = await db.from('deals').select('client_id').in('source_agent_id', clientAgentIds).not('client_id', 'is', null);
                 agentClientIds = new Set((agentDeals || []).map(d => d.client_id));
             }
 
@@ -30503,10 +30521,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
-            // Count deals per client (agent sees only their deal counts)
+            // Count deals per client (agent sees only their deal counts, ISO includes sub-agents)
             let dealQuery = db.from('deals').select('client_id').not('client_id', 'is', null);
             if (!isAdmin && currentUserId) {
-                dealQuery = dealQuery.eq('source_agent_id', currentUserId);
+                dealQuery = dealQuery.in('source_agent_id', clientAgentIds || [currentUserId]);
             }
             const { data: dealLinks } = await dealQuery;
             const dealCounts = {};
@@ -30518,6 +30536,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (agentClientIds) {
                 clientList = clientList.filter(c => agentClientIds.has(c.id));
             }
+
+            // Update column header based on role
+            var mgrHeader = document.getElementById('clientMgrHeader');
+            if (mgrHeader && !isAdmin) mgrHeader.textContent = 'Referred By';
 
             allClients = clientList;
             filterClients();
@@ -30570,7 +30592,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <td style="padding:12px 14px;text-align:center;">
                     <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:${dealCount > 0 ? '#EFF6FF' : '#F8FAFC'};color:${dealCount > 0 ? '#3B82F6' : '#CBD5E1'};font-weight:700;font-size:13px;">${dealCount}</span>
                 </td>
-                <td style="padding:12px 14px;font-size:12px;color:#475569;">${client.account_manager_id && cachedTeamMembers.length > 0 ? (cachedTeamMembers.find(t => t.id === client.account_manager_id) || {}).full_name || '<span style="color:#CBD5E1;">—</span>' : '<span style="color:#CBD5E1;">—</span>'}</td>
+                <td style="padding:12px 14px;font-size:12px;color:#475569;">${isAdmin
+                    ? (client.account_manager_id && cachedTeamMembers.length > 0 ? (cachedTeamMembers.find(t => t.id === client.account_manager_id) || {}).full_name || '<span style="color:#CBD5E1;">—</span>' : '<span style="color:#CBD5E1;">—</span>')
+                    : (agentName ? agentName + (client.source_agent_id === currentUserId ? ' <span style="color:#94A3B8;font-size:11px;">(You)</span>' : '') : '<span style="color:#CBD5E1;">—</span>')
+                }</td>
                 <td style="padding:12px 14px;font-size:12px;color:#64748B;">${client.last_contacted ? '<span title="' + new Date(client.last_contacted).toLocaleString() + '">' + timeAgo(client.last_contacted) + '</span>' : '<span style="color:#CBD5E1;">—</span>'}</td>
                 <td style="padding:12px 14px;" onclick="event.stopPropagation()">
                     ${statusCell}
