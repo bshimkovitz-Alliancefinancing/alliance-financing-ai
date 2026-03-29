@@ -2479,7 +2479,7 @@
                         <div style="font-size: 32px; margin-bottom: 8px;">📤</div>
                         <div style="font-weight: 600; color: var(--navy); font-size: 14px;">Drag & drop files here or click to browse</div>
                         <div style="font-size: 12px; color: #64748B; margin-top: 4px;">PDF, PNG, JPG, Word, Excel — max 10MB per file</div>
-                        <input type="file" id="docBulkFileInput" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv" style="display: none;" onchange="handleDocBulkSelect(event)">
+                        <input type="file" id="docBulkFileInput" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv,.html,.htm,.txt" style="display: none;" onchange="handleDocBulkSelect(event)">
                     </div>
 
                     <!-- Pending uploads area -->
@@ -4278,7 +4278,7 @@
             </div>
             <div class="modal-field" style="margin-bottom: 15px;">
                 <label>File <span style="color: var(--danger);">*</span></label>
-                <input type="file" id="docFileInput" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
+                <input type="file" id="docFileInput" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv,.html,.htm,.txt" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
                 <small style="color: var(--text-light); font-size: 12px; margin-top: 5px; display: block;">PDF, PNG, JPG, Word, Excel — max 10MB</small>
             </div>
             <div class="modal-field" style="margin-bottom: 15px;">
@@ -5572,6 +5572,12 @@
             };
 
             var pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
+
+            // Validate PDF is not blank (minimum reasonable size is 1KB)
+            if (!pdfBlob || pdfBlob.size < 1024) {
+                console.error('PDF generation produced empty/tiny blob for ' + materialId + ' (' + (pdfBlob ? pdfBlob.size : 0) + ' bytes)');
+                throw new Error('PDF generation failed — produced empty document for ' + materialId);
+            }
 
             // Upload to Supabase Storage
             var pdfFile = new File([pdfBlob], materialId + '.pdf', { type: 'application/pdf' });
@@ -8038,11 +8044,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Resolve PDF URLs for branded materials (generates PDF if not cached)
             var materialPdfUrls = {};
+            var failedMaterials = [];
             for (var p = 0; p < selectedMaterials.length; p++) {
                 var matId = selectedMaterials[p].id;
                 if (BRANDED_DOC_KEY_MAP[matId]) {
                     var pdfUrl = await getOnePagerPdfUrl(matId);
-                    if (pdfUrl) materialPdfUrls[matId] = pdfUrl;
+                    if (pdfUrl) {
+                        materialPdfUrls[matId] = pdfUrl;
+                    } else {
+                        failedMaterials.push(selectedMaterials[p].label);
+                    }
+                }
+            }
+            if (failedMaterials.length > 0) {
+                var proceed = confirm('Warning: PDF generation failed for: ' + failedMaterials.join(', ') + '.\n\nThese materials will link to the website instead of a PDF attachment.\n\nSend anyway?');
+                if (!proceed) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg> Send Package';
+                    return;
                 }
             }
 
@@ -10898,7 +10917,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             '<option value="other">Other</option>' +
                         '</select>' +
                         '<label style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--gold);color:#fff;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;">' +
-                            '<input type="file" id="appDocFileInput" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv" multiple style="display:none;" onchange="handleAppDocFiles(this.files, \'' + appId + '\')">' +
+                            '<input type="file" id="appDocFileInput" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv,.html,.htm,.txt" multiple style="display:none;" onchange="handleAppDocFiles(this.files, \'' + appId + '\')">' +
                             '+ Choose Files' +
                         '</label>' +
                     '</div>' +
@@ -17880,6 +17899,182 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </div>
                 </div>
 
+                <!-- Working Capital / Business Line of Credit Details -->
+                <div id="wcDetailsSection" style="display: ${['Working Capital Loan', 'Business Line of Credit', 'Loans', 'CSBFL', 'Startup Financing', 'Franchise Financing'].includes(deal.product_type) ? 'block' : 'none'}; margin-top: 25px;">
+                    <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Working Capital / Loan Details</h3>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Interest Rate (%)</label>
+                            ${isAgentView ? roField(deal.wc_interest_rate ? deal.wc_interest_rate + '%' : '') : `<input type="number" step="0.01" value="${deal.wc_interest_rate || ''}" placeholder="e.g. 12.5" onblur="updateDealField('${dealId}', 'wc_interest_rate', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Interest Type</label>
+                            ${isAgentView ? roField(deal.wc_interest_type || '') : `<select onchange="updateDealField('${dealId}', 'wc_interest_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                                <option value="">Select...</option>
+                                <option value="Fixed" ${'Fixed' === deal.wc_interest_type ? 'selected' : ''}>Fixed</option>
+                                <option value="Variable" ${'Variable' === deal.wc_interest_type ? 'selected' : ''}>Variable</option>
+                                <option value="Prime +" ${'Prime +' === deal.wc_interest_type ? 'selected' : ''}>Prime +</option>
+                            </select>`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Term (months)</label>
+                            ${isAgentView ? roField(deal.wc_term_months || '') : `<input type="number" value="${deal.wc_term_months || ''}" onblur="updateDealField('${dealId}', 'wc_term_months', this.value ? parseInt(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Payment Frequency</label>
+                            ${isAgentView ? roField(deal.wc_payment_frequency || '') : `<select onchange="updateDealField('${dealId}', 'wc_payment_frequency', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                                <option value="">Select...</option>
+                                <option value="Daily" ${'Daily' === deal.wc_payment_frequency ? 'selected' : ''}>Daily</option>
+                                <option value="Weekly" ${'Weekly' === deal.wc_payment_frequency ? 'selected' : ''}>Weekly</option>
+                                <option value="Bi-Weekly" ${'Bi-Weekly' === deal.wc_payment_frequency ? 'selected' : ''}>Bi-Weekly</option>
+                                <option value="Monthly" ${'Monthly' === deal.wc_payment_frequency ? 'selected' : ''}>Monthly</option>
+                            </select>`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Monthly Payment</label>
+                            ${isAgentView ? roField(deal.wc_monthly_payment ? formatCurrency(deal.wc_monthly_payment) : '') : `<input type="number" value="${deal.wc_monthly_payment || ''}" onblur="updateDealField('${dealId}', 'wc_monthly_payment', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Collateral / Security</label>
+                            ${isAgentView ? roField(deal.wc_collateral || '') : `<input type="text" value="${deal.wc_collateral || ''}" placeholder="e.g. GSA, personal guarantee" onblur="updateDealField('${dealId}', 'wc_collateral', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Prepayment Penalty</label>
+                            ${isAgentView ? roField(deal.wc_prepayment_penalty || '') : `<input type="text" value="${deal.wc_prepayment_penalty || ''}" placeholder="e.g. 3 months interest" onblur="updateDealField('${dealId}', 'wc_prepayment_penalty', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Lender Fee (%)</label>
+                            ${isAgentView ? roField(deal.wc_lender_fee ? deal.wc_lender_fee + '%' : '') : `<input type="number" step="0.01" value="${deal.wc_lender_fee || ''}" onblur="updateDealField('${dealId}', 'wc_lender_fee', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Private Debt Details -->
+                <div id="privateDebtDetailsSection" style="display: ${deal.product_type === 'Private Debt' ? 'block' : 'none'}; margin-top: 25px;">
+                    <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Private Debt Details</h3>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Position</label>
+                            ${isAgentView ? roField(deal.pd_position || '') : `<select onchange="updateDealField('${dealId}', 'pd_position', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                                <option value="">Select...</option>
+                                <option value="Senior Secured" ${'Senior Secured' === deal.pd_position ? 'selected' : ''}>Senior Secured</option>
+                                <option value="Subordinated" ${'Subordinated' === deal.pd_position ? 'selected' : ''}>Subordinated</option>
+                                <option value="Mezzanine" ${'Mezzanine' === deal.pd_position ? 'selected' : ''}>Mezzanine</option>
+                                <option value="Unitranche" ${'Unitranche' === deal.pd_position ? 'selected' : ''}>Unitranche</option>
+                            </select>`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Interest Rate (%)</label>
+                            ${isAgentView ? roField(deal.pd_interest_rate ? deal.pd_interest_rate + '%' : '') : `<input type="number" step="0.01" value="${deal.pd_interest_rate || ''}" onblur="updateDealField('${dealId}', 'pd_interest_rate', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Interest Type</label>
+                            ${isAgentView ? roField(deal.pd_interest_type || '') : `<select onchange="updateDealField('${dealId}', 'pd_interest_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                                <option value="">Select...</option>
+                                <option value="Fixed" ${'Fixed' === deal.pd_interest_type ? 'selected' : ''}>Fixed</option>
+                                <option value="Floating" ${'Floating' === deal.pd_interest_type ? 'selected' : ''}>Floating</option>
+                                <option value="PIK" ${'PIK' === deal.pd_interest_type ? 'selected' : ''}>PIK (Payment in Kind)</option>
+                            </select>`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Maturity Date</label>
+                            ${isAgentView ? roField(deal.pd_maturity_date || '') : `<input type="date" value="${deal.pd_maturity_date || ''}" onblur="updateDealField('${dealId}', 'pd_maturity_date', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Term (months)</label>
+                            ${isAgentView ? roField(deal.pd_term_months || '') : `<input type="number" value="${deal.pd_term_months || ''}" onblur="updateDealField('${dealId}', 'pd_term_months', this.value ? parseInt(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Monthly Payment</label>
+                            ${isAgentView ? roField(deal.pd_monthly_payment ? formatCurrency(deal.pd_monthly_payment) : '') : `<input type="number" value="${deal.pd_monthly_payment || ''}" onblur="updateDealField('${dealId}', 'pd_monthly_payment', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Collateral</label>
+                            ${isAgentView ? roField(deal.pd_collateral || '') : `<input type="text" value="${deal.pd_collateral || ''}" placeholder="e.g. Real estate, equipment, IP" onblur="updateDealField('${dealId}', 'pd_collateral', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Covenant Terms</label>
+                            ${isAgentView ? roField(deal.pd_covenants || '') : `<input type="text" value="${deal.pd_covenants || ''}" placeholder="e.g. Debt service coverage 1.2x" onblur="updateDealField('${dealId}', 'pd_covenants', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Lender Fee (%)</label>
+                            ${isAgentView ? roField(deal.pd_lender_fee ? deal.pd_lender_fee + '%' : '') : `<input type="number" step="0.01" value="${deal.pd_lender_fee || ''}" onblur="updateDealField('${dealId}', 'pd_lender_fee', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Prepayment Terms</label>
+                            ${isAgentView ? roField(deal.pd_prepayment || '') : `<input type="text" value="${deal.pd_prepayment || ''}" placeholder="e.g. Open after 12 months" onblur="updateDealField('${dealId}', 'pd_prepayment', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Factoring Details -->
+                <div id="factoringDetailsSection" style="display: ${deal.product_type === 'Factoring' ? 'block' : 'none'}; margin-top: 25px;">
+                    <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Factoring Details</h3>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Advance Rate (%)</label>
+                            ${isAgentView ? roField(deal.fac_advance_rate ? deal.fac_advance_rate + '%' : '') : `<input type="number" step="0.01" value="${deal.fac_advance_rate || ''}" placeholder="e.g. 85" onblur="updateDealField('${dealId}', 'fac_advance_rate', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Factoring Fee (%)</label>
+                            ${isAgentView ? roField(deal.fac_fee_pct ? deal.fac_fee_pct + '%' : '') : `<input type="number" step="0.01" value="${deal.fac_fee_pct || ''}" placeholder="e.g. 2.5" onblur="updateDealField('${dealId}', 'fac_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Recourse Type</label>
+                            ${isAgentView ? roField(deal.fac_recourse_type || '') : `<select onchange="updateDealField('${dealId}', 'fac_recourse_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                                <option value="">Select...</option>
+                                <option value="Full Recourse" ${'Full Recourse' === deal.fac_recourse_type ? 'selected' : ''}>Full Recourse</option>
+                                <option value="Non-Recourse" ${'Non-Recourse' === deal.fac_recourse_type ? 'selected' : ''}>Non-Recourse</option>
+                                <option value="Limited Recourse" ${'Limited Recourse' === deal.fac_recourse_type ? 'selected' : ''}>Limited Recourse</option>
+                            </select>`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Invoice Aging Limit (days)</label>
+                            ${isAgentView ? roField(deal.fac_aging_limit || '') : `<input type="number" value="${deal.fac_aging_limit || ''}" placeholder="e.g. 90" onblur="updateDealField('${dealId}', 'fac_aging_limit', this.value ? parseInt(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Reserve Holdback (%)</label>
+                            ${isAgentView ? roField(deal.fac_reserve_pct ? deal.fac_reserve_pct + '%' : '') : `<input type="number" step="0.01" value="${deal.fac_reserve_pct || ''}" onblur="updateDealField('${dealId}', 'fac_reserve_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Monthly Volume Estimate</label>
+                            ${isAgentView ? roField(deal.fac_monthly_volume ? formatCurrency(deal.fac_monthly_volume) : '') : `<input type="number" value="${deal.fac_monthly_volume || ''}" placeholder="Monthly invoice volume" onblur="updateDealField('${dealId}', 'fac_monthly_volume', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Contract Term (months)</label>
+                            ${isAgentView ? roField(deal.fac_term_months || '') : `<input type="number" value="${deal.fac_term_months || ''}" onblur="updateDealField('${dealId}', 'fac_term_months', this.value ? parseInt(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                        <div class="modal-field">
+                            <label>Notification Type</label>
+                            ${isAgentView ? roField(deal.fac_notification || '') : `<select onchange="updateDealField('${dealId}', 'fac_notification', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                                <option value="">Select...</option>
+                                <option value="Notification" ${'Notification' === deal.fac_notification ? 'selected' : ''}>Notification (debtor aware)</option>
+                                <option value="Non-Notification" ${'Non-Notification' === deal.fac_notification ? 'selected' : ''}>Non-Notification (confidential)</option>
+                            </select>`}
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Section 5: Fee Details & Commission Split -->
                 <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Fee Details & Commission Split</h3>
 
@@ -18233,9 +18428,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     function toggleProductDetails(dealId, productType) {
         const leaseSection = document.getElementById('leaseDetailsSection');
         const mcaSection = document.getElementById('mcaDetailsSection');
+        const wcSection = document.getElementById('wcDetailsSection');
+        const pdSection = document.getElementById('privateDebtDetailsSection');
+        const facSection = document.getElementById('factoringDetailsSection');
 
         if (leaseSection) leaseSection.style.display = productType === 'Equipment Leasing' ? 'block' : 'none';
         if (mcaSection) mcaSection.style.display = ['MCA', 'Merchant Advance'].includes(productType) ? 'block' : 'none';
+        if (wcSection) wcSection.style.display = ['Working Capital Loan', 'Business Line of Credit', 'Loans', 'CSBFL', 'Startup Financing', 'Franchise Financing'].includes(productType) ? 'block' : 'none';
+        if (pdSection) pdSection.style.display = productType === 'Private Debt' ? 'block' : 'none';
+        if (facSection) facSection.style.display = productType === 'Factoring' ? 'block' : 'none';
     }
 
     async function recalcAndSaveFees(dealId) {
