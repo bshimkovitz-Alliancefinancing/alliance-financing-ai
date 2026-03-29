@@ -26738,6 +26738,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // Generic function to update hidden To field for any entity type with contact picker
+    function updateLenderEmailToDisplay(entityType, entityId) {
+        updateVendorEmailToDisplay(entityType, entityId);
+    }
+
     // Update hidden To field with all selected contact emails + manual entries
     function updateVendorEmailToDisplay(entityType, entityId) {
         var key = entityType + '_' + entityId;
@@ -26873,8 +26878,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Handle email sending
             if (type === 'email') {
-                // Rebuild To from checkboxes + manual entries for vendor emails
-                if (entityType === 'vendor') {
+                // Rebuild To from checkboxes + manual entries for vendor/lender emails
+                if (entityType === 'vendor' || entityType === 'lender') {
                     updateVendorEmailToDisplay(entityType, entityId);
                 }
                 var toInput = document.getElementById('entityEmailTo_' + key);
@@ -26912,9 +26917,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 // Build readable recipient names for the log
                 var toNames = [];
-                if (entityType === 'vendor' && window._currentVendorContacts) {
+                var contactsList = entityType === 'vendor' ? window._currentVendorContacts : entityType === 'lender' ? window._currentLenderContacts : null;
+                if (contactsList) {
                     toEmails.forEach(function(email) {
-                        var contact = window._currentVendorContacts.find(function(c) { return c.email === email; });
+                        var contact = contactsList.find(function(c) { return c.email === email; });
                         toNames.push(contact ? (contact.contact_name + ' <' + email + '>') : email);
                     });
                 } else {
@@ -31424,6 +31430,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (contactsError) console.warn('Could not load contacts:', contactsError);
 
+            // Store contacts globally for email form access
+            window._currentLenderContacts = contacts || [];
+
             // Parse admin notes
             let notes = [];
             try {
@@ -31768,12 +31777,38 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             <div id="entityComposeHeader_lender_${lenderId}" style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:10px;">New Note</div>
                             <div id="entityEmailFields_lender_${lenderId}" style="display:none; margin-bottom:10px;">
                                 <div style="margin-bottom:8px;">
-                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">To</label>
-                                    <input type="text" id="entityEmailTo_lender_${lenderId}" value="${lender.email || ''}" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">To <span style="font-weight:400;color:#94A3B8;">(select contacts)</span></label>
+                                    <div id="entityEmailToContacts_lender_${lenderId}" style="display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 10px;border:1px solid #ccc;border-radius:4px;background:white;min-height:36px;margin-bottom:4px;">
+                                        ${(contacts || []).filter(c => c.email && (!c.status || c.status === 'Active')).map(c =>
+                                            '<label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;padding:2px 8px;border-radius:12px;background:#F1F5F9;border:1px solid #E2E8F0;transition:all 0.2s;" onmouseover="this.style.background=\'#E2E8F0\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.background=\'#F1F5F9\';else this.style.background=\'#DBEAFE\'">' +
+                                            '<input type="checkbox" name="entityEmailToContact_lender_' + lenderId + '" value="' + (c.email || '').replace(/"/g, '&quot;') + '" data-name="' + (c.contact_name || '').replace(/"/g, '&quot;') + '" onchange="updateLenderEmailToDisplay(\'lender\',\'' + lenderId + '\');if(this.checked)this.parentElement.style.background=\'#DBEAFE\';else this.parentElement.style.background=\'#F1F5F9\'">' +
+                                            '<span>' + (c.contact_name || 'Unknown') + '</span>' +
+                                            '<span style="font-size:11px;color:#64748B;">(' + (c.email || '') + ')</span>' +
+                                            '</label>'
+                                        ).join('') || '<span style="font-size:12px;color:#94A3B8;font-style:italic;">No contacts with email addresses</span>'}
+                                        ${lender.email ? '<label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;padding:2px 8px;border-radius:12px;background:#FEF3C7;border:1px solid #FDE68A;transition:all 0.2s;" onmouseover="this.style.background=\'#FDE68A\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.background=\'#FEF3C7\';else this.style.background=\'#DBEAFE\'">' +
+                                            '<input type="checkbox" name="entityEmailToContact_lender_' + lenderId + '" value="' + (lender.email || '').replace(/"/g, '&quot;') + '" data-name="' + (lender.name || '').replace(/"/g, '&quot;') + '" onchange="updateLenderEmailToDisplay(\'lender\',\'' + lenderId + '\');if(this.checked)this.parentElement.style.background=\'#DBEAFE\';else this.parentElement.style.background=\'#FEF3C7\'">' +
+                                            '<span style="font-weight:500;">' + (lender.name || 'Main') + '</span>' +
+                                            '<span style="font-size:11px;color:#64748B;">(' + (lender.email || '') + ')</span>' +
+                                            '</label>' : ''}
+                                    </div>
+                                    <div style="display:flex;gap:6px;align-items:center;">
+                                        <input type="text" id="entityEmailToManual_lender_${lenderId}" placeholder="Or type an email address..." style="flex:1;padding:5px 8px;border:1px solid #E2E8F0;border-radius:4px;font-size:12px;color:#475569;">
+                                        <button onclick="addManualEmailRecipient('lender','${lenderId}','to')" style="padding:5px 10px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;font-size:11px;cursor:pointer;white-space:nowrap;">+ Add</button>
+                                    </div>
+                                    <div id="entityEmailToManualList_lender_${lenderId}" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;"></div>
+                                    <input type="hidden" id="entityEmailTo_lender_${lenderId}" value="">
                                 </div>
                                 <div style="margin-bottom:8px;">
-                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">CC (comma-separated)</label>
-                                    <input type="text" id="entityEmailCc_lender_${lenderId}" placeholder="e.g. john@example.com" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">CC <span style="font-weight:400;color:#94A3B8;">(add from contacts or type manually)</span></label>
+                                    <div style="display:flex;flex-wrap:wrap;gap:4px 8px;margin-bottom:4px;" id="entityEmailCcContacts_lender_${lenderId}">
+                                        ${(contacts || []).filter(c => c.email && (!c.status || c.status === 'Active')).map(c =>
+                                            '<button type="button" onclick="addCcFromContact(this,\'lender\',\'' + lenderId + '\',\'' + (c.email || '').replace(/'/g, "\\'") + '\',\'' + (c.contact_name || '').replace(/'/g, "\\'") + '\')" style="padding:2px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;font-size:11px;cursor:pointer;color:#475569;transition:all 0.2s;" onmouseover="this.style.background=\'#E2E8F0\'" onmouseout="this.style.background=\'#F8FAFC\'" title="Add ' + (c.contact_name || '') + ' to CC">' +
+                                            '+ ' + (c.contact_name || c.email || '') +
+                                            '</button>'
+                                        ).join('')}
+                                    </div>
+                                    <input type="text" id="entityEmailCc_lender_${lenderId}" placeholder="e.g. john@example.com (comma-separated)" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
                                 </div>
                                 <div style="margin-bottom:8px;">
                                     <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Subject</label>
