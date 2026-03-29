@@ -4904,6 +4904,8 @@
             if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') && !['super_admin', 'admin'].includes(currentUserRole)) {
                 showPage('deals');
                 loadPageData('deals');
+                // Pre-load outreach data in background so Marketing badge/banner appear immediately
+                loadOutreachHistory().catch(function(e) { console.warn('Background outreach load:', e); });
             }
 
             // Show admin agent filter on Applications Sent section
@@ -8179,7 +8181,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function loadOutreachHistory(targetId) {
         var tbody = document.getElementById(targetId || 'outreachTableBody');
-        if (!tbody) return;
         var idPrefix = (targetId === 'adminOutreachTableBody') ? 'admin_' : '';
 
         try {
@@ -8195,6 +8196,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) {
                 // Table might not exist yet — show empty state with create prompt
+                if (!tbody) return;
                 tbody.innerHTML = '<tr><td colspan="6" style="padding:30px;text-align:center;">' +
                     '<div style="font-size:36px;margin-bottom:8px;">📨</div>' +
                     '<div style="font-weight:600;color:var(--navy);margin-bottom:4px;">No outreach history yet</div>' +
@@ -8214,11 +8216,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (countEl) countEl.textContent = outreachData.length + ' active' + (archivedData.length > 0 ? ' · ' + archivedData.length + ' archived' : '');
 
             if (outreachData.length === 0 && archivedData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="padding:30px;text-align:center;">' +
-                    '<div style="font-size:36px;margin-bottom:8px;">📨</div>' +
-                    '<div style="font-weight:600;color:var(--navy);margin-bottom:4px;">No outreach history yet</div>' +
-                    '<div style="color:var(--text-light);font-size:13px;">Send your first marketing package to start tracking prospects.</div>' +
-                    '</td></tr>';
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="padding:30px;text-align:center;">' +
+                        '<div style="font-size:36px;margin-bottom:8px;">📨</div>' +
+                        '<div style="font-weight:600;color:var(--navy);margin-bottom:4px;">No outreach history yet</div>' +
+                        '<div style="color:var(--text-light);font-size:13px;">Send your first marketing package to start tracking prospects.</div>' +
+                        '</td></tr>';
+                }
+                updateOutreachBadge(0, 0);
+                updateOutreachAlertBanner([], 0);
                 return;
             }
 
@@ -8342,7 +8348,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
-            tbody.innerHTML = html;
+            if (tbody) tbody.innerHTML = html;
 
             // Update nav badge for replies and overdue
             updateOutreachBadge(replyCount, overdueFollowUpCount);
