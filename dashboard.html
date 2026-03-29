@@ -3691,6 +3691,42 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Mortgage Agent: Parent broker selection -->
+                    <div id="mortgageAgentFields" style="display:none;">
+                        <div style="border-top: 1px solid var(--border-gray); margin: 16px 0 12px; padding-top: 12px;">
+                            <label style="font-size: 14px; font-weight: 600; color: var(--navy);">Brokerage Assignment</label>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Parent Mortgage Brokerage <span style="color: var(--danger);">*</span></label>
+                                <select id="parentBrokerSelect" onchange="onParentBrokerChange()">
+                                    <option value="">Select Mortgage Brokerage...</option>
+                                </select>
+                                <small style="color: var(--text-light); font-size: 12px; margin-top: 4px;">This agent will appear under the selected brokerage.</small>
+                            </div>
+                            <div class="modal-field">
+                                <label>License Number</label>
+                                <input type="text" id="mortgageAgentLicense" placeholder="e.g., M12345678">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Mortgage Broker: Extra fields -->
+                    <div id="mortgageBrokerFields" style="display:none;">
+                        <div style="border-top: 1px solid var(--border-gray); margin: 16px 0 12px; padding-top: 12px;">
+                            <label style="font-size: 14px; font-weight: 600; color: var(--navy);">Brokerage Details</label>
+                        </div>
+                        <div class="modal-row">
+                            <div class="modal-field">
+                                <label>Brokerage License #</label>
+                                <input type="text" id="brokerageLicense" placeholder="e.g., 12345">
+                            </div>
+                            <div class="modal-field">
+                                <label>Province(s) Licensed</label>
+                                <input type="text" id="brokerageProvinces" placeholder="e.g., ON, BC, AB">
+                            </div>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-light); margin-bottom: 10px;">Mortgage Brokers can manage teams of mortgage agents and submit all financing products.</p>
+                    </div>
                     <!-- Syndication Desk: Extra fields -->
                     <div id="syndicationDeskFields" style="display:none;">
                         <div style="border-top: 1px solid var(--border-gray); margin: 16px 0 12px; padding-top: 12px;">
@@ -3698,11 +3734,11 @@
                         </div>
                         <div class="modal-row">
                             <div class="modal-field">
-                                <label>Desk Contact Name</label>
+                                <label>Desk Contact Name <span style="color: var(--danger);">*</span></label>
                                 <input type="text" id="syndicationContactName" placeholder="Primary desk contact">
                             </div>
                             <div class="modal-field">
-                                <label>Desk Contact Email</label>
+                                <label>Desk Contact Email <span style="color: var(--danger);">*</span></label>
                                 <input type="email" id="syndicationContactEmail" placeholder="desk@institution.com">
                             </div>
                         </div>
@@ -14600,6 +14636,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    function onParentBrokerChange() {
+        const pbSelect = document.getElementById('parentBrokerSelect');
+        const selectedBroker = allAgentsData.find(a => a.id === pbSelect.value);
+        if (selectedBroker) {
+            document.getElementById('agentCompanyName').value = selectedBroker.company_name || selectedBroker.full_name || '';
+        }
+    }
+
     function filterAgentsByType(type) {
         currentAgentTypeFilter = type;
         // Update tab styles
@@ -17365,7 +17409,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 cachedLenders = lenderList || [];
             }
             if (cachedVendors.length === 0) {
-                const { data: vendorList } = await db.from('vendors').select('id, name').order('name');
+                const { data: vendorList } = await db.from('vendors').select('id, name, supported_products').order('name');
                 cachedVendors = (vendorList || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             }
             if (cachedAgents.length === 0) {
@@ -17593,7 +17637,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Vendor</label>
-                        ${isAgentView ? roField(deal.source_vendor_id ? (cachedVendors.find(v => v.id === deal.source_vendor_id)?.name || 'N/A') : 'None') : `<select id="dealVendorSelect2" onchange="updateDealField('${dealId}', 'source_vendor_id', this.value); loadSourceContacts('${dealId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                        ${isAgentView ? roField(deal.source_vendor_id ? (cachedVendors.find(v => v.id === deal.source_vendor_id)?.name || 'N/A') : 'None') : `<select id="dealVendorSelect2" onchange="updateDealField('${dealId}', 'source_vendor_id', this.value); loadSourceContacts('${dealId}', this.value); filterProductsByVendor(this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
                             <option value="">None</option>
                             ${cachedVendors.map(v => `<option value="${v.id}" ${deal.source_vendor_id === v.id ? 'selected' : ''}>${v.name}</option>`).join('')}
                         </select>`}
@@ -25656,6 +25700,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     function selectAgentType(type) {
         selectedAgentType = type;
+        // Clear type-specific fields to prevent data leakage between types
+        var clearFields = ['vendorProgramDesc', 'parentVendorSelect', 'vendorSalesRole', 'syndicationContactName', 'syndicationContactEmail', 'parentBrokerSelect', 'mortgageAgentLicense', 'brokerageLicense', 'brokerageProvinces'];
+        clearFields.forEach(function(fid) { var el = document.getElementById(fid); if (el) { if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = ''; } });
         // Highlight selected card with type-specific color
         var typeColors = { 'super_agent': '#1E40AF', 'referring_agent': '#166534', 'syndication_desk': '#B45309', 'vendor_program': '#7C3AED', 'vendor_salesperson': '#BE185D', 'mortgage_broker': '#0891B2', 'mortgage_agent': '#0E7490' };
         var typeBgs = { 'super_agent': '#EFF6FF', 'referring_agent': '#F0FDF4', 'syndication_desk': '#FFF7ED', 'vendor_program': '#FAF5FF', 'vendor_salesperson': '#FDF2F8', 'mortgage_broker': '#ECFEFF', 'mortgage_agent': '#ECFEFF' };
@@ -25682,6 +25729,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (type === 'syndication_desk') companyLabel.textContent = 'Institution / Bank Name';
         else if (type === 'vendor_program') companyLabel.textContent = 'Vendor Company Name';
         else if (type === 'vendor_salesperson') companyLabel.textContent = 'Vendor Company (auto-filled)';
+        else if (type === 'mortgage_broker') companyLabel.textContent = 'Brokerage Name';
+        else if (type === 'mortgage_agent') companyLabel.textContent = 'Brokerage (auto-filled)';
         else companyLabel.textContent = 'Company Name';
     }
 
@@ -25693,6 +25742,26 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var emailVal = document.getElementById('agentEmail').value.trim();
                 if (!nameVal) { alert('Please enter the agent\'s full name.'); return; }
                 if (!emailVal) { alert('Please enter the agent\'s email address.'); return; }
+                // Validate email format
+                var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(emailVal)) { alert('Please enter a valid email address.'); return; }
+                // Validate vendor salesperson has parent vendor
+                if (selectedAgentType === 'vendor_salesperson') {
+                    var pvId = document.getElementById('parentVendorSelect').value;
+                    if (!pvId) { alert('Please select a parent vendor program for this salesperson.'); return; }
+                }
+                // Validate mortgage agent has parent broker
+                if (selectedAgentType === 'mortgage_agent') {
+                    var pbId = document.getElementById('parentBrokerSelect').value;
+                    if (!pbId) { alert('Please select a parent mortgage brokerage for this agent.'); return; }
+                }
+                // Validate syndication desk contact fields
+                if (selectedAgentType === 'syndication_desk') {
+                    var contactName = document.getElementById('syndicationContactName').value.trim();
+                    var contactEmail = document.getElementById('syndicationContactEmail').value.trim();
+                    if (!contactName) { alert('Please enter the desk contact name.'); return; }
+                    if (!contactEmail || !emailRegex.test(contactEmail)) { alert('Please enter a valid desk contact email.'); return; }
+                }
             }
 
             // Hide all steps
@@ -25717,6 +25786,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 document.getElementById('vendorProgramFields').style.display = selectedAgentType === 'vendor_program' ? 'block' : 'none';
                 document.getElementById('vendorSalespersonFields').style.display = selectedAgentType === 'vendor_salesperson' ? 'block' : 'none';
                 document.getElementById('syndicationDeskFields').style.display = selectedAgentType === 'syndication_desk' ? 'block' : 'none';
+                document.getElementById('mortgageAgentFields').style.display = selectedAgentType === 'mortgage_agent' ? 'block' : 'none';
+                document.getElementById('mortgageBrokerFields').style.display = selectedAgentType === 'mortgage_broker' ? 'block' : 'none';
 
                 // Populate parent vendor dropdown for salesperson
                 if (selectedAgentType === 'vendor_salesperson') {
@@ -25724,6 +25795,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     const vendorPrograms = (typeof allAgentsData !== 'undefined' && allAgentsData) ? allAgentsData.filter(a => a.agent_type === 'vendor_program') : [];
                     select.innerHTML = '<option value="">Select Vendor Program...</option>' +
                         vendorPrograms.map(v => `<option value="${v.id}">${v.company_name || v.full_name} (${v.email})</option>`).join('');
+                }
+                // Populate parent broker dropdown for mortgage agent
+                if (selectedAgentType === 'mortgage_agent') {
+                    const select = document.getElementById('parentBrokerSelect');
+                    const brokers = (typeof allAgentsData !== 'undefined' && allAgentsData) ? allAgentsData.filter(a => a.agent_type === 'mortgage_broker') : [];
+                    select.innerHTML = '<option value="">Select Mortgage Brokerage...</option>' +
+                        brokers.map(b => `<option value="${b.id}">${b.company_name || b.full_name} (${b.email})</option>`).join('');
                 }
             }
             // Build review on step 3
@@ -25736,7 +25814,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 const comm = document.getElementById('agentCommissionType').value || '-';
                 const slug = document.getElementById('agentSlug').value || '-';
 
-                // Get parent vendor name for salesperson
+                // Get parent vendor name for salesperson or parent broker for mortgage agent
                 let parentVendorInfo = '';
                 if (selectedAgentType === 'vendor_salesperson') {
                     const pvSelect = document.getElementById('parentVendorSelect');
@@ -25747,6 +25825,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     const salesRoleEl = document.getElementById('vendorSalesRole');
                     const salesRole = salesRoleEl ? salesRoleEl.value || '-' : '-';
                     parentVendorInfo = `<strong>Parent Vendor:</strong> <span>${parentVendorInfo}</span><strong>Sales Role:</strong> <span>${salesRole}</span>`;
+                } else if (selectedAgentType === 'mortgage_agent') {
+                    const pbSelect = document.getElementById('parentBrokerSelect');
+                    if (pbSelect) {
+                        const pbOption = pbSelect.options[pbSelect.selectedIndex];
+                        parentVendorInfo = pbOption ? pbOption.textContent : '-';
+                    }
+                    const licEl = document.getElementById('mortgageAgentLicense');
+                    const license = licEl ? licEl.value || '-' : '-';
+                    parentVendorInfo = `<strong>Parent Brokerage:</strong> <span>${parentVendorInfo}</span><strong>License #:</strong> <span>${license}</span>`;
+                } else if (selectedAgentType === 'mortgage_broker') {
+                    const licEl = document.getElementById('brokerageLicense');
+                    const provEl = document.getElementById('brokerageProvinces');
+                    const license = licEl ? licEl.value || '-' : '-';
+                    const provinces = provEl ? provEl.value || '-' : '-';
+                    parentVendorInfo = `<strong>Brokerage License:</strong> <span>${license}</span><strong>Provinces Licensed:</strong> <span>${provinces}</span>`;
                 }
 
                 document.getElementById('onboardReviewContent').innerHTML = `
@@ -25793,7 +25886,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 return;
             }
 
-            // Build program_details for vendor/syndication/salesperson
+            // Build program_details for vendor/syndication/salesperson/mortgage
             let programDetails = {};
             let parentAgentId = null;
             if (selectedAgentType === 'vendor_program') {
@@ -25810,6 +25903,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
                 parentAgentId = pvId;
                 programDetails.sales_role = document.getElementById('vendorSalesRole').value || '';
+            } else if (selectedAgentType === 'mortgage_agent') {
+                const pbId = document.getElementById('parentBrokerSelect').value;
+                if (!pbId) {
+                    alert('Please select a parent mortgage brokerage for this agent.');
+                    onboardNextStep(2);
+                    return;
+                }
+                parentAgentId = pbId;
+                programDetails.license_number = document.getElementById('mortgageAgentLicense').value || '';
+            } else if (selectedAgentType === 'mortgage_broker') {
+                programDetails.brokerage_license = document.getElementById('brokerageLicense').value || '';
+                programDetails.provinces_licensed = document.getElementById('brokerageProvinces').value || '';
             }
 
             // Generate invite token
@@ -28110,6 +28215,26 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         })()}
                     </div>
                 </div>
+                <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Supported Financing Products</label>
+                    <p style="color: var(--text-light); font-size: 13px; margin-bottom: 10px;">Select which financing products are available for this vendor. This controls which product types appear when creating deals for this vendor.</p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 8px;">
+                        ${(() => {
+                            const allProducts = ['Equipment Leasing', 'MCA', 'CSBFL', 'SRED', 'Private Debt', 'Factoring', 'Merchant Advance', 'SBA', 'Loans', 'Trade Finance', 'Working Capital Loan', 'Business Line of Credit', 'Startup Financing', 'Franchise Financing', 'Other'];
+                            let currentProducts = [];
+                            try { currentProducts = vendor.supported_products ? (typeof vendor.supported_products === 'string' ? JSON.parse(vendor.supported_products) : vendor.supported_products) : []; } catch(e) { currentProducts = []; }
+                            const isAll = currentProducts.length === 0;
+                            return '<label style="display:flex;align-items:center;gap:4px;font-weight:600;font-size:13px;cursor:pointer;color:var(--navy);margin-bottom:4px;width:100%;">' +
+                                '<input type="checkbox" id="vendorAllProducts" ' + (isAll ? 'checked' : '') + ' onchange="toggleVendorAllProducts(\'' + vendorId + '\', this.checked)"> All Products (no restriction)' +
+                                '</label>' +
+                                '<div id="vendorProductCheckboxes" style="display:' + (isAll ? 'none' : 'flex') + ';flex-wrap:wrap;gap:6px 16px;">' +
+                                allProducts.map(p => '<label style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px;cursor:pointer;">' +
+                                    '<input type="checkbox" name="vendorSupportedProducts" value="' + p + '"' + (currentProducts.includes(p) ? ' checked' : '') + ' onchange="updateVendorSupportedProducts(\'' + vendorId + '\')">' + p +
+                                    '</label>').join('') +
+                                '</div>';
+                        })()}
+                    </div>
+                </div>
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Send Application</label>
                     <button class="btn btn-gold btn-sm" onclick="openSendApplicationModalWithRef('vendor-${vendorId}')">Generate Tracked Link</button>
@@ -29129,6 +29254,104 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    function toggleVendorAllProducts(vendorId, isAll) {
+        var checkboxDiv = document.getElementById('vendorProductCheckboxes');
+        if (isAll) {
+            checkboxDiv.style.display = 'none';
+            // Clear all individual checkboxes and save empty array (= all products)
+            document.querySelectorAll('input[name="vendorSupportedProducts"]').forEach(function(cb) { cb.checked = false; });
+            updateVendorSupportedProducts(vendorId);
+        } else {
+            checkboxDiv.style.display = 'flex';
+        }
+    }
+
+    function filterProductsByVendor(vendorId) {
+        // Find the product type select in the deal form
+        var productSelects = document.querySelectorAll('select');
+        var productSelect = null;
+        productSelects.forEach(function(sel) {
+            // Find the Financing Type / product_type select by checking its options
+            if (sel.querySelector('option[value="Equipment Leasing"]') && sel.querySelector('option[value="MCA"]')) {
+                productSelect = sel;
+            }
+        });
+        if (!productSelect) return;
+
+        var allProducts = ['Equipment Leasing', 'MCA', 'CSBFL', 'SRED', 'Private Debt', 'Factoring', 'Merchant Advance', 'SBA', 'Loans', 'Trade Finance', 'Working Capital Loan', 'Business Line of Credit', 'Startup Financing', 'Franchise Financing', 'Other'];
+        var currentValue = productSelect.value;
+
+        if (!vendorId) {
+            // No vendor selected — show all products
+            allProducts.forEach(function(p) {
+                var opt = productSelect.querySelector('option[value="' + p + '"]');
+                if (opt) opt.style.display = '';
+                if (opt) opt.disabled = false;
+            });
+            return;
+        }
+
+        // Find vendor's supported products
+        var vendor = (typeof cachedVendors !== 'undefined' && cachedVendors) ? cachedVendors.find(function(v) { return v.id === vendorId; }) : null;
+        if (!vendor) return;
+
+        var supported = [];
+        try {
+            supported = vendor.supported_products ? (typeof vendor.supported_products === 'string' ? JSON.parse(vendor.supported_products) : vendor.supported_products) : [];
+        } catch(e) { supported = []; }
+
+        // Empty array means all products are supported (no restriction)
+        if (!supported || supported.length === 0) {
+            allProducts.forEach(function(p) {
+                var opt = productSelect.querySelector('option[value="' + p + '"]');
+                if (opt) opt.style.display = '';
+                if (opt) opt.disabled = false;
+            });
+            return;
+        }
+
+        // Filter: hide unsupported products, show supported ones
+        allProducts.forEach(function(p) {
+            var opt = productSelect.querySelector('option[value="' + p + '"]');
+            if (opt) {
+                if (supported.includes(p)) {
+                    opt.style.display = '';
+                    opt.disabled = false;
+                } else {
+                    opt.style.display = 'none';
+                    opt.disabled = true;
+                }
+            }
+        });
+
+        // If current selection is now hidden, reset to first available
+        if (currentValue && !supported.includes(currentValue)) {
+            var firstSupported = supported[0] || '';
+            productSelect.value = firstSupported;
+        }
+    }
+
+    async function updateVendorSupportedProducts(vendorId) {
+        try {
+            var checked = document.querySelectorAll('input[name="vendorSupportedProducts"]:checked');
+            var products = Array.from(checked).map(function(cb) { return cb.value; });
+            var allChecked = document.getElementById('vendorAllProducts');
+            // If "All Products" is checked, store empty array (no restriction)
+            if (allChecked && allChecked.checked) products = [];
+
+            var { error } = await db
+                .from('vendors')
+                .update({ supported_products: products })
+                .eq('id', vendorId);
+
+            if (error) throw error;
+            await loadVendors();
+        } catch (error) {
+            console.error('Update vendor products error:', error);
+            alert('Error updating supported products: ' + error.message);
+        }
+    }
+
     async function addVendorContact(vendorId) {
         const name = document.getElementById('newVendorContactName').value.trim();
         const email = document.getElementById('newVendorContactEmail').value.trim();
@@ -29840,7 +30063,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
         }
         if (cachedVendors.length === 0) {
-            const { data: vList } = await db.from('vendors').select('id, name, source_agent_id').order('name');
+            const { data: vList } = await db.from('vendors').select('id, name, source_agent_id, supported_products').order('name');
             cachedVendors = (vList || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         }
         const agentSelect = document.getElementById('addClientSourceAgent');
@@ -29938,7 +30161,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
             }
             if (cachedVendors.length === 0) {
-                const { data: vList } = await db.from('vendors').select('id, name, source_agent_id').order('name');
+                const { data: vList } = await db.from('vendors').select('id, name, source_agent_id, supported_products').order('name');
                 cachedVendors = (vList || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             }
             if (cachedTeamMembers.length === 0) {
