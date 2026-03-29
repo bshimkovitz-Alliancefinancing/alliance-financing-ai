@@ -8590,19 +8590,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             } catch(e) { console.warn('Sub-agent lookup for notifications failed:', e); }
         }
 
-        // Helper: apply agent filter — use .eq for single agent, .in for multiple
-        function applyAgentFilter(query, column) {
-            if (isAdmin) return query;
-            if (_hasSubAgents) return query.in(column, _notifAgentIds);
-            return query.eq(column, currentUserId);
-        }
+        // Helper: set of agent IDs for client-side filtering (avoids Supabase .in() 400 errors)
+        var _notifAgentSet = {};
+        _notifAgentIds.forEach(function(id) { _notifAgentSet[id] = true; });
 
         // 1. Overdue outreach follow-ups (3+ days, not archived)
         try {
-            console.log('[Notifications] Loading outreach. isAdmin:', isAdmin, 'hasSubAgents:', _hasSubAgents, 'agentIds:', _notifAgentIds);
+            console.log('[Notifications] Loading outreach. isAdmin:', isAdmin, 'agentIds:', _notifAgentIds);
             var outreachQuery = db.from('prospect_outreach').select('id, prospect_name, prospect_email, created_at, status, last_contact_date, updated_at, sent_by_id').eq('is_archived', false);
-            outreachQuery = applyAgentFilter(outreachQuery, 'sent_by_id');
+            if (!isAdmin && !_hasSubAgents) outreachQuery = outreachQuery.eq('sent_by_id', currentUserId);
             var { data: outreach, error: outreachErr } = await outreachQuery;
+            // Client-side filter for ISO Partners with sub-agents (Supabase .in() returns 400 on this table)
+            if (!isAdmin && _hasSubAgents && outreach) {
+                outreach = outreach.filter(function(p) { return _notifAgentSet[p.sent_by_id]; });
+            }
             console.log('[Notifications] Outreach result:', outreach ? outreach.length + ' records' : 'null', 'error:', outreachErr);
             if (outreach) {
                 var threeDaysAgo = Date.now() - 3 * 86400000;
@@ -8649,9 +8650,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // 2. Deal status changes (recent activity on agent's deals)
         try {
-            var dealsQuery = db.from('deals').select('id, company_name, status, status_changed_at, deal_amount, product_type, application_id, source_agent_id').order('status_changed_at', { ascending: false }).limit(20);
-            dealsQuery = applyAgentFilter(dealsQuery, 'source_agent_id');
+            var dealsQuery = db.from('deals').select('id, company_name, status, status_changed_at, deal_amount, product_type, application_id, source_agent_id').order('status_changed_at', { ascending: false });
+            if (!isAdmin && !_hasSubAgents) dealsQuery = dealsQuery.eq('source_agent_id', currentUserId);
+            if (!isAdmin) dealsQuery = dealsQuery.limit(50);
             var { data: deals } = await dealsQuery;
+            if (!isAdmin && _hasSubAgents && deals) {
+                deals = deals.filter(function(d) { return _notifAgentSet[d.source_agent_id]; });
+            }
             if (deals) {
                 var sevenDaysAgo = Date.now() - 7 * 86400000;
                 deals.forEach(function(d) {
@@ -8695,9 +8700,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 3. Application status updates (sent applications)
         try {
             var appsQuery = db.from('applications_sent').select('id, applicant_name, applicant_email, application_type, status, follow_up_date, sent_at, updated_at, sent_by_id');
-            appsQuery = applyAgentFilter(appsQuery, 'sent_by_id');
+            if (!isAdmin && !_hasSubAgents) appsQuery = appsQuery.eq('sent_by_id', currentUserId);
             appsQuery = appsQuery.order('updated_at', { ascending: false }).limit(20);
             var { data: apps } = await appsQuery;
+            if (!isAdmin && _hasSubAgents && apps) {
+                apps = apps.filter(function(a) { return _notifAgentSet[a.sent_by_id]; });
+            }
             if (apps) {
                 apps.forEach(function(a) {
                     // Overdue follow-ups
