@@ -8596,21 +8596,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         // 1. Overdue outreach follow-ups (3+ days, not archived)
         try {
-            console.log('[Notifications] Loading outreach. isAdmin:', isAdmin, 'agentIds:', _notifAgentIds);
-            var outreachQuery = db.from('prospect_outreach').select('id, prospect_name, prospect_email, created_at, status, last_contact_date, updated_at, sent_by_id').eq('is_archived', false);
+            var outreachQuery = db.from('prospect_outreach').select('*').eq('is_archived', false);
             if (!isAdmin && !_hasSubAgents) outreachQuery = outreachQuery.eq('sent_by_id', currentUserId);
-            var { data: outreach, error: outreachErr } = await outreachQuery;
-            // Client-side filter for ISO Partners with sub-agents (Supabase .in() returns 400 on this table)
+            var { data: outreach } = await outreachQuery;
+            // Client-side filter for ISO Partners with sub-agents
             if (!isAdmin && _hasSubAgents && outreach) {
                 outreach = outreach.filter(function(p) { return _notifAgentSet[p.sent_by_id]; });
             }
-            console.log('[Notifications] Outreach result:', outreach ? outreach.length + ' records' : 'null', 'error:', outreachErr);
             if (outreach) {
                 var threeDaysAgo = Date.now() - 3 * 86400000;
                 outreach.forEach(function(p) {
                     var pStatus = (p.status || '').toLowerCase();
-                    var lastDate = p.last_contact_date || p.created_at;
-                    console.log('[Notifications] Outreach record:', p.prospect_name, 'status:', p.status, '→', pStatus, 'lastDate:', lastDate, 'sent_by_id:', p.sent_by_id);
+                    var lastDate = p.created_at;
                     var isOverdue = lastDate && new Date(lastDate).getTime() < threeDaysAgo;
                     if (isOverdue && ['sent', 'replied'].includes(pStatus)) {
                         var daysAgo = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
@@ -8699,12 +8696,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // 3. Application status updates (sent applications)
         try {
-            var appsQuery = db.from('applications_sent').select('id, applicant_name, applicant_email, application_type, status, follow_up_date, sent_at, updated_at, sent_by_id');
-            if (!isAdmin && !_hasSubAgents) appsQuery = appsQuery.eq('sent_by_id', currentUserId);
+            var appsQuery = db.from('applications_sent').select('*');
             appsQuery = appsQuery.order('updated_at', { ascending: false }).limit(20);
             var { data: apps } = await appsQuery;
-            if (!isAdmin && _hasSubAgents && apps) {
-                apps = apps.filter(function(a) { return _notifAgentSet[a.sent_by_id]; });
+            // Filter applications by current user's name (applications_sent uses sent_by name, not UUID)
+            if (!isAdmin && apps) {
+                apps = apps.filter(function(a) {
+                    return a.sent_by && a.sent_by.toLowerCase() === (currentUserName || '').toLowerCase();
+                });
             }
             if (apps) {
                 apps.forEach(function(a) {
@@ -8803,7 +8802,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             return b.time - a.time;
         });
 
-        console.log('[Notifications] Total notifications assembled:', notifications.length, notifications.map(function(n) { return n.title; }));
         _cachedNotifications = notifications;
         renderNotifications(notifications);
         updateNotificationsBadge(notifications);
