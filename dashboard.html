@@ -8579,20 +8579,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         // Build agent IDs list for ISO Partners (include sub-agents)
         var _notifAgentIds = [currentUserId];
+        var _hasSubAgents = false;
         if (!isAdmin && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker')) {
             try {
                 var { data: _subAgentsNotif } = await db.from('users').select('id').eq('parent_agent_id', currentUserId).eq('role', 'agent');
                 if (_subAgentsNotif && _subAgentsNotif.length > 0) {
                     _notifAgentIds = _notifAgentIds.concat(_subAgentsNotif.map(function(s) { return s.id; }));
+                    _hasSubAgents = true;
                 }
             } catch(e) { console.warn('Sub-agent lookup for notifications failed:', e); }
         }
 
+        // Helper: apply agent filter — use .eq for single agent, .in for multiple
+        function applyAgentFilter(query, column) {
+            if (isAdmin) return query;
+            if (_hasSubAgents) return query.in(column, _notifAgentIds);
+            return query.eq(column, currentUserId);
+        }
+
         // 1. Overdue outreach follow-ups (3+ days, not archived)
         try {
-            console.log('[Notifications] Loading outreach. isAdmin:', isAdmin, 'agentIds:', _notifAgentIds);
+            console.log('[Notifications] Loading outreach. isAdmin:', isAdmin, 'hasSubAgents:', _hasSubAgents, 'agentIds:', _notifAgentIds);
             var outreachQuery = db.from('prospect_outreach').select('id, prospect_name, prospect_email, created_at, status, last_contact_date, updated_at, sent_by_id').eq('is_archived', false);
-            if (!isAdmin) outreachQuery = outreachQuery.in('sent_by_id', _notifAgentIds);
+            outreachQuery = applyAgentFilter(outreachQuery, 'sent_by_id');
             var { data: outreach, error: outreachErr } = await outreachQuery;
             console.log('[Notifications] Outreach result:', outreach ? outreach.length + ' records' : 'null', 'error:', outreachErr);
             if (outreach) {
@@ -8641,7 +8650,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 2. Deal status changes (recent activity on agent's deals)
         try {
             var dealsQuery = db.from('deals').select('id, company_name, status, status_changed_at, deal_amount, product_type, application_id, source_agent_id').order('status_changed_at', { ascending: false }).limit(20);
-            if (!isAdmin) dealsQuery = dealsQuery.in('source_agent_id', _notifAgentIds);
+            dealsQuery = applyAgentFilter(dealsQuery, 'source_agent_id');
             var { data: deals } = await dealsQuery;
             if (deals) {
                 var sevenDaysAgo = Date.now() - 7 * 86400000;
@@ -8686,7 +8695,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 3. Application status updates (sent applications)
         try {
             var appsQuery = db.from('applications_sent').select('id, applicant_name, applicant_email, application_type, status, follow_up_date, sent_at, updated_at, sent_by_id');
-            if (!isAdmin) appsQuery = appsQuery.in('sent_by_id', _notifAgentIds);
+            appsQuery = applyAgentFilter(appsQuery, 'sent_by_id');
             appsQuery = appsQuery.order('updated_at', { ascending: false }).limit(20);
             var { data: apps } = await appsQuery;
             if (apps) {
