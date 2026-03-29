@@ -8590,14 +8590,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         // 1. Overdue outreach follow-ups (3+ days, not archived)
         try {
+            console.log('[Notifications] Loading outreach. isAdmin:', isAdmin, 'agentIds:', _notifAgentIds);
             var outreachQuery = db.from('prospect_outreach').select('id, prospect_name, prospect_email, created_at, status, last_contact_date, updated_at, sent_by_id').eq('is_archived', false);
             if (!isAdmin) outreachQuery = outreachQuery.in('sent_by_id', _notifAgentIds);
-            var { data: outreach } = await outreachQuery;
+            var { data: outreach, error: outreachErr } = await outreachQuery;
+            console.log('[Notifications] Outreach result:', outreach ? outreach.length + ' records' : 'null', 'error:', outreachErr);
             if (outreach) {
                 var threeDaysAgo = Date.now() - 3 * 86400000;
                 outreach.forEach(function(p) {
                     var pStatus = (p.status || '').toLowerCase();
                     var lastDate = p.last_contact_date || p.created_at;
+                    console.log('[Notifications] Outreach record:', p.prospect_name, 'status:', p.status, '→', pStatus, 'lastDate:', lastDate, 'sent_by_id:', p.sent_by_id);
                     var isOverdue = lastDate && new Date(lastDate).getTime() < threeDaysAgo;
                     if (isOverdue && ['sent', 'replied'].includes(pStatus)) {
                         var daysAgo = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
@@ -8783,6 +8786,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             return b.time - a.time;
         });
 
+        console.log('[Notifications] Total notifications assembled:', notifications.length, notifications.map(function(n) { return n.title; }));
         _cachedNotifications = notifications;
         renderNotifications(notifications);
         updateNotificationsBadge(notifications);
