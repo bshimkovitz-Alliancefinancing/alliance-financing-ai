@@ -8596,9 +8596,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (outreach) {
                 var threeDaysAgo = Date.now() - 3 * 86400000;
                 outreach.forEach(function(p) {
-                    var lastDate = p.last_contact_date || p.updated_at || p.created_at;
+                    var pStatus = (p.status || '').toLowerCase();
+                    var lastDate = p.last_contact_date || p.created_at;
                     var isOverdue = lastDate && new Date(lastDate).getTime() < threeDaysAgo;
-                    if (isOverdue && ['sent', 'replied'].includes(p.status)) {
+                    if (isOverdue && ['sent', 'replied'].includes(pStatus)) {
                         var daysAgo = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
                         notifications.push({
                             type: 'outreach',
@@ -8607,14 +8608,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             iconBg: '#FEF2F2',
                             iconColor: '#DC2626',
                             title: 'Follow up with ' + (p.prospect_name || 'Unknown'),
-                            detail: p.status === 'replied' ? 'Replied ' + daysAgo + ' days ago — needs response' : 'Sent ' + daysAgo + ' days ago — no response yet',
+                            detail: pStatus === 'replied' ? 'Replied ' + daysAgo + ' days ago — needs response' : 'Sent ' + daysAgo + ' days ago — no response yet',
                             time: new Date(lastDate),
                             action: "showPage('subAgents')",
                             actionLabel: 'View Outreach',
-                            priority: p.status === 'replied' ? 1 : 2
+                            priority: pStatus === 'replied' ? 1 : 2
                         });
                     }
-                    if (p.status === 'replied') {
+                    if (pStatus === 'replied') {
                         notifications.push({
                             type: 'outreach',
                             category: 'action',
