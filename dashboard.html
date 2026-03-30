@@ -15805,7 +15805,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         try {
             // Ensure agents are cached for source agent lookup
             if (cachedAgents.length === 0) {
-                const { data: agts } = await db.from('users').select('id, full_name').eq('role', 'agent');
+                const { data: agts } = await db.from('users').select('id, full_name, email, parent_agent_id').eq('role', 'agent');
                 cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
             }
             // Fetch all vendor contacts for salespeople counts
@@ -18170,7 +18170,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 cachedVendors = (vendorList || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             }
             if (cachedAgents.length === 0) {
-                const { data: agentList } = await db.from('users').select('id, full_name').eq('role', 'agent').order('full_name');
+                const { data: agentList } = await db.from('users').select('id, full_name, email, parent_agent_id').eq('role', 'agent').order('full_name');
                 cachedAgents = (agentList || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
             }
 
@@ -26914,7 +26914,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Build parent agent options (exclude self)
             if (cachedAgents.length === 0) {
-                const { data: agts } = await db.from('users').select('id, full_name, email').eq('role', 'agent');
+                const { data: agts } = await db.from('users').select('id, full_name, email, parent_agent_id').eq('role', 'agent');
                 cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
             }
             const parentAgentOptions = cachedAgents
@@ -28881,7 +28881,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         try {
             // Ensure agents are cached for source agent dropdown
             if (cachedAgents.length === 0) {
-                const { data: agts } = await db.from('users').select('id, full_name, email').eq('role', 'agent');
+                const { data: agts } = await db.from('users').select('id, full_name, email, parent_agent_id').eq('role', 'agent');
                 cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
             }
             // Fetch vendor details
@@ -30949,7 +30949,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Ensure agents are cached for source agent lookup
             if (cachedAgents.length === 0) {
-                const { data: agts } = await db.from('users').select('id, full_name').eq('role', 'agent');
+                const { data: agts } = await db.from('users').select('id, full_name, email, parent_agent_id').eq('role', 'agent');
                 cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
             }
             if (cachedTeamMembers.length === 0) {
@@ -31145,7 +31145,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const provinceStateEl = document.getElementById('addClientProvinceState');
             const provinceState = provinceStateEl ? (provinceStateEl.value || null) : null;
             const sourceAgentId = document.getElementById('addClientSourceAgent').value || currentUserId;
-            const sourceVendorId = document.getElementById('addClientSourceVendor').value || null;
+            const rawVendorVal = document.getElementById('addClientSourceVendor').value || '';
+            // Handle ISO agent reference (iso:uuid) vs vendor reference (plain uuid)
+            var sourceVendorId = null;
+            var sourceIsoId = null;
+            if (rawVendorVal.startsWith('iso:')) {
+                sourceIsoId = rawVendorVal.replace('iso:', '');
+            } else {
+                sourceVendorId = rawVendorVal || null;
+            }
 
             const insertObj = {
                 company_name: name,
@@ -31160,6 +31168,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 source_agent_id: sourceAgentId,
                 source_vendor_id: sourceVendorId
             };
+            if (sourceIsoId) insertObj.source_iso_id = sourceIsoId;
 
             let { data, error } = await db.from('clients').insert(insertObj).select();
 
@@ -31169,6 +31178,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var retry = await db.from('clients').insert(insertObj).select();
                 data = retry.data;
                 error = retry.error;
+            }
+            // If source_iso_id column doesn't exist yet, retry without it
+            if (error && error.message && error.message.includes('source_iso_id')) {
+                delete insertObj.source_iso_id;
+                var retry2 = await db.from('clients').insert(insertObj).select();
+                data = retry2.data;
+                error = retry2.error;
             }
 
             if (error) throw error;
@@ -31219,9 +31235,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     async function populateAddClientSourceDropdowns() {
-        // Ensure agents cached
+        // Ensure agents cached (include parent_agent_id for ISO lookup)
         if (cachedAgents.length === 0) {
-            const { data: agts } = await db.from('users').select('id, full_name, email').eq('role', 'agent');
+            const { data: agts } = await db.from('users').select('id, full_name, email, parent_agent_id').eq('role', 'agent');
             cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
         }
         if (cachedVendors.length === 0) {
@@ -31248,11 +31264,26 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             vendorSelect.style.background = '#f8fafc';
             return;
         }
-        const filtered = cachedVendors.filter(v => v.source_agent_id === agentId && v.status !== 'Archived');
+        // Find selected agent and check for parent ISO
+        var selectedAgent = cachedAgents.find(function(a) { return a.id === agentId; });
+        var parentId = selectedAgent ? selectedAgent.parent_agent_id : null;
+        var parentAgent = parentId ? cachedAgents.find(function(a) { return a.id === parentId; }) : null;
+
+        // Get vendors for selected agent AND parent agent (ISO)
+        var filtered = cachedVendors.filter(function(v) {
+            return v.status !== 'Archived' && (v.source_agent_id === agentId || (parentId && v.source_agent_id === parentId));
+        });
         vendorSelect.disabled = false;
         vendorSelect.style.background = '';
-        vendorSelect.innerHTML = '<option value="">None</option>' +
-            filtered.map(v => '<option value="' + v.id + '"' + (selectedVendorId === v.id ? ' selected' : '') + '>' + v.name + '</option>').join('');
+        var options = '<option value="">None</option>';
+        // Add parent agent as ISO option if exists
+        if (parentAgent) {
+            var parentName = parentAgent.full_name || parentAgent.email || 'Unknown';
+            var isoSelected = selectedVendorId === ('iso:' + parentId) ? ' selected' : '';
+            options += '<option value="iso:' + parentId + '"' + isoSelected + '>' + parentName + ' (ISO)</option>';
+        }
+        options += filtered.map(function(v) { return '<option value="' + v.id + '"' + (selectedVendorId === v.id ? ' selected' : '') + '>' + v.name + '</option>'; }).join('');
+        vendorSelect.innerHTML = options;
     }
 
     function onAddClientAgentChange() {
@@ -31290,23 +31321,38 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     async function onClientSourceAgentChange(clientId, selectEl) {
         const agentId = selectEl.value || null;
         await updateClientField(clientId, 'source_agent_id', agentId);
-        // Clear vendor when agent changes & refresh vendor dropdown
+        // Clear vendor and ISO when agent changes & refresh vendor dropdown
         try { await updateClientField(clientId, 'source_vendor_id', null); } catch(e) {}
+        try { await updateClientField(clientId, 'source_iso_id', null); } catch(e) {}
         const vendorContainer = document.getElementById('clientDetailVendorContainer');
         if (vendorContainer) {
-            const filtered = cachedVendors.filter(v => v.source_agent_id === agentId && v.status !== 'Archived');
             if (!agentId) {
                 vendorContainer.innerHTML = '<select disabled style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;background:#f8fafc;"><option value="">Select an agent first</option></select>';
             } else {
-                vendorContainer.innerHTML = '<select onchange="onClientSourceVendorChange(\'' + clientId + '\', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"><option value="">None</option>' +
-                    filtered.map(v => '<option value="' + v.id + '">' + v.name + '</option>').join('') + '</select>';
+                var selAgent = cachedAgents.find(function(a) { return a.id === agentId; });
+                var pId = selAgent ? selAgent.parent_agent_id : null;
+                var pAgent = pId ? cachedAgents.find(function(a) { return a.id === pId; }) : null;
+                var filtered = cachedVendors.filter(function(v) { return v.status !== 'Archived' && (v.source_agent_id === agentId || (pId && v.source_agent_id === pId)); });
+                var isoOpt = pAgent ? '<option value="iso:' + pId + '">' + (pAgent.full_name || pAgent.email) + ' (ISO)</option>' : '';
+                vendorContainer.innerHTML = '<select onchange="onClientSourceVendorChange(\'' + clientId + '\', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"><option value="">None</option>' + isoOpt +
+                    filtered.map(function(v) { return '<option value="' + v.id + '">' + v.name + '</option>'; }).join('') + '</select>';
             }
         }
     }
 
     async function onClientSourceVendorChange(clientId, selectEl) {
+        var val = selectEl.value || '';
         try {
-            await updateClientField(clientId, 'source_vendor_id', selectEl.value || null);
+            if (val.startsWith('iso:')) {
+                // ISO agent selected — store in source_iso_id, clear source_vendor_id
+                var isoId = val.replace('iso:', '');
+                try { await updateClientField(clientId, 'source_vendor_id', null); } catch(e) {}
+                try { await updateClientField(clientId, 'source_iso_id', isoId); } catch(e) { console.warn('source_iso_id column may not exist yet:', e); }
+            } else {
+                // Vendor selected — store in source_vendor_id, clear source_iso_id
+                try { await updateClientField(clientId, 'source_iso_id', null); } catch(e) {}
+                await updateClientField(clientId, 'source_vendor_id', val || null);
+            }
         } catch(e) {
             console.warn('source_vendor_id column may not exist yet:', e);
             showToast('Note: source_vendor_id column needs to be added to clients table', 'warning');
@@ -31319,7 +31365,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Ensure agents and vendors are cached
             if (cachedAgents.length === 0) {
-                const { data: agts } = await db.from('users').select('id, full_name, email').eq('role', 'agent');
+                const { data: agts } = await db.from('users').select('id, full_name, email, parent_agent_id').eq('role', 'agent');
                 cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
             }
             if (cachedVendors.length === 0) {
@@ -31640,8 +31686,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <label>Source ISO / Vendor</label>
                         <div id="clientDetailVendorContainer">
                             ${client.source_agent_id ? (() => {
-                                const filtered = cachedVendors.filter(v => v.source_agent_id === client.source_agent_id && (v.status !== 'Archived' || v.id === client.source_vendor_id));
-                                return '<select onchange="onClientSourceVendorChange(\'' + clientId + '\', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"><option value="">None</option>' +
+                                var selAgent = cachedAgents.find(function(a) { return a.id === client.source_agent_id; });
+                                var pId = selAgent ? selAgent.parent_agent_id : null;
+                                var pAgent = pId ? cachedAgents.find(function(a) { return a.id === pId; }) : null;
+                                const filtered = cachedVendors.filter(function(v) { return (v.status !== 'Archived' || v.id === client.source_vendor_id) && (v.source_agent_id === client.source_agent_id || (pId && v.source_agent_id === pId)); });
+                                var isoOpt = pAgent ? '<option value="iso:' + pId + '"' + (client.source_iso_id === pId ? ' selected' : '') + '>' + (pAgent.full_name || pAgent.email) + ' (ISO)</option>' : '';
+                                return '<select onchange="onClientSourceVendorChange(\'' + clientId + '\', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"><option value="">None</option>' + isoOpt +
                                     filtered.map(v => '<option value="' + v.id + '"' + (client.source_vendor_id === v.id ? ' selected' : '') + '>' + v.name + '</option>').join('') + '</select>';
                             })() : '<select disabled style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;background:#f8fafc;"><option value="">Select an agent first</option></select>'}
                         </div>
@@ -31792,7 +31842,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </div>
                 <div class="modal-row">
                     ${roField('Source Agent', client.source_agent_id ? (cachedAgents.find(a => a.id === client.source_agent_id) || {}).full_name || 'N/A' : '')}
-                    ${roField('Source ISO / Vendor', client.source_vendor_id ? (cachedVendors.find(v => v.id === client.source_vendor_id) || {}).name || 'N/A' : '')}
+                    ${roField('Source ISO / Vendor', client.source_iso_id ? ((cachedAgents.find(a => a.id === client.source_iso_id) || {}).full_name || 'N/A') + ' (ISO)' : client.source_vendor_id ? (cachedVendors.find(v => v.id === client.source_vendor_id) || {}).name || 'N/A' : '')}
                 </div>
 
                 <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
