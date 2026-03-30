@@ -34207,6 +34207,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !['super_admin', 'admin'].includes(currentUserRole)) {
                     showPage('vendorPortal');
                     loadPageData('vendorPortal');
+                } else if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker' || currentAgentType === 'referring_agent') && !['super_admin', 'admin'].includes(currentUserRole)) {
+                    // Route ISO partners, mortgage brokers, and referral partners to Notifications hub
+                    showPage('notifications');
+                    loadPageData('notifications');
+                    loadOutreachHistory().catch(function(e) { console.warn('Background outreach load:', e); });
+                    // Also load dashboard data in background
+                    loadDashboard().catch(function(e) { console.error('loadDashboard error:', e); });
+                    loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); });
                 } else {
                     await Promise.all([
                         loadDashboard(),
