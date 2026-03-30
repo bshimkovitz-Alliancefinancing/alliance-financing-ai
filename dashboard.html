@@ -8455,6 +8455,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     // Nav badge for replies/follow-ups
     function updateOutreachBadge(count, overdueCount) {
+        // Skip Marketing badge — Notifications hub handles outreach alerts now
+        var notifNav = document.getElementById('notificationsNav');
+        if (notifNav && notifNav.style.display !== 'none') return;
+
         var nav = document.getElementById('marketingNav');
         if (!nav) return;
         var existingBadge = document.getElementById('outreachBadge');
@@ -8480,6 +8484,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     // Alert banner for prospect replies needing follow-up
     function updateOutreachAlertBanner(repliedProspects, overdueCount) {
+        // Skip Marketing banner — Notifications hub handles outreach alerts now
+        var notifNav = document.getElementById('notificationsNav');
+        if (notifNav && notifNav.style.display !== 'none') return;
+
         // Remove any existing banners
         var existing = document.getElementById('outreachAlertBanner');
         if (existing) existing.remove();
@@ -8697,7 +8705,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 3. Application status updates (sent applications)
         try {
             var appsQuery = db.from('applications_sent').select('*');
-            appsQuery = appsQuery.order('updated_at', { ascending: false }).limit(20);
+            appsQuery = appsQuery.order('sent_at', { ascending: false }).limit(50);
             var { data: apps } = await appsQuery;
             // Filter applications by current user's name (applications_sent uses sent_by name, not UUID)
             if (!isAdmin && apps) {
