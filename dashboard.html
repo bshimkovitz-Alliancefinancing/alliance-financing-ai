@@ -18247,6 +18247,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Fetch all clients for the dropdown
             const { data: allClientsForDeal } = await db.from('clients').select('id, company_name').order('company_name');
 
+            // Resolve source contact name for agent view
+            if (deal.source_contact_id && deal.source_vendor_id) {
+                try {
+                    const { data: vc } = await db.from('vendor_contacts').select('contact_name, title').eq('id', deal.source_contact_id).single();
+                    if (vc) deal._sourceContactName = vc.contact_name + (vc.title ? ' (' + vc.title + ')' : '');
+                } catch(e) {}
+            }
+
             // Check if agent viewing (read-only for most fields)
             const isAgentView = !['super_admin', 'admin'].includes(currentUserRole);
             const roField = (val) => `<div style="padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; min-height: 20px;">${val || '-'}</div>`;
@@ -18463,12 +18471,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </div>
                     <div class="modal-field">
                         <label>Source Contact</label>
-                        <div id="dealSourceContactContainer" style="display: ${isAgentView ? 'none' : (deal.source_vendor_id ? 'block' : 'none')};">
+                        ${isAgentView ? roField(deal._sourceContactName || '-') : `<div id="dealSourceContactContainer" style="display: ${deal.source_vendor_id ? 'block' : 'none'};">
                             <select id="dealSourceContactSelect" onchange="updateDealField('${dealId}', 'source_contact_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
                                 <option value="">Select Contact</option>
                             </select>
-                        </div>
-                        ${isAgentView ? roField('-') : ''}
+                        </div>`}
                     </div>
                 </div>
 
@@ -18483,7 +18490,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </div>
                     <div class="modal-field">
                         <label>Internal Account Manager</label>
-                        ${isAgentView ? roField('-') : `<select onchange="updateDealField('${dealId}', 'internal_account_manager_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
+                        ${isAgentView ? roField(deal.internal_account_manager_id ? (cachedTeamMembers.find(t => t.id === deal.internal_account_manager_id)?.full_name || '-') : '-') : `<select onchange="updateDealField('${dealId}', 'internal_account_manager_id', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
                             <option value="">None</option>
                             ${teamMemberOptions}
                         </select>`}
