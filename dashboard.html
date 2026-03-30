@@ -1150,7 +1150,7 @@
                         </div>
                         <div style="display:flex;gap:8px;">
                             <button onclick="loadNotifications()" class="btn btn-sm" style="font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:7px 14px;">↻ Refresh</button>
-                            <button onclick="markAllNotificationsRead()" class="btn btn-sm" style="font-size:12px;background:rgba(201,168,76,0.2);color:#C9A84C;border:1px solid rgba(201,168,76,0.4);border-radius:8px;padding:7px 14px;">✓ Mark All Read</button>
+                            <!-- Mark All Read removed — notifications dismiss via action completion -->
                         </div>
                     </div>
                 </div>
@@ -8786,16 +8786,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     if (a.status === 'Returned') {
                         notifications.push({
                             type: 'applications',
-                            category: 'applications',
+                            category: 'action',
                             icon: '📥',
                             iconBg: '#D1FAE5',
                             iconColor: '#065F46',
                             title: (a.applicant_name || 'Unknown') + ' returned their application',
                             detail: a.application_type || 'Application',
                             time: new Date(a.updated_at || a.sent_at),
-                            action: "showPage('applicationHub')",
+                            action: "viewReturnedApplication('" + a.id + "')",
                             actionLabel: 'View',
-                            priority: 1
+                            priority: 1,
+                            appSentId: a.id
                         });
                     }
                 });
@@ -8976,10 +8977,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 'padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:box-shadow 0.15s;position:relative;" ' +
                 'onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'" ' +
                 'onmouseout="this.style.boxShadow=\'none\'" ' +
-                'onclick="dismissNotification(' + i + ', event); ' + (n.action || '') + '">';
+                'onclick="' + (n.action || '') + '">';
 
-            // Dismiss button (always visible)
-            html += '<button class="notif-dismiss" onclick="dismissNotification(' + i + ', event)" style="position:absolute;top:6px;right:8px;background:none;border:none;color:#94A3B8;font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;z-index:2;transition:color 0.15s;" onmouseover="this.style.color=\'#EF4444\'" onmouseout="this.style.color=\'#94A3B8\'" title="Dismiss">&times;</button>';
+            // No manual dismiss — notifications clear via action completion
 
             // Icon
             html += '<div style="min-width:40px;height:40px;border-radius:10px;background:' + n.iconBg + ';display:flex;align-items:center;justify-content:center;font-size:20px;">' + n.icon + '</div>';
@@ -9052,6 +9052,147 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         renderNotifications(_cachedNotifications);
         updateNotificationsBadge(_cachedNotifications);
         showToast('All notifications marked as read', 'success');
+    }
+
+    // ============================================
+    // RETURNED APPLICATION DETAIL MODAL (from Notifications)
+    // ============================================
+
+    async function viewReturnedApplication(appSentId) {
+        try {
+            var { data: app, error } = await db.from('applications_sent').select('*').eq('id', appSentId).single();
+            if (error || !app) { showToast('Could not load application', 'error'); return; }
+
+            // Check if there's a linked credit application in the applications table
+            var linkedApp = null;
+            if (app.applicant_email) {
+                var { data: linked } = await db.from('applications').select('id, full_name, business_name, email, phone, funding_amount_requested, status, submitted_at, form_data').eq('email', app.applicant_email).order('submitted_at', { ascending: false }).limit(1);
+                if (linked && linked.length > 0) linkedApp = linked[0];
+            }
+
+            // Check if there's a linked deal
+            var linkedDeal = null;
+            if (app.deal_id) {
+                var { data: deal } = await db.from('deals').select('id, company_name, status, product_type, amount, created_at').eq('id', app.deal_id).single();
+                if (deal) linkedDeal = deal;
+            }
+
+            var statusColor = '#6B7280';
+            if (app.status === 'Returned') statusColor = '#059669';
+            else if (app.status === 'Sent') statusColor = '#2563EB';
+            else if (app.status === 'Opened') statusColor = '#D97706';
+
+            var modalHtml = '<div id="returnedAppModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)this.remove()">' +
+                '<div style="background:white;border-radius:12px;max-width:600px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+                '<div style="padding:20px 24px 0 24px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+                        '<div>' +
+                            '<h3 style="margin:0;font-size:18px;color:#0D1E3D;">' + (app.applicant_name || 'Unknown Applicant') + '</h3>' +
+                            '<div style="font-size:13px;color:#64748B;margin-top:2px;">' + (app.application_type || 'Application') + '</div>' +
+                        '</div>' +
+                        '<span style="display:inline-block;padding:4px 12px;background:' + statusColor + '20;color:' + statusColor + ';border-radius:20px;font-size:12px;font-weight:600;">' + (app.status || 'Unknown') + '</span>' +
+                    '</div>' +
+                '</div>' +
+
+                '<div style="padding:0 24px;">' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">' +
+                        '<div style="background:#F8FAFC;border-radius:8px;padding:12px;">' +
+                            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Email</div>' +
+                            '<div style="font-size:14px;color:#0D1E3D;">' + (app.applicant_email || 'N/A') + '</div>' +
+                        '</div>' +
+                        '<div style="background:#F8FAFC;border-radius:8px;padding:12px;">' +
+                            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Sent On</div>' +
+                            '<div style="font-size:14px;color:#0D1E3D;">' + (app.sent_at ? new Date(app.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A') + '</div>' +
+                        '</div>' +
+                        '<div style="background:#F8FAFC;border-radius:8px;padding:12px;">' +
+                            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Returned On</div>' +
+                            '<div style="font-size:14px;color:#0D1E3D;">' + (app.updated_at ? new Date(app.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A') + '</div>' +
+                        '</div>' +
+                        '<div style="background:#F8FAFC;border-radius:8px;padding:12px;">' +
+                            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Follow-Up Date</div>' +
+                            '<div style="font-size:14px;color:#0D1E3D;">' + (app.follow_up_date ? new Date(app.follow_up_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not set') + '</div>' +
+                        '</div>' +
+                    '</div>';
+
+            // Linked deal section
+            if (linkedDeal) {
+                modalHtml += '<div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:12px 14px;margin-bottom:16px;">' +
+                    '<div style="font-size:12px;font-weight:600;color:#0369A1;margin-bottom:6px;">📋 Linked Deal</div>' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                        '<div>' +
+                            '<div style="font-size:14px;font-weight:600;color:#0D1E3D;">' + (linkedDeal.company_name || 'N/A') + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">' + (linkedDeal.product_type || '') + (linkedDeal.amount ? ' — ' + formatCurrency(linkedDeal.amount) : '') + '</div>' +
+                        '</div>' +
+                        '<span style="padding:3px 10px;background:#DBEAFE;color:#1E40AF;border-radius:4px;font-size:11px;font-weight:600;">' + (linkedDeal.status || 'Unknown') + '</span>' +
+                    '</div>' +
+                '</div>';
+            }
+
+            // Linked credit application details
+            if (linkedApp) {
+                modalHtml += '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:12px 14px;margin-bottom:16px;">' +
+                    '<div style="font-size:12px;font-weight:600;color:#166534;margin-bottom:6px;">📝 Credit Application Details</div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+                        '<div><span style="font-size:11px;color:#94A3B8;">Business:</span> <span style="font-size:13px;color:#0D1E3D;">' + (linkedApp.business_name || 'N/A') + '</span></div>' +
+                        '<div><span style="font-size:11px;color:#94A3B8;">Amount:</span> <span style="font-size:13px;color:#0D1E3D;">' + (linkedApp.funding_amount_requested ? formatCurrency(linkedApp.funding_amount_requested) : 'N/A') + '</span></div>' +
+                        '<div><span style="font-size:11px;color:#94A3B8;">Phone:</span> <span style="font-size:13px;color:#0D1E3D;">' + (linkedApp.phone || 'N/A') + '</span></div>' +
+                        '<div><span style="font-size:11px;color:#94A3B8;">Submitted:</span> <span style="font-size:13px;color:#0D1E3D;">' + (linkedApp.submitted_at ? new Date(linkedApp.submitted_at).toLocaleDateString() : 'N/A') + '</span></div>' +
+                    '</div>' +
+                '</div>';
+            }
+
+            // Notes / comments area
+            modalHtml += '<div style="margin-bottom:16px;">' +
+                '<div style="font-size:12px;font-weight:600;color:#0D1E3D;margin-bottom:8px;">Notes</div>' +
+                '<textarea id="returnedAppNotes" placeholder="Add any notes about this returned application..." style="width:100%;min-height:80px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;">' + (app.notes || '') + '</textarea>' +
+            '</div>';
+
+            modalHtml += '</div>' +
+
+                // Footer with Save & Close
+                '<div style="padding:16px 24px;border-top:2px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;">' +
+                    (app.applicant_email ? '<a href="mailto:' + app.applicant_email + '" style="font-size:13px;color:#2563EB;text-decoration:none;font-weight:600;">✉ Email ' + (app.applicant_name || 'Applicant').split(' ')[0] + '</a>' : '<span></span>') +
+                    '<button onclick="saveAndCloseReturnedApp(\'' + app.id + '\')" class="btn btn-gold" style="padding:10px 28px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;">' +
+                        '✓ Save & Close' +
+                    '</button>' +
+                '</div>' +
+
+                '</div></div>';
+
+            // Insert modal
+            var existing = document.getElementById('returnedAppModal');
+            if (existing) existing.remove();
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        } catch(err) {
+            console.error('viewReturnedApplication error:', err);
+            showToast('Error loading application', 'error');
+        }
+    }
+
+    async function saveAndCloseReturnedApp(appSentId) {
+        try {
+            // Save notes if changed
+            var notesEl = document.getElementById('returnedAppNotes');
+            if (notesEl) {
+                await db.from('applications_sent').update({ notes: notesEl.value }).eq('id', appSentId);
+            }
+
+            // Mark the application as "Reviewed" so it no longer generates a notification
+            await db.from('applications_sent').update({ status: 'Reviewed' }).eq('id', appSentId);
+
+            // Close the modal
+            var modal = document.getElementById('returnedAppModal');
+            if (modal) modal.remove();
+
+            // Refresh notifications so the item is gone (status is no longer 'Returned')
+            await loadNotifications();
+
+            showToast('Application reviewed and saved', 'success');
+        } catch(err) {
+            console.error('saveAndCloseReturnedApp error:', err);
+            showToast('Error saving — please try again', 'error');
+        }
     }
 
     // ============================================
@@ -23531,6 +23672,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         '<option value="Sent"' + (app.status === 'Sent' ? ' selected' : '') + '>Sent</option>' +
                         '<option value="Follow-Up Needed"' + (app.status === 'Follow-Up Needed' ? ' selected' : '') + '>Follow-Up Needed</option>' +
                         '<option value="Returned"' + (app.status === 'Returned' ? ' selected' : '') + '>Returned</option>' +
+                        '<option value="Reviewed"' + (app.status === 'Reviewed' ? ' selected' : '') + '>Reviewed</option>' +
                         '<option value="Opened"' + (app.status === 'Opened' ? ' selected' : '') + '>Opened</option>' +
                         '<option value="Expired"' + (app.status === 'Expired' ? ' selected' : '') + '>Expired</option>' +
                     '</select>';
@@ -23832,6 +23974,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             '<option value="Clicked"' + (app.status === 'Clicked' ? ' selected' : '') + '>Clicked</option>' +
                             '<option value="Replied"' + (app.status === 'Replied' ? ' selected' : '') + '>Replied</option>' +
                             '<option value="Returned"' + (app.status === 'Returned' ? ' selected' : '') + '>Returned</option>' +
+                            '<option value="Reviewed"' + (app.status === 'Reviewed' ? ' selected' : '') + '>Reviewed</option>' +
                             '<option value="Bounced"' + (app.status === 'Bounced' ? ' selected' : '') + '>Bounced</option>' +
                             '<option value="Expired"' + (app.status === 'Expired' ? ' selected' : '') + '>Expired</option>' +
                         '</select>' +
