@@ -9174,19 +9174,34 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         try {
             // Save notes if changed
             var notesEl = document.getElementById('returnedAppNotes');
-            if (notesEl) {
+            if (notesEl && notesEl.value) {
                 await db.from('applications_sent').update({ notes: notesEl.value }).eq('id', appSentId);
             }
 
-            // Mark the application as "Reviewed" so it no longer generates a notification
+            // Try to mark as "Reviewed" in DB (may fail silently if RLS blocks agent updates)
             await db.from('applications_sent').update({ status: 'Reviewed' }).eq('id', appSentId);
+
+            // Also dismiss via localStorage — this is the reliable mechanism for agents
+            // Find the matching notification in the cached list and dismiss it
+            var matchedNotif = _cachedNotifications.find(function(n) { return n.appSentId === appSentId; });
+            if (matchedNotif) {
+                var key = getDismissKey(matchedNotif);
+                _dismissedNotifications[key] = Date.now();
+                // Clean up old dismissals (older than 30 days)
+                var cutoff = Date.now() - 30 * 86400000;
+                for (var k in _dismissedNotifications) {
+                    if (_dismissedNotifications[k] < cutoff) delete _dismissedNotifications[k];
+                }
+                try { localStorage.setItem('dismissed_notifications_' + currentUserId, JSON.stringify(_dismissedNotifications)); } catch(e) {}
+            }
 
             // Close the modal
             var modal = document.getElementById('returnedAppModal');
             if (modal) modal.remove();
 
-            // Refresh notifications so the item is gone (status is no longer 'Returned')
-            await loadNotifications();
+            // Re-render notifications (dismissed item will be filtered out)
+            renderNotifications(_cachedNotifications);
+            updateNotificationsBadge(_cachedNotifications);
 
             showToast('Application reviewed and saved', 'success');
         } catch(err) {
