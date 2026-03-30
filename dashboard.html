@@ -30339,19 +30339,51 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var modalHtml = '<div style="padding:24px;max-width:560px;">' +
             '<h3 style="margin:0 0 4px;color:var(--navy);font-size:18px;">Send Email</h3>' +
             '<p style="color:#64748B;font-size:13px;margin:0 0 18px;">To: <strong>' + contactName + '</strong> &lt;' + contactEmail + '&gt;</p>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">' +
+            '<div>' +
+            '<label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px;">Category</label>' +
+            '<select id="vendorEmailCategory" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">' +
+            '<option value="General">General</option>' +
+            '<option value="Pricing">Pricing</option>' +
+            '<option value="Application">Application</option>' +
+            '<option value="Follow-up">Follow-up</option>' +
+            '<option value="Onboarding">Onboarding</option>' +
+            '</select>' +
+            '</div>' +
+            '<div>' +
+            '<label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px;">CC <span style="font-weight:400;color:#94A3B8;">(optional)</span></label>' +
+            '<input type="text" id="vendorEmailCC" placeholder="email@example.com" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">' +
+            '</div>' +
+            '</div>' +
             '<div style="margin-bottom:12px;">' +
             '<label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px;">Subject</label>' +
             '<input type="text" id="vendorEmailSubject" placeholder="Email subject..." style="width:100%;padding:10px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:14px;">' +
             '</div>' +
             '<div style="margin-bottom:12px;">' +
             '<label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px;">Message</label>' +
-            '<textarea id="vendorEmailBody" placeholder="Write your message..." style="width:100%;min-height:150px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>' +
+            '<textarea id="vendorEmailBody" placeholder="Write your message..." style="width:100%;min-height:120px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>' +
             '</div>' +
-            '<div style="font-size:12px;color:#94A3B8;margin-bottom:16px;padding:8px 10px;background:#F8FAFC;border-radius:4px;">' +
-            'From: ' + senderName + ' &lt;' + senderEmail + '&gt; — This email will be logged in the vendor notes.' +
+            '<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<label style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;font-size:12px;color:#475569;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background=\'#E2E8F0\'" onmouseout="this.style.background=\'#F1F5F9\'">' +
+            '📎 Attach File' +
+            '<input type="file" id="vendorEmailFileInput" style="display:none;" onchange="handleVendorEmailFileSelect(this)" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.csv,.txt,.zip">' +
+            '</label>' +
+            '<span id="vendorEmailFileName" style="font-size:11px;color:#64748B;"></span>' +
+            '</div>' +
+            '<div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+            '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;">' +
+            '<input type="checkbox" id="vendorEmailFollowup" onchange="document.getElementById(\'vendorEmailFollowupFields\').style.display=this.checked?\'flex\':\'none\'"> Follow-up' +
+            '</label>' +
+            '<div id="vendorEmailFollowupFields" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<input type="date" id="vendorEmailFollowupDate" style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">' +
+            '<input type="text" id="vendorEmailFollowupReason" placeholder="Reason for follow-up..." style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:180px;">' +
+            '</div>' +
+            '</div>' +
+            '<div style="font-size:11px;color:#94A3B8;margin-bottom:14px;padding:6px 10px;background:#F8FAFC;border-radius:4px;">' +
+            'From: ' + senderName + ' &lt;' + senderEmail + '&gt; — Logged in vendor notes.' +
             '</div>' +
             '<div style="display:flex;gap:10px;">' +
-            '<button onclick="sendVendorContactEmail(\'' + vendorId + '\', \'' + contactId + '\', \'' + contactName.replace(/'/g, "\\'") + '\', \'' + contactEmail.replace(/'/g, "\\'") + '\')" class="btn btn-gold" style="padding:10px 24px;font-size:14px;">Send Email</button>' +
+            '<button id="vendorEmailSendBtn" onclick="sendVendorContactEmail(\'' + vendorId + '\', \'' + contactId + '\', \'' + contactName.replace(/'/g, "\\'") + '\', \'' + contactEmail.replace(/'/g, "\\'") + '\')" class="btn btn-gold" style="padding:10px 24px;font-size:14px;">Send Email</button>' +
             '<button onclick="closeModal(\'vendorEmailModal\')" class="btn btn-secondary" style="padding:10px 24px;font-size:14px;">Cancel</button>' +
             '</div></div>';
 
@@ -30362,29 +30394,78 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
             document.body.appendChild(modal);
         }
-        modal.innerHTML = '<div style="background:white;border-radius:10px;width:90%;max-width:580px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' + modalHtml + '</div>';
+        modal.innerHTML = '<div style="background:white;border-radius:10px;width:90%;max-width:580px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;">' + modalHtml + '</div>';
         modal.style.display = 'flex';
         // Focus subject field
         setTimeout(function() { var s = document.getElementById('vendorEmailSubject'); if (s) s.focus(); }, 100);
     }
 
+    function handleVendorEmailFileSelect(input) {
+        var file = input.files[0];
+        var nameSpan = document.getElementById('vendorEmailFileName');
+        if (file && nameSpan) {
+            var sizeMB = (file.size / 1048576).toFixed(1);
+            nameSpan.innerHTML = file.name + ' <span style="color:#94A3B8;">(' + sizeMB + ' MB)</span> <span onclick="clearVendorEmailFile()" style="color:#EF4444;cursor:pointer;font-weight:600;" title="Remove">✕</span>';
+        }
+    }
+
+    function clearVendorEmailFile() {
+        var input = document.getElementById('vendorEmailFileInput');
+        var nameSpan = document.getElementById('vendorEmailFileName');
+        if (input) input.value = '';
+        if (nameSpan) nameSpan.innerHTML = '';
+    }
+
     async function sendVendorContactEmail(vendorId, contactId, contactName, contactEmail) {
         var subject = document.getElementById('vendorEmailSubject').value.trim();
         var body = document.getElementById('vendorEmailBody').value.trim();
+        var ccField = document.getElementById('vendorEmailCC').value.trim();
         if (!subject) { showToast('Please enter a subject', 'warning'); return; }
         if (!body) { showToast('Please enter a message', 'warning'); return; }
+
+        // Parse CC emails
+        var ccEmails = [];
+        if (ccField) {
+            ccEmails = ccField.split(',').map(function(e) { return e.trim(); }).filter(function(e) { return e && e.includes('@'); });
+        }
+
+        // Disable send button to prevent double-click
+        var sendBtn = document.getElementById('vendorEmailSendBtn');
+        if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Sending...'; }
 
         var senderName = currentUserName || 'Alliance Financing';
         var senderEmail = (document.getElementById('userEmailDisplay') || {}).textContent || 'info@alliancefinancing.com';
 
         try {
+            // Upload attachment to Supabase Storage if present (same pattern as Agents & Partners)
+            var attachmentData = null;
+            var fileInput = document.getElementById('vendorEmailFileInput');
+            if (fileInput && fileInput.files[0]) {
+                try {
+                    attachmentData = await uploadCommFile(fileInput.files[0], 'vendor', vendorId);
+                } catch(uploadErr) {
+                    showToast('File upload failed: ' + uploadErr.message, 'error');
+                    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Email'; }
+                    return;
+                }
+            }
+
             // Build branded HTML email
             var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
                 '<div style="background:#0D1E3D;padding:20px;text-align:center;"><h2 style="color:#C9A84C;margin:0;font-size:20px;">Alliance Financing Group</h2></div>' +
                 '<div style="padding:25px;background:#fff;border:1px solid #e2e8f0;">' +
                 '<p style="font-size:15px;color:#333;margin-bottom:8px;">Hi ' + (contactName.split(' ')[0] || contactName) + ',</p>' +
-                '<div style="font-size:14px;color:#555;line-height:1.7;white-space:pre-wrap;">' + body.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
-                '<div style="margin-top:24px;padding-top:16px;border-top:1px solid #E2E8F0;">' +
+                '<div style="font-size:14px;color:#555;line-height:1.7;white-space:pre-wrap;">' + body.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+
+            // Add attachment download link in email body
+            if (attachmentData && attachmentData.url) {
+                htmlBody += '<div style="margin-top:16px;padding:12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">' +
+                    '<div style="font-weight:600;color:#0D1E3D;font-size:13px;margin-bottom:6px;">Attached Document</div>' +
+                    '<a href="' + attachmentData.url + '" target="_blank" style="color:#2563EB;font-size:13px;text-decoration:underline;font-weight:500;">📎 ' + attachmentData.name + '</a>' +
+                    '</div>';
+            }
+
+            htmlBody += '<div style="margin-top:24px;padding-top:16px;border-top:1px solid #E2E8F0;">' +
                 '<p style="font-size:14px;color:#333;margin:0;">Best regards,</p>' +
                 '<p style="font-size:14px;color:#333;font-weight:600;margin:4px 0 0;">' + senderName + '</p>' +
                 '<p style="font-size:13px;color:#64748B;margin:2px 0 0;">' + senderEmail + '</p>' +
@@ -30393,8 +30474,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '</div></div>' +
                 '<div style="background:#f8f9fa;padding:12px;text-align:center;font-size:11px;color:#999;">Alliance Financing Group | alliancefinancing.com</div></div>';
 
-            // Send the email
-            await sendEmailViaResend(contactEmail, subject, htmlBody, null, senderEmail || 'info@alliancefinancing.com');
+            // Send the email using existing sendEmailViaResend (supports CC)
+            await sendEmailViaResend(contactEmail, subject, htmlBody, null, senderEmail || 'info@alliancefinancing.com', ccEmails.length > 0 ? ccEmails : undefined);
 
             // Log in vendor notes
             var { data: vendor } = await db.from('vendors').select('admin_notes, name').eq('id', vendorId).single();
@@ -30402,19 +30483,41 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             try { notes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { notes = []; }
             var now = new Date();
             var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            notes.push({
-                text: '📧 Email sent to ' + contactName + ' (' + contactEmail + ')\nSubject: ' + subject + '\n\n' + body,
+            var noteText = '📧 Email sent to ' + contactName + ' (' + contactEmail + ')';
+            if (ccEmails.length > 0) noteText += '\nCC: ' + ccEmails.join(', ');
+            noteText += '\nSubject: ' + subject + '\n\n' + body;
+
+            // Capture category and follow-up
+            var category = (document.getElementById('vendorEmailCategory') || {}).value || 'General';
+            var followupCheck = document.getElementById('vendorEmailFollowup');
+            var followupDate = document.getElementById('vendorEmailFollowupDate');
+            var followupReason = document.getElementById('vendorEmailFollowupReason');
+            var hasFollowup = followupCheck && followupCheck.checked && followupDate && followupDate.value;
+
+            var noteEntry = {
+                text: noteText,
                 author: senderEmail,
                 date: dateStr,
                 visible_to_agent: true,
-                is_email: true
-            });
+                from_agent: true,
+                is_email: true,
+                type: 'email',
+                category: category,
+                email_to: contactName + ' <' + contactEmail + '>',
+                email_cc: ccEmails.join(', '),
+                email_subject: subject,
+                followup_date: hasFollowup ? followupDate.value : null,
+                followup_reason: hasFollowup ? (followupReason ? followupReason.value : '') : ''
+            };
+            if (attachmentData) noteEntry.attachment = attachmentData;
+
+            notes.push(noteEntry);
             await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
 
             closeModal('vendorEmailModal');
-            showToast('Email sent to ' + contactName + '!', 'success');
+            showToast('Email sent to ' + contactName + '!' + (ccEmails.length > 0 ? ' (CC: ' + ccEmails.length + ')' : ''), 'success');
 
-            // Refresh the vendor view if admin
+            // Refresh the vendor view
             if (['super_admin', 'admin'].includes(currentUserRole)) {
                 await viewVendor(vendorId);
             } else {
@@ -30423,6 +30526,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch(err) {
             console.error('Send vendor contact email error:', err);
             showToast('Failed to send email: ' + (err.message || err), 'error');
+            // Re-enable send button on error
+            if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Email'; }
         }
     }
 
@@ -32627,6 +32732,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             </div>
                             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                                    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;"><input type="checkbox" id="entityComposeVisible_lender_${lenderId}"> Visible to Agent</label>
                                     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;"><input type="checkbox" id="entityComposePin_lender_${lenderId}"> 📌 Pin</label>
                                     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;"><input type="checkbox" id="entityComposeFollowup_lender_${lenderId}"> Follow-up</label>
                                     <input type="date" id="entityComposeFollowupDate_lender_${lenderId}" style="display:none;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
