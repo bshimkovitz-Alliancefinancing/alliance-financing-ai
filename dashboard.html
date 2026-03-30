@@ -18227,7 +18227,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 cachedLenders = lenderList || [];
             }
             if (cachedVendors.length === 0) {
-                const { data: vendorList } = await db.from('vendors').select('id, name, supported_products').order('name');
+                const { data: vendorList } = await db.from('vendors').select('id, name, supported_products, status').order('name');
                 cachedVendors = (vendorList || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             }
             if (cachedAgents.length === 0) {
@@ -18457,8 +18457,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <label>Vendor</label>
                         ${isAgentView ? roField(deal.source_vendor_id ? (cachedVendors.find(v => v.id === deal.source_vendor_id)?.name || 'N/A') : 'None') : `<select id="dealVendorSelect2" onchange="updateDealField('${dealId}', 'source_vendor_id', this.value); loadSourceContacts('${dealId}', this.value); filterProductsByVendor(this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
                             <option value="">None</option>
-                            ${cachedVendors.map(v => `<option value="${v.id}" ${deal.source_vendor_id === v.id ? 'selected' : ''}>${v.name}</option>`).join('')}
-                        </select>`}
+                            ${cachedVendors.filter(v => v.status !== 'Archived' || v.id === deal.source_vendor_id).map(v => `<option value="${v.id}" ${deal.source_vendor_id === v.id ? 'selected' : ''}>${v.name}</option>`).join('')}
+                        </select>
+                        <div style="font-size:11px;color:#94A3B8;margin-top:4px;">Archived vendors are hidden from this list.</div>`}
                     </div>
                     <div class="modal-field">
                         <label>Source Contact</label>
@@ -31281,7 +31282,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
         }
         if (cachedVendors.length === 0) {
-            const { data: vList } = await db.from('vendors').select('id, name, source_agent_id, supported_products').order('name');
+            const { data: vList } = await db.from('vendors').select('id, name, source_agent_id, supported_products, status').order('name');
             cachedVendors = (vList || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         }
         const agentSelect = document.getElementById('addClientSourceAgent');
@@ -31304,7 +31305,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             vendorSelect.style.background = '#f8fafc';
             return;
         }
-        const filtered = cachedVendors.filter(v => v.source_agent_id === agentId);
+        const filtered = cachedVendors.filter(v => v.source_agent_id === agentId && v.status !== 'Archived');
         vendorSelect.disabled = false;
         vendorSelect.style.background = '';
         vendorSelect.innerHTML = '<option value="">None</option>' +
@@ -31350,7 +31351,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         try { await updateClientField(clientId, 'source_vendor_id', null); } catch(e) {}
         const vendorContainer = document.getElementById('clientDetailVendorContainer');
         if (vendorContainer) {
-            const filtered = cachedVendors.filter(v => v.source_agent_id === agentId);
+            const filtered = cachedVendors.filter(v => v.source_agent_id === agentId && v.status !== 'Archived');
             if (!agentId) {
                 vendorContainer.innerHTML = '<select disabled style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;background:#f8fafc;"><option value="">Select an agent first</option></select>';
             } else {
@@ -31379,7 +31380,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
             }
             if (cachedVendors.length === 0) {
-                const { data: vList } = await db.from('vendors').select('id, name, source_agent_id, supported_products').order('name');
+                const { data: vList } = await db.from('vendors').select('id, name, source_agent_id, supported_products, status').order('name');
                 cachedVendors = (vList || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             }
             if (cachedTeamMembers.length === 0) {
@@ -31696,7 +31697,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <label>Source ISO / Vendor</label>
                         <div id="clientDetailVendorContainer">
                             ${client.source_agent_id ? (() => {
-                                const filtered = cachedVendors.filter(v => v.source_agent_id === client.source_agent_id);
+                                const filtered = cachedVendors.filter(v => v.source_agent_id === client.source_agent_id && (v.status !== 'Archived' || v.id === client.source_vendor_id));
                                 return '<select onchange="onClientSourceVendorChange(\'' + clientId + '\', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"><option value="">None</option>' +
                                     filtered.map(v => '<option value="' + v.id + '"' + (client.source_vendor_id === v.id ? ' selected' : '') + '>' + v.name + '</option>').join('') + '</select>';
                             })() : '<select disabled style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;background:#f8fafc;"><option value="">Select an agent first</option></select>'}
