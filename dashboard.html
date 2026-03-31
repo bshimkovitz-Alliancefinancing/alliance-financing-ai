@@ -894,10 +894,7 @@
                 <span class="nav-icon">📁</span>
                 <span>Documents</span>
             </div>
-            <div class="nav-item" id="myReferralsNav" onclick="showPage('myReferrals')" style="display: none;">
-                <span class="nav-icon">📋</span>
-                <span>My Referrals</span>
-            </div>
+            <!-- My Referrals nav removed — unified into Dashboard pipeline -->
             <div class="nav-item" id="vendorProgramsNav" onclick="showPage('vendorPrograms')" style="display: none;">
                 <span class="nav-icon">🤝</span>
                 <span>Vendor Programs</span>
@@ -1060,49 +1057,101 @@
 
                 <!-- Unified Inbox moved to dedicated Inbox page — dashboard uses alert cards only -->
 
-                <!-- Applications Sent Tracking (on Dashboard for admins) -->
-                <div class="table-container" id="applicationsSentSection" style="margin-top: 20px;">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Applications Sent</div>
-                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                            <select id="appSentStatusFilter" onchange="loadApplicationsSent()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                                <option value="">Active Only</option>
-                                <option value="all">All Status</option>
-                                <option value="Sent">Sent</option>
-                                <option value="Follow-Up Needed">Follow-Up Needed</option>
-                                <option value="Returned">Returned</option>
-                                <option value="Opened">Opened</option>
-                                <option value="Expired">Expired</option>
-                                <option value="Archived">Archived</option>
-                            </select>
-                            <!-- Admin-only: filter by agent -->
-                            <select id="appSentAgentFilter" onchange="loadApplicationsSent()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; display: none;">
-                                <option value="">All Agents</option>
-                            </select>
+                <!-- My Referral Pipeline (unified tracker) -->
+                <div id="referralPipelineSection" style="display:none;margin-top:20px;">
+                    <!-- Pipeline Header with gradient -->
+                    <div style="background:linear-gradient(135deg,#0D1E3D 0%,#1a3a6b 100%);border-radius:16px 16px 0 0;padding:20px 24px;color:white;position:relative;overflow:hidden;">
+                        <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(201,168,76,0.1);border-radius:50%;"></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                            <div>
+                                <h2 style="margin:0;font-size:20px;font-weight:700;">My Referral Pipeline</h2>
+                                <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">Track every referral from first contact to funding</p>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button onclick="openQuickSendModal()" class="btn btn-sm" style="background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+                                    Send Application
+                                </button>
+                                <button onclick="loadReferralPipeline()" class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;">↻ Refresh</button>
+                            </div>
                         </div>
                     </div>
-                    <!-- Summary Stats -->
-                    <div id="appSentSummary" style="display:none;gap:12px;padding:12px 20px;flex-wrap:wrap;"></div>
-                    <div style="overflow-x:auto;">
-                    <table style="min-width:900px;">
-                        <thead>
-                            <tr>
-                                <th>Applicant</th>
-                                <th>Email</th>
-                                <th>Type</th>
-                                <th>Status</th>
-                                <th>Sent By</th>
-                                <th>Referred By</th>
-                                <th>Sent Date</th>
-                                <th>Expires</th>
-                                <th>Follow-Up</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="applicationsSentBody">
-                            <tr><td colspan="10" class="empty-state">Loading...</td></tr>
-                        </tbody>
-                    </table>
+
+                    <!-- Pipeline Stats Cards -->
+                    <div id="pipelineStatsRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0;background:white;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;">
+                    </div>
+
+                    <!-- Pipeline Filter Tabs -->
+                    <div style="background:white;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                        <div id="pipelineFilterTabs" style="display:flex;gap:0;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;font-size:12px;">
+                            <button class="pl-tab active" data-filter="all" onclick="filterPipeline('all')" style="padding:7px 14px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:var(--navy);color:white;">All</button>
+                            <button class="pl-tab" data-filter="outbound" onclick="filterPipeline('outbound')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Sent Out</button>
+                            <button class="pl-tab" data-filter="inbound" onclick="filterPipeline('inbound')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Client Applied</button>
+                            <button class="pl-tab" data-filter="in_progress" onclick="filterPipeline('in_progress')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">In Progress</button>
+                            <button class="pl-tab" data-filter="needs_action" onclick="filterPipeline('needs_action')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Needs Action</button>
+                            <button class="pl-tab" data-filter="completed" onclick="filterPipeline('completed')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Completed</button>
+                        </div>
+                        <!-- Admin-only: filter by agent -->
+                        <select id="appSentAgentFilter" onchange="loadReferralPipeline()" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;display:none;">
+                            <option value="">All Agents</option>
+                        </select>
+                    </div>
+
+                    <!-- Pipeline Table -->
+                    <div style="background:white;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 16px 16px;overflow:hidden;">
+                        <div style="overflow-x:auto;">
+                        <table style="min-width:1000px;" id="pipelineTable">
+                            <thead>
+                                <tr style="background:#F8FAFC;">
+                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Client</th>
+                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Type</th>
+                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Amount</th>
+                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Stage</th>
+                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;min-width:200px;">Progress</th>
+                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Date</th>
+                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pipelineBody">
+                                <tr><td colspan="7" class="empty-state">Loading pipeline...</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Send Application Modal -->
+                <div id="quickSendModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;padding:20px;">
+                    <div style="background:white;border-radius:16px;max-width:500px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);">
+                        <div style="padding:20px 24px;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;">
+                            <h3 style="margin:0;font-size:18px;font-weight:700;color:#0D1E3D;">Send Application</h3>
+                            <button onclick="closeQuickSendModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748B;">&times;</button>
+                        </div>
+                        <div style="padding:24px;">
+                            <p style="font-size:14px;color:#64748B;margin:0 0 20px;">Send a branded application form to your client, or share your landing page.</p>
+                            <div style="display:flex;flex-direction:column;gap:12px;">
+                                <button onclick="closeQuickSendModal();openSendApplicationModalWithRef(document.getElementById('agentReferralSlug')?.textContent || agentProfile?.referral_slug || '')" class="btn" style="padding:14px 20px;background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;justify-content:center;">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7L12 13L2 7"/></svg>
+                                    Send Application Form
+                                </button>
+                                <button onclick="closeQuickSendModal();openSendApplicationModalWithRef(document.getElementById('agentReferralSlug')?.textContent || agentProfile?.referral_slug || '');setTimeout(function(){selectSendAppType('general')},100);" class="btn" style="padding:14px 20px;background:#F8FAFC;color:#0D1E3D;border:1px solid #E2E8F0;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;justify-content:center;">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                                    Send Landing Page Link
+                                </button>
+                            </div>
+                            <div style="margin-top:20px;padding:16px;background:#F0F9FF;border-radius:10px;border:1px solid #BAE6FD;">
+                                <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                                    <div>
+                                        <label style="display:block;font-weight:600;color:#0D1E3D;margin-bottom:2px;font-size:12px;">Your Referral ID</label>
+                                        <span id="qsRefSlug" style="font-family:monospace;font-size:13px;color:#334155;"></span>
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-weight:600;color:#0D1E3D;margin-bottom:2px;font-size:12px;">Your Landing Page</label>
+                                        <a id="qsRefLink" href="#" target="_blank" style="font-size:13px;color:#2563EB;text-decoration:underline;">View your page</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1682,123 +1731,7 @@
                 </div>
             </div>
 
-            <!-- My Referrals Page (referring_agent only) -->
-            <div id="myReferrals" class="page-section">
-                <!-- Referral Performance Stats -->
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Referrals</div>
-                        <div class="stat-value" id="refStatTotal">0</div>
-                        <div class="stat-detail" id="refStatTotalDetail">Applications received</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">In Pipeline</div>
-                        <div class="stat-value" id="refStatPipeline">0</div>
-                        <div class="stat-detail" id="refStatPipelineDetail">Active deals</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Funded</div>
-                        <div class="stat-value" id="refStatFunded">0</div>
-                        <div class="stat-detail" id="refStatFundedDetail">Total funded</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Conversion Rate</div>
-                        <div class="stat-value" id="refStatConversion">0%</div>
-                        <div class="stat-detail" id="refStatConversionDetail">Referral to funded</div>
-                    </div>
-                </div>
-
-                <!-- Referred Applications Tracker (Phase 4) -->
-                <div class="table-container" style="margin-bottom: 20px;">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">My Referred Applications</div>
-                        <span id="referredAppsNewBadge" style="display:none;background:#10B981;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;"></span>
-                    </div>
-                    <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">Applications submitted by clients through your referral link. Track their progress in real time.</p>
-                    <div style="overflow-x:auto;">
-                    <table style="min-width:900px;">
-                        <thead>
-                            <tr>
-                                <th>Client</th>
-                                <th>Business</th>
-                                <th>Product</th>
-                                <th>Amount</th>
-                                <th>Submitted</th>
-                                <th>Status</th>
-                                <th style="min-width:200px;">Progress</th>
-                                <th>Deal Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="referredAppsBody">
-                            <tr><td colspan="8" class="empty-state">Loading referred applications...</td></tr>
-                        </tbody>
-                    </table>
-                    </div>
-                </div>
-
-                <!-- Quick Send Application -->
-                <div class="table-container" style="margin-bottom: 20px;">
-                    <div class="table-header">
-                        <div class="table-title">Send Application to Client</div>
-                    </div>
-                    <div style="padding: 20px; background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%); border-radius: 0 0 8px 8px;">
-                        <p style="font-size: 14px; color: #334155; margin-bottom: 16px;">Select an application type and enter your client's email to send them a branded application form.</p>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
-                            <button class="btn btn-gold btn-sm" onclick="openSendApplicationModalWithRef(document.getElementById('agentReferralSlug')?.textContent || '')" style="padding: 10px 20px; font-size: 14px;">Send Application Form</button>
-                            <button class="btn btn-secondary btn-sm" onclick="openSendApplicationModalWithRef(document.getElementById('agentReferralSlug')?.textContent || '');setTimeout(function(){selectSendAppType('general')},100);" style="padding: 10px 20px; font-size: 14px;">Send Landing Page</button>
-                        </div>
-                        <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
-                            <div>
-                                <label style="display: block; font-weight: 600; color: #0D1E3D; margin-bottom: 4px; font-size: 13px;">Your Referral ID:</label>
-                                <span id="refAgentSlug" style="font-family: monospace; font-size: 14px; color: #334155;"></span>
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; color: #0D1E3D; margin-bottom: 4px; font-size: 13px;">Your Landing Page:</label>
-                                <a id="refAgentLandingPage" href="#" target="_blank" style="font-size: 14px; color: #2563EB; text-decoration: underline;">View your page</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Referral Tracking Table -->
-                <div class="table-container">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">My Referred Applications</div>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <select id="refStatusFilter" onchange="loadMyReferrals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                                <option value="">All Status</option>
-                                <option value="Sent">Sent</option>
-                                <option value="Delivered">Delivered</option>
-                                <option value="Follow-Up Needed">Follow-Up Needed</option>
-                                <option value="Opened">Opened</option>
-                                <option value="Clicked">Clicked</option>
-                                <option value="Replied">Replied</option>
-                                <option value="Returned">Returned</option>
-                                <option value="Bounced">Bounced</option>
-                                <option value="Expired">Expired</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style="overflow-x:auto;">
-                    <table style="min-width:800px;">
-                        <thead>
-                            <tr>
-                                <th>Client Name</th>
-                                <th>Email</th>
-                                <th>Application Type</th>
-                                <th>Status</th>
-                                <th>Sent Date</th>
-                                <th>Follow-Up Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="myReferralsBody">
-                            <tr><td colspan="7" class="empty-state">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                    </div>
-                </div>
-            </div>
+            <!-- My Referrals page removed — unified into Dashboard referral pipeline -->
 
             <!-- Vendor Programs Page (agents only) -->
             <div id="vendorPrograms" class="page-section">
@@ -5155,12 +5088,7 @@
             if (addDealBtn) addDealBtn.textContent = '+ New Deal (Existing Client)';
         }
 
-        // Show "My Referrals" nav for agents (Phase 4: referral tracking)
-        var myReferralsNav = document.getElementById('myReferralsNav');
-        if (myReferralsNav) {
-            var isAgentForReferrals = !isAdmin && currentAgentType && ['referring_agent', 'sub_agent'].includes(currentAgentType);
-            myReferralsNav.style.display = isAgentForReferrals ? 'flex' : 'none';
-        }
+        // My Referrals nav removed — pipeline is on Dashboard now
 
         // Show Info & Quoting Tools for vendor users and ISO agents (view-only)
         var vendorToolsNav = document.getElementById('vendorToolsNav');
@@ -13324,7 +13252,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'alliance': 'Recruitment Hub',
             'vendorPrograms': 'Vendor Programs',
             'subAgents': (currentAgentType === 'mortgage_broker') ? 'My Agents' : 'Referral Partners',
-            'myReferrals': 'My Referrals',
+            // 'myReferrals' removed — unified into Dashboard pipeline
             'applicationHub': 'Application Hub',
             'marketing': 'Marketing',
             'team': 'Team Members',
@@ -13439,11 +13367,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var inboxTable = document.getElementById('dashUnifiedInbox');
             if (inboxTable) inboxTable.style.display = 'none';
 
-            // Phase 4: For non-ISO/non-broker agents, show referred applications on dashboard
-            // ISOs and mortgage brokers use the full Deal Pipeline page instead (no duplicate widget)
-            if (currentAgentType !== 'super_agent' && currentAgentType !== 'mortgage_broker') {
-                await loadReferredApplicationsDashboard();
-            }
+            // Show unified referral pipeline for all agent types
+            var pipelineSection = document.getElementById('referralPipelineSection');
+            if (pipelineSection) pipelineSection.style.display = 'block';
+            await loadReferralPipeline();
+
+            // Remove old dashReferredApps if it was dynamically created before
+            var oldDashRef = document.getElementById('dashReferredApps');
+            if (oldDashRef) oldDashRef.remove();
 
             // ISO Partners and Mortgage Brokers: show sub-agent activity summary
             if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
@@ -13476,7 +13407,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             container.innerHTML = `
                 <div class="table-header" style="flex-wrap:wrap;gap:12px;">
                     <div class="table-title">My Referred Applications</div>
-                    <button class="btn btn-secondary btn-sm" onclick="showPage('myReferrals')">View All</button>
+                    <button class="btn btn-secondary btn-sm" onclick="filterPipeline('inbound');document.getElementById('referralPipelineSection')?.scrollIntoView({behavior:'smooth'});">View All</button>
                 </div>
                 <p style="padding:0 20px;font-size:13px;color:#64748B;margin:0 0 4px;">Recent applications from your referral link.</p>
                 <div style="overflow-x:auto;">
@@ -13755,10 +13686,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             container.className = 'table-container';
             container.style.marginBottom = '20px';
 
-            // Insert after stat cards but before referred apps
-            var referredApps = document.getElementById('dashReferredApps');
-            if (referredApps) {
-                dashPage.insertBefore(container, referredApps);
+            // Insert after stat cards but before pipeline
+            var pipelineSec = document.getElementById('referralPipelineSection');
+            if (pipelineSec) {
+                dashPage.insertBefore(container, pipelineSec);
             } else {
                 dashPage.appendChild(container);
             }
@@ -13955,9 +13886,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await loadReferralDashboard();
                 return;
             }
-            // ISO partners and mortgage brokers use Notifications as home — redirect if they somehow land on dashboard
+            // ISO partners and mortgage brokers: load their referral dashboard (includes pipeline)
             if (!['super_admin', 'admin'].includes(currentUserRole) && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker')) {
-                showPage('notifications');
+                await loadReferralDashboard();
                 return;
             }
 
@@ -14178,6 +14109,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await loadAgentSubAgents();
             }
 
+            // Show unified referral pipeline for all users (admin sees all, agents see their own)
+            var pipelineSection = document.getElementById('referralPipelineSection');
+            if (pipelineSection) {
+                pipelineSection.style.display = 'block';
+                await loadReferralPipeline();
+            }
+
         } catch (error) {
             console.error('Dashboard load error:', error);
         }
@@ -14353,7 +14291,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 8. Returned Applications (clients who completed and submitted their application)
             var { data: returnedApps } = await db.from('applications_sent').select('id').eq('status', 'Returned').limit(50);
             if (returnedApps && returnedApps.length > 0) {
-                alerts.push({ icon: '📥', color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', label: 'Returned Applications', count: returnedApps.length, detail: 'Completed — ready for review', onclick: "document.getElementById('appSentStatusFilter').value='Returned';loadApplicationsSent();document.getElementById('applicationsSentSection').scrollIntoView({behavior:'smooth',block:'start'});" });
+                alerts.push({ icon: '📥', color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', label: 'Returned Applications', count: returnedApps.length, detail: 'Completed — ready for review', onclick: "filterPipeline('completed');var ps=document.getElementById('referralPipelineSection');if(ps)ps.scrollIntoView({behavior:'smooth',block:'start'});" });
             }
 
             // 9. Credit Responses (applications with credit decision pending review)
@@ -18163,9 +18101,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await loadOutreachHistory();
                 break;
             case 'myReferrals':
-                await loadReferredApplications();
-                await loadMyReferrals();
-                break;
+                // Redirect to dashboard — My Referrals is now unified into the pipeline
+                showPage('dashboard');
+                return;
             case 'applicationHub':
                 await displayAgentReferralCard();
                 break;
@@ -23862,6 +23800,387 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // ============================================
+    // Unified Referral Pipeline
+    // ============================================
+    var _pipelineData = [];
+    var _pipelineFilter = 'all';
+
+    async function loadReferralPipeline() {
+        var tbody = document.getElementById('pipelineBody');
+        if (!tbody) return;
+        var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+        var agentFilter = document.getElementById('appSentAgentFilter')?.value || '';
+        var combined = [];
+
+        try {
+            // 1. Load OUTBOUND data (applications_sent)
+            var sentQuery = db.from('applications_sent').select('*').order('sent_at', { ascending: false });
+            if (agentFilter) sentQuery = sentQuery.eq('sent_by', agentFilter);
+            if (!isAdmin) {
+                if (currentAgentType === 'referring_agent') {
+                    var { data: slugData } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+                    if (slugData && slugData.referral_slug) {
+                        sentQuery = sentQuery.eq('referral_slug', slugData.referral_slug);
+                    } else {
+                        sentQuery = sentQuery.eq('sent_by', currentUserName);
+                    }
+                } else if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
+                    var sentByNames = [currentUserName];
+                    try {
+                        var { data: subAgents } = await db.from('users').select('full_name, referral_slug').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                        if (subAgents) {
+                            subAgents.forEach(function(sa) { if (sa.full_name) sentByNames.push(sa.full_name); });
+                            var subSlugs = subAgents.filter(sa => sa.referral_slug).map(sa => sa.referral_slug);
+                            var { data: mySlugData } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+                            if (mySlugData && mySlugData.referral_slug) subSlugs.push(mySlugData.referral_slug);
+                            if (subSlugs.length > 0) {
+                                sentQuery = sentQuery.in('referral_slug', subSlugs);
+                            } else {
+                                sentQuery = sentQuery.in('sent_by', sentByNames);
+                            }
+                        }
+                    } catch(e) {
+                        sentQuery = sentQuery.eq('sent_by', currentUserName);
+                    }
+                } else if (currentUserName) {
+                    sentQuery = sentQuery.eq('sent_by', currentUserName);
+                }
+            }
+            var sentResult = await Promise.race([sentQuery, new Promise(function(_, reject) { setTimeout(function() { reject(new Error('Timeout')); }, 15000); })]);
+            var sentData = sentResult.data || [];
+
+            // Auto-expire past-due links
+            var now = new Date();
+            for (var ei = 0; ei < sentData.length; ei++) {
+                if (sentData[ei].expires_at && !['Returned', 'Expired', 'Archived'].includes(sentData[ei].status) && new Date(sentData[ei].expires_at) < now) {
+                    sentData[ei].status = 'Expired';
+                    try { await db.from('applications_sent').update({ status: 'Expired' }).eq('id', sentData[ei].id); } catch(e) {}
+                }
+            }
+
+            // Check for auto-return matches
+            var activeRecords = sentData.filter(function(a) { return ['Sent', 'Follow-Up Needed', 'Opened'].includes(a.status); });
+            if (activeRecords.length > 0) {
+                var emailsToCheck = activeRecords.filter(function(r) { return r.applicant_email; }).map(function(r) { return r.applicant_email.toLowerCase(); });
+                var matchedEmails = {};
+                if (emailsToCheck.length > 0) {
+                    var { data: matchedApps } = await db.from('applications').select('email').in('email', emailsToCheck);
+                    if (matchedApps) matchedApps.forEach(function(a) { if (a.email) matchedEmails[a.email.toLowerCase()] = true; });
+                }
+                for (var ari = 0; ari < activeRecords.length; ari++) {
+                    var rec = activeRecords[ari];
+                    var recEmail = (rec.applicant_email || '').toLowerCase();
+                    if (matchedEmails[recEmail]) {
+                        rec.status = 'Returned';
+                        try { await db.from('applications_sent').update({ status: 'Returned' }).eq('id', rec.id); } catch(e) {}
+                    }
+                }
+            }
+
+            // Map sent records to unified format
+            sentData.forEach(function(app) {
+                if (app.status === 'Archived') return; // skip archived
+                var isOverdue = ['Sent', 'Follow-Up Needed'].includes(app.status) && app.follow_up_date && new Date(app.follow_up_date) < now;
+                combined.push({
+                    id: app.id,
+                    source: 'outbound',
+                    clientName: app.applicant_name || 'N/A',
+                    email: app.applicant_email || '',
+                    type: app.application_type || '—',
+                    amount: null,
+                    stage: app.status === 'Returned' ? 'applied' : (app.status === 'Opened' ? 'opened' : 'sent'),
+                    stageLabel: app.status,
+                    date: app.sent_at,
+                    followUp: app.follow_up_date,
+                    isOverdue: isOverdue,
+                    needsAction: isOverdue || app.status === 'Follow-Up Needed',
+                    isCompleted: ['Returned', 'Expired'].includes(app.status),
+                    raw: app
+                });
+            });
+
+            // 2. Load INBOUND data (applications table) — clients who submitted through referral link
+            var mySlug = agentProfile ? agentProfile.referral_slug : null;
+            if (!mySlug && currentUserId) {
+                try {
+                    var { data: sd } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+                    if (sd) mySlug = sd.referral_slug;
+                } catch(e) {}
+            }
+
+            if (mySlug || isAdmin) {
+                var appsQuery = db.from('applications').select('*, application_products(product)').order('submitted_at', { ascending: false });
+                if (!isAdmin && mySlug) {
+                    appsQuery = appsQuery.eq('referral_slug', mySlug);
+                }
+                var { data: inboundApps } = await appsQuery;
+                inboundApps = inboundApps || [];
+
+                // Get linked deals
+                var appIds = inboundApps.map(a => a.id);
+                var dealMap = {};
+                if (appIds.length > 0) {
+                    var { data: deals } = await db.from('deals').select('id, deal_number, company_name, deal_amount, status, application_id, commission_amount').in('application_id', appIds);
+                    if (deals) deals.forEach(d => { dealMap[d.application_id] = d; });
+                }
+
+                // Deduplicate — if an outbound record was "Returned" and we have the inbound record, merge them
+                var outboundEmails = {};
+                combined.forEach(function(c) { if (c.source === 'outbound' && c.email) outboundEmails[c.email.toLowerCase()] = c; });
+
+                inboundApps.forEach(function(app) {
+                    var deal = dealMap[app.id];
+                    var product = app.application_products && app.application_products.length > 0 ? app.application_products[0].product : '—';
+                    var stage = getApplicationStage(app, deal);
+                    var stageLabel = deal ? deal.status : (app.status || 'Application Received');
+                    var emailKey = (app.email || '').toLowerCase();
+
+                    // If this matches an outbound record, upgrade that record instead of creating a duplicate
+                    var existingOutbound = outboundEmails[emailKey];
+                    if (existingOutbound) {
+                        existingOutbound.source = 'linked';
+                        existingOutbound.stage = stage;
+                        existingOutbound.stageLabel = stageLabel;
+                        existingOutbound.amount = app.funding_amount_requested ? parseFloat(app.funding_amount_requested) : null;
+                        existingOutbound.type = product !== '—' ? product : existingOutbound.type;
+                        existingOutbound.deal = deal;
+                        existingOutbound.inboundApp = app;
+                        existingOutbound.isCompleted = stage === 'funded';
+                        existingOutbound.needsAction = false;
+                        return;
+                    }
+
+                    combined.push({
+                        id: app.id,
+                        source: 'inbound',
+                        clientName: app.full_name || 'N/A',
+                        email: app.email || '',
+                        type: product,
+                        amount: app.funding_amount_requested ? parseFloat(app.funding_amount_requested) : null,
+                        stage: stage,
+                        stageLabel: stageLabel,
+                        date: app.submitted_at,
+                        followUp: null,
+                        isOverdue: false,
+                        needsAction: app.status === 'Info Requested',
+                        isCompleted: stage === 'funded',
+                        deal: deal,
+                        inboundApp: app,
+                        raw: app
+                    });
+                });
+            }
+
+            // Sort: needs action first, then by date descending
+            combined.sort(function(a, b) {
+                if (a.needsAction && !b.needsAction) return -1;
+                if (!a.needsAction && b.needsAction) return 1;
+                return new Date(b.date || 0) - new Date(a.date || 0);
+            });
+
+            _pipelineData = combined;
+
+            // Update stats cards
+            var statsRow = document.getElementById('pipelineStatsRow');
+            if (statsRow) {
+                var totalSent = combined.filter(function(c) { return c.source === 'outbound' || c.source === 'linked'; }).length;
+                var totalApplied = combined.filter(function(c) { return c.source === 'inbound' || c.source === 'linked'; }).length;
+                var totalInProgress = combined.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing'].includes(c.stage); }).length;
+                var totalNeedsAction = combined.filter(function(c) { return c.needsAction; }).length;
+                var totalFunded = combined.filter(function(c) { return c.stage === 'funded'; }).length;
+                var totalValue = combined.reduce(function(sum, c) { return sum + (c.amount || 0); }, 0);
+
+                statsRow.innerHTML =
+                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'all\')">' +
+                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Total Referrals</div>' +
+                        '<div style="font-size:24px;font-weight:700;color:#0D1E3D;margin:4px 0;">' + combined.length + '</div>' +
+                        '<div style="font-size:12px;color:#64748B;">' + (totalValue > 0 ? formatCurrency(totalValue) + ' volume' : 'All referrals') + '</div>' +
+                    '</div>' +
+                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'outbound\')">' +
+                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#3B82F6;font-weight:600;">Sent Out</div>' +
+                        '<div style="font-size:24px;font-weight:700;color:#3B82F6;margin:4px 0;">' + totalSent + '</div>' +
+                        '<div style="font-size:12px;color:#64748B;">Applications sent</div>' +
+                    '</div>' +
+                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'inbound\')">' +
+                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#8B5CF6;font-weight:600;">Client Applied</div>' +
+                        '<div style="font-size:24px;font-weight:700;color:#8B5CF6;margin:4px 0;">' + totalApplied + '</div>' +
+                        '<div style="font-size:12px;color:#64748B;">Submitted apps</div>' +
+                    '</div>' +
+                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'in_progress\')">' +
+                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#F59E0B;font-weight:600;">In Progress</div>' +
+                        '<div style="font-size:24px;font-weight:700;color:#F59E0B;margin:4px 0;">' + totalInProgress + '</div>' +
+                        '<div style="font-size:12px;color:#64748B;">Active pipeline</div>' +
+                    '</div>' +
+                    (totalNeedsAction > 0 ? '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;background:#FFF7ED;" onclick="filterPipeline(\'needs_action\')">' +
+                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#DC2626;font-weight:600;">Needs Action</div>' +
+                        '<div style="font-size:24px;font-weight:700;color:#DC2626;margin:4px 0;">' + totalNeedsAction + '</div>' +
+                        '<div style="font-size:12px;color:#64748B;">Overdue / follow-up</div>' +
+                    '</div>' : '') +
+                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'completed\')">' +
+                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#10B981;font-weight:600;">Funded</div>' +
+                        '<div style="font-size:24px;font-weight:700;color:#10B981;margin:4px 0;">' + totalFunded + '</div>' +
+                        '<div style="font-size:12px;color:#64748B;">Completed deals</div>' +
+                    '</div>';
+            }
+
+            // Render with current filter
+            renderPipelineRows(_pipelineFilter);
+
+        } catch (err) {
+            console.error('Load referral pipeline error:', err);
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Error loading pipeline. <a href="#" onclick="loadReferralPipeline();return false;" style="color:#0EA5E9;text-decoration:underline;">Retry</a></td></tr>';
+        }
+    }
+
+    function filterPipeline(filter) {
+        _pipelineFilter = filter;
+        // Update tab styles
+        document.querySelectorAll('#pipelineFilterTabs .pl-tab').forEach(function(tab) {
+            if (tab.getAttribute('data-filter') === filter) {
+                tab.style.background = 'var(--navy)';
+                tab.style.color = 'white';
+                tab.style.fontWeight = '600';
+            } else {
+                tab.style.background = '#f8fafc';
+                tab.style.color = '#333';
+                tab.style.fontWeight = '500';
+            }
+        });
+        renderPipelineRows(filter);
+    }
+
+    function renderPipelineRows(filter) {
+        var tbody = document.getElementById('pipelineBody');
+        if (!tbody) return;
+
+        var filtered = _pipelineData;
+        if (filter === 'outbound') {
+            filtered = _pipelineData.filter(function(c) { return c.source === 'outbound'; });
+        } else if (filter === 'inbound') {
+            filtered = _pipelineData.filter(function(c) { return c.source === 'inbound' || c.source === 'linked'; });
+        } else if (filter === 'in_progress') {
+            filtered = _pipelineData.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing'].includes(c.stage); });
+        } else if (filter === 'needs_action') {
+            filtered = _pipelineData.filter(function(c) { return c.needsAction; });
+        } else if (filter === 'completed') {
+            filtered = _pipelineData.filter(function(c) { return c.isCompleted || c.stage === 'funded'; });
+        }
+
+        if (filtered.length === 0) {
+            var msgs = {
+                'all': 'No referrals yet. Send your first application to get started!',
+                'outbound': 'No applications sent yet.',
+                'inbound': 'No clients have applied through your referral link yet.',
+                'in_progress': 'No referrals currently in the pipeline.',
+                'needs_action': 'Nothing needs your attention right now.',
+                'completed': 'No funded deals yet.'
+            };
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">' + (msgs[filter] || 'No results.') + '</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(function(item) {
+            // Source indicator
+            var sourceIcon = item.source === 'outbound' ? '<span title="You sent this" style="display:inline-block;width:8px;height:8px;background:#3B82F6;border-radius:50%;margin-right:6px;"></span>' :
+                             item.source === 'inbound' ? '<span title="Client applied" style="display:inline-block;width:8px;height:8px;background:#8B5CF6;border-radius:50%;margin-right:6px;"></span>' :
+                             '<span title="Linked" style="display:inline-block;width:8px;height:8px;background:#10B981;border-radius:50%;margin-right:6px;"></span>';
+
+            // Stage badge colors
+            var stageColors = {
+                'sent': '#3B82F6', 'opened': '#8B5CF6', 'applied': '#10B981',
+                'received': '#3B82F6', 'reviewing': '#F59E0B', 'pipeline': '#6366F1',
+                'credit': '#F59E0B', 'approved': '#059669', 'funded': '#10B981',
+                'Sent': '#3B82F6', 'Follow-Up Needed': '#F59E0B', 'Opened': '#8B5CF6',
+                'Returned': '#10B981', 'Expired': '#EF4444', 'Bounced': '#DC2626',
+                'Delivered': '#06B6D4', 'Clicked': '#7C3AED'
+            };
+            var stageColor = stageColors[item.stageLabel] || stageColors[item.stage] || '#64748B';
+
+            // Build progress bar for items that have progressed beyond "sent"
+            var progressHtml = '';
+            if (item.deal || item.inboundApp || item.stage === 'applied') {
+                var stage = item.stage;
+                progressHtml = buildProgressBar(stage);
+            } else {
+                // Outbound-only: simple step indicator
+                var outStages = ['sent', 'opened', 'applied'];
+                var outIdx = outStages.indexOf(item.stage);
+                if (outIdx < 0) outIdx = 0;
+                progressHtml = '<div style="display:flex;gap:4px;align-items:center;">';
+                outStages.forEach(function(s, i) {
+                    var active = i <= outIdx;
+                    progressHtml += '<div style="height:4px;flex:1;border-radius:2px;background:' + (active ? '#3B82F6' : '#E2E8F0') + ';"></div>';
+                });
+                progressHtml += '</div><div style="font-size:10px;color:#64748B;margin-top:2px;">Sent' + (outIdx >= 1 ? ' → Opened' : '') + (outIdx >= 2 ? ' → Applied' : '') + '</div>';
+            }
+
+            // Amount display
+            var amountHtml = item.amount ? '<strong style="color:#0D1E3D;">' + formatCurrency(item.amount) + '</strong>' : '<span style="color:#CBD5E1;">—</span>';
+
+            // Date display
+            var dateHtml = item.date ? '<span style="font-size:12px;">' + new Date(item.date).toLocaleDateString() + '</span>' : '—';
+
+            // Actions
+            var actionHtml = '';
+            if (item.source === 'outbound' && !item.isCompleted) {
+                var appRaw = item.raw;
+                if (item.isOverdue) {
+                    actionHtml += '<button onclick="sendFollowUpEmail(\'' + appRaw.id + '\', \'' + (appRaw.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.application_type || '').replace(/'/g, "\\'") + '\')" style="padding:5px 12px;background:#F59E0B;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">Follow Up</button> ';
+                }
+                actionHtml += '<select onchange="updateAppSentStatus(\'' + appRaw.id + '\', this.value);setTimeout(loadReferralPipeline,500);" style="padding:4px 8px;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;">' +
+                    '<option value="Sent"' + (appRaw.status === 'Sent' ? ' selected' : '') + '>Sent</option>' +
+                    '<option value="Follow-Up Needed"' + (appRaw.status === 'Follow-Up Needed' ? ' selected' : '') + '>Follow-Up</option>' +
+                    '<option value="Opened"' + (appRaw.status === 'Opened' ? ' selected' : '') + '>Opened</option>' +
+                    '<option value="Returned"' + (appRaw.status === 'Returned' ? ' selected' : '') + '>Returned</option>' +
+                    '<option value="Expired"' + (appRaw.status === 'Expired' ? ' selected' : '') + '>Expired</option>' +
+                '</select>';
+            } else if (item.source === 'outbound' && item.isCompleted) {
+                actionHtml = '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">Archive</button>';
+            }
+            if (item.email) {
+                actionHtml += ' <button onclick="viewAppSentSubmission(\'' + item.email.replace(/'/g, "\\'") + '\', \'' + (item.clientName || '').replace(/'/g, "\\'") + '\')" style="padding:4px 10px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">View</button>';
+            }
+
+            var rowBg = item.needsAction ? 'background:#FFF7ED;' : (item.stage === 'funded' ? 'background:#F0FDF4;' : '');
+
+            return '<tr style="' + rowBg + 'border-bottom:1px solid #F1F5F9;">' +
+                '<td style="padding:12px 16px;">' + sourceIcon + '<strong style="color:#0D1E3D;">' + item.clientName + '</strong>' +
+                    (item.email ? '<br><span style="font-size:11px;color:#94A3B8;">' + item.email + '</span>' : '') + '</td>' +
+                '<td style="padding:12px 16px;font-size:13px;">' + item.type + '</td>' +
+                '<td style="padding:12px 16px;">' + amountHtml + '</td>' +
+                '<td style="padding:12px 16px;"><span style="background:' + stageColor + '15;color:' + stageColor + ';padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;">' + item.stageLabel + '</span>' +
+                    (item.isOverdue ? ' <span style="color:#DC2626;font-size:10px;font-weight:700;">OVERDUE</span>' : '') + '</td>' +
+                '<td style="padding:12px 16px;">' + progressHtml + '</td>' +
+                '<td style="padding:12px 16px;">' + dateHtml + '</td>' +
+                '<td style="padding:12px 16px;white-space:nowrap;">' + actionHtml + '</td>' +
+            '</tr>';
+        }).join('');
+    }
+
+    function openQuickSendModal() {
+        var modal = document.getElementById('quickSendModal');
+        if (!modal) return;
+        // Populate referral info
+        var slug = agentProfile ? agentProfile.referral_slug : '';
+        var slugEl = document.getElementById('qsRefSlug');
+        var linkEl = document.getElementById('qsRefLink');
+        if (slugEl) slugEl.textContent = slug || 'Not set';
+        if (linkEl && slug) {
+            var landingUrl = window.location.origin + '/partner?ref=' + slug;
+            linkEl.href = landingUrl;
+            linkEl.style.display = '';
+        } else if (linkEl) {
+            linkEl.style.display = 'none';
+        }
+        modal.style.display = 'flex';
+    }
+
+    function closeQuickSendModal() {
+        var modal = document.getElementById('quickSendModal');
+        if (modal) modal.style.display = 'none';
+    }
+
     // View a submitted application by looking up the client's email in the applications table
     async function viewAppSentSubmission(email, name) {
         try {
@@ -23931,7 +24250,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     async function updateAppSentStatus(id, newStatus) {
         try {
             await db.from('applications_sent').update({ status: newStatus }).eq('id', id);
-            loadApplicationsSent();
+            // Refresh both old admin view and new pipeline
+            if (document.getElementById('applicationsSentBody')) loadApplicationsSent();
+            if (document.getElementById('pipelineBody')) loadReferralPipeline();
         } catch (err) {
             console.error('Update app sent status error:', err);
         }
@@ -23945,8 +24266,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 alert('Could not archive: ' + error.message);
                 return;
             }
-            // Reload the section to reflect the change
-            await loadApplicationsSent();
+            // Reload sections to reflect the change
+            if (document.getElementById('applicationsSentBody')) await loadApplicationsSent();
+            if (document.getElementById('pipelineBody')) await loadReferralPipeline();
             // Also refresh dashboard alerts if visible
             if (document.getElementById('dashboardAlerts')) {
                 try { await loadDashboardAlerts(); } catch(e) {}
@@ -23987,7 +24309,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<span style="font-size:20px;">⏰</span>' +
                 '<div><strong style="color:#92400E;">' + data.length + ' Application' + (data.length > 1 ? 's' : '') + ' Need Follow-Up</strong>' +
                 '<div style="font-size:12px;color:#B45309;margin-top:2px;">These applications were sent 3+ days ago with no response.</div></div></div>' +
-                '<button onclick="document.getElementById(\'appSentStatusFilter\').value=\'Follow-Up Needed\';loadApplicationsSent();document.getElementById(\'applicationsSentSection\').scrollIntoView({behavior:\'smooth\',block:\'start\'});" style="background:#F59E0B;color:white;border:none;padding:8px 16px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">View & Follow Up</button>' +
+                '<button onclick="filterPipeline(\'needs_action\');document.getElementById(\'referralPipelineSection\').scrollIntoView({behavior:\'smooth\',block:\'start\'});" style="background:#F59E0B;color:white;border:none;padding:8px 16px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">View & Follow Up</button>' +
                 '<button onclick="this.parentElement.remove();" style="background:none;border:none;color:#B45309;font-size:18px;cursor:pointer;padding:0 4px;">✕</button>';
             var dashboardSection = document.getElementById('dashboard');
             if (dashboardSection && dashboardSection.firstChild) {
