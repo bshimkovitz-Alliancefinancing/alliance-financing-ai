@@ -4669,7 +4669,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v58';
+    const DASHBOARD_VERSION = '2026-03-31-v59';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -8476,14 +8476,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     function dismissNotification(index, event) {
         // If called from the × button directly, stop propagation so card onclick doesn't also fire
-        var isDirectDismiss = event && event.target && event.target.classList.contains('notif-dismiss');
-        if (isDirectDismiss) { event.stopPropagation(); event.preventDefault(); }
+        if (event) { event.stopPropagation(); event.preventDefault(); }
         var filtered = _cachedNotifications;
         if (_currentNotifFilter !== 'all') {
-            filtered = _cachedNotifications.filter(function(n) {
+            filtered = filtered.filter(function(n) {
                 return n.category === _currentNotifFilter || n.type === _currentNotifFilter;
             });
         }
+        // Also exclude already-dismissed so index matches rendered list
+        filtered = filtered.filter(function(n) { return !_dismissedNotifications[getDismissKey(n)]; });
         var n = filtered[index];
         if (!n) return;
 
@@ -9105,11 +9106,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             html += '<div style="background:white;border-radius:10px;border:1px solid ' + borderColor + ';' +
                 (n.category === 'action' ? 'border-left:4px solid #F59E0B;' : '') +
                 'padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:box-shadow 0.15s;position:relative;" ' +
-                'onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\';this.style.background=\'#F8FAFC\';this.style.transform=\'translateY(-1px)\'" ' +
-                'onmouseout="this.style.boxShadow=\'none\';this.style.background=\'white\';this.style.transform=\'none\'" ' +
+                'onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\';this.style.background=\'#F8FAFC\';this.style.transform=\'translateY(-1px)\';var d=this.querySelector(\'.notif-dismiss\');if(d)d.style.opacity=\'0.6\'" ' +
+                'onmouseout="this.style.boxShadow=\'none\';this.style.background=\'white\';this.style.transform=\'none\';var d=this.querySelector(\'.notif-dismiss\');if(d)d.style.opacity=\'0\'" ' +
                 'onclick="' + (n.action || '') + '">';
 
-            // No manual dismiss — notifications clear via action completion
+            // Dismiss button
+            html += '<div class="notif-dismiss" onclick="dismissNotification(' + i + ', event)" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:#94A3B8;cursor:pointer;opacity:0;transition:opacity 0.15s;" onmouseover="this.style.opacity=\'1\';this.style.background=\'#F1F5F9\'" onmouseout="this.style.opacity=\'0\';this.style.background=\'none\'">×</div>';
 
             // Icon
             html += '<div style="min-width:40px;height:40px;border-radius:10px;background:' + n.iconBg + ';display:flex;align-items:center;justify-content:center;font-size:20px;">' + n.icon + '</div>';
