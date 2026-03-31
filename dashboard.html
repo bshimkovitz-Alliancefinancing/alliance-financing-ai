@@ -4675,7 +4675,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v65';
+    const DASHBOARD_VERSION = '2026-03-31-v66';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -8531,6 +8531,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         var notifications = [];
         var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
+        // Hide admin-only notification tabs for agents
+        if (!isAdmin) {
+            var agentHideTabs = ['pending_agent', 'agent_vendor_note'];
+            // Also hide inquiry tab for basic referring agents (they don't manage inquiries)
+            if (currentAgentType === 'referring_agent') agentHideTabs.push('inquiry');
+            document.querySelectorAll('#notificationsFilterBar .notif-filter-btn').forEach(function(btn) {
+                if (agentHideTabs.includes(btn.getAttribute('data-filter'))) btn.style.display = 'none';
+            });
+        }
 
         // Build agent IDs list for ISO Partners (include sub-agents)
         var _notifAgentIds = [currentUserId];
@@ -23848,7 +23858,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (currentAgentType === 'referring_agent') {
                     var { data: slugData } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
                     if (slugData && slugData.referral_slug) {
-                        sentQuery = sentQuery.eq('referral_slug', slugData.referral_slug);
+                        // Match apps sent with this slug OR sent_by this agent's name (some apps may have null slug)
+                        sentQuery = sentQuery.or('referral_slug.eq.' + slugData.referral_slug + ',sent_by.eq.' + currentUserName);
                     } else {
                         sentQuery = sentQuery.eq('sent_by', currentUserName);
                     }
