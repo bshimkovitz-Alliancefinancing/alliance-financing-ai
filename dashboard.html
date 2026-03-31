@@ -1134,12 +1134,16 @@
                             <button onclick="closeQuickSendModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748B;">&times;</button>
                         </div>
                         <div style="padding:24px;">
-                            <p style="font-size:14px;color:#64748B;margin:0 0 20px;">Send your branded application link to a client via email.</p>
+                            <p style="font-size:14px;color:#64748B;margin:0 0 20px;">Select an application form type below. You can copy the link to share directly, or enter a client's email to send it to them.</p>
                             <div style="display:flex;flex-direction:column;gap:12px;">
                                 <button onclick="closeQuickSendModal();openSendApplicationModalWithRef(document.getElementById('agentReferralSlug')?.textContent || agentProfile?.referral_slug || '')" class="btn" style="padding:14px 20px;background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;justify-content:center;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7L12 13L2 7"/></svg>
                                     Send Application
                                 </button>
+                                <a id="qsLandingPageLink" href="#" target="_blank" style="padding:14px 20px;background:#F0F9FF;color:#0D1E3D;border:2px solid #BAE6FD;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;justify-content:center;text-decoration:none;">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                                    Copy Landing Page Link
+                                </a>
                             </div>
                             <div style="margin-top:20px;padding:16px;background:#F0F9FF;border-radius:10px;border:1px solid #BAE6FD;">
                                 <div style="display:flex;gap:16px;flex-wrap:wrap;">
@@ -4671,7 +4675,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v68';
+    const DASHBOARD_VERSION = '2026-03-31-v69';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -23222,7 +23226,40 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } else {
             alert('Successfully uploaded ' + uploaded + ' file' + (uploaded !== 1 ? 's' : '') + '!');
         }
+
+        // Notify admin if agent uploaded documents
+        if (!['super_admin', 'admin'].includes(currentUserRole) && uploaded > 0) {
+            try {
+                var dealSelectEl = document.getElementById('docBulkDealSelect');
+                var dealLabel = dealSelectEl ? dealSelectEl.options[dealSelectEl.selectedIndex].text : 'a deal';
+                await notifyAdminOfDocUpload(uploaded, dealLabel, docType);
+            } catch(e) { console.warn('Admin notification failed:', e); }
+        }
+
         await loadDocumentsPage();
+    }
+
+    // Notify admin when agent uploads documents
+    async function notifyAdminOfDocUpload(fileCount, dealLabel, docType) {
+        try {
+            var agentName = currentUserName || 'An agent';
+            var docTypeLabel = docType || 'document';
+            var subject = agentName + ' uploaded ' + fileCount + ' document' + (fileCount !== 1 ? 's' : '') + ' — ' + dealLabel;
+            var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;color:white;padding:20px 24px;border-radius:8px 8px 0 0;">' +
+                '<h2 style="margin:0;font-size:18px;">New Document Upload</h2>' +
+                '</div>' +
+                '<div style="padding:20px 24px;background:#f8fafc;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 8px 8px;">' +
+                '<p style="margin:0 0 12px;"><strong>' + agentName + '</strong> uploaded <strong>' + fileCount + ' document' + (fileCount !== 1 ? 's' : '') + '</strong></p>' +
+                '<table style="width:100%;border-collapse:collapse;margin:12px 0;">' +
+                '<tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;">Deal</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">' + dealLabel + '</td></tr>' +
+                '<tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;">Type</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">' + docTypeLabel + '</td></tr>' +
+                '<tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;">Uploaded</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">' + new Date().toLocaleString() + '</td></tr>' +
+                '</table>' +
+                '<p style="margin:12px 0 0;font-size:13px;color:#64748B;">Review the documents in the <a href="https://alliancefinancing.ai/dashboard" style="color:#2563EB;">Alliance Dashboard</a>.</p>' +
+                '</div></div>';
+            await sendEmailViaResend('info@alliancefinancing.com', subject, htmlBody, '', null, null, null);
+        } catch(e) { console.warn('Admin doc upload notification error:', e); }
     }
 
     // ============================================
@@ -23892,6 +23929,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var sentResult = await Promise.race([sentQuery, new Promise(function(_, reject) { setTimeout(function() { reject(new Error('Timeout')); }, 15000); })]);
             var sentData = sentResult.data || [];
 
+            // For agents: filter out records sent under a different referral slug (e.g. alliance-house)
+            // The OR query may match on sent_by name even for apps sent through the main website
+            if (!isAdmin && currentAgentType === 'referring_agent') {
+                var myAgentSlug = agentProfile ? agentProfile.referral_slug : null;
+                if (!myAgentSlug) {
+                    try { var { data: _sl } = await db.from('users').select('referral_slug').eq('id', currentUserId).single(); if (_sl) myAgentSlug = _sl.referral_slug; } catch(e) {}
+                }
+                if (myAgentSlug) {
+                    sentData = sentData.filter(function(a) {
+                        // Keep if: no slug (manually sent), or slug matches agent's slug
+                        return !a.referral_slug || a.referral_slug === myAgentSlug;
+                    });
+                }
+            }
+
             // Auto-expire past-due links
             var now = new Date();
             for (var ei = 0; ei < sentData.length; ei++) {
@@ -24337,13 +24389,28 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var slug = agentProfile ? agentProfile.referral_slug : '';
         var slugEl = document.getElementById('qsRefSlug');
         var linkEl = document.getElementById('qsRefLink');
+        var landingBtn = document.getElementById('qsLandingPageLink');
         if (slugEl) slugEl.textContent = slug || 'Not set';
         if (linkEl && slug) {
             var landingUrl = window.location.origin + '/partner?ref=' + slug;
             linkEl.href = landingUrl;
             linkEl.style.display = '';
+            if (landingBtn) {
+                landingBtn.href = landingUrl;
+                landingBtn.onclick = function(e) {
+                    e.preventDefault();
+                    navigator.clipboard.writeText(landingUrl).then(function() {
+                        landingBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Copied!';
+                        setTimeout(function() {
+                            landingBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copy Landing Page Link';
+                        }, 2000);
+                    }).catch(function() { window.open(landingUrl, '_blank'); });
+                };
+                landingBtn.style.display = 'flex';
+            }
         } else if (linkEl) {
             linkEl.style.display = 'none';
+            if (landingBtn) landingBtn.style.display = 'none';
         }
         modal.style.display = 'flex';
     }
@@ -24431,13 +24498,37 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     async function archiveAppSent(id) {
+        // Prompt for archive reason
+        var reason = prompt('Why are you archiving this application?\n\nThis will be saved to the permanent notes for future reference.');
+        if (reason === null) return; // User cancelled
+        if (!reason.trim()) {
+            alert('Please provide a reason for archiving.');
+            return;
+        }
         try {
-            var { error } = await db.from('applications_sent').update({ status: 'Archived' }).eq('id', id);
+            // Save archive reason as a note on the record
+            var { data: record } = await db.from('applications_sent').select('notes, applicant_name, applicant_email').eq('id', id).single();
+            var notes = [];
+            try { notes = record && record.notes ? JSON.parse(record.notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            notes.push({
+                text: 'ARCHIVED: ' + reason.trim(),
+                author: currentUserName || 'Agent',
+                date: dateStr,
+                type: 'archive_reason'
+            });
+
+            var { error } = await db.from('applications_sent').update({
+                status: 'Archived',
+                notes: JSON.stringify(notes)
+            }).eq('id', id);
             if (error) {
                 console.error('Archive app sent DB error:', error);
                 alert('Could not archive: ' + error.message);
                 return;
             }
+            showNotification('Application archived. Reason saved to notes.', 'success');
             // Reload sections to reflect the change
             if (document.getElementById('applicationsSentBody')) await loadApplicationsSent();
             if (document.getElementById('pipelineBody')) await loadReferralPipeline();
