@@ -4669,7 +4669,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v56';
+    const DASHBOARD_VERSION = '2026-03-31-v57';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -8942,16 +8942,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var sevenDaysAgoDeal = Date.now() - 7 * 86400000;
                 var { data: recentDeals } = await db.from('deals').select('id, company_name, notes, source_agent_id').not('notes', 'is', null).order('updated_at', { ascending: false }).limit(100);
                 if (recentDeals) {
+                    var _seenDealNotes = {};
                     recentDeals.forEach(function(d) {
                         var dNotes = [];
                         try { dNotes = d.notes ? JSON.parse(d.notes) : []; } catch(e) {}
                         dNotes.forEach(function(n) {
                             if (!n.author) return;
-                            // Only show notes from agents (not admin emails like bernie@alliancefinancing.com)
-                            var isAdminAuthor = n.author && (n.author.includes('alliancefinancing.com') || n.author.includes('alliance'));
+                            if (n.is_audit_log || n.is_system) return; // skip auto-generated logs
+                            // Only show notes from agents (not admin or current user)
+                            var authorLower = (n.author || '').toLowerCase();
+                            var isAdminAuthor = authorLower.includes('alliancefinancing') || authorLower.includes('system') || authorLower === (currentUserName || '').toLowerCase();
                             if (isAdminAuthor) return;
                             var noteDate = n.date ? new Date(n.date) : null;
                             if (!noteDate || noteDate.getTime() < sevenDaysAgoDeal) return;
+                            // Deduplicate identical deal notes
+                            var dedupeKey = (n.author || '') + '_' + d.id + '_' + (n.text || '').substring(0, 50) + '_' + (n.date || '');
+                            if (_seenDealNotes[dedupeKey]) return;
+                            _seenDealNotes[dedupeKey] = true;
                             notifications.push({
                                 type: 'agent_deal_note',
                                 category: 'info',
@@ -8982,6 +8989,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     if (_hasSubAgents) {
                         agentDeals = agentDeals.filter(function(d) { return _notifAgentSet[d.source_agent_id]; });
                     }
+                    var _seenAgentDealNotes = {};
                     agentDeals.forEach(function(d) {
                         var dNotes = [];
                         try { dNotes = d.notes ? JSON.parse(d.notes) : []; } catch(e) {}
@@ -8992,6 +9000,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             if (!isAdminAuthor) return;
                             var noteDate = n.date ? new Date(n.date) : null;
                             if (!noteDate || noteDate.getTime() < sevenDaysAgoDealAgent) return;
+                            // Deduplicate identical deal notes
+                            var dedupeKey = (n.author || '') + '_' + d.id + '_' + (n.text || '').substring(0, 50) + '_' + (n.date || '');
+                            if (_seenAgentDealNotes[dedupeKey]) return;
+                            _seenAgentDealNotes[dedupeKey] = true;
                             notifications.push({
                                 type: 'deal_note',
                                 category: 'info',
