@@ -4669,7 +4669,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v55';
+    const DASHBOARD_VERSION = '2026-03-31-v56';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -8832,6 +8832,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var { data: allVendorsForNotes } = await db.from('vendors').select('id, name, admin_notes');
                 if (allVendorsForNotes) {
                     var sevenDaysAgoAdmin = Date.now() - 7 * 86400000;
+                    var _seenAgentVendorNotes = {};
                     allVendorsForNotes.forEach(function(v) {
                         var vNotes = [];
                         try { vNotes = v.admin_notes ? JSON.parse(v.admin_notes) : []; } catch(e) {}
@@ -8840,6 +8841,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             if (n.is_audit_log) return; // skip auto-generated field change logs
                             var noteDate = n.date ? new Date(n.date) : null;
                             if (!noteDate || noteDate.getTime() < sevenDaysAgoAdmin) return;
+                            // Deduplicate identical agent notes on same vendor
+                            var dedupeKey = (n.author || '') + '_' + v.id + '_' + (n.text || '').substring(0, 50) + '_' + (n.date || '');
+                            if (_seenAgentVendorNotes[dedupeKey]) return;
+                            _seenAgentVendorNotes[dedupeKey] = true;
                             var agentName = n.author || 'An agent';
                             notifications.push({
                                 type: 'agent_vendor_note',
@@ -9060,7 +9065,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             container.innerHTML = '<div style="text-align:center;padding:60px 20px;">' +
                 '<div style="font-size:48px;margin-bottom:12px;">🔔</div>' +
                 '<div style="font-weight:600;color:var(--navy);font-size:16px;margin-bottom:6px;">' +
-                (_currentNotifFilter === 'all' ? 'All caught up!' : 'No ' + _currentNotifFilter + ' notifications') +
+                (_currentNotifFilter === 'all' ? 'All caught up!' : 'No ' + ({action:'action required',deals:'deal',outreach:'outreach',applications:'application',vendor_note:'vendor',agent_vendor_note:'agent note',inquiry:'inquiry',pending_agent:'pending agent'}[_currentNotifFilter] || _currentNotifFilter) + ' notifications') +
                 '</div>' +
                 '<div style="color:#94A3B8;font-size:13px;">Nothing needs your attention right now.</div>' +
                 '</div>';
