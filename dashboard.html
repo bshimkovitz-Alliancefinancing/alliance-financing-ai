@@ -4675,7 +4675,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v61';
+    const DASHBOARD_VERSION = '2026-03-31-v62';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -9209,7 +9209,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Check if there's a linked deal
             var linkedDeal = null;
             if (app.deal_id) {
-                var { data: deal } = await db.from('deals').select('id, company_name, status, product_type, amount, created_at').eq('id', app.deal_id).single();
+                var { data: deal } = await db.from('deals').select('id, company_name, status, product_type, deal_amount, created_at').eq('id', app.deal_id).single();
                 if (deal) linkedDeal = deal;
             }
 
@@ -23949,19 +23949,55 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var dealMap = {};
                 if (appIds.length > 0) {
                     var { data: deals } = await db.from('deals').select('id, deal_number, company_name, deal_amount, status, application_id, commission_amount').in('application_id', appIds);
-                    if (deals) deals.forEach(d => { dealMap[d.application_id] = d; });
+                    if (deals) {
+                        // Stage priority: pick the deal with the furthest stage for each application
+                        var dealStageOrder = { 'Prospect': 1, 'Quote Sent': 2, 'Info Received': 3, 'In Credit': 4, 'Approved': 5, 'Approval sent': 5, 'Docs requested': 6, 'Docs out for signing': 7, 'In funding': 8, 'Funded': 9 };
+                        deals.forEach(function(d) {
+                            var existing = dealMap[d.application_id];
+                            if (!existing || (dealStageOrder[d.status] || 0) > (dealStageOrder[existing.status] || 0)) {
+                                dealMap[d.application_id] = d;
+                            }
+                        });
+                    }
                 }
 
                 // Deduplicate — if an outbound record was "Returned" and we have the inbound record, merge them
                 var outboundEmails = {};
                 combined.forEach(function(c) { if (c.source === 'outbound' && c.email) outboundEmails[c.email.toLowerCase()] = c; });
 
+                // Deduplicate inbound apps by email — keep the one with the furthest stage/deal
+                var stageOrder = { 'received': 1, 'reviewing': 2, 'pipeline': 3, 'credit': 4, 'approved': 5, 'funded': 6 };
+                var inboundByEmail = {};
                 inboundApps.forEach(function(app) {
                     var deal = dealMap[app.id];
-                    var product = app.application_products && app.application_products.length > 0 ? app.application_products[0].product : '—';
                     var stage = getApplicationStage(app, deal);
-                    var stageLabel = deal ? deal.status : (app.status || 'Application Received');
                     var emailKey = (app.email || '').toLowerCase();
+                    if (emailKey && inboundByEmail[emailKey]) {
+                        var prev = inboundByEmail[emailKey];
+                        // Keep the one with the furthest stage
+                        if ((stageOrder[stage] || 0) > (stageOrder[prev.stage] || 0)) {
+                            inboundByEmail[emailKey] = { app: app, deal: deal, stage: stage };
+                        }
+                    } else if (emailKey) {
+                        inboundByEmail[emailKey] = { app: app, deal: deal, stage: stage };
+                    } else {
+                        // No email — can't dedup, use a unique key
+                        inboundByEmail['__no_email_' + app.id] = { app: app, deal: deal, stage: stage };
+                    }
+                });
+
+                Object.keys(inboundByEmail).forEach(function(emailKey) {
+                    var entry = inboundByEmail[emailKey];
+                    var app = entry.app;
+                    var deal = entry.deal;
+                    var stage = entry.stage;
+                    var product = app.application_products && app.application_products.length > 0 ? app.application_products[0].product : '—';
+                    var stageLabel = deal ? deal.status : (app.status || 'Application Received');
+
+                    // Show company name when available: deal company > app business_name > person name
+                    var displayName = (deal && deal.company_name) ? deal.company_name :
+                                     (app.business_name && app.business_name !== app.full_name && !/^\d+$/.test(app.business_name)) ? app.business_name :
+                                     (app.full_name || 'N/A');
 
                     // If this matches an outbound record, upgrade that record instead of creating a duplicate
                     var existingOutbound = outboundEmails[emailKey];
@@ -23969,7 +24005,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         existingOutbound.source = 'linked';
                         existingOutbound.stage = stage;
                         existingOutbound.stageLabel = stageLabel;
-                        existingOutbound.amount = app.funding_amount_requested ? parseFloat(app.funding_amount_requested) : null;
+                        existingOutbound.clientName = displayName;
+                        existingOutbound.amount = deal && deal.deal_amount ? parseFloat(deal.deal_amount) : (app.funding_amount_requested ? parseFloat(app.funding_amount_requested) : null);
                         existingOutbound.type = product !== '—' ? product : existingOutbound.type;
                         existingOutbound.deal = deal;
                         existingOutbound.inboundApp = app;
@@ -23981,10 +24018,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     combined.push({
                         id: app.id,
                         source: 'inbound',
-                        clientName: app.full_name || 'N/A',
+                        clientName: displayName,
                         email: app.email || '',
                         type: product,
-                        amount: app.funding_amount_requested ? parseFloat(app.funding_amount_requested) : null,
+                        amount: deal && deal.deal_amount ? parseFloat(deal.deal_amount) : (app.funding_amount_requested ? parseFloat(app.funding_amount_requested) : null),
                         stage: stage,
                         stageLabel: stageLabel,
                         date: app.submitted_at,
@@ -24171,8 +24208,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             var rowBg = item.needsAction ? 'background:#FFF7ED;' : (item.stage === 'funded' ? 'background:#F0FDF4;' : '');
 
+            // Show person name as subtitle when clientName is a company
+            var personSubtitle = '';
+            if (item.inboundApp && item.inboundApp.full_name && item.clientName !== item.inboundApp.full_name) {
+                personSubtitle = '<br><span style="font-size:11px;color:#64748B;">' + item.inboundApp.full_name + '</span>';
+            }
+
             return '<tr style="' + rowBg + 'border-bottom:1px solid #F1F5F9;">' +
-                '<td style="padding:12px 16px;">' + sourceIcon + '<strong style="color:#0D1E3D;">' + item.clientName + '</strong>' +
+                '<td style="padding:12px 16px;">' + sourceIcon + '<strong style="color:#0D1E3D;">' + item.clientName + '</strong>' + personSubtitle +
                     (item.email ? '<br><span style="font-size:11px;color:#94A3B8;">' + item.email + '</span>' : '') + '</td>' +
                 '<td style="padding:12px 16px;font-size:13px;">' + item.type + '</td>' +
                 '<td style="padding:12px 16px;">' + amountHtml + '</td>' +
