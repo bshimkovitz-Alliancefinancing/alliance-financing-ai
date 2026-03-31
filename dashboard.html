@@ -1074,7 +1074,7 @@
                                 <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">Track every referral from first contact to funding</p>
                             </div>
                             <div style="display:flex;gap:8px;">
-                                <button onclick="openQuickSendModal()" class="btn btn-sm" style="background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                                <button onclick="openSendApplicationModalWithRef(agentProfile && agentProfile.referral_slug ? agentProfile.referral_slug : '')" class="btn btn-sm" style="background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
                                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
                                     Send Application
                                 </button>
@@ -4250,6 +4250,16 @@
                     <div id="sendAppEmailStatus" style="display:none;margin-top:8px;padding:8px 12px;border-radius:4px;font-size:13px;text-align:center;"></div>
                 </div>
             </div>
+
+            <!-- Landing Page Link Section -->
+            <div id="sendAppLandingPageSection" style="display:none;margin-top:20px;padding:16px;background:#F0F9FF;border-radius:10px;border:1px solid #BAE6FD;">
+                <div style="font-weight:600;color:#0D1E3D;margin-bottom:8px;font-size:14px;">Your Landing Page</div>
+                <p style="font-size:13px;color:#64748B;margin:0 0 10px;">Share this link directly with clients. They can browse financing options and apply on their own.</p>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="sendAppLandingUrl" readonly style="flex:1;padding:8px 10px;border:1px solid #BAE6FD;border-radius:4px;font-family:monospace;font-size:12px;background:white;">
+                    <button onclick="copyLandingPageLink()" id="copyLandingBtn" class="btn btn-sm" style="padding:8px 16px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Copy Link</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -4675,7 +4685,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v69';
+    const DASHBOARD_VERSION = '2026-03-31-v70';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -20667,7 +20677,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <div class="modal-field-value">${app.status || 'N/A'}</div>
                     </div>
                 </div>
-                <div class="modal-row">
+                ${['super_admin','admin'].includes(currentUserRole) ? `<div class="modal-row">
                     <div class="modal-field" style="flex:1;">
                         <label>Linked Client <span style="font-weight:400;color:#94A3B8;font-size:11px;">Auto-matched from business name</span></label>
                         <select id="appClientLink_${appId}" onchange="updateApplicationClient('${appId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; cursor: pointer;">
@@ -20678,7 +20688,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             })()}
                         </select>
                     </div>
-                </div>
+                </div>` : ''}
                 <div class="modal-row full">
                     <div class="modal-field">
                         <label>Description</label>
@@ -21480,7 +21490,38 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
         // Populate vendor tracking dropdown (auto-selects for vendor users)
         populateVendorTrackingDropdown();
+
+        // Show landing page link section for agents
+        var landingSection = document.getElementById('sendAppLandingPageSection');
+        if (landingSection) {
+            var slug = agentProfile ? agentProfile.referral_slug : currentSendAppRef;
+            if (slug && slug !== 'alliance-house') {
+                var landingUrl = window.location.origin + '/partner?ref=' + slug;
+                var landingUrlInput = document.getElementById('sendAppLandingUrl');
+                if (landingUrlInput) landingUrlInput.value = landingUrl;
+                landingSection.style.display = 'block';
+            } else {
+                landingSection.style.display = 'none';
+            }
+        }
+
         document.getElementById('sendApplicationModal').classList.add('active');
+    }
+
+    function copyLandingPageLink() {
+        var input = document.getElementById('sendAppLandingUrl');
+        if (!input || !input.value) return;
+        navigator.clipboard.writeText(input.value).then(function() {
+            var btn = document.getElementById('copyLandingBtn');
+            if (btn) {
+                btn.textContent = 'Copied!';
+                btn.style.background = '#10B981';
+                setTimeout(function() { btn.textContent = 'Copy Link'; btn.style.background = '#0D1E3D'; }, 2000);
+            }
+        }).catch(function() {
+            input.select();
+            document.execCommand('copy');
+        });
     }
 
     async function populateVendorTrackingDropdown() {
@@ -23239,26 +23280,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         await loadDocumentsPage();
     }
 
-    // Notify admin when agent uploads documents
+    // Notify admin when agent uploads documents — add note to deal and trigger dashboard notification
     async function notifyAdminOfDocUpload(fileCount, dealLabel, docType) {
         try {
             var agentName = currentUserName || 'An agent';
             var docTypeLabel = docType || 'document';
-            var subject = agentName + ' uploaded ' + fileCount + ' document' + (fileCount !== 1 ? 's' : '') + ' — ' + dealLabel;
-            var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
-                '<div style="background:#0D1E3D;color:white;padding:20px 24px;border-radius:8px 8px 0 0;">' +
-                '<h2 style="margin:0;font-size:18px;">New Document Upload</h2>' +
-                '</div>' +
-                '<div style="padding:20px 24px;background:#f8fafc;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 8px 8px;">' +
-                '<p style="margin:0 0 12px;"><strong>' + agentName + '</strong> uploaded <strong>' + fileCount + ' document' + (fileCount !== 1 ? 's' : '') + '</strong></p>' +
-                '<table style="width:100%;border-collapse:collapse;margin:12px 0;">' +
-                '<tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;">Deal</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">' + dealLabel + '</td></tr>' +
-                '<tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;">Type</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">' + docTypeLabel + '</td></tr>' +
-                '<tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;">Uploaded</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">' + new Date().toLocaleString() + '</td></tr>' +
-                '</table>' +
-                '<p style="margin:12px 0 0;font-size:13px;color:#64748B;">Review the documents in the <a href="https://alliancefinancing.ai/dashboard" style="color:#2563EB;">Alliance Dashboard</a>.</p>' +
-                '</div></div>';
-            await sendEmailViaResend('info@alliancefinancing.com', subject, htmlBody, '', null, null, null);
+            var dealId = document.getElementById('docBulkDealSelect')?.value;
+
+            if (dealId) {
+                // Add a note to the deal so admin sees it in notifications
+                var { data: deal } = await db.from('deals').select('notes').eq('id', dealId).single();
+                var notes = [];
+                try { notes = deal && deal.notes ? JSON.parse(deal.notes) : []; } catch(e) { notes = []; }
+                var now = new Date();
+                var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                notes.push({
+                    text: 'Uploaded ' + fileCount + ' document' + (fileCount !== 1 ? 's' : '') + ' (' + docTypeLabel + ')',
+                    author: agentName,
+                    date: dateStr,
+                    visible_to_agent: true,
+                    type: 'doc_upload'
+                });
+                await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', dealId);
+            }
         } catch(e) { console.warn('Admin doc upload notification error:', e); }
     }
 
@@ -24051,6 +24095,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 } catch(e) { console.warn('Company lookup for outbound:', e); }
             }
 
+            // For Returned items, look up funding amounts and inbound app IDs from applications table
+            var returnedEmailAmounts = {};
+            var returnedEmailApps = {};
+            var returnedEmails = sentData.filter(function(a) { return a.status === 'Returned' && a.applicant_email; }).map(function(a) { return a.applicant_email.toLowerCase(); });
+            if (returnedEmails.length > 0) {
+                try {
+                    var { data: retApps } = await db.from('applications').select('id, email, funding_amount_requested, funding_amount_text').in('email', returnedEmails);
+                    if (retApps) retApps.forEach(function(a) {
+                        var ek = (a.email || '').toLowerCase();
+                        if (a.funding_amount_requested) returnedEmailAmounts[ek] = parseFloat(a.funding_amount_requested);
+                        returnedEmailApps[ek] = a;
+                    });
+                } catch(e) {}
+            }
+
             // Map sent records to unified format
             sentData.forEach(function(app) {
                 if (app.status === 'Archived') return; // skip archived
@@ -24058,6 +24117,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var emailKey = (app.applicant_email || '').toLowerCase();
                 var companyName = emailToCompany[emailKey];
                 var displayName = companyName || app.applicant_name || 'N/A';
+                var returnedAmount = app.status === 'Returned' ? (returnedEmailAmounts[emailKey] || null) : null;
+                var returnedApp = app.status === 'Returned' ? (returnedEmailApps[emailKey] || null) : null;
                 combined.push({
                     id: app.id,
                     source: 'outbound',
@@ -24065,14 +24126,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     personName: app.applicant_name || null,
                     email: app.applicant_email || '',
                     type: app.application_type || '—',
-                    amount: null,
-                    stage: app.status === 'Returned' ? 'applied' : (app.status === 'Opened' ? 'opened' : 'sent'),
+                    amount: returnedAmount,
+                    inboundApp: returnedApp,
+                    stage: app.status === 'Returned' ? 'received' : (app.status === 'Opened' ? 'opened' : 'sent'),
                     stageLabel: app.status,
                     date: app.sent_at,
                     followUp: app.follow_up_date,
                     isOverdue: isOverdue,
                     needsAction: isOverdue || app.status === 'Follow-Up Needed',
-                    isCompleted: ['Returned', 'Expired'].includes(app.status),
+                    isCompleted: app.status === 'Expired',
+                    isReturned: app.status === 'Returned',
                     raw: app
                 });
             });
@@ -24199,8 +24262,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var statsRow = document.getElementById('pipelineStatsRow');
             if (statsRow) {
                 var totalSent = combined.filter(function(c) { return c.source === 'outbound' || c.source === 'linked'; }).length;
-                var totalApplied = combined.filter(function(c) { return c.source === 'inbound' || c.source === 'linked'; }).length;
-                var totalInProgress = combined.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing'].includes(c.stage); }).length;
+                var totalApplied = combined.filter(function(c) { return c.source === 'inbound' || c.source === 'linked' || c.isReturned; }).length;
+                var totalInProgress = combined.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing', 'received'].includes(c.stage); }).length;
                 var totalNeedsAction = combined.filter(function(c) { return c.needsAction; }).length;
                 var totalFunded = combined.filter(function(c) { return c.stage === 'funded'; }).length;
                 var totalValue = combined.reduce(function(sum, c) { return sum + (c.amount || 0); }, 0);
@@ -24272,9 +24335,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (filter === 'outbound') {
             filtered = _pipelineData.filter(function(c) { return c.source === 'outbound'; });
         } else if (filter === 'inbound') {
-            filtered = _pipelineData.filter(function(c) { return c.source === 'inbound' || c.source === 'linked'; });
+            filtered = _pipelineData.filter(function(c) { return c.source === 'inbound' || c.source === 'linked' || c.isReturned; });
         } else if (filter === 'in_progress') {
-            filtered = _pipelineData.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing'].includes(c.stage); });
+            filtered = _pipelineData.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing', 'received'].includes(c.stage); });
         } else if (filter === 'needs_action') {
             filtered = _pipelineData.filter(function(c) { return c.needsAction; });
         } else if (filter === 'completed') {
@@ -24313,11 +24376,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Build progress bar for items that have progressed beyond "sent"
             var progressHtml = '';
-            if (item.deal || item.inboundApp || item.stage === 'applied') {
-                var stage = item.stage;
-                // Map outbound 'applied' (Returned) to 'received' for the progress bar
-                if (stage === 'applied') stage = 'received';
-                progressHtml = buildProgressBar(stage);
+            if (item.deal || item.inboundApp || item.isReturned || item.stage === 'received') {
+                progressHtml = buildProgressBar(item.stage);
             } else {
                 // Outbound-only: simple step indicator
                 var outStages = ['sent', 'opened', 'applied'];
@@ -24351,10 +24411,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<option value="Returned"' + (appRaw.status === 'Returned' ? ' selected' : '') + '>Returned</option>' +
                     '<option value="Expired"' + (appRaw.status === 'Expired' ? ' selected' : '') + '>Expired</option>' +
                 '</select>';
-            } else if (item.source === 'outbound' && item.isCompleted) {
+            } else if (item.source === 'outbound' && (item.isCompleted || item.isReturned)) {
                 actionHtml = '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">Archive</button>';
             }
-            if (item.email) {
+            // View button: use inbound app ID if available, otherwise search by email
+            if (item.inboundApp && item.inboundApp.id) {
+                actionHtml += ' <button onclick="viewApplication(\'' + item.inboundApp.id + '\')" style="padding:4px 10px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">View</button>';
+            } else if (item.email) {
                 actionHtml += ' <button onclick="viewAppSentSubmission(\'' + item.email.replace(/'/g, "\\'") + '\', \'' + (item.clientName || '').replace(/'/g, "\\'") + '\')" style="padding:4px 10px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">View</button>';
             }
 
