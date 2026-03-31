@@ -1147,6 +1147,7 @@
                     <button class="notif-filter-btn" data-filter="outreach" onclick="filterNotifications('outreach')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Outreach</button>
                     <button class="notif-filter-btn" data-filter="applications" onclick="filterNotifications('applications')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Applications</button>
                     <button class="notif-filter-btn" data-filter="vendor_note" onclick="filterNotifications('vendor_note')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Vendors</button>
+                    <button class="notif-filter-btn" data-filter="agent_vendor_note" onclick="filterNotifications('agent_vendor_note')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Agent Notes</button>
                 </div>
                 <div id="notificationsList" style="display:flex;flex-direction:column;gap:8px;">
                     <div style="text-align:center;padding:40px;color:#94A3B8;font-size:14px;">Loading notifications...</div>
@@ -8892,6 +8893,40 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
         } catch(e) { console.warn('Notifications: vendor notes load error', e); }
+
+        // 7. Agent notes on vendors (admin sees notes from agents with from_agent: true)
+        try {
+            if (isAdmin) {
+                var { data: allVendorsForNotes } = await db.from('vendors').select('id, name, admin_notes');
+                if (allVendorsForNotes) {
+                    var sevenDaysAgoAdmin = Date.now() - 7 * 86400000;
+                    allVendorsForNotes.forEach(function(v) {
+                        var vNotes = [];
+                        try { vNotes = v.admin_notes ? JSON.parse(v.admin_notes) : []; } catch(e) {}
+                        vNotes.forEach(function(n) {
+                            if (!n.from_agent) return;
+                            if (n.is_audit_log) return; // skip auto-generated field change logs
+                            var noteDate = n.date ? new Date(n.date) : null;
+                            if (!noteDate || noteDate.getTime() < sevenDaysAgoAdmin) return;
+                            var agentName = n.author || 'An agent';
+                            notifications.push({
+                                type: 'agent_vendor_note',
+                                category: 'info',
+                                icon: '📝',
+                                iconBg: '#FEF3C7',
+                                iconColor: '#D97706',
+                                title: agentName + ' added a note on ' + (v.name || 'a vendor'),
+                                detail: n.text ? n.text.substring(0, 80) + (n.text.length > 80 ? '...' : '') : 'View details',
+                                time: noteDate,
+                                action: "viewVendorDetail('" + v.id + "')",
+                                actionLabel: 'View Vendor',
+                                priority: 3
+                            });
+                        });
+                    });
+                }
+            }
+        } catch(e) { console.warn('Notifications: agent vendor notes load error', e); }
 
         // Sort: priority first, then newest first
         notifications.sort(function(a, b) {
