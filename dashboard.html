@@ -1070,7 +1070,7 @@
                         <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(201,168,76,0.1);border-radius:50%;"></div>
                         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
                             <div>
-                                <h2 style="margin:0;font-size:20px;font-weight:700;">My Referral Pipeline</h2>
+                                <h2 style="margin:0;font-size:20px;font-weight:700;">My Dashboard</h2>
                                 <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">Track every referral from first contact to funding</p>
                             </div>
                             <div style="display:flex;gap:8px;">
@@ -1107,10 +1107,11 @@
                     <!-- Pipeline Table -->
                     <div style="background:white;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 16px 16px;overflow:hidden;">
                         <div style="overflow-x:auto;">
-                        <table style="min-width:1000px;" id="pipelineTable">
+                        <table style="min-width:1100px;" id="pipelineTable">
                             <thead>
                                 <tr style="background:#F8FAFC;">
                                     <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Client</th>
+                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Source</th>
                                     <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Type</th>
                                     <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Amount</th>
                                     <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Stage</th>
@@ -1120,7 +1121,7 @@
                                 </tr>
                             </thead>
                             <tbody id="pipelineBody">
-                                <tr><td colspan="7" class="empty-state">Loading pipeline...</td></tr>
+                                <tr><td colspan="8" class="empty-state">Loading pipeline...</td></tr>
                             </tbody>
                         </table>
                         </div>
@@ -1743,18 +1744,16 @@
             <!-- Vendor Programs Page (agents only) -->
             <div id="vendorPrograms" class="page-section">
                 <!-- Vendor Outreach (Agent View) -->
-                <div id="vendorLeadsSectionAgent" style="margin-bottom:24px;">
-                    <div style="background:white;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-                        <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
-                            <div>
-                                <h3 style="margin:0;font-size:15px;font-weight:700;color:#0D1E3D;">Vendor Outreach</h3>
-                                <p style="color:#64748b;font-size:12px;margin:4px 0 0;">Vendors you've contacted or who expressed interest. Track status and convert to active vendor programs.</p>
-                            </div>
-                            <button onclick="loadVendorInquiryLeads()" style="padding:6px 14px;font-size:12px;background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-weight:600;">↻ Refresh</button>
+                <div id="vendorLeadsSectionAgent" class="table-container" style="margin-bottom:24px;">
+                    <div class="table-header" style="flex-wrap:wrap;gap:12px;">
+                        <div>
+                            <div class="table-title">Vendor Outreach</div>
+                            <p style="color:#64748b;font-size:12px;margin:4px 0 0;">Vendors you've contacted or who expressed interest. Track status and convert to active vendor programs.</p>
                         </div>
-                        <div id="vendorLeadsTableAgent" style="padding:12px 20px;">
-                            <p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">Loading leads...</p>
-                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="loadVendorInquiryLeads()">↻ Refresh</button>
+                    </div>
+                    <div id="vendorLeadsTableAgent" style="padding:12px 20px;">
+                        <p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">Loading leads...</p>
                     </div>
                 </div>
 
@@ -4686,7 +4685,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v74';
+    const DASHBOARD_VERSION = '2026-03-31-v75';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -9729,38 +9728,28 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 return;
             }
 
-            // Filter out Archived and Converted leads by default
-            var activeLeads = leads.filter(function(l) { return l.status !== 'Archived' && l.status !== 'Converted'; });
-            var hiddenCount = leads.length - activeLeads.length;
-            var showAll = window._showAllVendorLeads || false;
-            var displayLeads = showAll ? leads : activeLeads;
+            // Separate active and archived leads
+            var activeLeads = leads.filter(function(l) { return l.status !== 'Archived'; });
+            var archivedLeads = leads.filter(function(l) { return l.status === 'Archived'; });
 
-            if (displayLeads.length === 0 && hiddenCount > 0) {
-                var emptyMsg = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">All leads are archived or converted. <a href="javascript:void(0)" onclick="window._showAllVendorLeads=true;loadVendorInquiryLeads()" style="color:#3B82F6;text-decoration:underline;">Show all ' + leads.length + ' leads</a></p>';
+            if (activeLeads.length === 0 && archivedLeads.length === 0) {
+                var emptyMsg = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No vendor inquiries yet.</p>';
                 for (var ci = 0; ci < containers.length; ci++) containers[ci].innerHTML = emptyMsg;
                 return;
             }
 
             var statusColors = { 'New': '#3B82F6', 'Contacted': '#F59E0B', 'In Progress': '#8B5CF6', 'Converted': '#10B981', 'Closed': '#94A3B8', 'Archived': '#CBD5E1' };
+            var displayLeads = activeLeads;
             var tableHtml = '';
-            if (hiddenCount > 0) {
-                tableHtml += '<div style="text-align:right;padding:0 8px 8px;font-size:11px;color:#94a3b8;">';
-                if (showAll) {
-                    tableHtml += 'Showing all ' + leads.length + ' leads. <a href="javascript:void(0)" onclick="window._showAllVendorLeads=false;loadVendorInquiryLeads()" style="color:#3B82F6;text-decoration:underline;">Hide archived/converted</a>';
-                } else {
-                    tableHtml += hiddenCount + ' archived/converted lead' + (hiddenCount !== 1 ? 's' : '') + ' hidden. <a href="javascript:void(0)" onclick="window._showAllVendorLeads=true;loadVendorInquiryLeads()" style="color:#3B82F6;text-decoration:underline;">Show all</a>';
-                }
-                tableHtml += '</div>';
-            }
-            tableHtml += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
-            tableHtml += '<thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">';
-            tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Company</th>';
-            tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Contact</th>';
-            tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Equipment</th>';
-            if (canManage) tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Referred By</th>';
-            tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Status</th>';
-            tableHtml += '<th style="text-align:left;padding:10px 8px;font-weight:600;color:#334155;">Date</th>';
-            if (canManage) tableHtml += '<th style="text-align:center;padding:10px 8px;font-weight:600;color:#334155;">Actions</th>';
+            tableHtml += '<table style="width:100%;border-collapse:collapse;">';
+            tableHtml += '<thead><tr>';
+            tableHtml += '<th>Company</th>';
+            tableHtml += '<th>Contact</th>';
+            tableHtml += '<th>Equipment</th>';
+            if (canManage) tableHtml += '<th>Referred By</th>';
+            tableHtml += '<th>Status</th>';
+            tableHtml += '<th>Date</th>';
+            if (canManage) tableHtml += '<th style="text-align:center;">Actions</th>';
             tableHtml += '</tr></thead><tbody>';
 
             for (var i = 0; i < displayLeads.length; i++) {
@@ -9773,17 +9762,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var existingNotes = [];
                 try { existingNotes = lead.notes ? JSON.parse(lead.notes) : []; } catch(e) { if (lead.notes) existingNotes = [{ text: lead.notes, author: 'System', date: 'Previously' }]; }
 
-                tableHtml += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;" onclick="toggleVendorLeadDetail(\'' + lead.id + '\')" title="Click to expand details">';
-                tableHtml += '<td style="padding:10px 8px;font-weight:600;color:#0D1E3D;">' + (lead.company_name || '') + ' <span id="vendorLeadArrow_' + lead.id + '" style="font-size:10px;color:#94a3b8;">▸</span></td>';
-                tableHtml += '<td style="padding:10px 8px;">';
+                tableHtml += '<tr style="cursor:pointer;" onclick="toggleVendorLeadDetail(\'' + lead.id + '\')" title="Click to expand details">';
+                tableHtml += '<td><strong>' + (lead.company_name || '') + '</strong> <span id="vendorLeadArrow_' + lead.id + '" style="font-size:10px;color:#94a3b8;">▸</span></td>';
+                tableHtml += '<td>';
                 tableHtml += '<div>' + (lead.contact_name || '') + '</div>';
                 tableHtml += '<div style="font-size:11px;color:#64748b;">' + (lead.contact_email || '') + '</div>';
                 if (lead.contact_phone) tableHtml += '<div style="font-size:11px;color:#64748b;">' + lead.contact_phone + '</div>';
                 tableHtml += '</td>';
-                tableHtml += '<td style="padding:10px 8px;color:#475569;">' + (lead.equipment_type || '') + '<br><span style="font-size:11px;color:#94a3b8;">' + (lead.avg_deal_size || '') + '</span></td>';
-                if (canManage) tableHtml += '<td style="padding:10px 8px;color:#475569;">' + (lead.referred_by || 'Direct') + '</td>';
-                tableHtml += '<td style="padding:10px 8px;"><span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + statusColor + '20;color:' + statusColor + ';">' + (lead.status || 'New') + '</span></td>';
-                tableHtml += '<td style="padding:10px 8px;color:#94a3b8;font-size:12px;">' + dateStr + '</td>';
+                tableHtml += '<td style="color:#475569;">' + (lead.equipment_type || '') + '<br><span style="font-size:11px;color:#94a3b8;">' + (lead.avg_deal_size || '') + '</span></td>';
+                if (canManage) tableHtml += '<td style="color:#475569;">' + (lead.referred_by || 'Direct') + '</td>';
+                tableHtml += '<td><span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + statusColor + '20;color:' + statusColor + ';">' + (lead.status || 'New') + '</span></td>';
+                tableHtml += '<td style="color:#94a3b8;font-size:12px;">' + dateStr + '</td>';
 
                 if (canManage) {
                     tableHtml += '<td style="padding:10px 8px;text-align:center;white-space:nowrap;" onclick="event.stopPropagation()">';
@@ -9848,6 +9837,41 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 tableHtml += '</div></td></tr>';
             }
             tableHtml += '</tbody></table>';
+
+            // Archived section at the bottom
+            if (archivedLeads.length > 0) {
+                tableHtml += '<div style="padding:12px 20px;background:#F8FAFC;border-top:2px solid #E2E8F0;">';
+                tableHtml += '<button onclick="var sec=document.getElementById(\'vendorLeadsArchivedSection\');var show=sec.style.display===\'none\';sec.style.display=show?\'block\':\'none\';this.textContent=show?\'Hide Archived ('+archivedLeads.length+')\':\'Show Archived ('+archivedLeads.length+')\';" style="background:none;border:1px solid #CBD5E1;color:#64748B;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">Show Archived (' + archivedLeads.length + ')</button>';
+                tableHtml += '</div>';
+                tableHtml += '<div id="vendorLeadsArchivedSection" style="display:none;padding:0 20px 16px;">';
+                tableHtml += '<table style="width:100%;border-collapse:collapse;opacity:0.7;">';
+                tableHtml += '<thead><tr>';
+                tableHtml += '<th>Company</th><th>Contact</th><th>Equipment</th>';
+                if (canManage) tableHtml += '<th>Referred By</th>';
+                tableHtml += '<th>Status</th><th>Reason</th><th>Date</th>';
+                tableHtml += '</tr></thead><tbody>';
+                for (var ai = 0; ai < archivedLeads.length; ai++) {
+                    var aLead = archivedLeads[ai];
+                    var aDateStr = aLead.created_at ? new Date(aLead.created_at).toLocaleDateString() : '';
+                    var archiveNote = '';
+                    try {
+                        var aNotes = aLead.notes ? JSON.parse(aLead.notes) : [];
+                        var archiveNoteObj = aNotes.filter(function(n) { return n.type === 'archive_reason'; });
+                        if (archiveNoteObj.length > 0) archiveNote = archiveNoteObj[archiveNoteObj.length - 1].text || '';
+                    } catch(e) { archiveNote = ''; }
+                    tableHtml += '<tr>';
+                    tableHtml += '<td><strong>' + (aLead.company_name || '') + '</strong></td>';
+                    tableHtml += '<td>' + (aLead.contact_name || '') + '<br><span style="font-size:11px;color:#64748b;">' + (aLead.contact_email || '') + '</span></td>';
+                    tableHtml += '<td style="color:#475569;">' + (aLead.equipment_type || '') + '</td>';
+                    if (canManage) tableHtml += '<td style="color:#475569;">' + (aLead.referred_by || 'Direct') + '</td>';
+                    tableHtml += '<td><span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#CBD5E120;color:#CBD5E1;">Archived</span></td>';
+                    tableHtml += '<td style="font-size:12px;color:#64748B;max-width:200px;">' + (archiveNote || '<span style="color:#CBD5E1;">—</span>') + '</td>';
+                    tableHtml += '<td style="color:#94a3b8;font-size:12px;">' + aDateStr + '</td>';
+                    tableHtml += '</tr>';
+                }
+                tableHtml += '</tbody></table></div>';
+            }
+
             for (var ci = 0; ci < containers.length; ci++) containers[ci].innerHTML = tableHtml;
 
         } catch(err) {
@@ -9858,6 +9882,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     async function updateVendorLeadStatus(leadId, newStatus) {
+        // If archiving, prompt for a reason
+        if (newStatus === 'Archived') {
+            showArchiveReasonModal(leadId, 'vendor_lead');
+            return;
+        }
         try {
             var { error } = await db.from('vendor_inquiries').update({
                 status: newStatus,
@@ -9868,12 +9897,73 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
             showToast('Lead status updated to ' + newStatus, 'success');
 
-            // If status changed to Contacted or In Progress, notify the referring agent
-            // (future: could send email notification)
-
         } catch(err) {
             console.error('Update lead status error:', err);
             showToast('Failed to update lead status', 'error');
+        }
+    }
+
+    // Archive reason modal — prompts user for a reason before archiving
+    function showArchiveReasonModal(itemId, itemType) {
+        // Remove any existing modal
+        var existing = document.getElementById('archiveReasonModal');
+        if (existing) existing.remove();
+
+        var modal = document.createElement('div');
+        modal.id = 'archiveReasonModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+        modal.innerHTML = '<div style="background:white;border-radius:12px;max-width:440px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);">' +
+            '<div style="padding:20px 24px;border-bottom:1px solid #E2E8F0;">' +
+                '<h3 style="margin:0;font-size:16px;font-weight:700;color:#0D1E3D;">Archive Reason</h3>' +
+                '<p style="margin:6px 0 0;font-size:13px;color:#64748B;">Please provide a reason for archiving. This will be visible to the agent.</p>' +
+            '</div>' +
+            '<div style="padding:20px 24px;">' +
+                '<textarea id="archiveReasonText" placeholder="Enter reason for archiving..." style="width:100%;min-height:80px;padding:10px 12px;border:1px solid #D4D9E2;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;"></textarea>' +
+            '</div>' +
+            '<div style="padding:12px 24px 20px;display:flex;gap:10px;justify-content:flex-end;">' +
+                '<button onclick="document.getElementById(\'archiveReasonModal\').remove();" style="padding:8px 16px;background:#F1F5F9;color:#334155;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">Cancel</button>' +
+                '<button onclick="confirmArchiveWithReason(\'' + itemId + '\', \'' + itemType + '\')" style="padding:8px 16px;background:#DC2626;color:white;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">Archive</button>' +
+            '</div>' +
+        '</div>';
+        document.body.appendChild(modal);
+        setTimeout(function() { document.getElementById('archiveReasonText').focus(); }, 100);
+    }
+
+    async function confirmArchiveWithReason(itemId, itemType) {
+        var reasonText = (document.getElementById('archiveReasonText').value || '').trim();
+        var modal = document.getElementById('archiveReasonModal');
+        if (modal) modal.remove();
+
+        try {
+            if (itemType === 'vendor_lead') {
+                // Fetch current notes and append archive reason
+                var { data: lead } = await db.from('vendor_inquiries').select('notes').eq('id', itemId).single();
+                var existingNotes = [];
+                try { existingNotes = lead && lead.notes ? JSON.parse(lead.notes) : []; } catch(e) { if (lead && lead.notes) existingNotes = [{ text: lead.notes, author: 'System', date: 'Previously' }]; }
+                if (reasonText) {
+                    existingNotes.push({ text: reasonText, author: currentUserName || 'Admin', date: new Date().toISOString(), type: 'archive_reason' });
+                }
+                var { error } = await db.from('vendor_inquiries').update({
+                    status: 'Archived',
+                    notes: JSON.stringify(existingNotes),
+                    assigned_to: currentUserName || null,
+                    updated_at: new Date().toISOString()
+                }).eq('id', itemId);
+                if (error) throw error;
+                showToast('Vendor lead archived' + (reasonText ? ' with reason' : ''), 'success');
+                loadVendorInquiryLeads();
+            } else if (itemType === 'vendor') {
+                // Archive a vendor record
+                var updateData = { status: 'Archived' };
+                if (reasonText) updateData.archive_reason = reasonText;
+                var { error } = await db.from('vendors').update(updateData).eq('id', itemId);
+                if (error) throw error;
+                showToast('Vendor archived' + (reasonText ? ' with reason' : ''), 'success');
+                loadAgentVendors();
+            }
+        } catch(err) {
+            console.error('Archive error:', err);
+            showToast('Failed to archive: ' + (err.message || err), 'error');
         }
     }
 
@@ -12135,8 +12225,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 return;
             }
 
-            // Separate active and archived vendors
-            const activeVendors = vendors.filter(v => v.status !== 'Archived');
+            // Separate vendors into active, declined, and archived
+            const activeVendors = vendors.filter(v => v.status !== 'Archived' && v.status !== 'Declined');
+            const declinedVendors = vendors.filter(v => v.status === 'Declined');
             const archivedVendors = vendors.filter(v => v.status === 'Archived');
 
             let html = activeVendors.map(v => `
@@ -12155,22 +12246,46 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 html = '<tr><td colspan="7" class="empty-state">No active vendor programs. Submit one above!</td></tr>';
             }
 
-            // Add archived section (collapsed by default)
-            if (archivedVendors.length > 0) {
-                html += `<tr><td colspan="7" style="padding: 12px; background: #F8FAFC; border-top: 2px solid #E2E8F0;">
-                    <button onclick="var rows = document.querySelectorAll('.archived-vendor-row'); var show = rows[0].style.display === 'none'; rows.forEach(function(r){ r.style.display = show ? '' : 'none'; }); this.textContent = show ? 'Hide Archived (${archivedVendors.length})' : 'Show Archived (${archivedVendors.length})';"
-                        style="background: none; border: 1px solid #CBD5E1; color: #64748B; padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                        Show Archived (${archivedVendors.length})
-                    </button>
+            // Declined section
+            if (declinedVendors.length > 0) {
+                html += `<tr><td colspan="7" style="padding:16px 20px;background:#FEF2F2;border-top:2px solid #FECACA;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <span style="font-weight:700;color:#991B1B;font-size:14px;">Declined (${declinedVendors.length})</span>
+                            <span style="font-size:12px;color:#DC2626;margin-left:8px;">These vendors were not approved</span>
+                        </div>
+                        <button onclick="var rows=document.querySelectorAll('.declined-vendor-row');var show=rows[0].style.display==='none';rows.forEach(function(r){r.style.display=show?'':'none';});this.textContent=show?'Hide':'Show';" style="background:none;border:1px solid #FECACA;color:#DC2626;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">Show</button>
+                    </div>
                 </td></tr>`;
-                html += archivedVendors.map(v => `
-                <tr class="archived-vendor-row" style="display: none; opacity: 0.6;">
+                html += declinedVendors.map(v => `
+                <tr class="declined-vendor-row" style="display:none;background:#FEF2F2;">
                     <td><strong>${v.name || 'N/A'}</strong></td>
                     <td>${v.product_description || 'N/A'}</td>
                     <td>${v.country || 'N/A'}</td>
-                    <td style="text-align: center;"><span style="background: #f5f5f5; color: #999; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 13px;">${vendorSPCounts[v.id] || 0}</span></td>
+                    <td style="text-align:center;"><span style="background:#f5f5f5;color:#999;padding:3px 10px;border-radius:12px;font-weight:600;font-size:13px;">${vendorSPCounts[v.id] || 0}</span></td>
                     <td>${v.projected_volume ? formatCurrency(v.projected_volume) : '-'}</td>
-                    <td>${getStatusBadge(v.status || 'Archived')}</td>
+                    <td>${getStatusBadge('Declined')}</td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn btn-secondary btn-sm" onclick="viewAgentVendor('${v.id}')">View</button>
+                        <button onclick="showArchiveReasonModal('${v.id}', 'vendor')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;margin-left:4px;">Archive</button>
+                    </td>
+                </tr>
+                `).join('');
+            }
+
+            // Archived section (collapsed by default)
+            if (archivedVendors.length > 0) {
+                html += `<tr><td colspan="7" style="padding:12px 20px;background:#F8FAFC;border-top:2px solid #E2E8F0;">
+                    <button onclick="var rows=document.querySelectorAll('.archived-vendor-row');var show=rows[0].style.display==='none';rows.forEach(function(r){r.style.display=show?'':'none';});this.textContent=show?'Hide Archived (${archivedVendors.length})':'Show Archived (${archivedVendors.length})';" style="background:none;border:1px solid #CBD5E1;color:#64748B;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">Show Archived (${archivedVendors.length})</button>
+                </td></tr>`;
+                html += archivedVendors.map(v => `
+                <tr class="archived-vendor-row" style="display:none;opacity:0.6;">
+                    <td><strong>${v.name || 'N/A'}</strong></td>
+                    <td>${v.product_description || 'N/A'}</td>
+                    <td>${v.country || 'N/A'}</td>
+                    <td style="text-align:center;"><span style="background:#f5f5f5;color:#999;padding:3px 10px;border-radius:12px;font-weight:600;font-size:13px;">${vendorSPCounts[v.id] || 0}</span></td>
+                    <td>${v.projected_volume ? formatCurrency(v.projected_volume) : '-'}</td>
+                    <td>${getStatusBadge('Archived')}</td>
                     <td><button class="btn btn-secondary btn-sm" onclick="viewAgentVendor('${v.id}')">View</button></td>
                 </tr>
                 `).join('');
@@ -13315,7 +13430,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var title = titles[pageName] || 'Dashboard';
         // For agents, show their type on the dashboard page
         if (pageName === 'dashboard' && !['super_admin', 'admin'].includes(currentUserRole) && currentAgentType) {
-            title = getAgentTypeLabel(currentAgentType) + ' Portal';
+            title = 'Dashboard';
         }
         document.getElementById('pageTitle').textContent = title;
         currentPage = pageName;
@@ -24281,6 +24396,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     isCompleted: app.status === 'Expired',
                     isReturned: app.status === 'Returned',
                     isArchived: isArchivedItem,
+                    sourceLabel: 'Direct Referral',
                     raw: app
                 });
             });
@@ -24306,7 +24422,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var appIds = inboundApps.map(a => a.id);
                 var dealMap = {};
                 if (appIds.length > 0) {
-                    var { data: deals } = await db.from('deals').select('id, deal_number, company_name, deal_amount, status, application_id').in('application_id', appIds);
+                    var { data: deals } = await db.from('deals').select('id, deal_number, company_name, deal_amount, status, application_id, source_vendor_id').in('application_id', appIds);
                     if (deals) {
                         // Stage priority: pick the deal with the furthest stage for each application
                         var dealStageOrder = { 'Prospect': 1, 'Application Sent': 2, 'Quote Requested': 3, 'Quote sent': 4, 'Info received': 5, 'In Credit': 6, 'Approved': 7, 'Approval sent': 7, 'Docs requested': 8, 'Docs out for signing': 9, 'In funding': 10, 'Funded': 11 };
@@ -24317,6 +24433,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             }
                         });
                     }
+                }
+
+                // Look up vendor names for deals with source_vendor_id
+                var vendorNameMap = {};
+                var vendorIdsToLookup = [];
+                Object.values(dealMap).forEach(function(d) {
+                    if (d.source_vendor_id && !vendorIdsToLookup.includes(d.source_vendor_id)) vendorIdsToLookup.push(d.source_vendor_id);
+                });
+                if (vendorIdsToLookup.length > 0) {
+                    try {
+                        var { data: vendorNames } = await db.from('vendors').select('id, name').in('id', vendorIdsToLookup);
+                        if (vendorNames) vendorNames.forEach(function(v) { vendorNameMap[v.id] = v.name; });
+                    } catch(e) { console.warn('Vendor name lookup:', e); }
                 }
 
                 // Deduplicate — if an outbound record was "Returned" and we have the inbound record, merge them
@@ -24359,6 +24488,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                     // If this matches an outbound record, upgrade that record instead of creating a duplicate
                     var existingOutbound = outboundEmails[emailKey];
+                    // Determine source label: vendor deal or direct referral
+                    var sourceLabel = 'Direct Referral';
+                    if (deal && deal.source_vendor_id && vendorNameMap[deal.source_vendor_id]) {
+                        sourceLabel = 'Vendor - ' + vendorNameMap[deal.source_vendor_id];
+                    }
+
                     if (existingOutbound) {
                         existingOutbound.source = 'linked';
                         existingOutbound.stage = stage;
@@ -24370,6 +24505,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         existingOutbound.inboundApp = app;
                         existingOutbound.isCompleted = stage === 'funded';
                         existingOutbound.needsAction = false;
+                        existingOutbound.sourceLabel = sourceLabel;
                         return;
                     }
 
@@ -24389,6 +24525,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         isCompleted: stage === 'funded',
                         deal: deal,
                         inboundApp: app,
+                        sourceLabel: sourceLabel,
                         raw: app
                     });
                 });
@@ -24507,7 +24644,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 'funded': 'No funded deals yet. Deals show here once they\'re booked!',
                 'archived': 'No archived items.'
             };
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">' + (msgs[filter] || 'No results.') + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">' + (msgs[filter] || 'No results.') + '</td></tr>';
             return;
         }
 
@@ -24590,9 +24727,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 personSubtitle = '<br><span style="font-size:11px;color:#64748B;">' + item.personName + '</span>';
             }
 
+            // Source label with color coding
+            var sourceLabelHtml = '';
+            var sl = item.sourceLabel || 'Direct Referral';
+            if (sl.indexOf('Vendor') === 0) {
+                sourceLabelHtml = '<span style="display:inline-flex;align-items:center;gap:4px;background:#EFF6FF;color:#1D4ED8;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap;"><span style="width:6px;height:6px;border-radius:50%;background:#3B82F6;display:inline-block;"></span>' + sl + '</span>';
+            } else {
+                sourceLabelHtml = '<span style="display:inline-flex;align-items:center;gap:4px;background:#F0FDF4;color:#166534;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap;"><span style="width:6px;height:6px;border-radius:50%;background:#16A34A;display:inline-block;"></span>' + sl + '</span>';
+            }
+
             return '<tr style="' + rowBg + 'border-bottom:1px solid #F1F5F9;">' +
                 '<td style="padding:12px 16px;">' + sourceIcon + '<strong style="color:#0D1E3D;">' + item.clientName + '</strong>' + personSubtitle +
                     (item.email ? '<br><span style="font-size:11px;color:#94A3B8;">' + item.email + '</span>' : '') + '</td>' +
+                '<td style="padding:12px 16px;">' + sourceLabelHtml + '</td>' +
                 '<td style="padding:12px 16px;font-size:13px;">' + item.type + '</td>' +
                 '<td style="padding:12px 16px;">' + amountHtml + '</td>' +
                 '<td style="padding:12px 16px;"><span style="background:' + stageColor + '15;color:' + stageColor + ';padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;">' + item.stageLabel + '</span>' +
