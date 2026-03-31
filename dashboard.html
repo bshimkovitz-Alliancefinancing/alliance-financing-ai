@@ -30676,7 +30676,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             '📎 Attach File' +
             '<input type="file" id="vendorEmailFileInput" style="display:none;" onchange="handleVendorEmailFileSelect(this)" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.csv,.txt,.zip">' +
             '</label>' +
+            '<button type="button" onclick="toggleSystemFilePicker(\'' + vendorId + '\')" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;font-size:12px;color:#475569;cursor:pointer;transition:background 0.2s;font-weight:500;" onmouseover="this.style.background=\'#E2E8F0\'" onmouseout="this.style.background=\'#F1F5F9\'">📁 From System</button>' +
             '<span id="vendorEmailFileName" style="font-size:11px;color:#64748B;"></span>' +
+            '</div>' +
+            '<div id="systemFilePickerContainer" style="display:none;margin-bottom:10px;padding:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">' +
+            '<div style="font-size:11px;font-weight:600;color:#475569;margin-bottom:6px;">Select from uploaded materials:</div>' +
+            '<div id="systemFileList" style="display:flex;flex-direction:column;gap:4px;max-height:150px;overflow-y:auto;">Loading...</div>' +
+            '</div>' +
+            '<div id="systemFileAttached" style="display:none;margin-bottom:10px;padding:8px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;font-size:12px;color:#1E40AF;display:none;align-items:center;gap:6px;">' +
             '</div>' +
             '<div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
             '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;">' +
@@ -30733,6 +30740,188 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var nameSpan = document.getElementById('vendorEmailFileName');
         if (input) input.value = '';
         if (nameSpan) nameSpan.innerHTML = '';
+        // Also clear any system file attachment
+        _selectedSystemFile = null;
+        var sfa = document.getElementById('systemFileAttached');
+        if (sfa) sfa.style.display = 'none';
+    }
+
+    // ── System File Picker (attach files already in the system) ──
+    var _selectedSystemFile = null; // { name, url }
+
+    async function toggleSystemFilePicker(vendorId) {
+        var container = document.getElementById('systemFilePickerContainer');
+        if (!container) return;
+        if (container.style.display !== 'none') {
+            container.style.display = 'none';
+            return;
+        }
+        container.style.display = 'block';
+        var listEl = document.getElementById('systemFileList');
+        if (listEl) listEl.innerHTML = '<div style="font-size:12px;color:#94A3B8;padding:4px;">Loading files...</div>';
+        try {
+            var { data: files } = await db.storage.from('deal-documents').list('vendor-materials/' + vendorId);
+            if (!files || files.length === 0) {
+                if (listEl) listEl.innerHTML = '<div style="font-size:12px;color:#94A3B8;padding:4px;">No files uploaded for this vendor.</div>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < files.length; i++) {
+                var f = files[i];
+                var fPath = 'vendor-materials/' + vendorId + '/' + f.name;
+                var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(fPath, 3600);
+                var fUrl = urlData ? urlData.signedUrl : '';
+                var ext = f.name.split('.').pop().toLowerCase();
+                var icon = ['pdf'].includes(ext) ? '📄' : ['doc','docx'].includes(ext) ? '📝' : ['xls','xlsx'].includes(ext) ? '📊' : '📎';
+                var displayName = f.name.replace(/^\d+_/, '').replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+                var sizeStr = f.metadata && f.metadata.size ? (f.metadata.size / 1024 < 1024 ? Math.round(f.metadata.size / 1024) + ' KB' : (f.metadata.size / 1048576).toFixed(1) + ' MB') : '';
+                html += '<div onclick="selectSystemFile(\'' + displayName.replace(/'/g, "\\'") + '\', \'' + fUrl.replace(/'/g, "\\'") + '\')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;cursor:pointer;font-size:12px;transition:background 0.15s;" onmouseover="this.style.background=\'#E2E8F0\'" onmouseout="this.style.background=\'transparent\'">' +
+                    '<span>' + icon + '</span><span style="font-weight:500;color:#334155;">' + displayName + '</span>' +
+                    (sizeStr ? '<span style="color:#94A3B8;font-size:11px;">' + sizeStr + '</span>' : '') +
+                    '</div>';
+            }
+            if (listEl) listEl.innerHTML = html;
+        } catch(e) {
+            console.warn('System file picker error:', e);
+            if (listEl) listEl.innerHTML = '<div style="font-size:12px;color:#EF4444;">Error loading files.</div>';
+        }
+    }
+
+    function selectSystemFile(fileName, fileUrl) {
+        _selectedSystemFile = { name: fileName, url: fileUrl };
+        // Clear regular file input if any
+        var fileInput = document.getElementById('vendorEmailFileInput');
+        if (fileInput) fileInput.value = '';
+        var nameSpan = document.getElementById('vendorEmailFileName');
+        if (nameSpan) nameSpan.innerHTML = '';
+        // Hide picker, show attached indicator
+        var container = document.getElementById('systemFilePickerContainer');
+        if (container) container.style.display = 'none';
+        var attached = document.getElementById('systemFileAttached');
+        if (attached) {
+            attached.style.display = 'flex';
+            attached.innerHTML = '📁 <strong>' + fileName + '</strong> (from system) <span onclick="clearSystemFile()" style="color:#EF4444;cursor:pointer;font-weight:600;margin-left:6px;" title="Remove">✕</span>';
+        }
+    }
+
+    function clearSystemFile() {
+        _selectedSystemFile = null;
+        var attached = document.getElementById('systemFileAttached');
+        if (attached) attached.style.display = 'none';
+    }
+
+    // ── Quick Email File Modal (from Marketing Materials "Email" button) ──
+    function openEmailFileModal(vendorId, fileName, fileUrl) {
+        var senderEmail = (document.getElementById('userEmailDisplay') || {}).textContent || 'info@alliancefinancing.com';
+        var modalHtml = '<div style="padding:24px;max-width:480px;">' +
+            '<h3 style="margin:0 0 4px;color:var(--navy);font-size:18px;">Email File</h3>' +
+            '<p style="color:#64748B;font-size:13px;margin:0 0 16px;">Send <strong>' + fileName + '</strong> to anyone via email.</p>' +
+            '<div style="margin-bottom:12px;">' +
+            '<label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px;">To <span style="font-weight:400;color:#94A3B8;">(email address)</span></label>' +
+            '<input type="text" id="emailFileTo" placeholder="recipient@example.com" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">' +
+            '</div>' +
+            '<div style="margin-bottom:12px;">' +
+            '<label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px;">CC <span style="font-weight:400;color:#94A3B8;">(optional, comma-separated)</span></label>' +
+            '<input type="text" id="emailFileCC" placeholder="cc@example.com" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">' +
+            '</div>' +
+            '<div style="margin-bottom:12px;">' +
+            '<label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px;">Subject</label>' +
+            '<input type="text" id="emailFileSubject" value="' + fileName + '" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">' +
+            '</div>' +
+            '<div style="margin-bottom:12px;">' +
+            '<label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px;">Message <span style="font-weight:400;color:#94A3B8;">(optional)</span></label>' +
+            '<textarea id="emailFileMessage" placeholder="Add a message..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>' +
+            '</div>' +
+            '<div style="padding:8px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;font-size:12px;color:#1E40AF;margin-bottom:14px;display:flex;align-items:center;gap:6px;">' +
+            '📁 <strong>' + fileName + '</strong> will be included as a download link' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;">' +
+            '<button id="emailFileSendBtn" onclick="sendFileEmail(\'' + vendorId + '\', \'' + fileUrl.replace(/'/g, "\\'") + '\', \'' + fileName.replace(/'/g, "\\'") + '\')" class="btn btn-gold" style="padding:10px 24px;font-size:14px;">Send Email</button>' +
+            '<button onclick="closeModal(\'emailFileModal\')" class="btn btn-secondary" style="padding:10px 24px;font-size:14px;">Cancel</button>' +
+            '</div></div>';
+
+        var modal = document.getElementById('emailFileModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'emailFileModal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10002;';
+            document.body.appendChild(modal);
+        }
+        modal.innerHTML = '<div style="background:white;border-radius:10px;width:90%;max-width:500px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;">' + modalHtml + '</div>';
+        modal.style.display = 'flex';
+        setTimeout(function() { var t = document.getElementById('emailFileTo'); if (t) t.focus(); }, 100);
+    }
+
+    async function sendFileEmail(vendorId, fileUrl, fileName) {
+        var toField = document.getElementById('emailFileTo');
+        var to = toField ? toField.value.trim() : '';
+        if (!to || !to.includes('@')) { showToast('Please enter a valid email address', 'warning'); return; }
+
+        var btn = document.getElementById('emailFileSendBtn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+
+        try {
+            var subject = (document.getElementById('emailFileSubject') || {}).value || fileName;
+            var message = (document.getElementById('emailFileMessage') || {}).value || '';
+            var ccField = (document.getElementById('emailFileCC') || {}).value || '';
+            var ccEmails = ccField ? ccField.split(',').map(function(e) { return e.trim(); }).filter(function(e) { return e.includes('@'); }) : [];
+            var senderName = currentUserName || 'Alliance Financing';
+            var senderEmail = (document.getElementById('userEmailDisplay') || {}).textContent || 'info@alliancefinancing.com';
+
+            var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px 0;">' +
+                '<div style="padding:0 25px;">';
+            if (message) {
+                htmlBody += '<div style="font-size:15px;color:#333;line-height:1.7;white-space:pre-wrap;margin-bottom:20px;">' + message.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') + '</div>';
+            }
+            htmlBody += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px;margin:12px 0;">' +
+                '<div style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:8px;">Attached Document</div>' +
+                '<a href="' + fileUrl + '" target="_blank" style="display:inline-flex;align-items:center;gap:6px;font-size:15px;color:#1E40AF;text-decoration:none;font-weight:500;">📎 ' + fileName + '</a>' +
+                '</div>' +
+                '<div style="margin-top:24px;padding-top:16px;border-top:1px solid #E2E8F0;">' +
+                '<p style="font-size:15px;color:#333;margin:0 0 4px;">Best regards,</p>' +
+                '<p style="font-size:15px;color:#333;font-weight:600;margin:0 0 2px;">' + senderName + '</p>' +
+                '<p style="font-size:13px;color:#64748B;margin:0 0 2px;">Alliance Financing Group Ltd.</p>' +
+                '<p style="font-size:13px;color:#64748B;margin:0;">1-877-660-3660</p>' +
+                '</div></div>' +
+                '<div style="padding:12px 25px;text-align:center;font-size:11px;color:#999;border-top:1px solid #f0f0f0;margin-top:10px;">Alliance Financing Group | alliancefinancing.ai</div></div>';
+
+            await sendEmailViaResend(to, subject, htmlBody, null, senderEmail, ccEmails.length > 0 ? ccEmails : undefined);
+
+            // Log in vendor notes
+            try {
+                var { data: vendor } = await db.from('vendors').select('admin_notes').eq('id', vendorId).single();
+                var notes = [];
+                try { notes = vendor && vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) {}
+                var dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                notes.push({
+                    text: (message ? message + '\n' : '') + '📁 File sent: ' + fileName,
+                    author: senderEmail,
+                    date: dateStr,
+                    type: 'email',
+                    is_email: true,
+                    category: 'General',
+                    email_to: to,
+                    email_cc: ccEmails.join(', '),
+                    email_subject: subject,
+                    visible_to_agent: true,
+                    attachment: { name: fileName, url: fileUrl }
+                });
+                await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
+            } catch(noteErr) { console.warn('File email note logging error:', noteErr); }
+
+            closeModal('emailFileModal');
+            showToast('File emailed to ' + to + '!', 'success');
+
+            // Refresh vendor view if open
+            if (typeof viewVendor === 'function') {
+                try { await viewVendor(vendorId); } catch(e) {}
+            }
+        } catch(err) {
+            console.error('Send file email error:', err);
+            showToast('Failed to send email: ' + (err.message || err), 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Send Email'; }
+        }
     }
 
     async function sendVendorContactEmail(vendorId, contactId, contactName, contactEmail) {
@@ -30758,16 +30947,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var senderEmail = (document.getElementById('userEmailDisplay') || {}).textContent || 'info@alliancefinancing.com';
 
         try {
-            // Upload attachment to Supabase Storage if present (same pattern as Agents & Partners)
+            // Upload attachment to Supabase Storage if present, or use system file
             var attachmentData = null;
-            var fileInput = document.getElementById('vendorEmailFileInput');
-            if (fileInput && fileInput.files[0]) {
-                try {
-                    attachmentData = await uploadCommFile(fileInput.files[0], 'vendor', vendorId);
-                } catch(uploadErr) {
-                    showToast('File upload failed: ' + uploadErr.message, 'error');
-                    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Email'; }
-                    return;
+            if (_selectedSystemFile && _selectedSystemFile.url) {
+                // Use file already in the system (from "From System" picker)
+                attachmentData = { name: _selectedSystemFile.name, url: _selectedSystemFile.url, size: 0, path: '' };
+            } else {
+                var fileInput = document.getElementById('vendorEmailFileInput');
+                if (fileInput && fileInput.files[0]) {
+                    try {
+                        attachmentData = await uploadCommFile(fileInput.files[0], 'vendor', vendorId);
+                    } catch(uploadErr) {
+                        showToast('File upload failed: ' + uploadErr.message, 'error');
+                        if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Email'; }
+                        return;
+                    }
                 }
             }
 
@@ -30839,6 +31033,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             notes.push(noteEntry);
             await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
 
+            _selectedSystemFile = null; // Clear system file selection
             closeModal('vendorEmailModal');
             showToast('Email sent to ' + contactName + '!' + (ccEmails.length > 0 ? ' (CC: ' + ccEmails.length + ')' : ''), 'success');
 
@@ -31076,6 +31271,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             </div>
                         </div>
                         <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-sm" onclick="openEmailFileModal('${vendorId}', '${displayName.replace(/'/g, "\\'")}', '${downloadUrl.replace(/'/g, "\\'")}')" style="background: var(--gold); color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; border: none;">📧 Email</button>
                             <a href="${downloadUrl}" target="_blank" class="btn btn-sm" style="background: var(--navy); color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer;">Download</a>
                             <button class="btn btn-sm" onclick="deleteVendorMaterial('${vendorId}', '${file.name}')" style="background: var(--danger); color: white; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; border: none;">✕</button>
                         </div>
