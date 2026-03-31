@@ -4669,7 +4669,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v57';
+    const DASHBOARD_VERSION = '2026-03-31-v58';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -8855,7 +8855,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 title: agentName + ' added a note on ' + (v.name || 'a vendor'),
                                 detail: n.text ? n.text.substring(0, 80) + (n.text.length > 80 ? '...' : '') : 'View details',
                                 time: noteDate,
-                                action: "viewVendorDetail('" + v.id + "')",
+                                action: "viewVendor('" + v.id + "')",
                                 actionLabel: 'View Vendor',
                                 priority: 3
                             });
@@ -8880,10 +8880,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             iconBg: '#DBEAFE',
                             iconColor: '#1E40AF',
                             title: 'New application from ' + (app.full_name || app.business_name || 'Unknown'),
-                            detail: (app.business_name ? app.business_name + ' · ' : '') + (app.email || ''),
+                            detail: (app.phone || '') + (app.phone && app.email ? ' · ' : '') + (app.email || ''),
                             time: new Date(app.submitted_at),
-                            action: "showPage('inbox')",
-                            actionLabel: 'View Inbox',
+                            action: "viewApplication('" + app.id + "')",
+                            actionLabel: 'View Application',
                             priority: 2
                         });
                     });
@@ -9088,7 +9088,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         for (var i = 0; i < filtered.length; i++) {
             var n = filtered[i];
             var timeStr = '';
-            if (n.time) {
+            if (n.time && !isNaN(n.time.getTime())) {
                 var diff = Date.now() - n.time.getTime();
                 var mins = Math.floor(diff / 60000);
                 var hrs = Math.floor(diff / 3600000);
@@ -9097,14 +9097,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 else if (hrs < 24) timeStr = hrs + 'h ago';
                 else if (days < 7) timeStr = days + 'd ago';
                 else timeStr = n.time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            } else {
+                timeStr = 'Recent';
             }
 
             var borderColor = n.category === 'action' ? '#F59E0B' : '#E2E8F0';
             html += '<div style="background:white;border-radius:10px;border:1px solid ' + borderColor + ';' +
                 (n.category === 'action' ? 'border-left:4px solid #F59E0B;' : '') +
                 'padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:box-shadow 0.15s;position:relative;" ' +
-                'onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'" ' +
-                'onmouseout="this.style.boxShadow=\'none\'" ' +
+                'onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\';this.style.background=\'#F8FAFC\';this.style.transform=\'translateY(-1px)\'" ' +
+                'onmouseout="this.style.boxShadow=\'none\';this.style.background=\'white\';this.style.transform=\'none\'" ' +
                 'onclick="' + (n.action || '') + '">';
 
             // No manual dismiss — notifications clear via action completion
