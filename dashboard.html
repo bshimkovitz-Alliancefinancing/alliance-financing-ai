@@ -4685,7 +4685,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v77';
+    const DASHBOARD_VERSION = '2026-03-31-v78';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -9841,9 +9841,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Archived section at the bottom
             if (archivedLeads.length > 0) {
                 tableHtml += '<div style="padding:12px 20px;background:#F8FAFC;border-top:2px solid #E2E8F0;">';
-                tableHtml += '<button id="vendorLeadsArchiveToggleBtn" onclick="toggleVendorLeadsArchived()" style="background:none;border:1px solid #CBD5E1;color:#64748B;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">Show Archived (' + archivedLeads.length + ')</button>';
+                tableHtml += '<button class="vendor-leads-archive-toggle" onclick="toggleVendorLeadsArchived(this)" style="background:none;border:1px solid #CBD5E1;color:#64748B;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">Show Archived (' + archivedLeads.length + ')</button>';
                 tableHtml += '</div>';
-                tableHtml += '<div id="vendorLeadsArchivedSection" style="display:none;padding:0 20px 16px;">';
+                tableHtml += '<div class="vendor-leads-archived-section" style="display:none;padding:0 20px 16px;">';
                 tableHtml += '<table style="width:100%;border-collapse:collapse;opacity:0.7;">';
                 tableHtml += '<thead><tr>';
                 tableHtml += '<th>Company</th><th>Contact</th><th>Equipment</th>';
@@ -9967,17 +9967,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    // Toggle archived vendor leads section
-    window.toggleVendorLeadsArchived = function() {
-        var sec = document.getElementById('vendorLeadsArchivedSection');
-        var btn = document.getElementById('vendorLeadsArchiveToggleBtn');
-        if (!sec) return;
+    // Toggle archived vendor leads section — finds sibling section relative to the clicked button
+    window.toggleVendorLeadsArchived = function(btn) {
+        if (!btn) return;
+        var wrapper = btn.parentElement;
+        var sec = wrapper ? wrapper.nextElementSibling : null;
+        if (!sec || !sec.classList.contains('vendor-leads-archived-section')) return;
         var isHidden = sec.style.display === 'none';
         sec.style.display = isHidden ? 'block' : 'none';
-        if (btn) {
-            var count = sec.querySelectorAll('tbody tr').length;
-            btn.textContent = isHidden ? 'Hide Archived (' + count + ')' : 'Show Archived (' + count + ')';
-        }
+        var count = sec.querySelectorAll('tbody tr').length;
+        btn.textContent = isHidden ? 'Hide Archived (' + count + ')' : 'Show Archived (' + count + ')';
     };
 
     // Toggle expandable vendor lead detail row
