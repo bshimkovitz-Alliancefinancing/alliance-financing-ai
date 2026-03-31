@@ -871,7 +871,7 @@
                 <span class="nav-icon">📊</span>
                 <span>Dashboard</span>
             </div>
-            <div class="nav-item" onclick="showPage('deals')">
+            <div class="nav-item" id="dealPipelineNav" onclick="showPage('deals')">
                 <span class="nav-icon">📈</span>
                 <span>Deal Pipeline</span>
             </div>
@@ -1095,7 +1095,8 @@
                             <button class="pl-tab" data-filter="inbound" onclick="filterPipeline('inbound')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Client Applied</button>
                             <button class="pl-tab" data-filter="in_progress" onclick="filterPipeline('in_progress')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">In Progress</button>
                             <button class="pl-tab" data-filter="needs_action" onclick="filterPipeline('needs_action')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Needs Action</button>
-                            <button class="pl-tab" data-filter="completed" onclick="filterPipeline('completed')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Completed</button>
+                            <button class="pl-tab" data-filter="funded" onclick="filterPipeline('funded')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Funded</button>
+                            <button class="pl-tab" data-filter="archived" onclick="filterPipeline('archived')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Archived</button>
                         </div>
                         <!-- Admin-only: filter by agent -->
                         <select id="appSentAgentFilter" onchange="loadReferralPipeline()" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;display:none;">
@@ -4685,7 +4686,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v73';
+    const DASHBOARD_VERSION = '2026-03-31-v74';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -5069,8 +5070,9 @@
                 var mtgAgentAllowed = ['Notifications', 'Dashboard', 'Deal Pipeline', 'Application Hub', 'Help & Resources'];
                 item.style.display = mtgAgentAllowed.includes(label) ? 'flex' : 'none';
             } else if (isReferralAgent) {
-                // Referral agents get: Notifications, Dashboard, Deal Pipeline, Application Hub, Vendor Programs, Help
-                var referralAllowed = ['Notifications', 'Dashboard', 'Deal Pipeline', 'Application Hub', 'Vendor Programs', 'Help & Resources'];
+                // Referral agents get: Notifications, Dashboard, Application Hub, Vendor Programs, Help
+                // Deal Pipeline is hidden — everything is unified in the Dashboard
+                var referralAllowed = ['Notifications', 'Dashboard', 'Application Hub', 'Vendor Programs', 'Help & Resources'];
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
             } else {
                 // ISO/other agent views
@@ -14346,7 +14348,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // 8. Returned Applications (clients who completed and submitted their application)
             var { data: returnedApps } = await db.from('applications_sent').select('id').eq('status', 'Returned').limit(50);
             if (returnedApps && returnedApps.length > 0) {
-                alerts.push({ icon: '📥', color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', label: 'Returned Applications', count: returnedApps.length, detail: 'Completed — ready for review', onclick: "filterPipeline('completed');var ps=document.getElementById('referralPipelineSection');if(ps)ps.scrollIntoView({behavior:'smooth',block:'start'});" });
+                alerts.push({ icon: '📥', color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', label: 'Returned Applications', count: returnedApps.length, detail: 'Client applied — in progress', onclick: "filterPipeline('in_progress');var ps=document.getElementById('referralPipelineSection');if(ps)ps.scrollIntoView({behavior:'smooth',block:'start'});" });
             }
 
             // 9. Credit Responses (applications with credit decision pending review)
@@ -24254,8 +24256,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Map sent records to unified format
             sentData.forEach(function(app) {
-                if (app.status === 'Archived') return; // skip archived
-                var isOverdue = ['Sent', 'Follow-Up Needed'].includes(app.status) && app.follow_up_date && new Date(app.follow_up_date) < now;
+                var isArchivedItem = app.status === 'Archived';
+                var isOverdue = !isArchivedItem && ['Sent', 'Follow-Up Needed'].includes(app.status) && app.follow_up_date && new Date(app.follow_up_date) < now;
                 var emailKey = (app.applicant_email || '').toLowerCase();
                 var companyName = emailToCompany[emailKey];
                 var displayName = companyName || app.applicant_name || 'N/A';
@@ -24278,6 +24280,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     needsAction: isOverdue || app.status === 'Follow-Up Needed',
                     isCompleted: app.status === 'Expired',
                     isReturned: app.status === 'Returned',
+                    isArchived: isArchivedItem,
                     raw: app
                 });
             });
@@ -24403,17 +24406,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Update stats cards
             var statsRow = document.getElementById('pipelineStatsRow');
             if (statsRow) {
-                var totalSent = combined.filter(function(c) { return c.source === 'outbound' || c.source === 'linked'; }).length;
-                var totalApplied = combined.filter(function(c) { return c.source === 'inbound' || c.source === 'linked' || c.isReturned; }).length;
-                var totalInProgress = combined.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing', 'received'].includes(c.stage); }).length;
-                var totalNeedsAction = combined.filter(function(c) { return c.needsAction; }).length;
-                var totalFunded = combined.filter(function(c) { return c.stage === 'funded'; }).length;
-                var totalValue = combined.reduce(function(sum, c) { return sum + (c.amount || 0); }, 0);
+                var activeItems = combined.filter(function(c) { return !c.isArchived; });
+                var totalSent = activeItems.filter(function(c) { return c.source === 'outbound' || c.source === 'linked'; }).length;
+                var totalApplied = activeItems.filter(function(c) { return c.source === 'inbound' || c.source === 'linked' || c.isReturned; }).length;
+                var totalInProgress = activeItems.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing', 'received'].includes(c.stage); }).length;
+                var totalNeedsAction = activeItems.filter(function(c) { return c.needsAction; }).length;
+                var totalFunded = activeItems.filter(function(c) { return c.stage === 'funded'; }).length;
+                var totalValue = activeItems.reduce(function(sum, c) { return sum + (c.amount || 0); }, 0);
 
                 statsRow.innerHTML =
                     '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'all\')">' +
                         '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Total Referrals</div>' +
-                        '<div style="font-size:24px;font-weight:700;color:#0D1E3D;margin:4px 0;">' + combined.length + '</div>' +
+                        '<div style="font-size:24px;font-weight:700;color:#0D1E3D;margin:4px 0;">' + activeItems.length + '</div>' +
                         '<div style="font-size:12px;color:#64748B;">' + (totalValue > 0 ? formatCurrency(totalValue) + ' volume' : 'All referrals') + '</div>' +
                     '</div>' +
                     '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'outbound\')">' +
@@ -24436,10 +24440,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         '<div style="font-size:24px;font-weight:700;color:#DC2626;margin:4px 0;">' + totalNeedsAction + '</div>' +
                         '<div style="font-size:12px;color:#64748B;">Overdue / follow-up</div>' +
                     '</div>' : '') +
-                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'completed\')">' +
+                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'funded\')">' +
                         '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#10B981;font-weight:600;">Funded</div>' +
                         '<div style="font-size:24px;font-weight:700;color:#10B981;margin:4px 0;">' + totalFunded + '</div>' +
-                        '<div style="font-size:12px;color:#64748B;">Completed deals</div>' +
+                        '<div style="font-size:12px;color:#64748B;">Booked deals</div>' +
                     '</div>';
             }
 
@@ -24482,8 +24486,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             filtered = _pipelineData.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing', 'received'].includes(c.stage); });
         } else if (filter === 'needs_action') {
             filtered = _pipelineData.filter(function(c) { return c.needsAction; });
-        } else if (filter === 'completed') {
-            filtered = _pipelineData.filter(function(c) { return c.isCompleted || c.stage === 'funded'; });
+        } else if (filter === 'funded') {
+            filtered = _pipelineData.filter(function(c) { return c.stage === 'funded'; });
+        } else if (filter === 'archived') {
+            filtered = _pipelineData.filter(function(c) { return c.isArchived; });
+        }
+
+        // For non-archived filters, exclude archived items
+        if (filter !== 'archived') {
+            filtered = filtered.filter(function(c) { return !c.isArchived; });
         }
 
         if (filtered.length === 0) {
@@ -24493,7 +24504,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 'inbound': 'No clients have applied through your referral link yet.',
                 'in_progress': 'No referrals currently in the pipeline.',
                 'needs_action': 'Nothing needs your attention right now.',
-                'completed': 'No funded deals yet.'
+                'funded': 'No funded deals yet. Deals show here once they\'re booked!',
+                'archived': 'No archived items.'
             };
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state">' + (msgs[filter] || 'No results.') + '</td></tr>';
             return;
