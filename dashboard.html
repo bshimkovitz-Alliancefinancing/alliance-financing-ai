@@ -4675,7 +4675,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v64';
+    const DASHBOARD_VERSION = '2026-03-31-v65';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -23949,15 +23949,33 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         // Search deals for matching company names
                         for (var di = 0; di < domainKeywords.length; di++) {
                             var dk = domainKeywords[di];
-                            try {
-                                var { data: dkDeals } = await db.from('deals').select('company_name').ilike('company_name', '%' + dk + '%').limit(1);
-                                if (dkDeals && dkDeals[0] && dkDeals[0].company_name) {
-                                    emailToCompany[domainMap[dk]] = dkDeals[0].company_name;
+                            // Try full domain first, then shorter prefix (e.g. "advantechsupplychain" -> "advantech")
+                            var searchTerms = [dk];
+                            // Split camelCase or extract first 6+ char word-like prefix
+                            if (dk.length > 8) {
+                                // Try common word boundaries: supply, tech, group, corp, inc, solutions, etc.
+                                var prefixMatch = dk.match(/^(.{4,}?)(supply|tech|group|corp|inc|sol|sys|net|dev|web|app|data|soft|digital|media|global|int|services)/i);
+                                if (prefixMatch) {
+                                    searchTerms.push(prefixMatch[1]);
                                 } else {
-                                    // Try clients table
-                                    var { data: dkClients } = await db.from('clients').select('company_name').ilike('company_name', '%' + dk + '%').limit(1);
-                                    if (dkClients && dkClients[0] && dkClients[0].company_name) {
-                                        emailToCompany[domainMap[dk]] = dkClients[0].company_name;
+                                    // Just try first 6 characters as a prefix
+                                    searchTerms.push(dk.substring(0, Math.min(8, Math.ceil(dk.length / 2))));
+                                }
+                            }
+                            try {
+                                var found = false;
+                                for (var si = 0; si < searchTerms.length && !found; si++) {
+                                    var term = searchTerms[si];
+                                    var { data: dkDeals } = await db.from('deals').select('company_name').ilike('company_name', '%' + term + '%').limit(1);
+                                    if (dkDeals && dkDeals[0] && dkDeals[0].company_name) {
+                                        emailToCompany[domainMap[dk]] = dkDeals[0].company_name;
+                                        found = true;
+                                    } else {
+                                        var { data: dkClients } = await db.from('clients').select('company_name').ilike('company_name', '%' + term + '%').limit(1);
+                                        if (dkClients && dkClients[0] && dkClients[0].company_name) {
+                                            emailToCompany[domainMap[dk]] = dkClients[0].company_name;
+                                            found = true;
+                                        }
                                     }
                                 }
                             } catch(e) {}
