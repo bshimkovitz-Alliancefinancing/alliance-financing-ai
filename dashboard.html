@@ -25,10 +25,10 @@
         }
 
         /* Notification card hover & dismiss */
-        .notif-card { transition: background 0.15s, box-shadow 0.15s, transform 0.15s; }
-        .notif-card:hover { background: #F8FAFC !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transform: translateY(-1px); }
-        .notif-card .notif-dismiss { transition: color 0.15s, background 0.15s; }
-        .notif-card .notif-dismiss:hover { color: #EF4444 !important; background: #FEE2E2 !important; }
+        .notif-card { transition: background 0.15s, box-shadow 0.15s; }
+        .notif-card:hover { background: #F8FAFC !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .notif-card .notif-dismiss { transition: all 0.15s; }
+        .notif-card .notif-dismiss:hover { color: #10B981 !important; border-color: #10B981 !important; background: #ECFDF5 !important; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Arial', sans-serif;
@@ -1190,8 +1190,8 @@
                             <p id="notifSummary" style="margin:0;color:rgba(255,255,255,0.75);font-size:14px;">Checking your notifications...</p>
                         </div>
                         <div style="display:flex;gap:8px;">
+                            <button onclick="markAllNotificationsRead()" class="btn btn-sm" style="font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:7px 14px;">✓ Clear All</button>
                             <button onclick="loadNotifications()" class="btn btn-sm" style="font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:7px 14px;">↻ Refresh</button>
-                            <!-- Mark All Read removed — notifications dismiss via action completion -->
                         </div>
                     </div>
                 </div>
@@ -4675,7 +4675,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v60';
+    const DASHBOARD_VERSION = '2026-03-31-v61';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -9111,28 +9111,28 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var borderColor = n.category === 'action' ? '#F59E0B' : '#E2E8F0';
             html += '<div class="notif-card" style="background:white;border-radius:10px;border:1px solid ' + borderColor + ';' +
                 (n.category === 'action' ? 'border-left:4px solid #F59E0B;' : '') +
-                'padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;position:relative;" ' +
-                'onclick="' + (n.action || '') + '">';
-
-            // Dismiss button — always visible, subtle
-            html += '<div class="notif-dismiss" onclick="dismissNotification(' + i + ', event)" title="Dismiss" style="position:absolute;top:8px;right:10px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;color:#CBD5E1;cursor:pointer;z-index:2;">×</div>';
+                'padding:14px 18px;display:flex;align-items:center;gap:14px;position:relative;">';
 
             // Icon
             html += '<div style="min-width:40px;height:40px;border-radius:10px;background:' + n.iconBg + ';display:flex;align-items:center;justify-content:center;font-size:20px;">' + n.icon + '</div>';
 
-            // Content
-            html += '<div style="flex:1;min-width:0;">';
+            // Content — clickable area
+            html += '<div style="flex:1;min-width:0;cursor:pointer;" onclick="' + (n.action || '') + '">';
             html += '<div style="font-weight:600;color:#0D1E3D;font-size:14px;line-height:1.4;">' + n.title + '</div>';
             if (n.detail) html += '<div style="color:#64748B;font-size:12px;margin-top:2px;line-height:1.4;">' + n.detail + '</div>';
             html += '</div>';
 
-            // Time + action
-            html += '<div style="text-align:right;min-width:80px;">';
+            // Time + action link
+            html += '<div style="text-align:right;min-width:80px;cursor:pointer;" onclick="' + (n.action || '') + '">';
             html += '<div style="font-size:11px;color:#94A3B8;margin-bottom:4px;">' + timeStr + '</div>';
             if (n.actionLabel) {
                 html += '<span style="font-size:11px;font-weight:600;color:#2563EB;">' + n.actionLabel + ' →</span>';
             }
             html += '</div>';
+
+            // Done button — clear and separate
+            html += '<div class="notif-dismiss" onclick="dismissNotification(' + i + ', event)" title="Mark as done" ' +
+                'style="min-width:28px;height:28px;border-radius:50%;border:2px solid #CBD5E1;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-left:4px;z-index:2;font-size:14px;color:#CBD5E1;">✓</div>';
 
             html += '</div>';
         }
