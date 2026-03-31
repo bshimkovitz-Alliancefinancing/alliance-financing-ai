@@ -4685,7 +4685,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v72';
+    const DASHBOARD_VERSION = '2026-03-31-v73';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -14878,7 +14878,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                     // Also find applications from the agent's sent records
                     try {
-                        var { data: sentRecords } = await db.from('applications_sent').select('applicant_email').eq('sent_by', currentUserEmail);
+                        var { data: sentRecords } = await db.from('applications_sent').select('applicant_email').eq('sent_by', currentUserName);
                         if (sentRecords && sentRecords.length > 0) {
                             var sentEmails = sentRecords.map(function(s) { return s.applicant_email; }).filter(Boolean);
                             if (sentEmails.length > 0) {
@@ -24553,10 +24553,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<option value="Returned"' + (appRaw.status === 'Returned' ? ' selected' : '') + '>Returned</option>' +
                     '<option value="Expired"' + (appRaw.status === 'Expired' ? ' selected' : '') + '>Expired</option>' +
                 '</select>';
-            } else if (item.source === 'outbound' && (item.isCompleted || item.isReturned || item.stageLabel === 'Returned')) {
+            } else if (item.source === 'outbound' && (item.isReturned || item.stageLabel === 'Returned')) {
                 // Returned = in credit, managed by credit team. Show locked status + archive option
                 actionHtml = '<span style="padding:4px 10px;background:#10B98115;color:#059669;border:1px solid #10B981;border-radius:6px;font-size:11px;font-weight:600;display:inline-block;">Returned</span> ' +
                     '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;margin-left:4px;">Archive</button>';
+            } else if (item.source === 'outbound' && item.isCompleted) {
+                // Expired/completed — just show archive
+                actionHtml = '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">Archive</button>';
             }
             // View button: use inbound app ID if available, otherwise search by email
             if (item.inboundApp && item.inboundApp.id) {
