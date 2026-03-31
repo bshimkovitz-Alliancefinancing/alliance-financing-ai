@@ -1134,15 +1134,11 @@
                             <button onclick="closeQuickSendModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748B;">&times;</button>
                         </div>
                         <div style="padding:24px;">
-                            <p style="font-size:14px;color:#64748B;margin:0 0 20px;">Send a branded application form to your client, or share your landing page.</p>
+                            <p style="font-size:14px;color:#64748B;margin:0 0 20px;">Send your branded application link to a client via email.</p>
                             <div style="display:flex;flex-direction:column;gap:12px;">
                                 <button onclick="closeQuickSendModal();openSendApplicationModalWithRef(document.getElementById('agentReferralSlug')?.textContent || agentProfile?.referral_slug || '')" class="btn" style="padding:14px 20px;background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;justify-content:center;">
                                     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7L12 13L2 7"/></svg>
-                                    Send Application Form
-                                </button>
-                                <button onclick="closeQuickSendModal();openSendApplicationModalWithRef(document.getElementById('agentReferralSlug')?.textContent || agentProfile?.referral_slug || '');setTimeout(function(){selectSendAppType('general')},100);" class="btn" style="padding:14px 20px;background:#F8FAFC;color:#0D1E3D;border:1px solid #E2E8F0;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;justify-content:center;">
-                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-                                    Send Landing Page Link
+                                    Send Application
                                 </button>
                             </div>
                             <div style="margin-top:20px;padding:16px;background:#F0F9FF;border-radius:10px;border:1px solid #BAE6FD;">
@@ -4675,7 +4671,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v67';
+    const DASHBOARD_VERSION = '2026-03-31-v68';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -24053,7 +24049,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     var { data: deals } = await db.from('deals').select('id, deal_number, company_name, deal_amount, status, application_id').in('application_id', appIds);
                     if (deals) {
                         // Stage priority: pick the deal with the furthest stage for each application
-                        var dealStageOrder = { 'Prospect': 1, 'Quote Sent': 2, 'Info Received': 3, 'In Credit': 4, 'Approved': 5, 'Approval sent': 5, 'Docs requested': 6, 'Docs out for signing': 7, 'In funding': 8, 'Funded': 9 };
+                        var dealStageOrder = { 'Prospect': 1, 'Application Sent': 2, 'Quote Requested': 3, 'Quote sent': 4, 'Info received': 5, 'In Credit': 6, 'Approved': 7, 'Approval sent': 7, 'Docs requested': 8, 'Docs out for signing': 9, 'In funding': 10, 'Funded': 11 };
                         deals.forEach(function(d) {
                             var existing = dealMap[d.application_id];
                             if (!existing || (dealStageOrder[d.status] || 0) > (dealStageOrder[existing.status] || 0)) {
@@ -24267,6 +24263,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var progressHtml = '';
             if (item.deal || item.inboundApp || item.stage === 'applied') {
                 var stage = item.stage;
+                // Map outbound 'applied' (Returned) to 'received' for the progress bar
+                if (stage === 'applied') stage = 'received';
                 progressHtml = buildProgressBar(stage);
             } else {
                 // Outbound-only: simple step indicator
@@ -25539,8 +25537,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '</div></div>';
         }
 
-        // If agent view and not yet submitted — show the Send to Credit section
+        // If agent view and not yet submitted — hide the section (agents don't manage credit submissions)
         if (isAgentView) {
+            return '';
+        }
+
+        // Legacy agent Send to Credit form (disabled)
+        if (false) {
             // Only count docs the agent can see (their uploads + shared docs)
             var agentDocs = (documents || []).filter(function(doc) {
                 return doc.visible_to_agent === true || doc.uploaded_by === currentUserId;
