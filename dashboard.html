@@ -4685,7 +4685,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v70';
+    const DASHBOARD_VERSION = '2026-03-31-v71';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -23867,8 +23867,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 // Action buttons based on status
                 var actionHtml = '';
-                if (['Returned', 'Expired'].includes(app.status)) {
-                    // Completed/expired — show Archive button
+                if (app.status === 'Returned') {
+                    // Returned = in credit, managed by credit team. Show locked status + archive
+                    actionHtml = '<span style="padding:4px 10px;background:#10B98115;color:#059669;border:1px solid #10B981;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;">Returned</span> ' +
+                        '<button onclick="archiveAppSent(\'' + app.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;margin-left:4px;">Archive</button>';
+                } else if (app.status === 'Expired') {
+                    // Expired — show Archive button
                     actionHtml = '<button onclick="archiveAppSent(\'' + app.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">Archive</button>';
                 } else if (app.status === 'Archived') {
                     // Archived — show Restore button
@@ -24399,7 +24403,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Actions
             var actionHtml = '';
-            if (item.source === 'outbound' && !item.isCompleted) {
+            if (item.source === 'outbound' && !item.isCompleted && item.stageLabel !== 'Returned' && item.stage !== 'received') {
                 var appRaw = item.raw;
                 if (item.isOverdue) {
                     actionHtml += '<button onclick="sendFollowUpEmail(\'' + appRaw.id + '\', \'' + (appRaw.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.application_type || '').replace(/'/g, "\\'") + '\')" style="padding:5px 12px;background:#F59E0B;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">Follow Up</button> ';
@@ -24411,8 +24415,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<option value="Returned"' + (appRaw.status === 'Returned' ? ' selected' : '') + '>Returned</option>' +
                     '<option value="Expired"' + (appRaw.status === 'Expired' ? ' selected' : '') + '>Expired</option>' +
                 '</select>';
-            } else if (item.source === 'outbound' && (item.isCompleted || item.isReturned)) {
-                actionHtml = '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">Archive</button>';
+            } else if (item.source === 'outbound' && (item.isCompleted || item.isReturned || item.stageLabel === 'Returned')) {
+                // Returned = in credit, managed by credit team. Show locked status + archive option
+                actionHtml = '<span style="padding:4px 10px;background:#10B98115;color:#059669;border:1px solid #10B981;border-radius:6px;font-size:11px;font-weight:600;display:inline-block;">Returned</span> ' +
+                    '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;margin-left:4px;">Archive</button>';
             }
             // View button: use inbound app ID if available, otherwise search by email
             if (item.inboundApp && item.inboundApp.id) {
@@ -24514,7 +24520,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
-            // 3. Try finding a deal directly by company name matching the email domain
+            // 3. Try finding a deal by company name, then open its linked application
             if (domainName && domainName.length > 2) {
                 var { data: deals } = await db.from('deals')
                     .select('id, company_name, application_id')
@@ -24522,9 +24528,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     .order('date_submitted', { ascending: false })
                     .limit(3);
                 if (deals && deals.length > 0) {
-                    // Found a matching deal — open it directly
-                    viewDeal(deals[0].id);
-                    return;
+                    // If the deal has a linked application, open Application Details
+                    if (deals[0].application_id) {
+                        var { data: linkedApp } = await db.from('applications')
+                            .select('id')
+                            .eq('application_id', deals[0].application_id)
+                            .limit(1);
+                        if (linkedApp && linkedApp.length > 0) {
+                            viewApplication(linkedApp[0].id);
+                            return;
+                        }
+                    }
+                    // Try finding application by the deal's company name
+                    var { data: compApps } = await db.from('applications')
+                        .select('id, application_id, full_name, business_name, email, status, submitted_at, form_type')
+                        .ilike('business_name', '%' + deals[0].company_name + '%')
+                        .order('submitted_at', { ascending: false })
+                        .limit(3);
+                    if (compApps && compApps.length > 0) {
+                        viewApplication(compApps[0].id);
+                        return;
+                    }
                 }
             }
 
