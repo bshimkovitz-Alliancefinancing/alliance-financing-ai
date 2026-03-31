@@ -1148,6 +1148,8 @@
                     <button class="notif-filter-btn" data-filter="applications" onclick="filterNotifications('applications')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Applications</button>
                     <button class="notif-filter-btn" data-filter="vendor_note" onclick="filterNotifications('vendor_note')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Vendors</button>
                     <button class="notif-filter-btn" data-filter="agent_vendor_note" onclick="filterNotifications('agent_vendor_note')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Agent Notes</button>
+                    <button class="notif-filter-btn" data-filter="inquiry" onclick="filterNotifications('inquiry')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Inquiries</button>
+                    <button class="notif-filter-btn" data-filter="pending_agent" onclick="filterNotifications('pending_agent')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Pending Agents</button>
                 </div>
                 <div id="notificationsList" style="display:flex;flex-direction:column;gap:8px;">
                     <div style="text-align:center;padding:40px;color:#94A3B8;font-size:14px;">Loading notifications...</div>
@@ -8928,6 +8930,152 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
         } catch(e) { console.warn('Notifications: agent vendor notes load error', e); }
 
+        // 8. New website inquiries — applications + contact submissions (admin only, last 7 days)
+        try {
+            if (isAdmin) {
+                var sevenDaysAgoInbox = new Date(Date.now() - 7 * 86400000).toISOString();
+                var { data: recentApps } = await db.from('applications').select('id, full_name, email, submitted_at, status, business_name').gte('submitted_at', sevenDaysAgoInbox).order('submitted_at', { ascending: false });
+                if (recentApps) {
+                    recentApps.forEach(function(app) {
+                        if (app.status === 'Moved to Pipeline' || app.status === 'Archived') return;
+                        notifications.push({
+                            type: 'inquiry',
+                            category: 'action',
+                            icon: '📥',
+                            iconBg: '#DBEAFE',
+                            iconColor: '#1E40AF',
+                            title: 'New application from ' + (app.full_name || app.business_name || 'Unknown'),
+                            detail: (app.business_name ? app.business_name + ' · ' : '') + (app.email || ''),
+                            time: new Date(app.submitted_at),
+                            action: "showPage('inbox')",
+                            actionLabel: 'View Inbox',
+                            priority: 2
+                        });
+                    });
+                }
+                var { data: recentContacts } = await db.from('contact_submissions').select('id, name, email, submitted_at, status, message').gte('submitted_at', sevenDaysAgoInbox).order('submitted_at', { ascending: false });
+                if (recentContacts) {
+                    recentContacts.forEach(function(c) {
+                        if (c.status === 'Archived' || c.status === 'Moved to Pipeline') return;
+                        notifications.push({
+                            type: 'inquiry',
+                            category: 'action',
+                            icon: '💬',
+                            iconBg: '#E0E7FF',
+                            iconColor: '#4338CA',
+                            title: 'Contact form submission from ' + (c.name || 'Unknown'),
+                            detail: c.message ? c.message.substring(0, 80) + (c.message.length > 80 ? '...' : '') : (c.email || ''),
+                            time: new Date(c.submitted_at),
+                            action: "showPage('inbox')",
+                            actionLabel: 'View Inbox',
+                            priority: 2
+                        });
+                    });
+                }
+            }
+        } catch(e) { console.warn('Notifications: inbox inquiries load error', e); }
+
+        // 9. Pending agents not yet active (admin only)
+        try {
+            if (isAdmin) {
+                var { data: pendingAgents } = await db.from('users').select('id, full_name, email, created_at, status').eq('role', 'agent').in('status', ['Invited', 'Pending']);
+                if (pendingAgents) {
+                    pendingAgents.forEach(function(a) {
+                        var createdAt = a.created_at ? new Date(a.created_at) : new Date();
+                        var daysAgo = Math.floor((Date.now() - createdAt.getTime()) / 86400000);
+                        notifications.push({
+                            type: 'pending_agent',
+                            category: daysAgo >= 3 ? 'action' : 'info',
+                            icon: '👤',
+                            iconBg: daysAgo >= 3 ? '#FEF2F2' : '#FEF3C7',
+                            iconColor: daysAgo >= 3 ? '#DC2626' : '#D97706',
+                            title: (a.full_name || a.email || 'Agent') + ' — pending activation',
+                            detail: 'Invited ' + (daysAgo === 0 ? 'today' : daysAgo + ' day' + (daysAgo !== 1 ? 's' : '') + ' ago') + ' · Status: ' + (a.status || 'Invited'),
+                            time: createdAt,
+                            action: "showPage('agents')",
+                            actionLabel: 'View Agents',
+                            priority: daysAgo >= 3 ? 1 : 3
+                        });
+                    });
+                }
+            }
+        } catch(e) { console.warn('Notifications: pending agents load error', e); }
+
+        // 10. Agent deal notes visible to admin (from_agent notes on deals, last 7 days)
+        try {
+            if (isAdmin) {
+                var sevenDaysAgoDeal = Date.now() - 7 * 86400000;
+                var { data: recentDeals } = await db.from('deals').select('id, company_name, notes, source_agent_id').not('notes', 'is', null).order('updated_at', { ascending: false }).limit(100);
+                if (recentDeals) {
+                    recentDeals.forEach(function(d) {
+                        var dNotes = [];
+                        try { dNotes = d.notes ? JSON.parse(d.notes) : []; } catch(e) {}
+                        dNotes.forEach(function(n) {
+                            if (!n.author) return;
+                            // Only show notes from agents (not admin emails like bernie@alliancefinancing.com)
+                            var isAdminAuthor = n.author && (n.author.includes('alliancefinancing.com') || n.author.includes('alliance'));
+                            if (isAdminAuthor) return;
+                            var noteDate = n.date ? new Date(n.date) : null;
+                            if (!noteDate || noteDate.getTime() < sevenDaysAgoDeal) return;
+                            notifications.push({
+                                type: 'agent_deal_note',
+                                category: 'info',
+                                icon: '📝',
+                                iconBg: '#DBEAFE',
+                                iconColor: '#1E40AF',
+                                title: (n.author || 'Agent') + ' noted on ' + (d.company_name || 'a deal'),
+                                detail: n.text ? n.text.substring(0, 80) + (n.text.length > 80 ? '...' : '') : 'View details',
+                                time: noteDate,
+                                action: "viewDeal('" + d.id + "')",
+                                actionLabel: 'View Deal',
+                                priority: 3
+                            });
+                        });
+                    });
+                }
+            }
+        } catch(e) { console.warn('Notifications: agent deal notes load error', e); }
+
+        // 11. Deal notes from admin visible to agent (visible_to_agent: true, not from_agent)
+        try {
+            if (!isAdmin) {
+                var sevenDaysAgoDealAgent = Date.now() - 7 * 86400000;
+                var agentDealsQuery = db.from('deals').select('id, company_name, notes, source_agent_id').not('notes', 'is', null);
+                if (!_hasSubAgents) agentDealsQuery = agentDealsQuery.eq('source_agent_id', currentUserId);
+                var { data: agentDeals } = await agentDealsQuery;
+                if (agentDeals) {
+                    if (_hasSubAgents) {
+                        agentDeals = agentDeals.filter(function(d) { return _notifAgentSet[d.source_agent_id]; });
+                    }
+                    agentDeals.forEach(function(d) {
+                        var dNotes = [];
+                        try { dNotes = d.notes ? JSON.parse(d.notes) : []; } catch(e) {}
+                        dNotes.forEach(function(n) {
+                            if (!n.visible_to_agent) return;
+                            // Only show notes FROM admin (has alliancefinancing.com email)
+                            var isAdminAuthor = n.author && (n.author.includes('alliancefinancing.com') || n.author.includes('alliance'));
+                            if (!isAdminAuthor) return;
+                            var noteDate = n.date ? new Date(n.date) : null;
+                            if (!noteDate || noteDate.getTime() < sevenDaysAgoDealAgent) return;
+                            notifications.push({
+                                type: 'deal_note',
+                                category: 'info',
+                                icon: '📋',
+                                iconBg: '#FEF3C7',
+                                iconColor: '#92400E',
+                                title: 'New note on ' + (d.company_name || 'your deal'),
+                                detail: n.text ? n.text.substring(0, 80) + (n.text.length > 80 ? '...' : '') : 'View details',
+                                time: noteDate,
+                                action: "viewDeal('" + d.id + "')",
+                                actionLabel: 'View Deal',
+                                priority: 2
+                            });
+                        });
+                    });
+                }
+            }
+        } catch(e) { console.warn('Notifications: deal notes for agent load error', e); }
+
         // Sort: priority first, then newest first
         notifications.sort(function(a, b) {
             if (a.priority !== b.priority) return a.priority - b.priority;
@@ -12600,9 +12748,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // Agent: Add note to vendor (visible to admin)
+    var _agentNoteSubmitting = false;
     async function agentAddVendorNote(vendorId) {
+        if (_agentNoteSubmitting) return; // prevent double-click
         const noteText = document.getElementById('agentVendorNoteText').value.trim();
         if (!noteText) { showToast('Please enter a note first', 'warning'); return; }
+        _agentNoteSubmitting = true;
+        // Disable button and clear textarea immediately
+        var noteBtn = document.querySelector('[onclick*="agentAddVendorNote"]');
+        if (noteBtn) { noteBtn.disabled = true; noteBtn.textContent = 'Sending...'; }
+        var noteTextarea = document.getElementById('agentVendorNoteText');
+        if (noteTextarea) noteTextarea.value = '';
         try {
             const { data: vendor, error: fetchErr } = await db.from('vendors').select('admin_notes, name').eq('id', vendorId).single();
             if (fetchErr) throw fetchErr;
@@ -12639,6 +12795,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch(err) {
             console.error('Agent add vendor note error:', err);
             showToast('Failed to add note: ' + (err.message || err), 'error');
+        } finally {
+            _agentNoteSubmitting = false;
+            if (noteBtn) { noteBtn.disabled = false; noteBtn.textContent = 'Send Note'; }
         }
     }
 
