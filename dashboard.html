@@ -4675,7 +4675,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v66';
+    const DASHBOARD_VERSION = '2026-03-31-v67';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -13321,6 +13321,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // ============================================
     async function loadReferralDashboard() {
         try {
+            // Ensure agentProfile is loaded (needed for Send Application modal, referral ID, etc.)
+            if (!agentProfile && currentUserId) {
+                try {
+                    var { data: _ap } = await db.from('users').select('id, full_name, email, phone, referral_slug').eq('id', currentUserId).single();
+                    if (_ap) agentProfile = _ap;
+                } catch(e) {}
+            }
+
             // Load this agent's deals for pipeline stats
             var { data: myDeals, error: dealsErr } = await db.from('deals')
                 .select('id, deal_number, company_name, deal_amount, status, is_archived, alliance_fee')
