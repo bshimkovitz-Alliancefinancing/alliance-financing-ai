@@ -4675,7 +4675,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v63';
+    const DASHBOARD_VERSION = '2026-03-31-v64';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -23905,14 +23905,79 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
+            // Build company name lookup for outbound records
+            // Try to find company names from: inbound applications (business_name) or deals (company_name) by matching email
+            var outboundEmails = sentData.filter(function(a) { return a.applicant_email; }).map(function(a) { return a.applicant_email.toLowerCase(); });
+            var emailToCompany = {};
+            if (outboundEmails.length > 0) {
+                try {
+                    var { data: matchedApps } = await db.from('applications').select('email, business_name, full_name').in('email', outboundEmails);
+                    if (matchedApps) matchedApps.forEach(function(a) {
+                        var biz = a.business_name;
+                        if (biz && biz !== a.full_name && !/^\d+$/.test(biz)) {
+                            emailToCompany[a.email.toLowerCase()] = biz;
+                        }
+                    });
+                    // Also check deals linked to those applications
+                    var { data: matchedAppIds } = await db.from('applications').select('id, email').in('email', outboundEmails);
+                    if (matchedAppIds && matchedAppIds.length > 0) {
+                        var mAppIds = matchedAppIds.map(function(a) { return a.id; });
+                        var emailById = {};
+                        matchedAppIds.forEach(function(a) { emailById[a.id] = a.email.toLowerCase(); });
+                        var { data: mDeals } = await db.from('deals').select('application_id, company_name').in('application_id', mAppIds);
+                        if (mDeals) mDeals.forEach(function(d) {
+                            var em = emailById[d.application_id];
+                            if (em && d.company_name && !emailToCompany[em]) emailToCompany[em] = d.company_name;
+                        });
+                    }
+                    // Fallback: for emails still without a company, try matching by email domain against deals and clients
+                    var unmatchedEmails = outboundEmails.filter(function(e) { return !emailToCompany[e]; });
+                    if (unmatchedEmails.length > 0) {
+                        // Extract unique domain keywords (strip common domains)
+                        var commonDomains = ['gmail', 'yahoo', 'hotmail', 'outlook', 'icloud', 'aol', 'live', 'me', 'mac', 'msn'];
+                        var domainMap = {}; // domainKeyword -> email
+                        unmatchedEmails.forEach(function(em) {
+                            var parts = em.split('@');
+                            if (parts.length === 2) {
+                                var domain = parts[1].split('.')[0].toLowerCase();
+                                if (!commonDomains.includes(domain) && domain.length > 2) {
+                                    domainMap[domain] = em;
+                                }
+                            }
+                        });
+                        var domainKeywords = Object.keys(domainMap);
+                        // Search deals for matching company names
+                        for (var di = 0; di < domainKeywords.length; di++) {
+                            var dk = domainKeywords[di];
+                            try {
+                                var { data: dkDeals } = await db.from('deals').select('company_name').ilike('company_name', '%' + dk + '%').limit(1);
+                                if (dkDeals && dkDeals[0] && dkDeals[0].company_name) {
+                                    emailToCompany[domainMap[dk]] = dkDeals[0].company_name;
+                                } else {
+                                    // Try clients table
+                                    var { data: dkClients } = await db.from('clients').select('company_name').ilike('company_name', '%' + dk + '%').limit(1);
+                                    if (dkClients && dkClients[0] && dkClients[0].company_name) {
+                                        emailToCompany[domainMap[dk]] = dkClients[0].company_name;
+                                    }
+                                }
+                            } catch(e) {}
+                        }
+                    }
+                } catch(e) { console.warn('Company lookup for outbound:', e); }
+            }
+
             // Map sent records to unified format
             sentData.forEach(function(app) {
                 if (app.status === 'Archived') return; // skip archived
                 var isOverdue = ['Sent', 'Follow-Up Needed'].includes(app.status) && app.follow_up_date && new Date(app.follow_up_date) < now;
+                var emailKey = (app.applicant_email || '').toLowerCase();
+                var companyName = emailToCompany[emailKey];
+                var displayName = companyName || app.applicant_name || 'N/A';
                 combined.push({
                     id: app.id,
                     source: 'outbound',
-                    clientName: app.applicant_name || 'N/A',
+                    clientName: displayName,
+                    personName: app.applicant_name || null,
                     email: app.applicant_email || '',
                     type: app.application_type || '—',
                     amount: null,
@@ -24212,6 +24277,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var personSubtitle = '';
             if (item.inboundApp && item.inboundApp.full_name && item.clientName !== item.inboundApp.full_name) {
                 personSubtitle = '<br><span style="font-size:11px;color:#64748B;">' + item.inboundApp.full_name + '</span>';
+            } else if (item.personName && item.clientName !== item.personName) {
+                personSubtitle = '<br><span style="font-size:11px;color:#64748B;">' + item.personName + '</span>';
             }
 
             return '<tr style="' + rowBg + 'border-bottom:1px solid #F1F5F9;">' +
