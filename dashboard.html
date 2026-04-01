@@ -1947,7 +1947,7 @@
                         </div>
                         <div style="border-top: 1px solid #F1F5F9; padding-top: 20px; margin-top: 20px;">
                             <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Submit a New Vendor Program</label>
-                            <span style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 14px;">Register a vendor or equipment supplier you work with. Once submitted, Alliance will review and process the vendor for approval. You can then send them the full vendor application form.</span>
+                            <span style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 14px;">Register a vendor or equipment supplier you work with. After submitting, you'll have the option to send the vendor application form directly to your contact. Alliance will then review and process the vendor for approval.</span>
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <button onclick="openAddVendorModal()" class="btn btn-gold btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px;">
                                     <span style="font-size: 16px;">🏢</span> + Submit Vendor
@@ -4716,7 +4716,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-01-v89';
+    const DASHBOARD_VERSION = '2026-04-01-v91';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -10169,6 +10169,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // ============================================
 
     async function promoteToVendor(leadId) {
+        // Role-based access control: only admin, super_admin, and ISO agents can promote inquiries
+        var promotionAllowedRoles = ['admin', 'super_admin'];
+        var promotionAllowedTypes = ['super_agent', 'mortgage_broker'];
+        if (!promotionAllowedRoles.includes(currentUserRole) && !promotionAllowedTypes.includes(currentAgentType)) {
+            alert('Permission denied: Only administrators and ISO agents can set up vendors.');
+            return;
+        }
+
         if (!confirm('This will create a new vendor record and mark this inquiry as Converted. The vendor will then need to complete the full application.\n\nProceed?')) return;
 
         try {
