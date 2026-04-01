@@ -4717,7 +4717,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-01-v96';
+    const DASHBOARD_VERSION = '2026-04-01-v97';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -28892,6 +28892,61 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     return;
                 }
             }
+
+            // Agent type change: confirmation prompt and audit log
+            if (field === 'agent_type') {
+                var { data: agentBefore } = await db.from('users').select('full_name, agent_type, notes').eq('id', agentId).single();
+                if (!agentBefore) throw new Error('Agent not found');
+
+                var typeLabels = { 'super_agent': 'ISO Partner', 'referring_agent': 'Referral Partner', 'vendor_program': 'Vendor Program', 'vendor_salesperson': 'Vendor Salesperson', 'mortgage_broker': 'Mortgage Broker', 'mortgage_agent': 'Mortgage Agent', 'syndication_desk': 'Syndication Desk', 'salesperson': 'Salesperson' };
+                var oldLabel = typeLabels[agentBefore.agent_type] || agentBefore.agent_type || 'Unknown';
+                var newLabel = typeLabels[value] || value || 'Unknown';
+
+                if (agentBefore.agent_type === value) return; // No change
+
+                var confirmed = confirm(
+                    'Change Agent Type\n\n' +
+                    'Agent: ' + (agentBefore.full_name || 'Unknown') + '\n' +
+                    'From: ' + oldLabel + '\n' +
+                    'To: ' + newLabel + '\n\n' +
+                    'This will change their dashboard layout, navigation, and permissions.\n\n' +
+                    'Are you sure you want to proceed?'
+                );
+                if (!confirmed) {
+                    await viewAgent(agentId); // Reset the dropdown
+                    return;
+                }
+
+                // Log the change in the agent's notes
+                var existingNotes = [];
+                try { existingNotes = agentBefore.notes ? JSON.parse(agentBefore.notes) : []; } catch(e) { existingNotes = []; }
+                var now = new Date();
+                var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                var changedBy = currentUserName || currentUser?.email || 'Admin';
+
+                existingNotes.unshift({
+                    text: 'Agent type changed from ' + oldLabel + ' to ' + newLabel,
+                    author: changedBy,
+                    date: dateStr,
+                    visible_to_agent: false,
+                    from_agent: false,
+                    is_audit_log: true,
+                    category: 'role_change'
+                });
+
+                // Update both agent_type and notes in one call
+                var { error } = await db.from('users').update({
+                    agent_type: value,
+                    notes: JSON.stringify(existingNotes)
+                }).eq('id', agentId);
+                if (error) throw error;
+
+                showToast((agentBefore.full_name || 'Agent') + ' changed from ' + oldLabel + ' to ' + newLabel, 'success');
+                await loadAgents();
+                await viewAgent(agentId); // Refresh the detail panel
+                return;
+            }
+
             const update = {};
             update[field] = value;
             const { error } = await db
