@@ -4691,7 +4691,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v79';
+    const DASHBOARD_VERSION = '2026-03-31-v80';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -8898,6 +8898,55 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
         } catch(e) { console.warn('Notifications: agent vendor notes load error', e); }
+
+        // 7b. Vendor application completed notifications (admin + agent)
+        try {
+            var sevenDaysAgoVendorApp = new Date(Date.now() - 7 * 86400000).toISOString();
+            var vendorAppSelect = 'id, name, status, application_completed_at, source_agent_id';
+            var { data: completedVendors } = await db.from('vendors')
+                .select(vendorAppSelect)
+                .not('application_completed_at', 'is', null)
+                .gte('application_completed_at', sevenDaysAgoVendorApp)
+                .order('application_completed_at', { ascending: false });
+            if (completedVendors) {
+                completedVendors.forEach(function(v) {
+                    var completedDate = new Date(v.application_completed_at);
+                    if (isAdmin) {
+                        // Admin notification: vendor application completed, ready for review
+                        notifications.push({
+                            type: 'vendor_note',
+                            category: 'action',
+                            icon: '🏢',
+                            iconBg: '#FEF3C7',
+                            iconColor: '#D97706',
+                            title: (v.name || 'A vendor') + ' completed their application',
+                            detail: v.status === 'Pending Review' ? 'Ready for review' : 'Status: ' + (v.status || 'Unknown'),
+                            time: completedDate,
+                            action: "viewVendor('" + v.id + "')",
+                            actionLabel: 'Review Vendor',
+                            priority: v.status === 'Pending Review' ? 1 : 2
+                        });
+                    } else {
+                        // Agent notification: their vendor completed the application
+                        if (v.source_agent_id && _notifAgentSet[v.source_agent_id]) {
+                            notifications.push({
+                                type: 'vendor_note',
+                                category: 'info',
+                                icon: '🏢',
+                                iconBg: '#D1FAE5',
+                                iconColor: '#065F46',
+                                title: (v.name || 'A vendor') + ' returned their application',
+                                detail: v.status === 'Pending Review' ? 'Under review by admin' : 'Status: ' + (v.status || 'Unknown'),
+                                time: completedDate,
+                                action: "viewAgentVendor('" + v.id + "')",
+                                actionLabel: 'View Vendor',
+                                priority: 2
+                            });
+                        }
+                    }
+                });
+            }
+        } catch(e) { console.warn('Notifications: vendor app completion load error', e); }
 
         // 8. New website inquiries — applications + contact submissions (admin only, last 7 days)
         try {
