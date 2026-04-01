@@ -4716,7 +4716,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-01-v91';
+    const DASHBOARD_VERSION = '2026-04-01-v92';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -17541,121 +17541,190 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // Helper: build a guide card set (3 cards: Full Guide, Quick Reference, Presentation)
+    function buildGuideCardSet(prefix, roleLabel, gradientColors, files) {
+        // gradientColors = { gold: [...], navy: [...], teal: [...] }
+        // files = { guide: 'filename.pdf', quickRef: 'filename.pdf', presentation: 'filename.pdf' }
+        var html = '';
+        var guideFile = files.guide;
+        var qrFile = files.quickRef;
+        var presFile = files.presentation;
+
+        // Card template
+        function guideCard(title, desc, meta, file, gradient, icon) {
+            var available = !!file;
+            var h = '';
+            h += '<div style="background:white;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);transition:box-shadow 0.2s,transform 0.2s;' + (!available ? 'opacity:0.55;' : '') + '" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,0.1)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\';this.style.transform=\'none\'">';
+            h += '<div style="background:linear-gradient(135deg,' + gradient[0] + ',' + gradient[1] + ');padding:14px 18px;display:flex;align-items:center;gap:10px;">';
+            h += '<span style="font-size:22px;">' + icon + '</span>';
+            h += '<span style="color:white;font-weight:700;font-size:13px;">' + title + '</span>';
+            h += '</div>';
+            h += '<div style="padding:14px 18px;">';
+            h += '<div style="color:#64748B;font-size:12px;line-height:1.5;margin-bottom:12px;">' + desc + '</div>';
+            h += '<div style="display:flex;align-items:center;justify-content:space-between;">';
+            h += '<span style="font-size:11px;color:#94A3B8;font-weight:500;">' + meta + '</span>';
+            if (available) {
+                h += '<button onclick="downloadPartnerGuide(\'' + file + '\')" style="background:linear-gradient(135deg,' + gradient[0] + ',' + gradient[1] + ');color:white;border:none;padding:7px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">View & Download</button>';
+            } else {
+                h += '<span style="font-size:11px;color:#94A3B8;font-style:italic;">Coming Soon</span>';
+            }
+            h += '</div>';
+            h += '</div>';
+            h += '</div>';
+            return h;
+        }
+
+        html += guideCard(roleLabel + ' Guide', 'Complete guide — dashboard pages, workflows, features, and best practices.', guideFile ? 'PDF' : '—', guideFile, gradientColors.gold, '📄');
+        html += guideCard(roleLabel + ' Quick Reference', 'Fast overview — key workflows, navigation, and tips at a glance.', qrFile ? 'PDF · 2 pages' : '—', qrFile, gradientColors.navy, '⚡');
+        html += guideCard(roleLabel + ' Presentation', 'Dashboard overview slides — pages, workflows, metrics, and programs.', presFile ? '10 slides' : '—', presFile, gradientColors.teal, '📊');
+
+        return html;
+    }
+
+    // Helper: build a guide section with header and 3-column card grid
+    function buildGuideSection(sectionTitle, sectionIcon, sectionDesc, subsections) {
+        // subsections = [{ subtitle: 'For Admins', roleLabel: 'Vendor Admin', gradients: {...}, files: {...} }, ...]
+        var html = '';
+        html += '<div style="margin-bottom:28px;">';
+        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">';
+        html += '<span style="font-size:22px;">' + sectionIcon + '</span>';
+        html += '<h3 style="color:#0D1E3D;margin:0;font-size:16px;font-weight:700;">' + sectionTitle + '</h3>';
+        html += '</div>';
+        html += '<p style="color:#64748B;font-size:12px;margin:0 0 16px 32px;">' + sectionDesc + '</p>';
+
+        for (var i = 0; i < subsections.length; i++) {
+            var sub = subsections[i];
+            if (sub.subtitle) {
+                html += '<div style="margin-bottom:4px;margin-top:' + (i > 0 ? '16px' : '0') + ';margin-left:32px;">';
+                html += '<span style="font-size:12px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">' + sub.subtitle + '</span>';
+                html += '</div>';
+            }
+            html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-left:32px;">';
+            html += buildGuideCardSet(sub.prefix || '', sub.roleLabel, sub.gradients, sub.files);
+            html += '</div>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
     async function loadHelpPage() {
         var container = document.getElementById('helpContainer');
         var roleLabel = document.getElementById('helpRoleLabel');
         var guideCount = document.getElementById('helpGuideCount');
 
-        // Determine agent type
+        // Determine agent type and role
         var agentType = currentAgentType || 'referring_agent';
         var guideInfo = agentTypeGuideMap[agentType] || agentTypeGuideMap['referring_agent'];
+        var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+        var isISO = (agentType === 'super_agent' || agentType === 'iso');
         var isReferralAgent = (agentType === 'referring_agent' || agentType === 'sub_agent');
+        var isVendorAdmin = (agentType === 'vendor_program' || agentType === 'vendor');
+        var isVendorSales = (agentType === 'vendor_salesperson' || agentType === 'salesperson');
+        var isMortgageBroker = (agentType === 'mortgage_broker');
+        var isMortgageAgent = (agentType === 'mortgage_agent');
 
         roleLabel.textContent = guideInfo.label;
 
-        // Build the help page content
+        // Standard gradient sets
+        var goldGrad = { gold: ['#C9A84C', '#B8943F'], navy: ['#0D1E3D', '#1a3a6b'], teal: ['#0D9488', '#0F766E'] };
+        var blueGrad = { gold: ['#2563EB', '#1D4ED8'], navy: ['#0D1E3D', '#1a3a6b'], teal: ['#0D9488', '#0F766E'] };
+        var purpleGrad = { gold: ['#7C3AED', '#6D28D9'], navy: ['#0D1E3D', '#1a3a6b'], teal: ['#0D9488', '#0F766E'] };
+        var emeraldGrad = { gold: ['#059669', '#047857'], navy: ['#0D1E3D', '#1a3a6b'], teal: ['#0D9488', '#0F766E'] };
+
+        // Guide file definitions — null means "Coming Soon"
+        var guideFiles = {
+            iso: { guide: 'Guide-ISO-Partner.pdf', quickRef: null, presentation: null },
+            referral: { guide: 'Referral-Partner-Guide.pdf', quickRef: 'Referral-Partner-Quick-Reference.pdf', presentation: 'Referral-Partner-Presentation.pdf' },
+            vendorAdmin: { guide: null, quickRef: null, presentation: null },
+            vendorSales: { guide: null, quickRef: null, presentation: null },
+            mortgageBroker: { guide: null, quickRef: null, presentation: null },
+            mortgageAgent: { guide: null, quickRef: null, presentation: null }
+        };
+
         var html = '';
 
-        // Hero banner for referral partners (merged from Alliance Financing page)
-        if (isReferralAgent) {
-            html += '<div style="background:linear-gradient(135deg,#0D1E3D,#1a2e5a);border-radius:12px;padding:28px 24px;margin-bottom:24px;color:white;">';
-            html += '<h2 style="margin:0 0 6px;font-size:22px;color:#C9A84C;">Alliance Financing Resource Toolkit</h2>';
-            html += '<p style="margin:0;font-size:14px;opacity:0.85;">Everything you need to grow your referral business. Share these resources with prospects and partners.</p>';
-            html += '</div>';
+        // Hero banner
+        html += '<div style="background:linear-gradient(135deg,#0D1E3D,#1a2e5a);border-radius:12px;padding:28px 24px;margin-bottom:28px;color:white;position:relative;overflow:hidden;">';
+        html += '<div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:rgba(255,255,255,0.03);border-radius:50%;"></div>';
+        html += '<h2 style="margin:0 0 6px;font-size:22px;color:#C9A84C;">Portal Guides & Resources</h2>';
+        html += '<p style="margin:0;font-size:14px;opacity:0.85;">Everything you need to manage your dashboard effectively. Guides are tailored to your role.</p>';
+        html += '</div>';
+
+        // Track guide count
+        var guideTotal = 0;
+
+        // =============================================
+        // SECTION 1: ISO Partner Guide (ISO partners only)
+        // =============================================
+        if (isISO || isAdmin) {
+            html += buildGuideSection('ISO Partner Guide', '🏢', 'Comprehensive guide for ISO Partners — deal management, managing referral partners, pipeline tracking, and white-label options.', [
+                { roleLabel: 'ISO Partner', gradients: blueGrad, files: guideFiles.iso }
+            ]);
+            guideTotal += 3;
         }
 
-        // Your Referral Link removed — available in Application Hub
-
-        // Primary guide cards — polished 3-column design
-        html += '<div style="margin-bottom:28px;">';
-        html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;font-weight:700;">Your Portal Guides</h3>';
-        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">';
-
-        // Full Guide card
-        html += '<div style="background:white;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);transition:box-shadow 0.2s,transform 0.2s;" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,0.1)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\';this.style.transform=\'none\'">';
-        html += '<div style="background:linear-gradient(135deg,#C9A84C 0%,#B8943F 100%);padding:16px 20px;display:flex;align-items:center;gap:10px;">';
-        html += '<span style="font-size:24px;">📄</span>';
-        html += '<span style="color:white;font-weight:700;font-size:14px;">Referral Partner Guide</span>';
-        html += '</div>';
-        html += '<div style="padding:16px 20px;">';
-        html += '<div style="color:#64748B;font-size:12px;line-height:1.5;margin-bottom:14px;">Complete guide — sending applications, tracking referrals, vendor programs, and earning fees.</div>';
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;">';
-        html += '<span style="font-size:11px;color:#94A3B8;font-weight:500;">PDF · 14 pages</span>';
-        html += '<button onclick="downloadPartnerGuide(\'Referral-Partner-Guide.pdf\')" style="background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">📥 View & Download</button>';
-        html += '</div>';
-        html += '</div>';
-        html += '</div>';
-
-        // Quick Reference card
-        html += '<div style="background:white;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);transition:box-shadow 0.2s,transform 0.2s;" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,0.1)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\';this.style.transform=\'none\'">';
-        html += '<div style="background:linear-gradient(135deg,#0D1E3D 0%,#1a3a6b 100%);padding:16px 20px;display:flex;align-items:center;gap:10px;">';
-        html += '<span style="font-size:24px;">⚡</span>';
-        html += '<span style="color:white;font-weight:700;font-size:14px;">Quick Reference Card</span>';
-        html += '</div>';
-        html += '<div style="padding:16px 20px;">';
-        html += '<div style="color:#64748B;font-size:12px;line-height:1.5;margin-bottom:14px;">Fast overview — key workflows, navigation, and tips at a glance.</div>';
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;">';
-        html += '<span style="font-size:11px;color:#94A3B8;font-weight:500;">PDF · 2 pages</span>';
-        html += '<button onclick="downloadPartnerGuide(\'Referral-Partner-Quick-Reference.pdf\')" style="background:linear-gradient(135deg,#0D1E3D,#1a3a6b);color:white;border:none;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">📥 View & Download</button>';
-        html += '</div>';
-        html += '</div>';
-        html += '</div>';
-
-        // Partner Presentation card
-        html += '<div style="background:white;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);transition:box-shadow 0.2s,transform 0.2s;" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,0.1)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\';this.style.transform=\'none\'">';
-        html += '<div style="background:linear-gradient(135deg,#0D9488 0%,#0F766E 100%);padding:16px 20px;display:flex;align-items:center;gap:10px;">';
-        html += '<span style="font-size:24px;">📊</span>';
-        html += '<span style="color:white;font-weight:700;font-size:14px;">Partner Presentation</span>';
-        html += '</div>';
-        html += '<div style="padding:16px 20px;">';
-        html += '<div style="color:#64748B;font-size:12px;line-height:1.5;margin-bottom:14px;">Dashboard overview slides — pages, workflows, metrics, and vendor programs.</div>';
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;">';
-        html += '<span style="font-size:11px;color:#94A3B8;font-weight:500;">10 slides</span>';
-        html += '<button onclick="downloadPartnerGuide(\'Referral-Partner-Presentation.pdf\')" style="background:linear-gradient(135deg,#0D9488,#0F766E);color:white;border:none;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">📥 View & Download</button>';
-        html += '</div>';
-        html += '</div>';
-        html += '</div>';
-
-        html += '</div>';
-        html += '</div>';
-
-        // All Partner Guides (for ISO agents — show ISO, Referral, and Vendor guides)
-        if (agentType === 'super_agent' || agentType === 'iso') {
-            html += '<div style="margin-bottom:24px;">';
-            html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">All Partner Guides</h3>';
-            html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
-
-            var allGuides = [
-                { icon: '🤝', label: 'Referral Partner Guide', desc: 'Client referrals, tracking & earning fees', file: 'Referral-Partner-Guide.pdf', type: 'PDF' },
-                { icon: '🏭', label: 'Vendor Partner Guide', desc: 'Vendor financing process & documentation', file: 'Guide-Vendor.pdf', type: 'PDF' }
-            ];
-
-            allGuides.forEach(function(g) {
-                html += '<a href="javascript:void(0)" onclick="downloadPartnerGuide(\'' + g.file + '\')" style="text-decoration:none;background:white;border:1px solid #e2e8f0;border-radius:8px;padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'#e2e8f0\'">';
-                html += '<span style="font-size:28px;">' + g.icon + '</span>';
-                html += '<div style="flex:1;">';
-                html += '<div style="font-weight:600;color:#0D1E3D;font-size:13px;">' + g.label + '</div>';
-                html += '<div style="color:#64748B;font-size:11px;">' + g.desc + '</div>';
-                html += '</div>';
-                html += '<span style="font-size:11px;color:var(--text-light);background:#E2E8F0;padding:3px 8px;border-radius:4px;">' + g.type + '</span>';
-                html += '</a>';
-            });
-            html += '</div></div>';
+        // =============================================
+        // SECTION 2: Referral Partner Guides (referral agents, ISOs, admins)
+        // =============================================
+        if (isReferralAgent || isISO || isAdmin) {
+            html += buildGuideSection('Referral Partner Guides', '🤝', 'Guides for referral partners — sending applications, tracking referrals, vendor programs, and earning fees.', [
+                { roleLabel: 'Referral Partner', gradients: goldGrad, files: guideFiles.referral }
+            ]);
+            guideTotal += 3;
         }
 
-        // Company Documents section
+        // =============================================
+        // SECTION 3: Vendor Partner Guides (vendor admins, vendor salespeople, ISOs, admins)
+        // =============================================
+        if (isVendorAdmin || isVendorSales || isISO || isAdmin) {
+            var vendorSubsections = [];
+            // Vendor admins and ISOs see both admin + sales guides
+            if (isVendorAdmin || isISO || isAdmin) {
+                vendorSubsections.push({ subtitle: 'Vendor Admin', roleLabel: 'Vendor Admin', gradients: purpleGrad, files: guideFiles.vendorAdmin });
+                vendorSubsections.push({ subtitle: 'Vendor Sales', roleLabel: 'Vendor Sales', gradients: emeraldGrad, files: guideFiles.vendorSales });
+                guideTotal += 6;
+            } else {
+                // Vendor salespeople only see their own guides
+                vendorSubsections.push({ roleLabel: 'Vendor Sales', gradients: emeraldGrad, files: guideFiles.vendorSales });
+                guideTotal += 3;
+            }
+            html += buildGuideSection('Vendor Partner Guides', '🏭', 'Guides for vendor partners — equipment financing, deal submission, portal navigation, and funding process.', vendorSubsections);
+        }
+
+        // =============================================
+        // SECTION 4: Mortgage Broker Guides (mortgage brokers, mortgage agents, admins)
+        // =============================================
+        if (isMortgageBroker || isMortgageAgent || isAdmin) {
+            var mtgSubsections = [];
+            // Mortgage brokers and admins see both broker + agent guides
+            if (isMortgageBroker || isAdmin) {
+                mtgSubsections.push({ subtitle: 'Mortgage Broker', roleLabel: 'Mortgage Broker', gradients: blueGrad, files: guideFiles.mortgageBroker });
+                mtgSubsections.push({ subtitle: 'Mortgage Agent', roleLabel: 'Mortgage Agent', gradients: goldGrad, files: guideFiles.mortgageAgent });
+                guideTotal += 6;
+            } else {
+                // Mortgage agents only see their own guides
+                mtgSubsections.push({ roleLabel: 'Mortgage Agent', gradients: goldGrad, files: guideFiles.mortgageAgent });
+                guideTotal += 3;
+            }
+            html += buildGuideSection('Mortgage Broker Guides', '🏠', 'Guides for mortgage brokers and agents — managing teams, sending applications, tracking deals, and earning fees.', mtgSubsections);
+        }
+
         // Quick reference section
         html += '<div style="margin-bottom:24px;">';
-        html += '<h3 style="color:#0D1E3D;margin-bottom:16px;font-size:16px;">Quick Reference</h3>';
+        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">';
+        html += '<span style="font-size:22px;">💡</span>';
+        html += '<h3 style="color:#0D1E3D;margin:0;font-size:16px;font-weight:700;">Quick Reference</h3>';
+        html += '</div>';
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
 
         var quickRef = [
             { icon: '🔑', title: 'Password Reset', text: 'Click "Forgot your password?" on the login page to receive a reset link via email.' },
             { icon: '📤', title: 'Upload Documents', text: 'Open a deal, scroll to Documents, and click "Upload Document" to attach files (PDF, JPEG, PNG).' },
             { icon: '📊', title: 'Track Your Deals', text: 'Click any deal in your pipeline to see full status, notes, and activity timeline.' },
-            { icon: '🔗', title: 'Referral Link', text: 'Find your personal referral link in the Marketing section. Share it to get credit for new deals.' },
+            { icon: '🔗', title: 'Referral Link', text: 'Find your personal referral link in the Application Hub. Share it to get credit for new deals.' },
             { icon: '📧', title: 'Need Help?', text: 'Email info@alliancefinancing.com or call 1-877-660-3660 ext. 222 for support.' },
-            { icon: '📝', title: 'Submit a Deal', text: 'Go to Applications and click "+ New Application" to submit a financing request.' }
+            { icon: '📝', title: 'Submit a Deal', text: 'Go to Application Hub and click "Send Credit Application" to submit a financing request.' }
         ];
 
         for (var i = 0; i < quickRef.length; i++) {
@@ -17682,7 +17751,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         html += '</div>';
 
         // Check for admin-uploaded resources shared with agents
-        // Fetch all non-admin-only resources, then filter by role-based access_level
         var sharedResources = [];
         try {
             var { data: shared } = await db.from('admin_resources').select('*').neq('access_level', 'admin_only').order('created_at', { ascending: false });
@@ -17691,9 +17759,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
         } catch(e) {}
 
-        // Role-based filtering using access_level field
-        // Map agent types to the access_level values they can see
-        var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+        // Role-based filtering
         var roleAccessMap = {
             'referring_agent': ['all_users', 'referral_partners'],
             'sub_agent': ['all_users', 'referral_partners'],
@@ -17707,9 +17773,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var myAccessLevels = roleAccessMap[currentAgentType] || ['all_users'];
 
         var filteredResources = sharedResources.filter(function(res) {
-            // Admins see everything
             if (isAdmin) return true;
-            // Check if this resource's access_level matches the user's role
             return myAccessLevels.indexOf(res.access_level) !== -1;
         });
 
@@ -17735,14 +17799,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             html += '</div>';
         }
 
-        // Count: primary guides (3: Full Guide + Quick Reference + Presentation) + partner guides for ISO (2) + shared resources
-        var totalGuides = 3 + filteredResources.length; // 3 primary guides + shared resources
-        if (agentType === 'super_agent' || agentType === 'iso') totalGuides += 2; // referral + vendor guides
-        guideCount.textContent = totalGuides;
+        guideTotal += filteredResources.length;
+        guideCount.textContent = guideTotal;
         container.innerHTML = html;
 
-        // Load outreach history into help page table (for ISOs)
-        if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker' || ['super_admin', 'admin'].includes(currentUserRole)) {
+        // Load outreach history (for ISOs and admins)
+        if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker' || isAdmin) {
             loadHelpOutreachHistory();
         }
     }
