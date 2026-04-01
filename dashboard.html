@@ -1770,7 +1770,6 @@
                                     <button class="vendor-prog-tab active" data-vtab="yours" onclick="switchVendorProgramTab('yours')" style="padding:7px 16px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:rgba(255,255,255,0.25);color:white;transition:all .2s;">Your Vendors <span id="vendorCountYours" style="background:rgba(255,255,255,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                                     <button class="vendor-prog-tab" data-vtab="partners" onclick="switchVendorProgramTab('partners')" style="padding:7px 16px;border:none;border-left:1px solid rgba(255,255,255,0.2);cursor:pointer;font-size:13px;font-weight:500;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.8);transition:all .2s;">Partner Vendors <span id="vendorCountPartners" style="background:rgba(255,255,255,0.15);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                                 </div>
-                                <button class="btn btn-sm" onclick="openAddVendorModal()" style="background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">+ Submit Vendor</button>
                             </div>
                         </div>
                     </div>
@@ -1887,9 +1886,6 @@
                                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                     Your Landing Page
                                 </a>
-                                <button class="btn btn-sm" onclick="openSendApplicationModalWithRef(agentProfile && agentProfile.referral_slug ? agentProfile.referral_slug : 'alliance-house')" style="padding: 8px 16px; background: var(--gold); color: #0D1E3D; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
-                                    Credit Applications
-                                </button>
                             </div>
                         </div>
                         <input type="hidden" id="agentReferralUrl">
@@ -1911,8 +1907,12 @@
                         </div>
                         <div style="border-top: 1px solid #F1F5F9; padding-top: 20px;">
                             <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Client Application Forms</label>
-                            <span style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 14px;">Send directly via email or copy the link. Your referral tracking is included automatically.</span>
-                            <div id="agentAppFormLinks" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px;">
+                            <span style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 14px;">Send a credit application to your client via email. Covers equipment leasing, merchant cash advance, working capital, and general financing. Your referral tracking is included automatically.</span>
+                            <div id="agentAppFormLinks" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                <button onclick="openSendApplicationModalWithRef(agentProfile && agentProfile.referral_slug ? agentProfile.referral_slug : 'alliance-house')" class="btn btn-gold btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px;">
+                                    <span style="font-size: 16px;">📋</span> Send Credit Application
+                                </button>
+                                <span id="agentAppFormCopyLinks" style="display:flex;gap:8px;"></span>
                             </div>
                         </div>
                         <div style="border-top: 1px solid #F1F5F9; padding-top: 20px; margin-top: 20px;">
@@ -1942,6 +1942,15 @@
                                 </button>
                                 <button onclick="showSendVendorLeasingModal()" class="btn btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
                                     <span style="font-size: 16px;">📧</span> Send to Vendor/Partner
+                                </button>
+                            </div>
+                        </div>
+                        <div style="border-top: 1px solid #F1F5F9; padding-top: 20px; margin-top: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Submit a New Vendor Program</label>
+                            <span style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 14px;">Register a vendor or equipment supplier you work with. Once submitted, Alliance will review and process the vendor for approval. You can then send them the full vendor application form.</span>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <button onclick="openAddVendorModal()" class="btn btn-gold btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px;">
+                                    <span style="font-size: 16px;">🏢</span> + Submit Vendor
                                 </button>
                             </div>
                         </div>
@@ -4707,7 +4716,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-01-v88';
+    const DASHBOARD_VERSION = '2026-04-01-v89';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -5223,27 +5232,15 @@
                 partnerLink.href = landingPageUrl;
                 partnerLink.textContent = 'View your landing page';
 
-                // Populate application form links
+                // Populate application form copy links
                 const slug = data.referral_slug;
                 const baseUrl = window.location.origin;
-                const formLinks = [
-                    { name: 'Equipment Leasing', url: baseUrl + '/apply-leasing.html?ref=' + slug, icon: '🏗️', color: '#059669' },
-                    { name: 'Merchant Cash Advance', url: baseUrl + '/apply-merchant-advance.html?ref=' + slug, icon: '💰', color: '#D97706' },
-                    { name: 'Working Capital & Factoring', url: baseUrl + '/apply-working-capital.html?ref=' + slug, icon: '📊', color: '#2563EB' }
-                ];
-                const linksContainer = document.getElementById('agentAppFormLinks');
-                if (linksContainer) {
-                    linksContainer.innerHTML = formLinks.map(f => `
-                        <div style="background: white; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 15px; display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 20px;">${f.icon}</span>
-                            <div style="flex: 1;">
-                                <div style="font-weight: 600; font-size: 13px; color: #0D1E3D;">${f.name}</div>
-                                <a href="${f.url}" target="_blank" style="font-size: 11px; color: ${f.color}; word-break: break-all;">Open Form</a>
-                            </div>
-                            <button class="btn btn-sm" onclick="openSendApplicationModalWithRef('${slug}')" style="padding: 4px 10px; font-size: 11px; background: var(--gold); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Send</button>
-                            <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${f.url}');this.textContent='Copied!';this.style.background='#10B981';setTimeout(()=>{this.textContent='Copy';this.style.background=''},2000)" style="padding: 4px 10px; font-size: 11px; background: #E2E8F0; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Copy</button>
-                        </div>
-                    `).join('');
+                const generalAppUrl = baseUrl + '/apply.html?ref=' + slug;
+                const copyLinksContainer = document.getElementById('agentAppFormCopyLinks');
+                if (copyLinksContainer) {
+                    copyLinksContainer.innerHTML = `
+                        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${generalAppUrl}');this.textContent='Copied!';this.style.background='#10B981';this.style.color='white';setTimeout(()=>{this.textContent='Copy Link';this.style.background='#E2E8F0';this.style.color=''},2000)" style="padding: 6px 12px; font-size: 12px; background: #E2E8F0; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Copy Link</button>
+                    `;
                 }
             }
             referralCard.style.display = 'block';
@@ -12364,7 +12361,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             const tbody = document.getElementById('agentVendorsBody');
             if (!vendors || vendors.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No vendor programs yet. Submit one above!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No vendor programs yet. Submit one from the Application Hub!</td></tr>';
                 return;
             }
 
@@ -12386,7 +12383,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             `).join('');
 
             if (activeVendors.length === 0) {
-                html = '<tr><td colspan="7" class="empty-state">No active vendor programs. Submit one above!</td></tr>';
+                html = '<tr><td colspan="7" class="empty-state">No active vendor programs. Submit one from the Application Hub!</td></tr>';
             }
 
             // Declined section
@@ -31123,6 +31120,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function updateVendorStatus(vendorId, newStatus) {
         try {
+            // Role-based access control: only admin and super_admin can change vendor status
+            var allowedRoles = ['admin', 'super_admin'];
+            if (!allowedRoles.includes(currentAgentType)) {
+                alert('Permission denied: Only administrators can change vendor status.');
+                // Reload to reset any dropdown to the original value
+                await loadVendors();
+                return;
+            }
+
             const { error } = await db
                 .from('vendors')
                 .update({ status: newStatus })
