@@ -1858,13 +1858,14 @@
                                 <th>Email</th>
                                 <th>Phone</th>
                                 <th>Status</th>
+                                <th>Dashboard</th>
                                 <th># Deals</th>
                                 <th>Override Earned</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="agentSubAgentsBody">
-                            <tr><td colspan="7" class="empty-state">Loading referral partners...</td></tr>
+                            <tr><td colspan="8" class="empty-state">Loading referral partners...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -4716,7 +4717,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-01-v95';
+    const DASHBOARD_VERSION = '2026-04-01-v96';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -8577,10 +8578,53 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var _hasSubAgents = false;
         if (!isAdmin && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker')) {
             try {
-                var { data: _subAgentsNotif } = await db.from('users').select('id').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                var { data: _subAgentsNotif } = await db.from('users').select('id, full_name, email, created_at, onboarding_status, invite_accepted_at, invite_sent_at, agent_status').eq('parent_agent_id', currentUserId).eq('role', 'agent');
                 if (_subAgentsNotif && _subAgentsNotif.length > 0) {
                     _notifAgentIds = _notifAgentIds.concat(_subAgentsNotif.map(function(s) { return s.id; }));
                     _hasSubAgents = true;
+
+                    // Notify about sub-agents who haven't activated their dashboard
+                    var memberType = (currentAgentType === 'mortgage_broker') ? 'mortgage agent' : 'referral partner';
+                    _subAgentsNotif.forEach(function(sa) {
+                        var isActivated = sa.invite_accepted_at || sa.onboarding_status === 'active';
+                        var createdAt = sa.created_at ? new Date(sa.created_at) : new Date();
+                        var daysAgo = Math.floor((Date.now() - createdAt.getTime()) / 86400000);
+
+                        if (!isActivated) {
+                            // Not yet activated — show notification
+                            var hasSentInvite = !!sa.invite_sent_at;
+                            notifications.push({
+                                type: 'pending_agent',
+                                category: daysAgo >= 3 ? 'action' : 'info',
+                                icon: hasSentInvite ? '⏳' : '📧',
+                                iconBg: daysAgo >= 3 ? '#FEF2F2' : '#FEF3C7',
+                                iconColor: daysAgo >= 3 ? '#DC2626' : '#D97706',
+                                title: (sa.full_name || sa.email || 'Partner') + ' — dashboard not yet activated',
+                                detail: hasSentInvite
+                                    ? 'Invite sent ' + (daysAgo === 0 ? 'today' : daysAgo + ' day' + (daysAgo !== 1 ? 's' : '') + ' ago') + ' — waiting for activation'
+                                    : 'Added ' + (daysAgo === 0 ? 'today' : daysAgo + ' day' + (daysAgo !== 1 ? 's' : '') + ' ago') + ' — invite not yet sent',
+                                time: createdAt,
+                                action: "showPage('subAgents')",
+                                actionLabel: 'View Partners',
+                                priority: daysAgo >= 3 ? 1 : 3
+                            });
+                        } else if (daysAgo <= 7) {
+                            // Recently activated — welcome notification
+                            notifications.push({
+                                type: 'pending_agent',
+                                category: 'info',
+                                icon: '🎉',
+                                iconBg: '#D1FAE5',
+                                iconColor: '#065F46',
+                                title: (sa.full_name || 'Partner') + ' activated their dashboard',
+                                detail: 'Your new ' + memberType + ' is set up and ready to go',
+                                time: new Date(sa.invite_accepted_at || sa.created_at),
+                                action: "showPage('subAgents')",
+                                actionLabel: 'View Partners',
+                                priority: 4
+                            });
+                        }
+                    });
                 }
             } catch(e) { console.warn('Sub-agent lookup for notifications failed:', e); }
         }
@@ -13111,7 +13155,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Get sub-agents (users with parent_agent_id = current user)
             const { data: subAgents, error } = await db
                 .from('users')
-                .select('id, full_name, email, phone, agent_status, business_type, referral_slug, created_at')
+                .select('id, full_name, email, phone, agent_status, business_type, referral_slug, created_at, onboarding_status, invite_accepted_at, invite_sent_at')
                 .eq('parent_agent_id', currentUserId)
                 .eq('role', 'agent');
 
@@ -13128,7 +13172,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (inviteBtn) inviteBtn.textContent = isBroker ? '+ Invite Mortgage Agent' : '+ Invite Referral Partner';
 
             if (!subAgents || subAgents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No ' + memberLabel + ' yet. Invite one above!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No ' + memberLabel + ' yet. Invite one above!</td></tr>';
                 return;
             }
 
@@ -13145,12 +13189,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     ? saDeals.reduce((sum, d) => sum + (parseFloat(d.parent_override_amount) || 0), 0)
                     : 0;
 
+                // Dashboard activation status
+                var dashboardBadge = '';
+                if (sa.invite_accepted_at || sa.onboarding_status === 'active') {
+                    dashboardBadge = '<span style="display:inline-flex;align-items:center;gap:4px;background:#D1FAE5;color:#065F46;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;"><span style="font-size:10px;">&#10003;</span> Active</span>';
+                } else if (sa.invite_sent_at) {
+                    dashboardBadge = '<span style="display:inline-flex;align-items:center;gap:4px;background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">&#9202; Invite Sent</span>';
+                } else {
+                    dashboardBadge = '<span style="display:inline-flex;align-items:center;gap:4px;background:#FEE2E2;color:#991B1B;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">&#10007; Not Set Up</span>';
+                }
+
                 rows.push(`
                     <tr>
                         <td><strong>${sa.full_name || 'N/A'}</strong></td>
                         <td>${sa.email || 'N/A'}</td>
                         <td>${sa.phone || '-'}</td>
                         <td>${getStatusBadge(sa.agent_status || 'Pending')}</td>
+                        <td>${dashboardBadge}</td>
                         <td>${dealCount}</td>
                         <td>${totalOverride > 0 ? formatCurrency(totalOverride) : '-'}</td>
                         <td><button class="btn btn-secondary btn-sm" onclick="viewSubAgent('${sa.id}')">View</button></td>
