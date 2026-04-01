@@ -4706,7 +4706,7 @@
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-03-31-v81';
+    const DASHBOARD_VERSION = '2026-03-31-v82';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -8962,6 +8962,66 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 });
             }
         } catch(e) { console.warn('Notifications: vendor app completion load error', e); }
+
+        // 7c. New vendor inquiry leads (from vendor_inquiries table — admin + agent)
+        try {
+            var sevenDaysAgoInquiry = new Date(Date.now() - 7 * 86400000).toISOString();
+            if (isAdmin) {
+                // Admin sees all new/recent vendor inquiries
+                var { data: recentInquiries } = await db.from('vendor_inquiries')
+                    .select('id, company_name, contact_name, contact_email, equipment_type, status, referral_slug, created_at')
+                    .gte('created_at', sevenDaysAgoInquiry)
+                    .order('created_at', { ascending: false });
+                if (recentInquiries) {
+                    recentInquiries.forEach(function(inq) {
+                        if (inq.status === 'Archived') return;
+                        var isNew = inq.status === 'New';
+                        notifications.push({
+                            type: 'vendor_note',
+                            category: isNew ? 'action' : 'info',
+                            icon: '🏢',
+                            iconBg: isNew ? '#FEF3C7' : '#DBEAFE',
+                            iconColor: isNew ? '#D97706' : '#1E40AF',
+                            title: 'Vendor inquiry from ' + (inq.company_name || 'Unknown'),
+                            detail: (inq.contact_name || '') + (inq.equipment_type ? ' · ' + inq.equipment_type : '') + (inq.status !== 'New' ? ' · ' + inq.status : ''),
+                            time: new Date(inq.created_at),
+                            action: "showPage('vendors')",
+                            actionLabel: isNew ? 'Review Inquiry' : 'View',
+                            priority: isNew ? 1 : 3
+                        });
+                    });
+                }
+            } else {
+                // Agent sees their own vendor inquiries
+                var myAgentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : null;
+                if (myAgentSlug) {
+                    var { data: agentInquiries } = await db.from('vendor_inquiries')
+                        .select('id, company_name, contact_name, contact_email, equipment_type, status, referral_slug, created_at')
+                        .eq('referral_slug', myAgentSlug)
+                        .gte('created_at', sevenDaysAgoInquiry)
+                        .order('created_at', { ascending: false });
+                    if (agentInquiries) {
+                        agentInquiries.forEach(function(inq) {
+                            if (inq.status === 'Archived') return;
+                            var isNew = inq.status === 'New';
+                            notifications.push({
+                                type: 'vendor_note',
+                                category: isNew ? 'action' : 'info',
+                                icon: '🏢',
+                                iconBg: isNew ? '#FEF3C7' : '#D1FAE5',
+                                iconColor: isNew ? '#D97706' : '#065F46',
+                                title: (inq.company_name || 'A vendor') + ' responded to your leasing program',
+                                detail: (inq.contact_name || '') + (inq.equipment_type ? ' · ' + inq.equipment_type : '') + (isNew ? ' · New inquiry' : ' · ' + inq.status),
+                                time: new Date(inq.created_at),
+                                action: "showPage('vendorPrograms')",
+                                actionLabel: 'View in Vendor Outreach',
+                                priority: isNew ? 1 : 3
+                            });
+                        });
+                    }
+                }
+            }
+        } catch(e) { console.warn('Notifications: vendor inquiry load error', e); }
 
         // 8. New website inquiries — applications + contact submissions (admin only, last 7 days)
         try {
