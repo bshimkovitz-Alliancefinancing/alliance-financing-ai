@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alliance CTO Agent</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #07101F;
+  color: #C8D8E8;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* HEADER */
+.header {
+  background: #0D1A30;
+  border-bottom: 1px solid rgba(201,168,76,0.12);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, #1A2F50, #0D1A30);
+  border: 1.5px solid rgba(201,168,76,0.3);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.header-info { flex: 1; }
+.header-name { font-size: 15px; font-weight: 600; color: #E0D0A0; }
+.header-role { font-size: 11px; color: #3A5870; margin-top: 2px; letter-spacing: 0.05em; }
+
+.online-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: #4ADE80;
+  background: rgba(74,222,128,0.08);
+  border: 1px solid rgba(74,222,128,0.18);
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+
+.dot { width: 6px; height: 6px; border-radius: 50%; background: #4ADE80; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* MESSAGES */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.07) transparent;
+}
+
+.messages::-webkit-scrollbar { width: 4px; }
+.messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 4px; }
+
+.msg-row {
+  display: flex;
+  gap: 12px;
+  max-width: 800px;
+  animation: rise 0.25s ease;
+}
+
+.msg-row.user { flex-direction: row-reverse; align-self: flex-end; }
+.msg-row.assistant { align-self: flex-start; }
+
+@keyframes rise { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+.msg-av {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  border: 1px solid rgba(255,255,255,0.08);
+  margin-top: 2px;
+}
+
+.msg-av.cto {
+  background: linear-gradient(135deg, #1A2F50, #0D1A30);
+  border-color: rgba(201,168,76,0.25);
+  font-size: 16px;
+}
+
+.msg-av.user {
+  background: rgba(201,168,76,0.1);
+  color: #C9A84C;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.bubble {
+  padding: 13px 17px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 580px;
+}
+
+.bubble.cto {
+  background: #0D1A30;
+  border: 1px solid rgba(255,255,255,0.07);
+  color: #C8D8E8;
+  border-top-left-radius: 4px;
+}
+
+.bubble.user {
+  background: rgba(201,168,76,0.1);
+  border: 1px solid rgba(201,168,76,0.18);
+  color: #E0D0A0;
+  border-top-right-radius: 4px;
+}
+
+/* Formatted content inside CTO bubbles */
+.bubble.cto strong { color: #E0D0A0; }
+.bubble.cto em { color: #C9A84C; font-style: normal; }
+.bubble.cto .section { margin-top: 12px; }
+.bubble.cto .section-head {
+  font-size: 11px;
+  font-weight: 600;
+  color: #C9A84C;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.bubble.cto ul { padding-left: 18px; }
+.bubble.cto li { margin-bottom: 4px; }
+.bubble.cto .action-btn {
+  display: inline-block;
+  margin-top: 12px;
+  background: rgba(201,168,76,0.1);
+  border: 1px solid rgba(201,168,76,0.2);
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 12px;
+  color: #C9A84C;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bubble.cto .action-btn:hover { background: rgba(201,168,76,0.18); }
+
+.typing-bubble {
+  background: #0D1A30;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  border-top-left-radius: 4px;
+  padding: 14px 18px;
+  display: flex; align-items: center; gap: 5px;
+}
+
+.td {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #C9A84C; opacity: 0.4;
+  animation: bob 1.3s ease infinite;
+}
+.td:nth-child(2){animation-delay:0.18s}
+.td:nth-child(3){animation-delay:0.36s}
+@keyframes bob { 0%,60%,100%{transform:translateY(0);opacity:0.4} 30%{transform:translateY(-5px);opacity:1} }
+
+/* STARTERS */
+.starters {
+  padding: 0 20px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.starter {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+  padding: 7px 16px;
+  font-size: 12px;
+  color: #5A7A9A;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.starter:hover {
+  background: rgba(201,168,76,0.07);
+  border-color: rgba(201,168,76,0.2);
+  color: #C9A84C;
+}
+
+/* INPUT */
+.input-area {
+  background: #0D1A30;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 14px 20px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+textarea#input {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 12px;
+  padding: 11px 15px;
+  color: #C8D8E8;
+  font-family: inherit;
+  font-size: 14px;
+  resize: none;
+  outline: none;
+  height: 46px;
+  max-height: 140px;
+  line-height: 1.5;
+  transition: border-color 0.2s;
+}
+
+textarea#input::placeholder { color: #2A4060; }
+textarea#input:focus { border-color: rgba(201,168,76,0.3); }
+
+.send {
+  background: linear-gradient(135deg, #C9A84C, #9A7828);
+  border: none;
+  border-radius: 12px;
+  width: 46px; height: 46px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(201,168,76,0.18);
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.send:hover:not(:disabled) { opacity: 0.85; }
+.send:active:not(:disabled) { transform: scale(0.95); }
+.send:disabled { opacity: 0.2; cursor: not-allowed; }
+
+.hint {
+  text-align: center;
+  font-size: 11px;
+  color: #1E3050;
+  padding: 0 20px 10px;
+  flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="avatar">🧠</div>
+  <div class="header-info">
+    <div class="header-name">Alex — Alliance CTO</div>
+    <div class="header-role">Chief Technology Officer · alliancefinancing.ai</div>
+  </div>
+  <div class="online-badge"><div class="dot"></div>Available</div>
+</div>
+
+<div class="messages" id="messages"></div>
+
+<div class="starters" id="starters">
+  <div class="starter" onclick="sendStarter(this)">What should I build next?</div>
+  <div class="starter" onclick="sendStarter(this)">I have a bug — can you help?</div>
+  <div class="starter" onclick="sendStarter(this)">Explain the BaaS client portal in simple terms</div>
+  <div class="starter" onclick="sendStarter(this)">What's the fastest way to get the client portal live?</div>
+  <div class="starter" onclick="sendStarter(this)">How do I connect a new page to Supabase?</div>
+  <div class="starter" onclick="sendStarter(this)">Give me a status check on the platform</div>
+</div>
+
+<div class="input-area">
+  <textarea id="input" placeholder="Ask your CTO anything about the platform..." onkeydown="handleKey(event)" oninput="resize(this)"></textarea>
+  <button class="send" id="sendBtn" onclick="send()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#07101F" stroke-width="2.5">
+      <line x1="22" y1="2" x2="11" y2="13"/>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+    </svg>
+  </button>
+</div>
+<div class="hint">Press Enter to send · Shift+Enter for new line</div>
+
+<script>
+const SYSTEM = `You are Alex, the CTO of Alliance Financing Group Ltd. (alliancefinancing.ai). You work directly with Bernie Shimkovitz, the Director, who is NOT a developer. Bernie is a highly experienced commercial financing professional building a technology platform. He needs you to be his technical brain — explaining everything clearly, making decisions, and giving him exact instructions he can follow without needing to understand code deeply.
+
+YOUR PERSONALITY:
+- Direct, warm, and clear. You never use jargon without immediately explaining it in plain English.
+- You think strategically and practically. You know what matters and what doesn't.
+- You're encouraging. Bernie is building something impressive and you acknowledge that.
+- You never overwhelm. One clear recommendation at a time.
+- You use analogies from the financing world when explaining tech concepts.
+
+THE PLATFORM — EVERYTHING YOU KNOW:
+
+Company: Alliance Financing Group Ltd. Canadian commercial financing arranger. Syndication desk for 70+ lenders. NOT a direct lender — an arranger. 9 product lines. $1B+ funded. Est. 1989.
+
+Tech Stack:
+- Frontend: Plain HTML, CSS, JavaScript. No frameworks. No build steps. Simple files.
+- Backend: Supabase (a database + authentication service). Think of it like a smart spreadsheet connected to the website.
+- Hosting: Vercel. Every time a file is pushed to GitHub, the live site at alliancefinancing.ai updates automatically.
+- Repo: github.com/bshimkovitz-Alliancefinancing/alliance-financing-ai (flat file structure, ~100 HTML files)
+
+Database Tables (simplified):
+- users: everyone with access — Alliance team (super_admin/admin), agents, applicants
+- lenders: the 70+ lender network
+- applications: client financing applications (auto-ID: AF-XXXX)
+- deals: the pipeline from application through to funded (auto-ID: DEAL-XXXX)
+- deal_syndication: when multiple lenders share a deal
+- agents_referrals: ISO agents and referral partners
+- vendors: equipment vendors in our programs
+- documents: uploaded client files
+- commissions: agent fee tracking
+- communications: email/message log
+- activity_log: compliance audit trail
+
+Deal statuses (in order): Prospect → Quote sent → Info received → In Credit → Approved → Approval sent → Docs requested → Docs out for signing → In funding → Funded
+
+Product types: Equipment Leasing, MCA, CSBFL, SRED, Private Debt, Factoring, Merchant Advance, Commercial Mortgage, SBA, Loans, Trade Finance
+
+Access levels:
+- super_admin / admin: Alliance team — see everything
+- agent: can only see their own deals and referrals
+- applicant: can track their own application
+- anonymous: can submit applications
+
+What's currently live on the site:
+✅ All 9 product application forms
+✅ Admin dashboard with full deal pipeline CRM
+✅ Agent login, activation, and portal
+✅ Vendor portal and inquiry forms
+✅ Syndication portal
+✅ Document upload system
+✅ Application status tracker
+✅ Partner recruitment pages (referral, lender, vendor)
+✅ Blog with SEO articles
+✅ All product and service pages
+✅ 27 active partners across 4 channel types
+✅ Marketing materials and guides for all partner types
+
+What's being built next (in priority order):
+1. CLIENT PORTAL — BaaS Tier 1 (CURRENT PRIORITY)
+   This is the most important next build. Every funded client gets their own dashboard to:
+   - See their active deals and payment schedules (My Financings)
+   - Upload and access documents (Document Vault)
+   - Apply for more financing (pre-filled from their profile)
+   - Message the Alliance team (deal-specific threads)
+   - View their company profile
+   - Track application status in real time
+   
+2. Cash flow forecasting and credit monitoring (Tier 2)
+3. Automated renewal engine
+4. Partner self-serve portal
+5. Embedded banking — bank partnership (Tier 3)
+6. Marketplace — insurance, equipment, bookkeeping integrations (Tier 4)
+
+Revenue model:
+- Broker fees on funded deals (core business today)
+- Automated renewals and cross-sell at near-zero acquisition cost (Tier 1-2)
+- Banking deposit revenue share (Tier 3)
+- Marketplace referral fees (Tier 4)
+- White-label SaaS licensing (Tier 4)
+
+Key insight: Traditional brokers lose clients after funding. Alliance keeps them through the client portal — every funded client becomes a recurring revenue opportunity.
+
+Compliance: FINTRAC reporting entity since April 2025. KYC required at lease signing — beneficial ownership verification, Schedule 50, Central Securities Register. PIPEDA compliant.
+
+Team: Bernie (Director), Carrie Rotman (Program Director), Paul J. Morrison (Sr. Technology & Commercial Finance Consultant), Lee Harrison (Sr. Advisor, Alliance Global Advisors).
+
+HOW TO HELP BERNIE:
+
+When Bernie asks what to build next:
+→ Give ONE clear recommendation with the business reason why.
+→ Break it into 3-5 simple steps he can bring to a Cowork session.
+
+When Bernie describes a bug:
+→ Ask him which page it's on and what exactly is happening vs what he expected.
+→ Diagnose in plain English. Explain the fix without jargon.
+→ Tell him exactly what to do: "Open dashboard.html, find the part that says X, change it to Y."
+
+When Bernie asks a technical question:
+→ Answer it in financing terms first, then explain the technical side.
+→ Example: "Think of Supabase like your CRM database — each table is like a sheet in your lender spreadsheet."
+
+When Bernie seems overwhelmed:
+→ Acknowledge it. Simplify. Focus on the one most important next action.
+→ Remind him how much he's already built.
+
+When Bernie asks about strategy:
+→ Always tie it back to the business outcome — deals funded, client LTV, agent network growth.
+→ Be opinionated. He needs clear direction, not options.
+
+FORMAT YOUR RESPONSES:
+- Use short paragraphs. No walls of text.
+- Use plain section headers when helpful (not always necessary for short answers).
+- Use bullet points only for lists of 3+ things.
+- Bold the most important phrase in each response.
+- End with a clear next action when appropriate.
+- Keep responses concise but complete. Quality over length.`;
+
+let history = [];
+let loading = false;
+
+function addMessage(role, content) {
+  const div = document.createElement('div');
+  div.className = 'msg-row ' + role;
+
+  const av = document.createElement('div');
+  av.className = 'msg-av ' + (role === 'assistant' ? 'cto' : 'user');
+  av.textContent = role === 'assistant' ? '🧠' : 'B';
+
+  const bub = document.createElement('div');
+  bub.className = 'bubble ' + (role === 'assistant' ? 'cto' : 'user');
+  bub.innerHTML = role === 'assistant' ? formatMessage(content) : escHtml(content);
+
+  // Wire up any action buttons
+  bub.querySelectorAll('.action-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const prompt = btn.dataset.prompt;
+      if (prompt) triggerSend(prompt);
+    });
+  });
+
+  div.appendChild(av);
+  div.appendChild(bub);
+  document.getElementById('messages').appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  return div;
+}
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'msg-row assistant';
+  div.id = 'typing';
+
+  const av = document.createElement('div');
+  av.className = 'msg-av cto';
+  av.textContent = '🧠';
+
+  const bub = document.createElement('div');
+  bub.className = 'typing-bubble';
+  bub.innerHTML = '<div class="td"></div><div class="td"></div><div class="td"></div>';
+
+  div.appendChild(av);
+  div.appendChild(bub);
+  document.getElementById('messages').appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function hideTyping() {
+  document.getElementById('typing')?.remove();
+}
+
+function formatMessage(text) {
+  // Convert markdown-ish to clean HTML
+  let html = escHtml(text);
+
+  // Bold **text**
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Italic *text* or _text_ — render as gold accent
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+  // Headers ### or ##
+  html = html.replace(/^###\s(.+)$/gm, '<div class="section"><div class="section-head">$1</div>');
+  html = html.replace(/^##\s(.+)$/gm, '<div class="section"><div class="section-head">$1</div>');
+
+  // Bullet points
+  const lines = html.split('\n');
+  let inList = false;
+  const result = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^[-•]\s/.test(line)) {
+      if (!inList) { result.push('<ul>'); inList = true; }
+      result.push('<li>' + line.replace(/^[-•]\s/, '') + '</li>');
+    } else {
+      if (inList) { result.push('</ul>'); inList = false; }
+      if (line.trim()) {
+        result.push('<p>' + line + '</p>');
+      }
+    }
+  }
+  if (inList) result.push('</ul>');
+
+  return result.join('');
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+async function sendMessage(text) {
+  if (!text.trim() || loading) return;
+
+  loading = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  // Hide starters after first message
+  const starters = document.getElementById('starters');
+  if (starters) starters.style.display = 'none';
+
+  addMessage('user', text);
+  history.push({ role: 'user', content: text });
+
+  showTyping();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: SYSTEM,
+        messages: history
+      })
+    });
+
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || "Sorry, I didn't get a response. Try again.";
+
+    hideTyping();
+    history.push({ role: 'assistant', content: reply });
+    addMessage('assistant', reply);
+
+  } catch (err) {
+    hideTyping();
+    addMessage('assistant', "I'm having trouble connecting right now. Check your internet connection and try again.");
+  }
+
+  loading = false;
+  document.getElementById('sendBtn').disabled = false;
+}
+
+function send() {
+  const ta = document.getElementById('input');
+  const text = ta.value.trim();
+  if (!text) return;
+  ta.value = '';
+  ta.style.height = '46px';
+  sendMessage(text);
+}
+
+function triggerSend(text) {
+  sendMessage(text);
+}
+
+function sendStarter(el) {
+  sendMessage(el.textContent);
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+}
+
+function resize(el) {
+  el.style.height = '46px';
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+}
+
+// Opening message from Alex
+window.addEventListener('load', () => {
+  const opening = `Hi Bernie — I'm Alex, your CTO.
+
+I'm fully up to speed on everything we've built at alliancefinancing.ai — the database, the 100+ pages, the lender network, the agent portals, all of it.
+
+**Here's where we stand right now:** The platform foundation is solid. You have a working CRM, agent portals, application forms, and document management live. That's a lot.
+
+The next big move is the **Client Portal** — this is what turns Alliance from a transactional broker into a banking relationship platform. Every client we fund gets their own dashboard. That's how we build recurring revenue and stop losing clients after the first deal.
+
+What do you want to tackle today? You can ask me anything — strategy, what to build, how something works, or if something's broken.`;
+
+  setTimeout(() => {
+    addMessage('assistant', opening);
+    history.push({ role: 'assistant', content: opening });
+  }, 400);
+});
+</script>
+</body>
+</html>
