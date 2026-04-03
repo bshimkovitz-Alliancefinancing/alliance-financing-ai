@@ -5591,81 +5591,10 @@ if (location.hostname === 'alliancefinancing.ai') {
         'mortgage_brokers': 'mortgage-brokers'
     };
 
-    // Upload branded one-pager as HTML to Supabase Storage and return a signed URL.
-    // HTML renders perfectly in any browser (fonts load natively via Google Fonts @import).
-    // This replaces the old html2pdf approach which produced blank PDFs due to font loading issues.
-    async function generateAndUploadOnePagerPdf(materialId) {
-        var docKey = BRANDED_DOC_KEY_MAP[materialId];
-        if (!docKey) return null;
-
-        var html = generateBrandedOnePagerHtml(docKey);
-        if (!html) return null;
-
-        var agentId = currentUserId || 'anon';
-        var storagePath = 'agent-marketing/' + agentId + '/' + materialId + '.html';
-
-        try {
-            // Remove any auto-print scripts from the HTML so it just displays cleanly
-            html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
-
-            // Upload HTML file to Supabase Storage
-            var htmlBlob = new Blob([html], { type: 'text/html' });
-            var htmlFile = new File([htmlBlob], materialId + '.html', { type: 'text/html' });
-            await uploadToStorage('deal-documents', storagePath, htmlFile);
-
-            // Get a signed URL (valid for 1 year)
-            var { data: urlData, error: urlErr } = await db.storage.from('deal-documents').createSignedUrl(storagePath, 365 * 24 * 3600);
-            if (urlErr) throw urlErr;
-
-            return urlData.signedUrl;
-        } catch (err) {
-            console.error('HTML upload error for ' + materialId + ':', err);
-            return null;
-        }
-    }
-
-    // Cache of generated PDF URLs per agent — avoids re-generating on every send
-    var agentPdfCache = {};
-
-    // Get branded one-pager URL — returns cached URL or uploads HTML and returns new signed URL
-    async function getOnePagerPdfUrl(materialId) {
-        if (!BRANDED_DOC_KEY_MAP[materialId]) return null; // Not a branded material
-
-        // Check cache first
-        if (agentPdfCache[materialId]) return agentPdfCache[materialId];
-
-        // Check if HTML one-pager already exists in storage
-        var agentId = currentUserId || 'anon';
-        var storagePath = 'agent-marketing/' + agentId + '/' + materialId + '.html';
-        try {
-            var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(storagePath, 365 * 24 * 3600);
-            if (urlData && urlData.signedUrl) {
-                agentPdfCache[materialId] = urlData.signedUrl;
-                return urlData.signedUrl;
-            }
-        } catch (e) { /* HTML doesn't exist yet, generate it */ }
-
-        // Generate and upload branded HTML one-pager
-        showToast('Preparing ' + materialId.replace(/_/g, ' ') + '...', 'info');
-        var url = await generateAndUploadOnePagerPdf(materialId);
-        if (url) {
-            agentPdfCache[materialId] = url;
-            showToast('Ready!', 'success');
-        }
-        return url;
-    }
-
-    // Pre-generate all branded one-pager HTML files for the current agent (called on Marketing page load)
+    // Pre-generate stub — no longer needed since emails link directly to website files.
+    // Branded one-pagers are available on the Marketing page for viewing/printing.
     async function preGenerateAgentPdfs() {
-        if (!currentUserId) return;
-        var brandedIds = Object.keys(BRANDED_DOC_KEY_MAP);
-        for (var i = 0; i < brandedIds.length; i++) {
-            try {
-                await getOnePagerPdfUrl(brandedIds[i]);
-            } catch(e) {
-                console.warn('Pre-generate skipped for ' + brandedIds[i] + ':', e);
-            }
-        }
+        // No-op: emails now link to static website files instead of generated PDFs
     }
 
     function openInsuranceBrokersOnePager(contacts, agentSlug, autoPrint, returnHtml) {
@@ -8073,34 +8002,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">I have put together some information for your review. Please find the ' + (selectedMaterials.length === 1 ? 'document' : 'materials') + ' below.</p>';
             htmlBody += '</td></tr>';
 
-            // Resolve PDF URLs for branded materials (generates PDF if not cached)
-            var materialPdfUrls = {};
-            var failedMaterials = [];
-            for (var p = 0; p < selectedMaterials.length; p++) {
-                var matId = selectedMaterials[p].id;
-                if (BRANDED_DOC_KEY_MAP[matId]) {
-                    var pdfUrl = await getOnePagerPdfUrl(matId);
-                    if (pdfUrl) {
-                        materialPdfUrls[matId] = pdfUrl;
-                    } else {
-                        failedMaterials.push(selectedMaterials[p].label);
-                    }
-                }
-            }
-            if (failedMaterials.length > 0) {
-                var proceed = confirm('Warning: PDF generation failed for: ' + failedMaterials.join(', ') + '.\n\nThese materials will link to the website instead of a PDF attachment.\n\nSend anyway?');
-                if (!proceed) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg> Send Package';
-                    return;
-                }
-            }
-
-            // Materials cards — branded materials link to generated PDF, others to website
+            // Materials cards — link to website files (same files used on Marketing page)
             htmlBody += '<tr><td style="background:white;padding:0 48px 28px;">';
             for (var s = 0; s < selectedMaterials.length; s++) {
                 var mat = selectedMaterials[s];
-                var materialUrl = materialPdfUrls[mat.id] || (baseUrl + mat.file);
+                var materialUrl = baseUrl + mat.file;
                 htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">';
                 htmlBody += '<tr><td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px 20px;">';
                 htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>';
