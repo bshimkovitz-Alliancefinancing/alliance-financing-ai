@@ -5602,9 +5602,44 @@ if (location.hostname === 'alliancefinancing.ai') {
         var agentId = currentUserId || 'anon';
         var storagePath = 'agent-marketing/' + agentId + '/' + materialId + '.pdf';
 
-        // Create a hidden container, inject the HTML, render to PDF
+        // Preload Google Fonts used by one-pagers BEFORE rendering
+        // This prevents blank PDFs caused by html2canvas capturing before fonts load
+        var fontsToLoad = [
+            { family: 'Playfair Display', weight: '700' },
+            { family: 'Playfair Display', weight: '900' },
+            { family: 'Source Sans 3', weight: '400' },
+            { family: 'Source Sans 3', weight: '600' },
+            { family: 'Source Sans 3', weight: '700' }
+        ];
+        try {
+            // Inject font CSS link into document head if not already present
+            if (!document.getElementById('onepager-fonts-preload')) {
+                var fontLink = document.createElement('link');
+                fontLink.id = 'onepager-fonts-preload';
+                fontLink.rel = 'stylesheet';
+                fontLink.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap';
+                document.head.appendChild(fontLink);
+            }
+            // Wait for fonts to be ready (with timeout)
+            var fontPromises = fontsToLoad.map(function(f) {
+                return document.fonts.load(f.weight + ' 16px "' + f.family + '"').catch(function() { return null; });
+            });
+            await Promise.race([
+                Promise.all(fontPromises),
+                new Promise(function(resolve) { setTimeout(resolve, 5000); }) // 5s timeout
+            ]);
+            // Extra safety: wait for all fonts in the document to finish loading
+            await Promise.race([
+                document.fonts.ready,
+                new Promise(function(resolve) { setTimeout(resolve, 3000); })
+            ]);
+        } catch(fontErr) {
+            console.warn('Font preload warning (continuing anyway):', fontErr);
+        }
+
+        // Create a visible but off-screen container (visibility:hidden still renders for html2canvas)
         var container = document.createElement('div');
-        container.style.cssText = 'position:absolute;left:-9999px;top:0;width:816px;';
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:816px;visibility:visible;z-index:-1;';
         document.body.appendChild(container);
 
         // Parse out just the body content and styles from the full HTML
@@ -5618,20 +5653,37 @@ if (location.hostname === 'alliancefinancing.ai') {
 
         container.innerHTML = styles + bodyContent;
 
+        // Wait for the browser to lay out the content and load any images
+        await new Promise(function(resolve) { setTimeout(resolve, 1500); });
+
+        // Wait for any images in the container to load
+        var images = container.querySelectorAll('img');
+        if (images.length > 0) {
+            var imgPromises = Array.from(images).map(function(img) {
+                if (img.complete) return Promise.resolve();
+                return new Promise(function(resolve) {
+                    img.onload = resolve;
+                    img.onerror = resolve;
+                    setTimeout(resolve, 3000);
+                });
+            });
+            await Promise.all(imgPromises);
+        }
+
         try {
             var opt = {
                 margin: 0,
                 filename: materialId + '.pdf',
                 image: { type: 'jpeg', quality: 0.95 },
-                html2canvas: { scale: 2, useCORS: true, width: 816, scrollY: 0 },
+                html2canvas: { scale: 2, useCORS: true, width: 816, scrollY: 0, logging: false, allowTaint: true },
                 jsPDF: { unit: 'px', format: [816, 1056], hotfixes: ['px_scaling'] },
                 pagebreak: { mode: ['css', 'legacy'], before: '.page-two' }
             };
 
             var pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
 
-            // Validate PDF is not blank (minimum reasonable size is 1KB)
-            if (!pdfBlob || pdfBlob.size < 1024) {
+            // Validate PDF is not blank (minimum reasonable size is 5KB for a real one-pager)
+            if (!pdfBlob || pdfBlob.size < 5120) {
                 console.error('PDF generation produced empty/tiny blob for ' + materialId + ' (' + (pdfBlob ? pdfBlob.size : 0) + ' bytes)');
                 throw new Error('PDF generation failed — produced empty document for ' + materialId);
             }
@@ -5663,18 +5715,32 @@ if (location.hostname === 'alliancefinancing.ai') {
         // Check cache first
         if (agentPdfCache[materialId]) return agentPdfCache[materialId];
 
-        // Check if PDF already exists in storage
+        // Check if PDF already exists in storage AND is not blank
         var agentId = currentUserId || 'anon';
         var storagePath = 'agent-marketing/' + agentId + '/' + materialId + '.pdf';
         try {
             var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(storagePath, 365 * 24 * 3600);
             if (urlData && urlData.signedUrl) {
-                agentPdfCache[materialId] = urlData.signedUrl;
-                return urlData.signedUrl;
+                // Validate the existing PDF isn't blank by checking its size via HEAD request
+                try {
+                    var headResp = await fetch(urlData.signedUrl, { method: 'HEAD' });
+                    var contentLength = parseInt(headResp.headers.get('content-length') || '0', 10);
+                    if (contentLength > 5120) {
+                        // PDF is large enough to be valid — use it
+                        agentPdfCache[materialId] = urlData.signedUrl;
+                        return urlData.signedUrl;
+                    }
+                    // PDF exists but is too small (likely blank) — regenerate
+                    console.warn('Existing PDF for ' + materialId + ' is only ' + contentLength + ' bytes — regenerating');
+                } catch(headErr) {
+                    // HEAD request failed — use the signed URL anyway
+                    agentPdfCache[materialId] = urlData.signedUrl;
+                    return urlData.signedUrl;
+                }
             }
         } catch (e) { /* PDF doesn't exist yet, generate it */ }
 
-        // Generate and upload
+        // Generate and upload (or re-generate if previous was blank)
         showToast('Generating ' + materialId.replace(/_/g, ' ') + ' PDF...', 'info');
         var url = await generateAndUploadOnePagerPdf(materialId);
         if (url) {
