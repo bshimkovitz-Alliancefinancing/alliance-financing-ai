@@ -5591,7 +5591,9 @@ if (location.hostname === 'alliancefinancing.ai') {
         'mortgage_brokers': 'mortgage-brokers'
     };
 
-    // Generate a PDF from branded one-pager HTML using html2pdf.js, upload to Supabase Storage
+    // Upload branded one-pager as HTML to Supabase Storage and return a signed URL.
+    // HTML renders perfectly in any browser (fonts load natively via Google Fonts @import).
+    // This replaces the old html2pdf approach which produced blank PDFs due to font loading issues.
     async function generateAndUploadOnePagerPdf(materialId) {
         var docKey = BRANDED_DOC_KEY_MAP[materialId];
         if (!docKey) return null;
@@ -5600,107 +5602,24 @@ if (location.hostname === 'alliancefinancing.ai') {
         if (!html) return null;
 
         var agentId = currentUserId || 'anon';
-        var storagePath = 'agent-marketing/' + agentId + '/' + materialId + '.pdf';
-
-        // Preload Google Fonts used by one-pagers BEFORE rendering
-        // This prevents blank PDFs caused by html2canvas capturing before fonts load
-        var fontsToLoad = [
-            { family: 'Playfair Display', weight: '700' },
-            { family: 'Playfair Display', weight: '900' },
-            { family: 'Source Sans 3', weight: '400' },
-            { family: 'Source Sans 3', weight: '600' },
-            { family: 'Source Sans 3', weight: '700' }
-        ];
-        try {
-            // Inject font CSS link into document head if not already present
-            if (!document.getElementById('onepager-fonts-preload')) {
-                var fontLink = document.createElement('link');
-                fontLink.id = 'onepager-fonts-preload';
-                fontLink.rel = 'stylesheet';
-                fontLink.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap';
-                document.head.appendChild(fontLink);
-            }
-            // Wait for fonts to be ready (with timeout)
-            var fontPromises = fontsToLoad.map(function(f) {
-                return document.fonts.load(f.weight + ' 16px "' + f.family + '"').catch(function() { return null; });
-            });
-            await Promise.race([
-                Promise.all(fontPromises),
-                new Promise(function(resolve) { setTimeout(resolve, 5000); }) // 5s timeout
-            ]);
-            // Extra safety: wait for all fonts in the document to finish loading
-            await Promise.race([
-                document.fonts.ready,
-                new Promise(function(resolve) { setTimeout(resolve, 3000); })
-            ]);
-        } catch(fontErr) {
-            console.warn('Font preload warning (continuing anyway):', fontErr);
-        }
-
-        // Create a visible but off-screen container (visibility:hidden still renders for html2canvas)
-        var container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:816px;visibility:visible;z-index:-1;';
-        document.body.appendChild(container);
-
-        // Parse out just the body content and styles from the full HTML
-        var bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-        var styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi);
-        var bodyContent = bodyMatch ? bodyMatch[1] : html;
-        var styles = styleMatch ? styleMatch.join('') : '';
-
-        // Remove print scripts
-        bodyContent = bodyContent.replace(/<script[\s\S]*?<\/script>/gi, '');
-
-        container.innerHTML = styles + bodyContent;
-
-        // Wait for the browser to lay out the content and load any images
-        await new Promise(function(resolve) { setTimeout(resolve, 1500); });
-
-        // Wait for any images in the container to load
-        var images = container.querySelectorAll('img');
-        if (images.length > 0) {
-            var imgPromises = Array.from(images).map(function(img) {
-                if (img.complete) return Promise.resolve();
-                return new Promise(function(resolve) {
-                    img.onload = resolve;
-                    img.onerror = resolve;
-                    setTimeout(resolve, 3000);
-                });
-            });
-            await Promise.all(imgPromises);
-        }
+        var storagePath = 'agent-marketing/' + agentId + '/' + materialId + '.html';
 
         try {
-            var opt = {
-                margin: 0,
-                filename: materialId + '.pdf',
-                image: { type: 'jpeg', quality: 0.95 },
-                html2canvas: { scale: 2, useCORS: true, width: 816, scrollY: 0, logging: false, allowTaint: true },
-                jsPDF: { unit: 'px', format: [816, 1056], hotfixes: ['px_scaling'] },
-                pagebreak: { mode: ['css', 'legacy'], before: '.page-two' }
-            };
+            // Remove any auto-print scripts from the HTML so it just displays cleanly
+            html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
 
-            var pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
-
-            // Validate PDF is not blank (minimum reasonable size is 5KB for a real one-pager)
-            if (!pdfBlob || pdfBlob.size < 5120) {
-                console.error('PDF generation produced empty/tiny blob for ' + materialId + ' (' + (pdfBlob ? pdfBlob.size : 0) + ' bytes)');
-                throw new Error('PDF generation failed — produced empty document for ' + materialId);
-            }
-
-            // Upload to Supabase Storage
-            var pdfFile = new File([pdfBlob], materialId + '.pdf', { type: 'application/pdf' });
-            await uploadToStorage('deal-documents', storagePath, pdfFile);
+            // Upload HTML file to Supabase Storage
+            var htmlBlob = new Blob([html], { type: 'text/html' });
+            var htmlFile = new File([htmlBlob], materialId + '.html', { type: 'text/html' });
+            await uploadToStorage('deal-documents', storagePath, htmlFile);
 
             // Get a signed URL (valid for 1 year)
             var { data: urlData, error: urlErr } = await db.storage.from('deal-documents').createSignedUrl(storagePath, 365 * 24 * 3600);
             if (urlErr) throw urlErr;
 
-            document.body.removeChild(container);
             return urlData.signedUrl;
         } catch (err) {
-            console.error('PDF generation/upload error for ' + materialId + ':', err);
-            document.body.removeChild(container);
+            console.error('HTML upload error for ' + materialId + ':', err);
             return null;
         }
     }
@@ -5708,54 +5627,44 @@ if (location.hostname === 'alliancefinancing.ai') {
     // Cache of generated PDF URLs per agent — avoids re-generating on every send
     var agentPdfCache = {};
 
-    // Get PDF URL for a branded material — returns cached URL or generates new one
+    // Get branded one-pager URL — returns cached URL or uploads HTML and returns new signed URL
     async function getOnePagerPdfUrl(materialId) {
         if (!BRANDED_DOC_KEY_MAP[materialId]) return null; // Not a branded material
 
         // Check cache first
         if (agentPdfCache[materialId]) return agentPdfCache[materialId];
 
-        // Check if PDF already exists in storage AND is not blank
+        // Check if HTML one-pager already exists in storage
         var agentId = currentUserId || 'anon';
-        var storagePath = 'agent-marketing/' + agentId + '/' + materialId + '.pdf';
+        var storagePath = 'agent-marketing/' + agentId + '/' + materialId + '.html';
         try {
             var { data: urlData } = await db.storage.from('deal-documents').createSignedUrl(storagePath, 365 * 24 * 3600);
             if (urlData && urlData.signedUrl) {
-                // Validate the existing PDF isn't blank by checking its size via HEAD request
-                try {
-                    var headResp = await fetch(urlData.signedUrl, { method: 'HEAD' });
-                    var contentLength = parseInt(headResp.headers.get('content-length') || '0', 10);
-                    if (contentLength > 5120) {
-                        // PDF is large enough to be valid — use it
-                        agentPdfCache[materialId] = urlData.signedUrl;
-                        return urlData.signedUrl;
-                    }
-                    // PDF exists but is too small (likely blank) — regenerate
-                    console.warn('Existing PDF for ' + materialId + ' is only ' + contentLength + ' bytes — regenerating');
-                } catch(headErr) {
-                    // HEAD request failed — use the signed URL anyway
-                    agentPdfCache[materialId] = urlData.signedUrl;
-                    return urlData.signedUrl;
-                }
+                agentPdfCache[materialId] = urlData.signedUrl;
+                return urlData.signedUrl;
             }
-        } catch (e) { /* PDF doesn't exist yet, generate it */ }
+        } catch (e) { /* HTML doesn't exist yet, generate it */ }
 
-        // Generate and upload (or re-generate if previous was blank)
-        showToast('Generating ' + materialId.replace(/_/g, ' ') + ' PDF...', 'info');
+        // Generate and upload branded HTML one-pager
+        showToast('Preparing ' + materialId.replace(/_/g, ' ') + '...', 'info');
         var url = await generateAndUploadOnePagerPdf(materialId);
         if (url) {
             agentPdfCache[materialId] = url;
-            showToast('PDF ready!', 'success');
+            showToast('Ready!', 'success');
         }
         return url;
     }
 
-    // Pre-generate all branded PDFs for the current agent (called on Marketing page load)
+    // Pre-generate all branded one-pager HTML files for the current agent (called on Marketing page load)
     async function preGenerateAgentPdfs() {
         if (!currentUserId) return;
         var brandedIds = Object.keys(BRANDED_DOC_KEY_MAP);
         for (var i = 0; i < brandedIds.length; i++) {
-            await getOnePagerPdfUrl(brandedIds[i]);
+            try {
+                await getOnePagerPdfUrl(brandedIds[i]);
+            } catch(e) {
+                console.warn('Pre-generate skipped for ' + brandedIds[i] + ':', e);
+            }
         }
     }
 
