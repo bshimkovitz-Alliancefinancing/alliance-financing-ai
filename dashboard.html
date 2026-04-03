@@ -4713,11 +4713,20 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
+    // ── WWW Canonical Enforcer ───────────────────────────────
+    // Supabase stores sessions in localStorage, which is per-origin.
+    // Redirect non-www to www BEFORE Supabase initializes so the
+    // session token is always on the same origin.
+    if (location.hostname === 'alliancefinancing.ai') {
+        location.replace('https://www.alliancefinancing.ai' + location.pathname + location.search + location.hash);
+    }
+    // ─────────────────────────────────────────────────────────
+
     // ============================================
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-01-v98';
+    const DASHBOARD_VERSION = '2026-04-01-v99-www-fix';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -6727,7 +6736,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         // Build trackable MCA application link
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
         if (mode === 'alliance') agentSlug = 'alliance-house';
-        var agentMCALink = 'https://alliancefinancing.ai/apply-merchant-advance.html?ref=' + agentSlug;
+        var agentMCALink = 'https://www.alliancefinancing.ai/apply-merchant-advance.html?ref=' + agentSlug;
 
         // Build footer contacts HTML
         const contactsHtml = contacts.map((c, i) => {
@@ -6934,7 +6943,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
           <div class="apply-option">
             <div class="apply-option-title">Alliance Platform</div>
             <p>Apply directly through our secure AI-powered portal. Simple 5-minute application, available 24/7. Our system instantly matches you with the best lender from our 70+ partner network.</p>
-            <a href="https://alliancefinancing.ai">alliancefinancing.ai &rarr;</a>
+            <a href="https://www.alliancefinancing.ai">alliancefinancing.ai &rarr;</a>
           </div>
           <div class="apply-option">
             <div class="apply-option-title">Contact Your Alliance Advisor</div>
@@ -6984,7 +6993,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // ============================================
     function showSendMCAModal() {
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
-        var mcaAppLink = 'https://alliancefinancing.ai/apply-merchant-advance.html?ref=' + agentSlug;
+        var mcaAppLink = 'https://www.alliancefinancing.ai/apply-merchant-advance.html?ref=' + agentSlug;
         var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
         var agentEmail = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
         var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
@@ -7022,7 +7031,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (!clientEmail) { alert('Please enter the client email'); return; }
 
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
-        var mcaAppLink = 'https://alliancefinancing.ai/apply-merchant-advance.html?ref=' + agentSlug;
+        var mcaAppLink = 'https://www.alliancefinancing.ai/apply-merchant-advance.html?ref=' + agentSlug;
         var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
         var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
         var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
@@ -7065,7 +7074,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (agentPhone) htmlBody += '<p style="font-size:13px;color:#6B7280;margin:2px 0 0;">' + agentPhone + '</p>';
             htmlBody += '</div>';
             htmlBody += '<div style="background:#F8FAFC;padding:12px 25px;border:1px solid #E5E7EB;border-top:none;border-radius:0 0 8px 8px;text-align:center;">';
-            htmlBody += '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group | <a href="https://alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a></p>';
+            htmlBody += '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group | <a href="https://www.alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a></p>';
             htmlBody += '</div></div>';
 
             var subject = 'Working Capital for Your Business — Merchant Cash Advance from Alliance Financing';
@@ -7225,7 +7234,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
         var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
-        var vendorContactLink = 'https://alliancefinancing.ai/vendor-inquiry.html?ref=' + agentSlug;
+        var vendorContactLink = 'https://www.alliancefinancing.ai/vendor-inquiry.html?ref=' + agentSlug;
 
         btn.disabled = true;
         btn.textContent = '⏳ Sending...';
@@ -7233,8 +7242,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         try {
             var greeting = recipientName ? 'Hi ' + recipientName + ',' : 'Hi there,';
             var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
-            var onePagerLink = 'https://alliancefinancing.ai/vendor-program.html?ref=' + agentSlug;
-            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+            var onePagerLink = 'https://www.alliancefinancing.ai/vendor-program.html?ref=' + agentSlug;
+            var logoUrl = 'https://www.alliancefinancing.ai/alliance-logo-transparent.png';
 
             var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
             htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
@@ -7322,7 +7331,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Footer
             htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
             htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
-            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://www.alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
             htmlBody += '</td></tr>';
 
             htmlBody += '</table></td></tr></table></body></html>';
@@ -7407,13 +7416,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
         var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
-        var partnerLink = 'https://alliancefinancing.ai/partner?ref=' + agentSlug;
+        var partnerLink = 'https://www.alliancefinancing.ai/partner?ref=' + agentSlug;
         btn.disabled = true;
         btn.textContent = '⏳ Sending...';
         try {
             var greeting = recipientName ? 'Hi ' + recipientName + ',' : 'Hi there,';
             var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
-            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+            var logoUrl = 'https://www.alliancefinancing.ai/alliance-logo-transparent.png';
             var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
             htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
             htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
@@ -7474,7 +7483,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Footer
             htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
             htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
-            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://www.alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
             htmlBody += '</td></tr></table></td></tr></table></body></html>';
             var subject = 'A New Revenue Stream From Your Insurance Book — Alliance Financing';
             await sendEmailViaResend(recipientEmail, subject, htmlBody);
@@ -7525,13 +7534,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
         var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
-        var partnerLink = 'https://alliancefinancing.ai/partner?ref=' + agentSlug;
+        var partnerLink = 'https://www.alliancefinancing.ai/partner?ref=' + agentSlug;
         btn.disabled = true;
         btn.textContent = '⏳ Sending...';
         try {
             var greeting = recipientName ? 'Hi ' + recipientName + ',' : 'Hi there,';
             var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
-            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+            var logoUrl = 'https://www.alliancefinancing.ai/alliance-logo-transparent.png';
             var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
             htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
             htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
@@ -7585,7 +7594,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '</div></td></tr>';
             htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
             htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
-            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://www.alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
             htmlBody += '</td></tr></table></td></tr></table></body></html>';
             var subject = 'Turn Financial Insight Into Revenue — Alliance Financing Partnership';
             await sendEmailViaResend(recipientEmail, subject, htmlBody);
@@ -7636,13 +7645,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
         var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
-        var partnerLink = 'https://alliancefinancing.ai/partner?ref=' + agentSlug;
+        var partnerLink = 'https://www.alliancefinancing.ai/partner?ref=' + agentSlug;
         btn.disabled = true;
         btn.textContent = '⏳ Sending...';
         try {
             var greeting = recipientName ? 'Hi ' + recipientName + ',' : 'Hi there,';
             var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
-            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+            var logoUrl = 'https://www.alliancefinancing.ai/alliance-logo-transparent.png';
             var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
             htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
             htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
@@ -7696,7 +7705,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '</div></td></tr>';
             htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
             htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
-            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://www.alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
             htmlBody += '</td></tr></table></td></tr></table></body></html>';
             var subject = 'Build a Thriving Referral Business — Alliance Financing Group';
             await sendEmailViaResend(recipientEmail, subject, htmlBody);
@@ -7747,13 +7756,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
         var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
-        var partnerLink = 'https://alliancefinancing.ai/partner?ref=' + agentSlug;
+        var partnerLink = 'https://www.alliancefinancing.ai/partner?ref=' + agentSlug;
         btn.disabled = true;
         btn.textContent = '⏳ Sending...';
         try {
             var greeting = recipientName ? 'Hi ' + recipientName + ',' : 'Hi there,';
             var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
-            var logoUrl = 'https://alliancefinancing.ai/alliance-logo-transparent.png';
+            var logoUrl = 'https://www.alliancefinancing.ai/alliance-logo-transparent.png';
             var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
             htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
             htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
@@ -7807,7 +7816,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '</div></td></tr>';
             htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
             htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
-            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://www.alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
             htmlBody += '</td></tr></table></td></tr></table></body></html>';
             var subject = 'Expand Your Practice With Commercial Financing — Alliance Financing';
             await sendEmailViaResend(recipientEmail, subject, htmlBody);
@@ -10325,7 +10334,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Send vendor application form link via email
     async function sendVendorApplicationEmail(vendorId, contactName, contactEmail, companyName, vendorCode) {
         try {
-            var appLink = 'https://alliancefinancing.ai/vendor-application.html?id=' + vendorId;
+            var appLink = 'https://www.alliancefinancing.ai/vendor-application.html?id=' + vendorId;
             var subject = 'Alliance Financing — Vendor Application for ' + companyName;
 
             var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;padding:20px 0;">';
@@ -10341,7 +10350,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '<p style="margin-top:24px;">Best regards,<br><strong>' + (currentUserName || 'Alliance Financing Team') + '</strong></p>';
             htmlBody += '</div>';
             htmlBody += '<div style="background:#f5f7fa;padding:16px 24px;font-size:12px;color:#8A9BB0;text-align:center;border-top:1px solid #e2e8f0;">';
-            htmlBody += 'Alliance Financing Group Ltd. | 1-877-660-3660 | <a href="https://alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a>';
+            htmlBody += 'Alliance Financing Group Ltd. | 1-877-660-3660 | <a href="https://www.alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a>';
             htmlBody += '</div>';
             htmlBody += '</body></html>';
 
@@ -10401,7 +10410,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         var agentSlugForVLP = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
         if (mode === 'alliance') agentSlugForVLP = 'alliance-house';
-        var vendorApplyLink = 'https://alliancefinancing.ai/vendor-inquiry.html?ref=' + agentSlugForVLP;
+        var vendorApplyLink = 'https://www.alliancefinancing.ai/vendor-inquiry.html?ref=' + agentSlugForVLP;
 
         var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Vendor Equipment Leasing Program — Alliance Financing Group</title>';
         html += '<style>';
@@ -18577,9 +18586,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var slug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : '';
             var linkInput = document.getElementById('allianceReferralLinkInput');
             if (linkInput && slug) {
-                linkInput.value = 'https://alliancefinancing.ai/application.html?ref=' + slug;
+                linkInput.value = 'https://www.alliancefinancing.ai/application.html?ref=' + slug;
             } else if (linkInput) {
-                linkInput.value = 'https://alliancefinancing.ai/application.html';
+                linkInput.value = 'https://www.alliancefinancing.ai/application.html';
             }
             return;
         }
@@ -20606,7 +20615,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             htmlBody += '<hr style="border:none;border-top:1px solid #E5E7EB;margin:25px 0 15px;">';
             htmlBody += '<p style="font-size:13px;color:#6B7280;">Submitted by ' + (currentUserName || 'Alliance Financing Group') + '</p>';
-            htmlBody += '<p style="font-size:13px;color:#6B7280;">Alliance Financing Group | <a href="https://alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a></p>';
+            htmlBody += '<p style="font-size:13px;color:#6B7280;">Alliance Financing Group | <a href="https://www.alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a></p>';
             htmlBody += '</div></div>';
 
             // 6. Send email (with optional CC)
@@ -26678,7 +26687,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <p style="font-size: 13px; color: #64748B; margin: 4px 0 0 0;">1-877-660-3660 ext. 222 | info@alliancefinancing.com</p>
                     </div>
                     <div style="padding: 12px 25px; text-align: center; font-size: 11px; color: #94A3B8; border-top: 1px solid #f0f0f0; margin-top: 10px;">
-                        Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai" style="color: #C9A84C;">alliancefinancing.ai</a>
+                        Alliance Financing Group Ltd. | <a href="https://www.alliancefinancing.ai" style="color: #C9A84C;">alliancefinancing.ai</a>
                         <br>You can reply directly to this email.
                     </div>
                 </div>
@@ -27584,7 +27593,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     ${recipientName ? '<p style="font-size: 15px;">Hi ' + recipientName + ',</p>' : ''}
                     ${bodyContent}
                     <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E7EB;">
-                        <a href="https://alliancefinancing.ai/dashboard.html" style="display: inline-block; background: #C9A84C; color: #0D1E3D; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">View in Dashboard</a>
+                        <a href="https://www.alliancefinancing.ai/dashboard.html" style="display: inline-block; background: #C9A84C; color: #0D1E3D; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">View in Dashboard</a>
                     </div>
                 </div>
                 <div style="padding: 16px 30px; text-align: center; font-size: 12px; color: #94A3B8;">
@@ -28285,7 +28294,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;">' + activateUrl + '</a></p>' +
                     '<p style="font-size:14px;color:#475569;line-height:1.6;">This link will allow you to set up your password and access your dashboard.</p>' +
                     '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, don\'t hesitate to reach out.</p>' +
-                    '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="https://alliancefinancing.ai" style="color:#3B82F6;">alliancefinancing.ai</a></p>' +
+                    '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="https://www.alliancefinancing.ai" style="color:#3B82F6;">alliancefinancing.ai</a></p>' +
                     '</div>' +
                     '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
                     '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
@@ -28792,7 +28801,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;word-break:break-all;">' + activateUrl + '</a></p>' +
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">This link will allow you to review our Platform Access Agreement, set up your password, and access your dashboard.</p>' +
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, don\'t hesitate to reach out.</p>' +
-                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="https://alliancefinancing.ai" style="color:#3B82F6;">alliancefinancing.ai</a></p>' +
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="https://www.alliancefinancing.ai" style="color:#3B82F6;">alliancefinancing.ai</a></p>' +
                 '</div>' +
                 '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
                 '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.ai</p></div></div>';
@@ -28834,7 +28843,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;">' + activateUrl + '</a></p>' +
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">This link will allow you to set up your password and access your dashboard.</p>' +
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, don\'t hesitate to reach out.</p>' +
-                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="https://alliancefinancing.ai" style="color:#3B82F6;">alliancefinancing.ai</a></p>' +
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="https://www.alliancefinancing.ai" style="color:#3B82F6;">alliancefinancing.ai</a></p>' +
                 '</div>' +
                 '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
                 '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
@@ -30259,7 +30268,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>' + senderName + '</strong><br>Alliance Financing Group Ltd.<br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>' +
                 '</div>' +
                 '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
-                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a></p></div></div>';
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | <a href="https://www.alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a></p></div></div>';
 
             await sendEmailViaResend(contactEmail, subject, htmlBody);
 
@@ -31275,7 +31284,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong></p>' +
                 '</div>' +
                 '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
-                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a></p></div></div>';
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | <a href="https://www.alliancefinancing.ai" style="color:#C9A84C;">alliancefinancing.ai</a></p></div></div>';
 
             await sendEmailViaResend(contactEmail, emailSubject, emailHtml, '', 'info@alliancefinancing.com');
 
