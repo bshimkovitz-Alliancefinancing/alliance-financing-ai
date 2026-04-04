@@ -1861,6 +1861,19 @@
                     </div>
                 </div>
 
+                <!-- Agent Onboarding Pipeline -->
+                <div id="onboardingPipelineSection" class="table-container" style="margin-bottom:24px;display:none;">
+                    <div class="table-header">
+                        <div class="table-title">Onboarding Pipeline</div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span id="onboardingCount" style="font-size:12px;color:var(--text-light);"></span>
+                        </div>
+                    </div>
+                    <div id="onboardingPipelineBody" style="padding:16px;">
+                        <div style="text-align:center;color:var(--text-light);font-size:13px;padding:20px;">Loading onboarding data...</div>
+                    </div>
+                </div>
+
                 <!-- Prospect Outreach / Recruitment Pipeline -->
                 <div class="table-container" style="margin-bottom: 24px;">
                     <div class="table-header">
@@ -1868,6 +1881,10 @@
                         <div style="display:flex;gap:8px;align-items:center;">
                             <span id="outreachCount" style="font-size:12px;color:var(--text-light);"></span>
                             <button class="btn btn-secondary btn-sm" onclick="loadOutreachHistory()" style="font-size:12px;">Refresh</button>
+                            <button class="btn btn-gold btn-sm" onclick="openBulkOutreachModal()" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>
+                                Bulk Send
+                            </button>
                             <button class="btn btn-gold btn-sm" onclick="openSendMarketingPackageModal()" style="display:flex;align-items:center;gap:6px;font-size:12px;">
                                 <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
                                 Send Marketing Package
@@ -1923,11 +1940,12 @@
                                 <th>Outreach</th>
                                 <th>Conversion</th>
                                 <th>Override Earned</th>
+                                <th>Monthly Goal</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="agentSubAgentsBody">
-                            <tr><td colspan="10" class="empty-state">Loading referral partners...</td></tr>
+                            <tr><td colspan="11" class="empty-state">Loading referral partners...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -13380,7 +13398,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (inviteBtn) inviteBtn.textContent = isBroker ? '+ Invite Mortgage Agent' : '+ Invite Referral Partner';
 
             if (!subAgents || subAgents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No ' + memberLabel + ' yet. Invite one above!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No ' + memberLabel + ' yet. Invite one above!</td></tr>';
+                // Hide onboarding pipeline if no agents
+                var obSection = document.getElementById('onboardingPipelineSection');
+                if (obSection) obSection.style.display = 'none';
                 return;
             }
 
@@ -13437,6 +13458,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                       '">' + conversionRate + '%</span>'
                     : '<span style="color:#94A3B8;font-size:11px;">-</span>';
 
+                // Goal progress for this agent
+                var agentGoals = getAgentGoals(sa.id);
+                var goalHtml = '';
+                if (agentGoals && agentGoals.deals_target > 0) {
+                    var goalPct = Math.min(100, Math.round((dealCount / agentGoals.deals_target) * 100));
+                    var goalColor = goalPct >= 100 ? '#10B981' : goalPct >= 50 ? '#F59E0B' : '#EF4444';
+                    goalHtml = '<div style="min-width:80px;">' +
+                        '<div style="font-size:11px;font-weight:600;color:' + goalColor + ';">' + dealCount + '/' + agentGoals.deals_target + ' deals</div>' +
+                        '<div style="background:#E5E7EB;border-radius:4px;height:5px;margin-top:3px;overflow:hidden;">' +
+                        '<div style="background:' + goalColor + ';height:100%;width:' + goalPct + '%;border-radius:4px;transition:width 0.3s;"></div></div></div>';
+                } else {
+                    goalHtml = '<button onclick="openGoalSettingModal(\'' + sa.id + '\', \'' + (sa.full_name || 'Agent').replace(/'/g, "\\'") + '\')" style="font-size:10px;color:#6366F1;background:#EEF2FF;border:1px dashed #C7D2FE;border-radius:4px;padding:3px 8px;cursor:pointer;">+ Set Goal</button>';
+                }
+
                 rows.push(`
                     <tr>
                         <td><strong>${sa.full_name || 'N/A'}</strong></td>
@@ -13448,6 +13483,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <td>${outreachBadge}</td>
                         <td>${convBadge}</td>
                         <td>${totalOverride > 0 ? formatCurrency(totalOverride) : '-'}</td>
+                        <td>${goalHtml}</td>
                         <td><button class="btn btn-secondary btn-sm" onclick="viewSubAgent('${sa.id}')">View</button></td>
                     </tr>
                 `);
@@ -13467,9 +13503,549 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (kpiEl('kpiAvgDeals')) kpiEl('kpiAvgDeals').textContent = avgDeals + ' avg per partner';
             if (kpiEl('kpiOverrideRevenue')) kpiEl('kpiOverrideRevenue').textContent = orgTotalOverride > 0 ? formatCurrency(orgTotalOverride) : '$0';
             if (kpiEl('kpiAvgOverride')) kpiEl('kpiAvgOverride').textContent = orgTotalDeals > 0 ? formatCurrency(parseFloat(avgOverride)) + ' avg per deal' : '$0 avg per deal';
+
+            // Render onboarding pipeline
+            renderOnboardingPipeline(subAgents);
+
         } catch (err) {
             console.error('Load sub-agents error:', err);
         }
+    }
+
+    // ============================================
+    // FEATURE: Agent Onboarding Pipeline
+    // ============================================
+    function renderOnboardingPipeline(subAgents) {
+        var section = document.getElementById('onboardingPipelineSection');
+        var body = document.getElementById('onboardingPipelineBody');
+        if (!section || !body || !subAgents || subAgents.length === 0) {
+            if (section) section.style.display = 'none';
+            return;
+        }
+
+        // Only show agents NOT fully onboarded (no first deal or not active)
+        var stages = [
+            { key: 'invite_sent', label: 'Invite Sent', icon: '📨', color: '#94A3B8' },
+            { key: 'accepted', label: 'Accepted', icon: '✅', color: '#F59E0B' },
+            { key: 'profile_setup', label: 'Profile Set Up', icon: '👤', color: '#6366F1' },
+            { key: 'first_deal', label: 'First Deal', icon: '🎯', color: '#10B981' }
+        ];
+
+        var html = '';
+        var needsAttention = 0;
+
+        for (var i = 0; i < subAgents.length; i++) {
+            var sa = subAgents[i];
+
+            // Determine current stage
+            var currentStage = 0; // not started
+            if (sa.invite_sent_at) currentStage = 1; // invite sent
+            if (sa.invite_accepted_at) currentStage = 2; // accepted
+            if (sa.onboarding_status === 'active') currentStage = 3; // profile set up
+
+            // Skip fully onboarded agents (active + has deals — we'll check via DOM later)
+            // For now, show all agents that haven't completed all 4 stages
+            if (currentStage < 3) needsAttention++;
+
+            // Agent card
+            html += '<div style="display:flex;align-items:center;gap:16px;padding:14px 16px;border:1px solid #E2E8F0;border-radius:10px;margin-bottom:10px;background:white;">';
+
+            // Agent name & status
+            html += '<div style="min-width:160px;">';
+            html += '<div style="font-size:13px;font-weight:700;color:var(--navy);">' + (sa.full_name || 'Unknown') + '</div>';
+            html += '<div style="font-size:11px;color:#94A3B8;margin-top:2px;">' + (sa.email || '') + '</div>';
+            html += '</div>';
+
+            // Stage progression
+            html += '<div style="flex:1;display:flex;align-items:center;gap:4px;">';
+            for (var s = 0; s < stages.length; s++) {
+                var stage = stages[s];
+                var isComplete = (s + 1) <= currentStage;
+                var isCurrent = (s + 1) === currentStage;
+
+                // Stage dot
+                html += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;">';
+                html += '<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;' +
+                    (isComplete ? 'background:' + stage.color + '15;border:2px solid ' + stage.color + ';' : 'background:#F3F4F6;border:2px solid #E5E7EB;opacity:0.5;') +
+                    (isCurrent ? 'box-shadow:0 0 0 3px ' + stage.color + '30;' : '') + '">' + stage.icon + '</div>';
+                html += '<div style="font-size:9px;font-weight:600;color:' + (isComplete ? stage.color : '#CBD5E1') + ';margin-top:4px;text-align:center;white-space:nowrap;">' + stage.label + '</div>';
+                html += '</div>';
+
+                // Connector line
+                if (s < stages.length - 1) {
+                    var lineColor = (s + 1) < currentStage ? stages[s + 1].color : '#E5E7EB';
+                    html += '<div style="flex:0 0 auto;width:40px;height:2px;background:' + lineColor + ';margin:0 -2px;margin-bottom:16px;"></div>';
+                }
+            }
+            html += '</div>';
+
+            // Days since last action
+            var daysSinceAction = '';
+            var lastDate = sa.invite_accepted_at || sa.invite_sent_at || sa.created_at;
+            if (lastDate) {
+                var daysAgo = Math.floor((new Date() - new Date(lastDate)) / (1000 * 60 * 60 * 24));
+                if (daysAgo > 7 && currentStage < 3) {
+                    daysSinceAction = '<span style="background:#FEE2E2;color:#DC2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;">⚠️ ' + daysAgo + 'd stalled</span>';
+                } else if (daysAgo > 3 && currentStage < 3) {
+                    daysSinceAction = '<span style="background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;">' + daysAgo + 'd ago</span>';
+                } else if (currentStage >= 3) {
+                    daysSinceAction = '<span style="background:#D1FAE5;color:#065F46;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;">✓ Active</span>';
+                } else {
+                    daysSinceAction = '<span style="color:#94A3B8;font-size:10px;">' + daysAgo + 'd ago</span>';
+                }
+            }
+            html += '<div style="min-width:80px;text-align:right;">' + daysSinceAction + '</div>';
+
+            html += '</div>';
+        }
+
+        body.innerHTML = html;
+        section.style.display = 'block';
+
+        var countEl = document.getElementById('onboardingCount');
+        if (countEl) countEl.textContent = subAgents.length + ' agents · ' + needsAttention + ' need attention';
+    }
+
+    // ============================================
+    // FEATURE: Goal Setting (per agent)
+    // ============================================
+    function getGoalStorageKey(agentId) {
+        var now = new Date();
+        var monthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        return 'agent_goal_' + agentId + '_' + monthKey;
+    }
+
+    function getAgentGoals(agentId) {
+        try {
+            var key = getGoalStorageKey(agentId);
+            var stored = localStorage.getItem(key);
+            return stored ? JSON.parse(stored) : null;
+        } catch(e) { return null; }
+    }
+
+    function saveAgentGoalsData(agentId, goals) {
+        try {
+            var key = getGoalStorageKey(agentId);
+            localStorage.setItem(key, JSON.stringify(goals));
+        } catch(e) { console.error('Save goals error:', e); }
+    }
+
+    function openGoalSettingModal(agentId, agentName) {
+        var existing = getAgentGoals(agentId) || {};
+        var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        var now = new Date();
+        var monthLabel = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+
+        var modalHtml = '<div style="background:linear-gradient(135deg,#4F46E5 0%,#6366F1 100%);padding:20px 24px;border-radius:10px 10px 0 0;">';
+        modalHtml += '<h3 style="color:white;margin:0;font-size:17px;display:flex;align-items:center;gap:8px;">🎯 Set Monthly Goals</h3>';
+        modalHtml += '<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:6px 0 0;">Set ' + monthLabel + ' targets for <strong style="color:white;">' + agentName + '</strong></p>';
+        modalHtml += '</div>';
+
+        modalHtml += '<div style="padding:24px;">';
+
+        // Deals target
+        modalHtml += '<div style="margin-bottom:16px;">';
+        modalHtml += '<label style="font-size:12px;font-weight:600;color:#374151;display:flex;align-items:center;gap:6px;margin-bottom:6px;">🤝 Deals Target</label>';
+        modalHtml += '<input type="number" id="goalDeals" value="' + (existing.deals_target || '') + '" placeholder="e.g. 5" min="0" style="width:100%;padding:10px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:14px;">';
+        modalHtml += '</div>';
+
+        // Outreach target
+        modalHtml += '<div style="margin-bottom:16px;">';
+        modalHtml += '<label style="font-size:12px;font-weight:600;color:#374151;display:flex;align-items:center;gap:6px;margin-bottom:6px;">📤 Outreach Sends Target</label>';
+        modalHtml += '<input type="number" id="goalOutreach" value="' + (existing.outreach_target || '') + '" placeholder="e.g. 20" min="0" style="width:100%;padding:10px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:14px;">';
+        modalHtml += '</div>';
+
+        // Applications target
+        modalHtml += '<div style="margin-bottom:16px;">';
+        modalHtml += '<label style="font-size:12px;font-weight:600;color:#374151;display:flex;align-items:center;gap:6px;margin-bottom:6px;">📋 Applications Target</label>';
+        modalHtml += '<input type="number" id="goalApps" value="' + (existing.apps_target || '') + '" placeholder="e.g. 10" min="0" style="width:100%;padding:10px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:14px;">';
+        modalHtml += '</div>';
+
+        // Buttons
+        modalHtml += '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">';
+        if (existing.deals_target) {
+            modalHtml += '<button onclick="clearAgentGoals(\'' + agentId + '\')" style="padding:10px 16px;background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;margin-right:auto;">Clear Goals</button>';
+        }
+        modalHtml += '<button onclick="document.getElementById(\'goalModal\').style.display=\'none\'" style="padding:10px 20px;background:#F3F4F6;color:#374151;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Cancel</button>';
+        modalHtml += '<button onclick="saveGoalFromModal(\'' + agentId + '\')" style="padding:10px 24px;background:#6366F1;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Save Goals</button>';
+        modalHtml += '</div></div>';
+
+        var existingModal = document.getElementById('goalModal');
+        if (existingModal) existingModal.remove();
+
+        var modal = document.createElement('div');
+        modal.id = 'goalModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = '<div style="background:white;border-radius:10px;max-width:440px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' + modalHtml + '</div>';
+        modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+        document.body.appendChild(modal);
+    }
+
+    function saveGoalFromModal(agentId) {
+        var deals = parseInt(document.getElementById('goalDeals').value) || 0;
+        var outreach = parseInt(document.getElementById('goalOutreach').value) || 0;
+        var apps = parseInt(document.getElementById('goalApps').value) || 0;
+
+        if (deals === 0 && outreach === 0 && apps === 0) {
+            alert('Please set at least one target.');
+            return;
+        }
+
+        saveAgentGoalsData(agentId, {
+            deals_target: deals,
+            outreach_target: outreach,
+            apps_target: apps,
+            set_at: new Date().toISOString()
+        });
+
+        document.getElementById('goalModal').style.display = 'none';
+        loadAgentSubAgents(); // Refresh the table
+        showToast('Goals saved! 🎯');
+    }
+
+    function clearAgentGoals(agentId) {
+        try {
+            var key = getGoalStorageKey(agentId);
+            localStorage.removeItem(key);
+        } catch(e) {}
+        document.getElementById('goalModal').style.display = 'none';
+        loadAgentSubAgents();
+        showToast('Goals cleared');
+    }
+
+    // ============================================
+    // FEATURE: Bulk Outreach
+    // ============================================
+    function openBulkOutreachModal() {
+        var modalHtml = '<div style="background:linear-gradient(135deg,#0D1E3D 0%,#1A3A5C 100%);padding:20px 24px;border-radius:10px 10px 0 0;">';
+        modalHtml += '<h3 style="color:white;margin:0;font-size:17px;display:flex;align-items:center;gap:8px;">';
+        modalHtml += '<svg width="18" height="18" fill="none" stroke="#C9A84C" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>';
+        modalHtml += 'Bulk Send Marketing Packages</h3>';
+        modalHtml += '<p style="color:#94A3B8;font-size:12px;margin:6px 0 0;">Send to multiple prospects at once. Add them manually or upload a CSV.</p>';
+        modalHtml += '</div>';
+
+        modalHtml += '<div style="padding:24px;">';
+
+        // Tab toggle: Manual vs CSV
+        modalHtml += '<div style="display:flex;gap:0;margin-bottom:16px;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;">';
+        modalHtml += '<button id="bulkTabManual" onclick="switchBulkTab(\'manual\')" style="flex:1;padding:10px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:#0D1E3D;color:white;">✏️ Enter Manually</button>';
+        modalHtml += '<button id="bulkTabCsv" onclick="switchBulkTab(\'csv\')" style="flex:1;padding:10px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:white;color:#64748B;">📄 Upload CSV</button>';
+        modalHtml += '</div>';
+
+        // Manual entry section
+        modalHtml += '<div id="bulkManualSection">';
+        modalHtml += '<div style="margin-bottom:12px;">';
+        modalHtml += '<label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Prospect List <span style="font-weight:400;color:#94A3B8;">(one per line: Name, Email, Company)</span></label>';
+        modalHtml += '<textarea id="bulkProspectList" rows="6" placeholder="John Smith, john@company.com, Acme Corp&#10;Jane Doe, jane@business.com, Widget Inc&#10;Bob Jones, bob@example.com" style="width:100%;padding:10px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;font-family:monospace;resize:vertical;line-height:1.6;"></textarea>';
+        modalHtml += '<div style="font-size:10px;color:#94A3B8;margin-top:4px;">Format: Name, Email, Company (company is optional)</div>';
+        modalHtml += '</div></div>';
+
+        // CSV upload section (hidden by default)
+        modalHtml += '<div id="bulkCsvSection" style="display:none;">';
+        modalHtml += '<div style="border:2px dashed #D1D5DB;border-radius:8px;padding:30px;text-align:center;margin-bottom:12px;cursor:pointer;" onclick="document.getElementById(\'bulkCsvFile\').click()">';
+        modalHtml += '<div style="font-size:28px;margin-bottom:8px;">📁</div>';
+        modalHtml += '<div style="font-size:13px;font-weight:600;color:#374151;">Click to upload CSV file</div>';
+        modalHtml += '<div style="font-size:11px;color:#94A3B8;margin-top:4px;">Columns: name, email, company (optional)</div>';
+        modalHtml += '<input type="file" id="bulkCsvFile" accept=".csv" style="display:none;" onchange="handleBulkCsvUpload(this)">';
+        modalHtml += '</div>';
+        modalHtml += '<div id="bulkCsvPreview" style="display:none;margin-bottom:12px;"></div>';
+        modalHtml += '</div>';
+
+        // Prospect type
+        modalHtml += '<div style="margin-bottom:16px;">';
+        modalHtml += '<label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Prospect Type (applies to all)</label>';
+        modalHtml += '<select id="bulkProspectType" style="width:100%;padding:9px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;background:white;">';
+        modalHtml += '<option value="">Select type...</option>';
+        modalHtml += '<option value="insurance_broker">Insurance Broker</option>';
+        modalHtml += '<option value="accountant_cfo">Accountant / CFO</option>';
+        modalHtml += '<option value="equipment_vendor">Equipment Vendor</option>';
+        modalHtml += '<option value="business_owner">Business Owner</option>';
+        modalHtml += '<option value="referral_partner">Potential Referral Partner</option>';
+        modalHtml += '<option value="iso_partner">Potential ISO Partner</option>';
+        modalHtml += '<option value="other">Other</option>';
+        modalHtml += '</select></div>';
+
+        // Material checkboxes
+        modalHtml += '<div style="margin-bottom:16px;">';
+        modalHtml += '<label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:8px;">Select Materials to Include *</label>';
+        modalHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+        for (var m = 0; m < MARKETING_MATERIALS.length; m++) {
+            var mat = MARKETING_MATERIALS[m];
+            modalHtml += '<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:8px;cursor:pointer;transition:all 0.15s;" ';
+            modalHtml += 'onmouseover="this.style.borderColor=\'#C9A84C\';this.style.background=\'#FFFBEB\'" ';
+            modalHtml += 'onmouseout="if(!this.querySelector(\'input\').checked){this.style.borderColor=\'#E2E8F0\';this.style.background=\'white\'}">';
+            modalHtml += '<input type="checkbox" id="bulkMat_' + mat.id + '" value="' + mat.id + '" style="accent-color:#C9A84C;width:16px;height:16px;" onchange="toggleMktCheckboxStyle(this)">';
+            modalHtml += '<span style="font-size:18px;">' + mat.icon + '</span>';
+            modalHtml += '<div style="flex:1;min-width:0;">';
+            modalHtml += '<div style="font-size:12px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + mat.label + '</div>';
+            modalHtml += '</div></label>';
+        }
+        modalHtml += '</div></div>';
+
+        // Custom message
+        modalHtml += '<div style="margin-bottom:16px;">';
+        modalHtml += '<label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Personal Message (optional, sent to all)</label>';
+        modalHtml += '<textarea id="bulkMessage" rows="3" placeholder="Hi, I wanted to share some information about Alliance Financing..." style="width:100%;padding:9px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;resize:vertical;font-family:inherit;"></textarea>';
+        modalHtml += '</div>';
+
+        // Progress area (hidden initially)
+        modalHtml += '<div id="bulkProgressArea" style="display:none;margin-bottom:16px;padding:16px;background:#F8FAFC;border-radius:8px;border:1px solid #E2E8F0;">';
+        modalHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span id="bulkProgressLabel" style="font-size:12px;font-weight:600;color:#374151;">Sending...</span><span id="bulkProgressCount" style="font-size:12px;color:#64748B;">0/0</span></div>';
+        modalHtml += '<div style="background:#E5E7EB;border-radius:4px;height:6px;overflow:hidden;"><div id="bulkProgressBar" style="background:linear-gradient(90deg,#10B981,#34D399);height:100%;width:0%;border-radius:4px;transition:width 0.3s;"></div></div>';
+        modalHtml += '<div id="bulkProgressLog" style="margin-top:10px;max-height:120px;overflow-y:auto;font-size:11px;color:#64748B;"></div>';
+        modalHtml += '</div>';
+
+        // Buttons
+        modalHtml += '<div style="display:flex;gap:10px;justify-content:flex-end;">';
+        modalHtml += '<button onclick="document.getElementById(\'bulkModal\').style.display=\'none\'" style="padding:10px 20px;background:#F3F4F6;color:#374151;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Cancel</button>';
+        modalHtml += '<button id="bulkSendBtn" onclick="sendBulkMarketingPackages()" style="padding:10px 24px;background:#10B981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;">';
+        modalHtml += '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>';
+        modalHtml += 'Send to All</button>';
+        modalHtml += '</div></div>';
+
+        var existingModal = document.getElementById('bulkModal');
+        if (existingModal) existingModal.remove();
+
+        var modal = document.createElement('div');
+        modal.id = 'bulkModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = '<div style="background:white;border-radius:10px;max-width:640px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' + modalHtml + '</div>';
+        modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+        document.body.appendChild(modal);
+    }
+
+    function switchBulkTab(tab) {
+        var manualBtn = document.getElementById('bulkTabManual');
+        var csvBtn = document.getElementById('bulkTabCsv');
+        var manualSection = document.getElementById('bulkManualSection');
+        var csvSection = document.getElementById('bulkCsvSection');
+
+        if (tab === 'manual') {
+            manualBtn.style.background = '#0D1E3D'; manualBtn.style.color = 'white';
+            csvBtn.style.background = 'white'; csvBtn.style.color = '#64748B';
+            manualSection.style.display = 'block'; csvSection.style.display = 'none';
+        } else {
+            csvBtn.style.background = '#0D1E3D'; csvBtn.style.color = 'white';
+            manualBtn.style.background = 'white'; manualBtn.style.color = '#64748B';
+            csvSection.style.display = 'block'; manualSection.style.display = 'none';
+        }
+    }
+
+    var bulkCsvData = [];
+
+    function handleBulkCsvUpload(input) {
+        var file = input.files[0];
+        if (!file) return;
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var lines = e.target.result.split('\n').filter(function(l) { return l.trim(); });
+            bulkCsvData = [];
+            var preview = document.getElementById('bulkCsvPreview');
+
+            // Skip header if it looks like one
+            var startIdx = 0;
+            if (lines.length > 0 && lines[0].toLowerCase().indexOf('name') >= 0 && lines[0].toLowerCase().indexOf('email') >= 0) {
+                startIdx = 1;
+            }
+
+            for (var i = startIdx; i < lines.length; i++) {
+                var cols = lines[i].split(',').map(function(c) { return c.trim().replace(/^["']|["']$/g, ''); });
+                if (cols.length >= 2 && cols[1].indexOf('@') > 0) {
+                    bulkCsvData.push({ name: cols[0], email: cols[1], company: cols[2] || '' });
+                }
+            }
+
+            if (bulkCsvData.length > 0) {
+                var previewHtml = '<div style="background:#D1FAE5;color:#065F46;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:8px;">✅ ' + bulkCsvData.length + ' prospects found in CSV</div>';
+                previewHtml += '<div style="max-height:120px;overflow-y:auto;border:1px solid #E2E8F0;border-radius:6px;">';
+                previewHtml += '<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+                previewHtml += '<tr style="background:#F8FAFC;"><th style="padding:6px 8px;text-align:left;">Name</th><th style="padding:6px 8px;text-align:left;">Email</th><th style="padding:6px 8px;text-align:left;">Company</th></tr>';
+                for (var j = 0; j < Math.min(bulkCsvData.length, 10); j++) {
+                    previewHtml += '<tr style="border-top:1px solid #F1F5F9;"><td style="padding:5px 8px;">' + bulkCsvData[j].name + '</td><td style="padding:5px 8px;">' + bulkCsvData[j].email + '</td><td style="padding:5px 8px;">' + (bulkCsvData[j].company || '-') + '</td></tr>';
+                }
+                if (bulkCsvData.length > 10) previewHtml += '<tr><td colspan="3" style="padding:5px 8px;color:#94A3B8;font-style:italic;">+ ' + (bulkCsvData.length - 10) + ' more...</td></tr>';
+                previewHtml += '</table></div>';
+                preview.innerHTML = previewHtml;
+                preview.style.display = 'block';
+            } else {
+                preview.innerHTML = '<div style="background:#FEE2E2;color:#DC2626;padding:8px 12px;border-radius:6px;font-size:12px;">No valid prospects found. Ensure CSV has name, email columns.</div>';
+                preview.style.display = 'block';
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function parseBulkProspects() {
+        var prospects = [];
+
+        // Check if CSV tab is active and has data
+        var csvSection = document.getElementById('bulkCsvSection');
+        if (csvSection && csvSection.style.display !== 'none' && bulkCsvData.length > 0) {
+            return bulkCsvData;
+        }
+
+        // Parse manual entry
+        var text = document.getElementById('bulkProspectList').value.trim();
+        if (!text) return prospects;
+
+        var lines = text.split('\n').filter(function(l) { return l.trim(); });
+        for (var i = 0; i < lines.length; i++) {
+            var parts = lines[i].split(',').map(function(p) { return p.trim(); });
+            if (parts.length >= 2 && parts[1].indexOf('@') > 0) {
+                prospects.push({ name: parts[0], email: parts[1], company: parts[2] || '' });
+            }
+        }
+        return prospects;
+    }
+
+    async function sendBulkMarketingPackages() {
+        var prospects = parseBulkProspects();
+        if (prospects.length === 0) {
+            alert('Please enter at least one prospect (Name, Email format).');
+            return;
+        }
+
+        // Collect selected materials
+        var selectedMaterials = [];
+        for (var m = 0; m < MARKETING_MATERIALS.length; m++) {
+            var cb = document.getElementById('bulkMat_' + MARKETING_MATERIALS[m].id);
+            if (cb && cb.checked) selectedMaterials.push(MARKETING_MATERIALS[m]);
+        }
+        if (selectedMaterials.length === 0) { alert('Please select at least one material.'); return; }
+
+        var prospectType = document.getElementById('bulkProspectType').value;
+        var customMessage = document.getElementById('bulkMessage').value.trim();
+        var btn = document.getElementById('bulkSendBtn');
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Sending...';
+
+        // Show progress
+        var progressArea = document.getElementById('bulkProgressArea');
+        var progressBar = document.getElementById('bulkProgressBar');
+        var progressLabel = document.getElementById('bulkProgressLabel');
+        var progressCount = document.getElementById('bulkProgressCount');
+        var progressLog = document.getElementById('bulkProgressLog');
+        progressArea.style.display = 'block';
+        progressLog.innerHTML = '';
+
+        var senderName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var senderEmail = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
+        var senderPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
+        var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+        var baseUrl = 'https://www.alliancefinancing.ai/';
+        var materialNames = selectedMaterials.map(function(m) { return m.label; });
+        var subject = 'Information from Alliance Financing Group — ' + senderName;
+
+        var successCount = 0;
+        var failCount = 0;
+
+        for (var i = 0; i < prospects.length; i++) {
+            var p = prospects[i];
+            progressCount.textContent = (i + 1) + '/' + prospects.length;
+            progressBar.style.width = Math.round(((i + 1) / prospects.length) * 100) + '%';
+            progressLabel.textContent = 'Sending to ' + p.name + '...';
+
+            try {
+                // Insert outreach record
+                var insertResult = await db.from('prospect_outreach').insert({
+                    prospect_name: p.name,
+                    prospect_email: p.email,
+                    prospect_company: p.company || null,
+                    prospect_type: prospectType || null,
+                    materials_sent: materialNames,
+                    custom_message: customMessage || null,
+                    sent_by_id: currentUserId || null,
+                    sent_by_name: senderName || currentUserName || 'Unknown',
+                    sent_by_role: currentUserRole || 'agent',
+                    agent_slug: agentSlug,
+                    status: 'sent'
+                }).select('id').single();
+
+                var outreachId = (insertResult && insertResult.data) ? insertResult.data.id : '';
+
+                // Build email HTML (reuse existing pattern)
+                var isPartnerProspect = ['insurance_broker', 'accountant_cfo', 'equipment_vendor', 'referral_partner', 'iso_partner'].indexOf(prospectType) >= 0;
+                var ctaLabel = isPartnerProspect ? 'Get in Touch →' : 'Reply to This Email →';
+                var ctaUrl = baseUrl + 'prospect-response?ref=' + (outreachId || '') + '&slug=' + agentSlug;
+
+                var emailHtml = buildMarketingEmailHtml(senderName, senderEmail, senderPhone, p.name, selectedMaterials, customMessage, ctaLabel, ctaUrl, baseUrl, agentSlug);
+
+                await sendEmailViaResend(
+                    p.email,
+                    subject,
+                    emailHtml,
+                    'Marketing materials from ' + senderName + ' at Alliance Financing Group.',
+                    senderEmail
+                );
+
+                successCount++;
+                progressLog.innerHTML += '<div style="color:#10B981;">✅ ' + p.name + ' (' + p.email + ')</div>';
+            } catch(err) {
+                failCount++;
+                progressLog.innerHTML += '<div style="color:#DC2626;">❌ ' + p.name + ' — ' + (err.message || 'Failed') + '</div>';
+            }
+
+            progressLog.scrollTop = progressLog.scrollHeight;
+        }
+
+        progressLabel.textContent = 'Complete!';
+        progressBar.style.width = '100%';
+
+        btn.disabled = false;
+        btn.innerHTML = '✅ Done — ' + successCount + ' sent' + (failCount > 0 ? ', ' + failCount + ' failed' : '');
+
+        // Refresh outreach table
+        if (typeof loadOutreachHistory === 'function') loadOutreachHistory();
+        if (typeof updatePipelineCounts === 'function') updatePipelineCounts();
+        if (typeof updateOutreachKPIs === 'function') updateOutreachKPIs();
+    }
+
+    // Helper to build marketing email HTML (extracted from sendMarketingPackage for reuse)
+    function buildMarketingEmailHtml(senderName, senderEmail, senderPhone, prospectName, materials, customMessage, ctaLabel, ctaUrl, baseUrl, agentSlug) {
+        var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#F1F5F9;font-family:Arial,sans-serif;">';
+        html += '<div style="max-width:600px;margin:0 auto;background:#FFFFFF;">';
+        // Header
+        html += '<div style="background:#0D1E3D;padding:28px 32px;text-align:center;">';
+        html += '<h1 style="color:#C9A84C;margin:0;font-size:22px;font-weight:700;letter-spacing:0.5px;">Alliance Financing Group</h1>';
+        html += '</div>';
+        // Body
+        html += '<div style="padding:32px;">';
+        html += '<p style="font-size:15px;color:#1E293B;">Hi ' + (prospectName || 'there') + ',</p>';
+        if (customMessage) {
+            html += '<p style="font-size:14px;color:#475569;line-height:1.6;">' + customMessage.replace(/\n/g, '<br>') + '</p>';
+        } else {
+            html += '<p style="font-size:14px;color:#475569;line-height:1.6;">I wanted to share some information about the financing solutions we offer at Alliance Financing Group.</p>';
+        }
+        // Material cards
+        html += '<div style="margin:24px 0;">';
+        for (var i = 0; i < materials.length; i++) {
+            var mat = materials[i];
+            var matUrl = baseUrl + mat.file;
+            html += '<a href="' + matUrl + '?ref=' + agentSlug + '" target="_blank" style="display:block;padding:14px 16px;border:1px solid #E2E8F0;border-radius:8px;margin-bottom:8px;text-decoration:none;color:#1E293B;transition:border-color 0.2s;">';
+            html += '<div style="display:flex;align-items:center;gap:10px;">';
+            html += '<span style="font-size:22px;">' + mat.icon + '</span>';
+            html += '<div><div style="font-size:14px;font-weight:600;">' + mat.label + '</div>';
+            html += '<div style="font-size:11px;color:#94A3B8;">' + mat.desc + '</div></div>';
+            html += '</div></a>';
+        }
+        html += '</div>';
+        // CTA
+        html += '<div style="text-align:center;margin:28px 0;">';
+        html += '<a href="' + ctaUrl + '" style="display:inline-block;padding:14px 32px;background:#C9A84C;color:#0D1E3D;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">' + ctaLabel + '</a>';
+        html += '</div>';
+        // Signature
+        html += '<div style="border-top:1px solid #E2E8F0;padding-top:20px;margin-top:24px;">';
+        html += '<p style="font-size:13px;color:#64748B;margin:0;">Best regards,<br><strong style="color:#1E293B;">' + senderName + '</strong></p>';
+        if (senderPhone) html += '<p style="font-size:12px;color:#94A3B8;margin:4px 0;">' + senderPhone + '</p>';
+        html += '<p style="font-size:12px;color:#94A3B8;margin:4px 0;">' + senderEmail + '</p>';
+        html += '<p style="font-size:12px;color:#94A3B8;margin:4px 0;">Alliance Financing Group Ltd.</p>';
+        html += '</div></div>';
+        // Footer
+        html += '<div style="background:#F8FAFC;padding:16px 32px;text-align:center;border-top:1px solid #E2E8F0;">';
+        html += '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group | alliancefinancing.ai</p>';
+        html += '</div></div></body></html>';
+        return html;
     }
 
     function openInviteSubAgentModal() {
