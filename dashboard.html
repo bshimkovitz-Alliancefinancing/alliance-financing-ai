@@ -1861,6 +1861,108 @@
                     </div>
                 </div>
 
+                <!-- Commission & Override Reports -->
+                <div id="commissionReportsSection" class="table-container" style="margin-bottom:24px;">
+                    <div class="table-header" style="cursor:pointer;" onclick="toggleCommissionReports()">
+                        <div class="table-title" style="display:flex;align-items:center;gap:8px;">
+                            <span id="commissionToggleIcon" style="transition:transform 0.2s;">▶</span>
+                            Commission & Override Reports
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span id="commissionSummary" style="font-size:12px;color:var(--text-light);"></span>
+                        </div>
+                    </div>
+                    <div id="commissionReportsBody" style="display:none;">
+                        <!-- Controls Row -->
+                        <div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <label style="font-size:12px;font-weight:600;color:#64748B;">Period:</label>
+                                <select id="commissionPeriod" onchange="loadCommissionReport()" style="padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;background:white;">
+                                    <option value="this_month">This Month</option>
+                                    <option value="last_month">Last Month</option>
+                                    <option value="this_quarter">This Quarter</option>
+                                    <option value="last_quarter">Last Quarter</option>
+                                    <option value="this_year">This Year</option>
+                                    <option value="all_time">All Time</option>
+                                    <option value="custom">Custom Range</option>
+                                </select>
+                            </div>
+                            <div id="customDateRange" style="display:none;align-items:center;gap:6px;">
+                                <input type="date" id="commissionDateFrom" style="padding:5px 8px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;">
+                                <span style="font-size:12px;color:#94A3B8;">to</span>
+                                <input type="date" id="commissionDateTo" style="padding:5px 8px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;">
+                                <button onclick="loadCommissionReport()" class="btn btn-secondary btn-sm" style="font-size:11px;padding:5px 10px;">Apply</button>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <label style="font-size:12px;font-weight:600;color:#64748B;">Status:</label>
+                                <select id="commissionStatus" onchange="loadCommissionReport()" style="padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;background:white;">
+                                    <option value="all">All Deals</option>
+                                    <option value="Funded">Funded Only</option>
+                                    <option value="Approved">Approved</option>
+                                    <option value="Submitted">Submitted</option>
+                                </select>
+                            </div>
+                            <div style="margin-left:auto;display:flex;gap:6px;">
+                                <button onclick="exportCommissionCSV()" class="btn btn-secondary btn-sm" style="font-size:11px;display:flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    CSV
+                                </button>
+                                <button onclick="exportCommissionPDF()" class="btn btn-gold btn-sm" style="font-size:11px;display:flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                    PDF Report
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Summary KPI Row -->
+                        <div id="commissionKPIs" style="padding:16px 20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-bottom:1px solid #E2E8F0;">
+                            <div style="text-align:center;padding:12px;background:#F8FAFC;border-radius:8px;">
+                                <div style="font-size:10px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Total Deals</div>
+                                <div id="crTotalDeals" style="font-size:22px;font-weight:800;color:var(--navy);margin-top:4px;">0</div>
+                            </div>
+                            <div style="text-align:center;padding:12px;background:#F8FAFC;border-radius:8px;">
+                                <div style="font-size:10px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Deal Volume</div>
+                                <div id="crDealVolume" style="font-size:22px;font-weight:800;color:var(--navy);margin-top:4px;">$0</div>
+                            </div>
+                            <div style="text-align:center;padding:12px;background:#D1FAE5;border-radius:8px;">
+                                <div style="font-size:10px;font-weight:600;color:#065F46;text-transform:uppercase;letter-spacing:0.5px;">Override Earned</div>
+                                <div id="crOverrideTotal" style="font-size:22px;font-weight:800;color:#10B981;margin-top:4px;">$0</div>
+                            </div>
+                            <div style="text-align:center;padding:12px;background:#F8FAFC;border-radius:8px;">
+                                <div style="font-size:10px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Avg Override/Deal</div>
+                                <div id="crAvgOverride" style="font-size:22px;font-weight:800;color:var(--navy);margin-top:4px;">$0</div>
+                            </div>
+                        </div>
+                        <!-- Agent Breakdown Table -->
+                        <div style="padding:0 0 8px;">
+                            <table style="width:100%;border-collapse:collapse;">
+                                <thead>
+                                    <tr style="background:#F8FAFC;border-bottom:2px solid #E2E8F0;">
+                                        <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Agent</th>
+                                        <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;"># Deals</th>
+                                        <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Deal Volume</th>
+                                        <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Override Earned</th>
+                                        <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Avg / Deal</th>
+                                        <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">% of Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="commissionTableBody">
+                                    <tr><td colspan="6" style="padding:30px;text-align:center;color:var(--text-light);font-size:13px;">Click to expand and load report data</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Deal Detail Section (expandable per agent) -->
+                        <div id="commissionDealDetail" style="display:none;padding:0 20px 16px;">
+                            <div style="background:#F8FAFC;border-radius:8px;border:1px solid #E2E8F0;overflow:hidden;">
+                                <div style="padding:12px 16px;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;">
+                                    <span id="commissionDetailTitle" style="font-size:13px;font-weight:700;color:var(--navy);">Deal Details</span>
+                                    <button onclick="document.getElementById('commissionDealDetail').style.display='none'" style="font-size:11px;color:#94A3B8;background:none;border:none;cursor:pointer;">✕ Close</button>
+                                </div>
+                                <div id="commissionDetailBody" style="max-height:300px;overflow-y:auto;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Agent Onboarding Pipeline -->
                 <div id="onboardingPipelineSection" class="table-container" style="margin-bottom:24px;display:none;">
                     <div class="table-header">
@@ -13509,6 +13611,449 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         } catch (err) {
             console.error('Load sub-agents error:', err);
+        }
+    }
+
+    // ============================================
+    // FEATURE: Commission & Override Reports
+    // ============================================
+    var commissionReportData = []; // cached for export
+    var commissionReportAgents = []; // cached agent breakdown
+
+    function toggleCommissionReports() {
+        var body = document.getElementById('commissionReportsBody');
+        var icon = document.getElementById('commissionToggleIcon');
+        if (body.style.display === 'none') {
+            body.style.display = 'block';
+            icon.textContent = '▼';
+            icon.style.transform = '';
+            loadCommissionReport();
+        } else {
+            body.style.display = 'none';
+            icon.textContent = '▶';
+        }
+    }
+
+    function getCommissionDateRange() {
+        var period = document.getElementById('commissionPeriod').value;
+        var customRange = document.getElementById('customDateRange');
+        var now = new Date();
+        var from, to;
+
+        if (period === 'custom') {
+            customRange.style.display = 'flex';
+            var fromVal = document.getElementById('commissionDateFrom').value;
+            var toVal = document.getElementById('commissionDateTo').value;
+            if (!fromVal || !toVal) return null;
+            from = new Date(fromVal);
+            to = new Date(toVal + 'T23:59:59');
+        } else {
+            customRange.style.display = 'none';
+
+            if (period === 'this_month') {
+                from = new Date(now.getFullYear(), now.getMonth(), 1);
+                to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+            } else if (period === 'last_month') {
+                from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+            } else if (period === 'this_quarter') {
+                var qStart = Math.floor(now.getMonth() / 3) * 3;
+                from = new Date(now.getFullYear(), qStart, 1);
+                to = new Date(now.getFullYear(), qStart + 3, 0, 23, 59, 59);
+            } else if (period === 'last_quarter') {
+                var qStart = Math.floor(now.getMonth() / 3) * 3 - 3;
+                var qYear = now.getFullYear();
+                if (qStart < 0) { qStart += 12; qYear--; }
+                from = new Date(qYear, qStart, 1);
+                to = new Date(qYear, qStart + 3, 0, 23, 59, 59);
+            } else if (period === 'this_year') {
+                from = new Date(now.getFullYear(), 0, 1);
+                to = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+            } else {
+                // all_time
+                from = new Date(2020, 0, 1);
+                to = new Date(2099, 11, 31);
+            }
+        }
+        return { from: from, to: to };
+    }
+
+    async function loadCommissionReport() {
+        var range = getCommissionDateRange();
+        if (!range) return;
+
+        var statusFilter = document.getElementById('commissionStatus').value;
+        var tbody = document.getElementById('commissionTableBody');
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#94A3B8;">Loading...</td></tr>';
+
+        try {
+            // Get all sub-agents
+            var { data: subAgents } = await db
+                .from('users')
+                .select('id, full_name, email')
+                .eq('parent_agent_id', currentUserId)
+                .eq('role', 'agent');
+
+            if (!subAgents) subAgents = [];
+
+            // Also include the ISO's own deals
+            var allAgentIds = subAgents.map(function(a) { return a.id; });
+            allAgentIds.push(currentUserId);
+
+            // Fetch all deals for these agents in the date range
+            var query = db
+                .from('deals')
+                .select('id, deal_number, company_name, deal_amount, status, parent_override_amount, source_agent_id, date_submitted, product_type')
+                .in('source_agent_id', allAgentIds)
+                .gte('date_submitted', range.from.toISOString())
+                .lte('date_submitted', range.to.toISOString())
+                .order('date_submitted', { ascending: false });
+
+            if (statusFilter !== 'all') {
+                query = query.eq('status', statusFilter);
+            }
+
+            var { data: deals, error } = await query;
+            if (error) throw error;
+            if (!deals) deals = [];
+
+            commissionReportData = deals;
+
+            // Build agent lookup
+            var agentMap = {};
+            agentMap[currentUserId] = { name: currentUserName || 'You (ISO)', email: '' };
+            for (var i = 0; i < subAgents.length; i++) {
+                agentMap[subAgents[i].id] = { name: subAgents[i].full_name, email: subAgents[i].email };
+            }
+
+            // Aggregate by agent
+            var agentStats = {};
+            var grandTotalDeals = 0;
+            var grandDealVolume = 0;
+            var grandOverride = 0;
+
+            for (var d = 0; d < deals.length; d++) {
+                var deal = deals[d];
+                var agentId = deal.source_agent_id;
+                if (!agentStats[agentId]) {
+                    agentStats[agentId] = {
+                        name: (agentMap[agentId] || {}).name || 'Unknown',
+                        email: (agentMap[agentId] || {}).email || '',
+                        deals: 0,
+                        volume: 0,
+                        override: 0,
+                        dealList: []
+                    };
+                }
+                var amt = parseFloat(deal.deal_amount) || 0;
+                var ovr = parseFloat(deal.parent_override_amount) || 0;
+
+                agentStats[agentId].deals++;
+                agentStats[agentId].volume += amt;
+                agentStats[agentId].override += ovr;
+                agentStats[agentId].dealList.push(deal);
+
+                grandTotalDeals++;
+                grandDealVolume += amt;
+                grandOverride += ovr;
+            }
+
+            // Update KPI summary
+            document.getElementById('crTotalDeals').textContent = grandTotalDeals;
+            document.getElementById('crDealVolume').textContent = formatCurrency(grandDealVolume);
+            document.getElementById('crOverrideTotal').textContent = formatCurrency(grandOverride);
+            document.getElementById('crAvgOverride').textContent = grandTotalDeals > 0 ? formatCurrency(grandOverride / grandTotalDeals) : '$0';
+
+            // Update summary in collapsed header
+            var summaryEl = document.getElementById('commissionSummary');
+            if (summaryEl) summaryEl.textContent = grandTotalDeals + ' deals · ' + formatCurrency(grandOverride) + ' earned';
+
+            // Build table rows sorted by override descending
+            var agentArray = Object.keys(agentStats).map(function(id) {
+                return { id: id, stats: agentStats[id] };
+            }).sort(function(a, b) { return b.stats.override - a.stats.override; });
+
+            commissionReportAgents = agentArray;
+
+            if (agentArray.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:30px;text-align:center;color:#94A3B8;font-size:13px;">No deals found for this period.</td></tr>';
+                return;
+            }
+
+            var html = '';
+            for (var a = 0; a < agentArray.length; a++) {
+                var agent = agentArray[a];
+                var s = agent.stats;
+                var pctOfTotal = grandOverride > 0 ? Math.round((s.override / grandOverride) * 100) : 0;
+                var avgPerDeal = s.deals > 0 ? formatCurrency(s.override / s.deals) : '$0';
+
+                html += '<tr style="border-bottom:1px solid #F1F5F9;cursor:pointer;" onclick="showCommissionDetail(\'' + agent.id + '\')" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'white\'">';
+                html += '<td style="padding:12px 16px;"><div style="font-size:13px;font-weight:600;color:var(--navy);">' + s.name + '</div>';
+                if (s.email) html += '<div style="font-size:11px;color:#94A3B8;">' + s.email + '</div>';
+                html += '</td>';
+                html += '<td style="padding:12px 16px;text-align:center;font-size:13px;font-weight:600;">' + s.deals + '</td>';
+                html += '<td style="padding:12px 16px;text-align:right;font-size:13px;">' + formatCurrency(s.volume) + '</td>';
+                html += '<td style="padding:12px 16px;text-align:right;font-size:13px;font-weight:700;color:#10B981;">' + formatCurrency(s.override) + '</td>';
+                html += '<td style="padding:12px 16px;text-align:right;font-size:13px;color:#64748B;">' + avgPerDeal + '</td>';
+                html += '<td style="padding:12px 16px;text-align:center;">';
+                html += '<div style="display:flex;align-items:center;gap:6px;justify-content:center;">';
+                html += '<div style="flex:1;max-width:60px;background:#E5E7EB;border-radius:4px;height:6px;overflow:hidden;"><div style="background:#10B981;height:100%;width:' + pctOfTotal + '%;border-radius:4px;"></div></div>';
+                html += '<span style="font-size:11px;font-weight:600;color:#64748B;">' + pctOfTotal + '%</span>';
+                html += '</div></td></tr>';
+            }
+
+            // Grand Total row
+            html += '<tr style="background:#F0FDF4;border-top:2px solid #10B981;">';
+            html += '<td style="padding:12px 16px;font-size:13px;font-weight:800;color:var(--navy);">TOTAL</td>';
+            html += '<td style="padding:12px 16px;text-align:center;font-size:13px;font-weight:800;">' + grandTotalDeals + '</td>';
+            html += '<td style="padding:12px 16px;text-align:right;font-size:13px;font-weight:800;">' + formatCurrency(grandDealVolume) + '</td>';
+            html += '<td style="padding:12px 16px;text-align:right;font-size:13px;font-weight:800;color:#10B981;">' + formatCurrency(grandOverride) + '</td>';
+            html += '<td style="padding:12px 16px;text-align:right;font-size:13px;font-weight:600;color:#64748B;">' + (grandTotalDeals > 0 ? formatCurrency(grandOverride / grandTotalDeals) : '$0') + '</td>';
+            html += '<td style="padding:12px 16px;text-align:center;font-size:11px;font-weight:600;color:#64748B;">100%</td>';
+            html += '</tr>';
+
+            tbody.innerHTML = html;
+
+        } catch(err) {
+            console.error('Commission report error:', err);
+            tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#DC2626;">Error loading report: ' + err.message + '</td></tr>';
+        }
+    }
+
+    function showCommissionDetail(agentId) {
+        var detailSection = document.getElementById('commissionDealDetail');
+        var detailTitle = document.getElementById('commissionDetailTitle');
+        var detailBody = document.getElementById('commissionDetailBody');
+
+        // Find agent data
+        var agent = commissionReportAgents.find(function(a) { return a.id === agentId; });
+        if (!agent) return;
+
+        detailTitle.textContent = 'Deals by ' + agent.stats.name;
+        detailSection.style.display = 'block';
+
+        var html = '<table style="width:100%;border-collapse:collapse;">';
+        html += '<thead><tr style="background:#F1F5F9;">';
+        html += '<th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;">Deal #</th>';
+        html += '<th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;">Company</th>';
+        html += '<th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;">Product</th>';
+        html += '<th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;">Amount</th>';
+        html += '<th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;">Override</th>';
+        html += '<th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;">Status</th>';
+        html += '<th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;">Date</th>';
+        html += '</tr></thead><tbody>';
+
+        var deals = agent.stats.dealList;
+        for (var i = 0; i < deals.length; i++) {
+            var d = deals[i];
+            var dateStr = d.date_submitted ? new Date(d.date_submitted).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
+            var statusColor = d.status === 'Funded' ? '#10B981' : d.status === 'Approved' ? '#6366F1' : '#F59E0B';
+
+            html += '<tr style="border-top:1px solid #F1F5F9;">';
+            html += '<td style="padding:8px 12px;font-size:12px;font-weight:600;color:var(--navy);">' + (d.deal_number || '-') + '</td>';
+            html += '<td style="padding:8px 12px;font-size:12px;">' + (d.company_name || '-') + '</td>';
+            html += '<td style="padding:8px 12px;font-size:11px;color:#64748B;">' + (d.product_type || '-') + '</td>';
+            html += '<td style="padding:8px 12px;font-size:12px;text-align:right;">' + formatCurrency(parseFloat(d.deal_amount) || 0) + '</td>';
+            html += '<td style="padding:8px 12px;font-size:12px;text-align:right;font-weight:600;color:#10B981;">' + formatCurrency(parseFloat(d.parent_override_amount) || 0) + '</td>';
+            html += '<td style="padding:8px 12px;text-align:center;"><span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;color:white;background:' + statusColor + ';">' + (d.status || '-') + '</span></td>';
+            html += '<td style="padding:8px 12px;font-size:11px;color:#64748B;">' + dateStr + '</td>';
+            html += '</tr>';
+        }
+
+        html += '</tbody></table>';
+        detailBody.innerHTML = html;
+
+        // Scroll to detail
+        detailSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function exportCommissionCSV() {
+        if (!commissionReportData || commissionReportData.length === 0) {
+            alert('No data to export. Please load a report first.');
+            return;
+        }
+
+        var period = document.getElementById('commissionPeriod').value;
+        var filename = 'commission_report_' + period + '_' + new Date().toISOString().split('T')[0] + '.csv';
+
+        exportToCSV(commissionReportData, filename, [
+            { key: 'deal_number', label: 'Deal #' },
+            { key: 'company_name', label: 'Company' },
+            { key: 'product_type', label: 'Product Type' },
+            { key: 'deal_amount', label: 'Deal Amount' },
+            { key: 'parent_override_amount', label: 'Override Earned' },
+            { key: 'status', label: 'Status' },
+            { key: 'date_submitted', label: 'Date Submitted' },
+            { key: 'source_agent_id', label: 'Agent ID' }
+        ]);
+
+        showToast('CSV exported! 📊');
+    }
+
+    async function exportCommissionPDF() {
+        if (!commissionReportAgents || commissionReportAgents.length === 0) {
+            alert('No data to export. Please load a report first.');
+            return;
+        }
+
+        try {
+            var { jsPDF } = window.jspdf;
+            var doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+            var W = 612, H = 792;
+            var ML = 40, MR = 40;
+            var CW = W - ML - MR;
+            var y = 0;
+
+            // Header
+            doc.setFillColor(13, 30, 61); // navy
+            doc.rect(0, 0, W, 80, 'F');
+            doc.setFillColor(201, 168, 76); // gold accent line
+            doc.rect(0, 80, W, 4, 'F');
+
+            doc.setTextColor(201, 168, 76);
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Alliance Financing Group', ML, 35);
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Commission & Override Report', ML, 55);
+
+            // Period label
+            var periodEl = document.getElementById('commissionPeriod');
+            var periodLabel = periodEl.options[periodEl.selectedIndex].text;
+            doc.setFontSize(10);
+            doc.text('Period: ' + periodLabel + '  |  Generated: ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), ML, 70);
+
+            y = 100;
+
+            // Summary KPIs
+            var totalDeals = document.getElementById('crTotalDeals').textContent;
+            var dealVolume = document.getElementById('crDealVolume').textContent;
+            var overrideTotal = document.getElementById('crOverrideTotal').textContent;
+            var avgOverride = document.getElementById('crAvgOverride').textContent;
+
+            doc.setFillColor(248, 250, 252);
+            doc.roundedRect(ML, y, CW, 50, 4, 4, 'F');
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(100, 116, 139);
+
+            var kpiX = ML + 10;
+            var kpiW = CW / 4;
+            var kpiLabels = ['Total Deals', 'Deal Volume', 'Override Earned', 'Avg / Deal'];
+            var kpiValues = [totalDeals, dealVolume, overrideTotal, avgOverride];
+
+            for (var k = 0; k < 4; k++) {
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(100, 116, 139);
+                doc.text(kpiLabels[k].toUpperCase(), kpiX + (k * kpiW), y + 18);
+
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(13, 30, 61);
+                if (k === 2) doc.setTextColor(16, 185, 129); // green for override
+                doc.text(kpiValues[k], kpiX + (k * kpiW), y + 38);
+            }
+
+            y += 70;
+
+            // Agent Breakdown Table Header
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(13, 30, 61);
+            doc.text('Agent Breakdown', ML, y);
+            y += 20;
+
+            // Table header
+            doc.setFillColor(248, 250, 252);
+            doc.rect(ML, y, CW, 20, 'F');
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(100, 116, 139);
+
+            var colX = [ML + 8, ML + 160, ML + 240, ML + 340, ML + 430];
+            doc.text('AGENT', colX[0], y + 14);
+            doc.text('# DEALS', colX[1], y + 14);
+            doc.text('DEAL VOLUME', colX[2], y + 14);
+            doc.text('OVERRIDE EARNED', colX[3], y + 14);
+            doc.text('AVG / DEAL', colX[4], y + 14);
+            y += 24;
+
+            // Agent rows
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+
+            for (var a = 0; a < commissionReportAgents.length; a++) {
+                if (y > H - 80) {
+                    doc.addPage();
+                    y = 40;
+                }
+
+                var ag = commissionReportAgents[a].stats;
+
+                // Alternating row bg
+                if (a % 2 === 0) {
+                    doc.setFillColor(255, 255, 255);
+                } else {
+                    doc.setFillColor(248, 250, 252);
+                }
+                doc.rect(ML, y - 4, CW, 22, 'F');
+
+                doc.setTextColor(30, 41, 59);
+                doc.setFont('helvetica', 'bold');
+                doc.text(ag.name, colX[0], y + 10);
+
+                doc.setFont('helvetica', 'normal');
+                doc.text(String(ag.deals), colX[1], y + 10);
+                doc.text(formatCurrency(ag.volume), colX[2], y + 10);
+
+                doc.setTextColor(16, 185, 129);
+                doc.setFont('helvetica', 'bold');
+                doc.text(formatCurrency(ag.override), colX[3], y + 10);
+
+                doc.setTextColor(100, 116, 139);
+                doc.setFont('helvetica', 'normal');
+                doc.text(ag.deals > 0 ? formatCurrency(ag.override / ag.deals) : '$0', colX[4], y + 10);
+
+                y += 22;
+            }
+
+            // Total row
+            y += 4;
+            doc.setFillColor(220, 252, 231);
+            doc.rect(ML, y - 4, CW, 24, 'F');
+            doc.setTextColor(13, 30, 61);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.text('TOTAL', colX[0], y + 12);
+            doc.text(totalDeals, colX[1], y + 12);
+            doc.text(dealVolume, colX[2], y + 12);
+            doc.setTextColor(16, 185, 129);
+            doc.text(overrideTotal, colX[3], y + 12);
+            doc.setTextColor(100, 116, 139);
+            doc.text(avgOverride, colX[4], y + 12);
+
+            // Footer
+            y = H - 40;
+            doc.setDrawColor(226, 232, 240);
+            doc.line(ML, y, W - MR, y);
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Alliance Financing Group | alliancefinancing.ai | Confidential', ML, y + 15);
+            doc.text('Generated ' + new Date().toLocaleString(), W - MR - 140, y + 15);
+
+            var period = document.getElementById('commissionPeriod').value;
+            doc.save('Alliance_Commission_Report_' + period + '_' + new Date().toISOString().split('T')[0] + '.pdf');
+            showToast('PDF report downloaded! 📄');
+
+        } catch(err) {
+            console.error('PDF export error:', err);
+            alert('Error generating PDF: ' + err.message);
         }
     }
 
