@@ -4962,7 +4962,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-01-v98';
+    const DASHBOARD_VERSION = '2026-04-04-v99';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -13650,7 +13650,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 rows.push(`
                     <tr>
-                        <td><strong>${sa.full_name || 'N/A'}</strong></td>
+                        <td><a href="#" onclick="event.preventDefault();viewSubAgent('${sa.id}')" style="color:#0D1E3D;font-weight:700;text-decoration:none;border-bottom:1px dashed #C9A84C;cursor:pointer;" onmouseover="this.style.color='#C9A84C'" onmouseout="this.style.color='#0D1E3D'">${sa.full_name || 'N/A'}</a></td>
                         <td>${sa.email || 'N/A'}</td>
                         <td>${sa.phone || '-'}</td>
                         <td>${getStatusBadge(sa.agent_status || 'Pending')}</td>
@@ -17012,6 +17012,30 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (addDealBtn) addDealBtn.style.display = 'none';
                 // Hide lender column
                 document.querySelectorAll('.lender-col').forEach(function(el) { el.style.display = 'none'; });
+            }
+
+            // Clean up Deal Pipeline UI for ISO Partners — simplify the admin-heavy view
+            if ((currentAgentType === 'super_agent' || currentAgentType === 'iso') && !isAdminForFilter) {
+                // Hide AF#/AFG# columns — ISOs don't need internal file numbers
+                document.querySelectorAll('#dealsTable th:nth-child(1), #dealsTable td:nth-child(1)').forEach(function(el) { el.style.display = 'none'; });
+                document.querySelectorAll('#dealsTable th:nth-child(2), #dealsTable td:nth-child(2)').forEach(function(el) { el.style.display = 'none'; });
+                // Hide lender column — ISOs don't manage lender assignments
+                document.querySelectorAll('.lender-col').forEach(function(el) { el.style.display = 'none'; });
+                // Hide Export CSV button — not essential for ISO daily workflow
+                var exportBtn = document.querySelector('#dealsContentArea button[onclick="exportDeals()"]');
+                if (exportBtn) exportBtn.style.display = 'none';
+                // Hide + Add Application button — ISOs manage deals through Application Hub
+                var addDealBtnISO = document.getElementById('dealPipelineAddBtn');
+                if (addDealBtnISO) addDealBtnISO.style.display = 'none';
+                // Simplify search placeholder
+                var searchEl = document.getElementById('dealSearch');
+                if (searchEl) searchEl.placeholder = 'Search company, product...';
+                // Hide Product filter (keep Status and Sourced By which are useful for ISOs)
+                var prodFilterISO = document.getElementById('dealProductFilter');
+                if (prodFilterISO) prodFilterISO.style.display = 'none';
+                // Hide Source filter — not meaningful for ISOs (their deals are all agent referrals)
+                var srcFilterISO = document.getElementById('dealSourceFilter');
+                if (srcFilterISO) srcFilterISO.style.display = 'none';
             }
 
             // Show/hide Assigned To vs Sourced By columns based on role
