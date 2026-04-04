@@ -1813,10 +1813,58 @@
 
             <!-- Referral Partners Page (agents only) -->
             <div id="subAgents" class="page-section">
-                <!-- Prospect Outreach History -->
+                <!-- Organization Performance Dashboard -->
+                <div id="orgPerformanceSection" style="margin-bottom:24px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                        <div>
+                            <h3 style="margin:0 0 4px;font-size:16px;font-weight:700;color:var(--navy);">Organization Performance</h3>
+                            <p style="margin:0;font-size:12px;color:var(--text-light);">Real-time overview of your referral network</p>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshOrgPerformance()" style="font-size:11px;">↻ Refresh</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:8px;">
+                        <!-- KPI Card: Total Partners -->
+                        <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:18px 16px;position:relative;overflow:hidden;">
+                            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0D1E3D,#1A3A5C);"></div>
+                            <div style="font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Total Partners</div>
+                            <div id="kpiTotalPartners" style="font-size:28px;font-weight:800;color:var(--navy);line-height:1;">0</div>
+                            <div id="kpiActivePartners" style="font-size:11px;color:#10B981;margin-top:4px;">0 active</div>
+                        </div>
+                        <!-- KPI Card: Total Deals -->
+                        <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:18px 16px;position:relative;overflow:hidden;">
+                            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#C9A84C,#D4B55A);"></div>
+                            <div style="font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Total Deals</div>
+                            <div id="kpiTotalDeals" style="font-size:28px;font-weight:800;color:var(--navy);line-height:1;">0</div>
+                            <div id="kpiAvgDeals" style="font-size:11px;color:var(--text-light);margin-top:4px;">0 avg per partner</div>
+                        </div>
+                        <!-- KPI Card: Override Revenue -->
+                        <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:18px 16px;position:relative;overflow:hidden;">
+                            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#10B981,#34D399);"></div>
+                            <div style="font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Override Revenue</div>
+                            <div id="kpiOverrideRevenue" style="font-size:28px;font-weight:800;color:#10B981;line-height:1;">$0</div>
+                            <div id="kpiAvgOverride" style="font-size:11px;color:var(--text-light);margin-top:4px;">$0 avg per deal</div>
+                        </div>
+                        <!-- KPI Card: Outreach Pipeline -->
+                        <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:18px 16px;position:relative;overflow:hidden;">
+                            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#6366F1,#818CF8);"></div>
+                            <div style="font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Prospect Pipeline</div>
+                            <div id="kpiPipelineTotal" style="font-size:28px;font-weight:800;color:#6366F1;line-height:1;">0</div>
+                            <div id="kpiConversionRate" style="font-size:11px;color:var(--text-light);margin-top:4px;">0% conversion rate</div>
+                        </div>
+                        <!-- KPI Card: Needs Follow-Up -->
+                        <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:18px 16px;position:relative;overflow:hidden;">
+                            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#F59E0B,#FBBF24);"></div>
+                            <div style="font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Needs Follow-Up</div>
+                            <div id="kpiFollowUp" style="font-size:28px;font-weight:800;color:#F59E0B;line-height:1;">0</div>
+                            <div id="kpiFollowUpLabel" style="font-size:11px;color:#F59E0B;margin-top:4px;">prospects awaiting action</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prospect Outreach / Recruitment Pipeline -->
                 <div class="table-container" style="margin-bottom: 24px;">
                     <div class="table-header">
-                        <div class="table-title">Prospect Outreach</div>
+                        <div class="table-title">Recruitment Pipeline</div>
                         <div style="display:flex;gap:8px;align-items:center;">
                             <span id="outreachCount" style="font-size:12px;color:var(--text-light);"></span>
                             <button class="btn btn-secondary btn-sm" onclick="loadOutreachHistory()" style="font-size:12px;">Refresh</button>
@@ -1825,6 +1873,17 @@
                                 Send Marketing Package
                             </button>
                         </div>
+                    </div>
+                    <!-- Pipeline Stage Filter Tabs -->
+                    <div id="pipelineFilterTabs" style="display:flex;gap:6px;padding:12px 16px;border-bottom:1px solid #E2E8F0;flex-wrap:wrap;">
+                        <button class="pipeline-filter-btn active" data-filter="all" onclick="filterPipeline('all')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:#0D1E3D;color:white;transition:all 0.15s;">All <span id="pipelineCountAll" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="sent" onclick="filterPipeline('sent')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">📤 Sent <span id="pipelineCountSent" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="opened" onclick="filterPipeline('opened')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">👀 Opened <span id="pipelineCountOpened" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="replied" onclick="filterPipeline('replied')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">💬 Replied <span id="pipelineCountReplied" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="meeting_booked" onclick="filterPipeline('meeting_booked')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">📅 Meeting <span id="pipelineCountMeeting" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="converted" onclick="filterPipeline('converted')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">✅ Converted <span id="pipelineCountConverted" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="no_response" onclick="filterPipeline('no_response')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">🔇 No Response <span id="pipelineCountNoResponse" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="follow_up" onclick="filterPipeline('follow_up')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #FEE2E2;background:white;color:#DC2626;transition:all 0.15s;">🔥 Needs Follow-Up <span id="pipelineCountFollowUp" style="margin-left:4px;opacity:0.7;"></span></button>
                     </div>
                     <div style="overflow-x:auto;">
                         <table style="width:100%;border-collapse:collapse;">
@@ -1861,12 +1920,14 @@
                                 <th>Status</th>
                                 <th>Dashboard</th>
                                 <th># Deals</th>
+                                <th>Outreach</th>
+                                <th>Conversion</th>
                                 <th>Override Earned</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="agentSubAgentsBody">
-                            <tr><td colspan="8" class="empty-state">Loading referral partners...</td></tr>
+                            <tr><td colspan="10" class="empty-state">Loading referral partners...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -8180,7 +8241,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 // Follow-up alert indicator
                 var followUpFlag = needsFollowUp ? '<span style="display:inline-block;background:#FEE2E2;color:#DC2626;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;margin-left:6px;">FOLLOW UP</span>' : '';
 
-                html += '<tr style="border-bottom:1px solid #F1F5F9;' + (needsFollowUp ? 'border-left:3px solid #F59E0B;' : '') + '" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'' + (needsFollowUp ? '#FFFBEB' : 'white') + '\'" style="background:' + (needsFollowUp ? '#FFFBEB' : 'white') + ';">';
+                html += '<tr class="pipeline-row" data-status="' + (row.status || 'sent') + '" data-follow-up="' + (needsFollowUp ? 'yes' : 'no') + '" data-row-id="' + row.id + '" style="border-bottom:1px solid #F1F5F9;' + (needsFollowUp ? 'border-left:3px solid #F59E0B;' : '') + 'background:' + (needsFollowUp ? '#FFFBEB' : 'white') + ';" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'' + (needsFollowUp ? '#FFFBEB' : 'white') + '\'">';
                 html += '<td style="padding:12px 16px;">' + prospectDisplay + followUpFlag + '</td>';
                 html += '<td style="padding:12px 16px;">' + materialsHtml + '</td>';
                 html += '<td style="padding:12px 16px;font-size:12px;color:#64748B;">' + (row.sent_by_name || 'Unknown') + '</td>';
@@ -8201,7 +8262,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 html += '</td>';
                 html += '</tr>';
                 // Expandable notes row (hidden by default) — always rendered so admin can add notes
-                html += '<tr id="outreachNotes_' + idPrefix + row.id + '" style="display:none;"><td colspan="7" style="padding:12px 24px;background:#FFFBEB;border-bottom:1px solid #F59E0B;">';
+                html += '<tr id="outreachNotes_' + idPrefix + row.id + '" class="pipeline-notes-row" data-parent-id="' + row.id + '" style="display:none;"><td colspan="7" style="padding:12px 24px;background:#FFFBEB;border-bottom:1px solid #F59E0B;">';
                 html += '<div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:6px;">📝 Prospect Notes</div>';
                 if (row.notes) {
                     html += '<pre style="font-size:12px;color:#374151;line-height:1.6;white-space:pre-wrap;margin:0 0 12px;font-family:inherit;">' + row.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
@@ -8250,6 +8311,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (tbody) tbody.innerHTML = html;
 
+            // Update pipeline filter counts
+            updatePipelineCounts(outreachData);
+
+            // Update KPI cards with outreach data
+            updateOutreachKPIs(outreachData, overdueFollowUpCount);
+
             // Update alert banner on the marketing page (ISO Referral Partners page)
             updateOutreachAlertBanner(repliedProspects, overdueFollowUpCount);
 
@@ -8257,6 +8324,89 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             console.error('Error loading outreach:', err);
             tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#EF4444;font-size:13px;">Error loading outreach history.</td></tr>';
         }
+    }
+
+    // Pipeline filter counts update
+    function updatePipelineCounts(outreachData) {
+        if (!outreachData) return;
+        var counts = { all: outreachData.length, sent: 0, opened: 0, replied: 0, meeting_booked: 0, converted: 0, no_response: 0, follow_up: 0 };
+        for (var i = 0; i < outreachData.length; i++) {
+            var st = outreachData[i].status || 'sent';
+            if (counts[st] !== undefined) counts[st]++;
+            // Count follow-ups
+            if (outreachData[i].created_at) {
+                var daysAgo = Math.floor((Date.now() - new Date(outreachData[i].created_at).getTime()) / 86400000);
+                if (daysAgo >= 3 && ['sent', 'replied'].indexOf(st) >= 0) counts.follow_up++;
+            }
+        }
+        var setCount = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val > 0 ? '(' + val + ')' : ''; };
+        setCount('pipelineCountAll', counts.all);
+        setCount('pipelineCountSent', counts.sent);
+        setCount('pipelineCountOpened', counts.opened);
+        setCount('pipelineCountReplied', counts.replied);
+        setCount('pipelineCountMeeting', counts.meeting_booked);
+        setCount('pipelineCountConverted', counts.converted);
+        setCount('pipelineCountNoResponse', counts.no_response);
+        setCount('pipelineCountFollowUp', counts.follow_up);
+    }
+
+    // Pipeline filter function
+    function filterPipeline(status) {
+        // Update active tab styling
+        var tabs = document.querySelectorAll('#pipelineFilterTabs .pipeline-filter-btn');
+        for (var i = 0; i < tabs.length; i++) {
+            if (tabs[i].getAttribute('data-filter') === status) {
+                tabs[i].style.background = '#0D1E3D';
+                tabs[i].style.color = 'white';
+                tabs[i].style.borderColor = '#0D1E3D';
+            } else {
+                tabs[i].style.background = 'white';
+                tabs[i].style.color = '#64748B';
+                tabs[i].style.borderColor = '#E2E8F0';
+            }
+        }
+
+        // Filter rows
+        var rows = document.querySelectorAll('#outreachTableBody .pipeline-row');
+        for (var j = 0; j < rows.length; j++) {
+            var row = rows[j];
+            var rowStatus = row.getAttribute('data-status');
+            var rowFollowUp = row.getAttribute('data-follow-up');
+            var rowId = row.getAttribute('data-row-id');
+            var show = false;
+
+            if (status === 'all') show = true;
+            else if (status === 'follow_up') show = (rowFollowUp === 'yes');
+            else show = (rowStatus === status);
+
+            row.style.display = show ? '' : 'none';
+
+            // Also hide/show corresponding notes row
+            var notesRow = document.querySelector('.pipeline-notes-row[data-parent-id="' + rowId + '"]');
+            if (notesRow && !show) notesRow.style.display = 'none';
+        }
+    }
+
+    // Update outreach KPIs on the org performance dashboard
+    function updateOutreachKPIs(outreachData, overdueCount) {
+        var el = function(id) { return document.getElementById(id); };
+        var totalProspects = outreachData ? outreachData.length : 0;
+        var converted = 0;
+        if (outreachData) {
+            for (var i = 0; i < outreachData.length; i++) {
+                if (outreachData[i].status === 'converted') converted++;
+            }
+        }
+        var convRate = totalProspects > 0 ? Math.round((converted / totalProspects) * 100) : 0;
+        if (el('kpiPipelineTotal')) el('kpiPipelineTotal').textContent = totalProspects;
+        if (el('kpiConversionRate')) el('kpiConversionRate').textContent = convRate + '% conversion rate';
+        if (el('kpiFollowUp')) el('kpiFollowUp').textContent = overdueCount || 0;
+        if (el('kpiFollowUpLabel')) el('kpiFollowUpLabel').textContent = (overdueCount === 1 ? 'prospect' : 'prospects') + ' awaiting action';
+    }
+
+    // Refresh org performance (reloads sub-agents + outreach)
+    async function refreshOrgPerformance() {
+        await Promise.all([loadAgentSubAgents(), loadOutreachHistory()]);
     }
 
     // Archive/Unarchive functions
@@ -13078,22 +13228,40 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (inviteBtn) inviteBtn.textContent = isBroker ? '+ Invite Mortgage Agent' : '+ Invite Referral Partner';
 
             if (!subAgents || subAgents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No ' + memberLabel + ' yet. Invite one above!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No ' + memberLabel + ' yet. Invite one above!</td></tr>';
                 return;
             }
 
-            // For each sub-agent, get their deals and overrides
+            // For each sub-agent, get their deals, overrides, and outreach activity
             const rows = [];
+            var orgTotalDeals = 0;
+            var orgTotalOverride = 0;
+            var orgActivePartners = 0;
+
             for (const sa of subAgents) {
                 const { data: saDeals } = await db
                     .from('deals')
                     .select('id, parent_override_amount')
                     .eq('source_agent_id', sa.id);
 
+                // Get outreach count for this sub-agent
+                const { data: saOutreach } = await db
+                    .from('prospect_outreach')
+                    .select('id, status')
+                    .eq('sent_by_id', sa.id);
+
                 const dealCount = saDeals ? saDeals.length : 0;
                 const totalOverride = saDeals
                     ? saDeals.reduce((sum, d) => sum + (parseFloat(d.parent_override_amount) || 0), 0)
                     : 0;
+                const outreachCount = saOutreach ? saOutreach.length : 0;
+                const outreachConverted = saOutreach ? saOutreach.filter(function(o) { return o.status === 'converted'; }).length : 0;
+                const conversionRate = outreachCount > 0 ? Math.round((outreachConverted / outreachCount) * 100) : 0;
+
+                // Org-level KPI tracking
+                orgTotalDeals += dealCount;
+                orgTotalOverride += totalOverride;
+                if (sa.invite_accepted_at || sa.onboarding_status === 'active') orgActivePartners++;
 
                 // Dashboard activation status
                 var dashboardBadge = '';
@@ -13105,6 +13273,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     dashboardBadge = '<span style="display:inline-flex;align-items:center;gap:4px;background:#FEE2E2;color:#991B1B;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">&#10007; Not Set Up</span>';
                 }
 
+                // Outreach activity badge
+                var outreachBadge = outreachCount > 0
+                    ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#EFF6FF;color:#1E40AF;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">' + outreachCount + ' sent</span>'
+                    : '<span style="color:#94A3B8;font-size:11px;">-</span>';
+
+                // Conversion rate badge
+                var convBadge = outreachCount > 0
+                    ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;' +
+                      (conversionRate >= 50 ? 'background:#D1FAE5;color:#065F46;' : conversionRate > 0 ? 'background:#FEF3C7;color:#92400E;' : 'background:#F3F4F6;color:#6B7280;') +
+                      '">' + conversionRate + '%</span>'
+                    : '<span style="color:#94A3B8;font-size:11px;">-</span>';
+
                 rows.push(`
                     <tr>
                         <td><strong>${sa.full_name || 'N/A'}</strong></td>
@@ -13113,6 +13293,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <td>${getStatusBadge(sa.agent_status || 'Pending')}</td>
                         <td>${dashboardBadge}</td>
                         <td>${dealCount}</td>
+                        <td>${outreachBadge}</td>
+                        <td>${convBadge}</td>
                         <td>${totalOverride > 0 ? formatCurrency(totalOverride) : '-'}</td>
                         <td><button class="btn btn-secondary btn-sm" onclick="viewSubAgent('${sa.id}')">View</button></td>
                     </tr>
@@ -13120,6 +13302,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             tbody.innerHTML = rows.join('');
+
+            // Update Organization Performance KPIs
+            var totalPartners = subAgents.length;
+            var avgDeals = totalPartners > 0 ? (orgTotalDeals / totalPartners).toFixed(1) : 0;
+            var avgOverride = orgTotalDeals > 0 ? (orgTotalOverride / orgTotalDeals).toFixed(0) : 0;
+
+            var kpiEl = function(id) { return document.getElementById(id); };
+            if (kpiEl('kpiTotalPartners')) kpiEl('kpiTotalPartners').textContent = totalPartners;
+            if (kpiEl('kpiActivePartners')) kpiEl('kpiActivePartners').textContent = orgActivePartners + ' active';
+            if (kpiEl('kpiTotalDeals')) kpiEl('kpiTotalDeals').textContent = orgTotalDeals;
+            if (kpiEl('kpiAvgDeals')) kpiEl('kpiAvgDeals').textContent = avgDeals + ' avg per partner';
+            if (kpiEl('kpiOverrideRevenue')) kpiEl('kpiOverrideRevenue').textContent = orgTotalOverride > 0 ? formatCurrency(orgTotalOverride) : '$0';
+            if (kpiEl('kpiAvgOverride')) kpiEl('kpiAvgOverride').textContent = orgTotalDeals > 0 ? formatCurrency(parseFloat(avgOverride)) + ' avg per deal' : '$0 avg per deal';
         } catch (err) {
             console.error('Load sub-agents error:', err);
         }
