@@ -779,6 +779,24 @@
             .modal-row {
                 grid-template-columns: 1fr;
             }
+
+            /* Eligibility checker responsive */
+            #eligStep3 .elig-option-btn,
+            #eligStep4 .elig-option-btn {
+                padding: 10px 6px !important;
+                font-size: 12px !important;
+            }
+            #eligStep3 > div:last-child,
+            #eligStep4 > div:last-child {
+                grid-template-columns: 1fr 1fr !important;
+            }
+
+            /* Rate card responsive */
+            #vendorTools table th,
+            #vendorTools table td {
+                padding: 8px 6px !important;
+                font-size: 12px !important;
+            }
         }
 
         @keyframes pulseHighlight {
@@ -2083,21 +2101,30 @@
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Active Referral Partners</div>
                         <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" id="subAgentSearchInput" placeholder="Search partners..." oninput="filterSubAgentsTable()" style="padding:7px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:13px;width:180px;">
                             <button class="btn btn-gold btn-sm" onclick="openInviteSubAgentModal()">+ Invite Referral Partner</button>
                         </div>
                     </div>
-                    <table>
+                    <!-- Quick Filter Tabs -->
+                    <div id="subAgentFilterTabs" style="display:flex;gap:6px;padding:0 16px 12px;flex-wrap:wrap;">
+                        <button onclick="setSubAgentFilter('all')" class="sa-filter-tab sa-filter-active" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border-gray);background:var(--navy);color:white;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;">All</button>
+                        <button onclick="setSubAgentFilter('attention')" class="sa-filter-tab" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border-gray);background:white;color:var(--text-light);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;">Needs Attention</button>
+                        <button onclick="setSubAgentFilter('top')" class="sa-filter-tab" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border-gray);background:white;color:var(--text-light);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;">Top Performers</button>
+                        <button onclick="setSubAgentFilter('new')" class="sa-filter-tab" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border-gray);background:white;color:var(--text-light);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;">New (Last 30 Days)</button>
+                    </div>
+                    <div style="overflow-x:auto;">
+                    <table id="subAgentsTable">
                         <thead>
                             <tr>
-                                <th>Name</th>
+                                <th style="cursor:pointer;user-select:none;" onclick="sortSubAgents('name')">Name <span id="saSort_name" style="font-size:10px;opacity:0.5;"></span></th>
                                 <th>Email</th>
                                 <th>Phone</th>
-                                <th>Status</th>
-                                <th>Dashboard</th>
-                                <th># Deals</th>
-                                <th>Outreach</th>
-                                <th>Conversion</th>
-                                <th>Override Earned</th>
+                                <th style="cursor:pointer;user-select:none;" onclick="sortSubAgents('status')">Status <span id="saSort_status" style="font-size:10px;opacity:0.5;"></span></th>
+                                <th style="cursor:pointer;user-select:none;" onclick="sortSubAgents('dashboard')">Dashboard <span id="saSort_dashboard" style="font-size:10px;opacity:0.5;"></span></th>
+                                <th style="cursor:pointer;user-select:none;" onclick="sortSubAgents('deals')">Deals <span id="saSort_deals" style="font-size:10px;opacity:0.5;"></span></th>
+                                <th style="cursor:pointer;user-select:none;" onclick="sortSubAgents('outreach')">Outreach <span id="saSort_outreach" style="font-size:10px;opacity:0.5;"></span></th>
+                                <th style="cursor:pointer;user-select:none;" onclick="sortSubAgents('conversion')">Conversion <span id="saSort_conversion" style="font-size:10px;opacity:0.5;"></span></th>
+                                <th style="cursor:pointer;user-select:none;" onclick="sortSubAgents('override')">Override <span id="saSort_override" style="font-size:10px;opacity:0.5;"></span></th>
                                 <th>Monthly Goal</th>
                                 <th>Actions</th>
                             </tr>
@@ -2106,6 +2133,7 @@
                             <tr><td colspan="11" class="empty-state">Loading referral partners...</td></tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
 
@@ -3043,6 +3071,160 @@
             <div id="calcPaymentAmount" style="font-size:36px;font-weight:700;color:#C9A84C;margin:4px 0;"></div>
             <div id="calcPaymentDetails" style="font-size:12px;opacity:0.6;"></div>
             <p style="font-size:11px;opacity:0.5;margin:10px 0 0;">* Estimate only. Actual rates depend on credit approval, equipment type, and lender terms.</p>
+        </div>
+    </div>
+
+    <!-- Rate Card Table -->
+    <div style="background:white;border:1px solid var(--border-gray);border-radius:12px;padding:24px;margin-bottom:24px;">
+        <h3 style="margin:0 0 4px;font-size:16px;color:var(--navy);display:flex;align-items:center;gap:8px;">
+            <span style="font-size:20px;">📊</span> Rate Card — Monthly Payment Factors
+        </h3>
+        <p style="font-size:12px;color:var(--text-light);margin:0 0 16px;">Multiply the equipment cost by the factor below to get the estimated monthly payment. Example: $25,000 × 0.0245 = $612.50/mo</p>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="background:#0D1E3D;color:white;">
+                        <th style="padding:10px 14px;text-align:left;font-weight:600;border-radius:8px 0 0 0;">Term</th>
+                        <th style="padding:10px 14px;text-align:center;font-weight:600;">
+                            <div>A Credit</div><div style="font-size:10px;opacity:0.7;font-weight:400;">720+ FICO</div>
+                        </th>
+                        <th style="padding:10px 14px;text-align:center;font-weight:600;">
+                            <div>B Credit</div><div style="font-size:10px;opacity:0.7;font-weight:400;">650–719 FICO</div>
+                        </th>
+                        <th style="padding:10px 14px;text-align:center;font-weight:600;border-radius:0 8px 0 0;">
+                            <div>C Credit</div><div style="font-size:10px;opacity:0.7;font-weight:400;">580–649 FICO</div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom:1px solid #E5E7EB;">
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">24 months</td>
+                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">0.0460</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">0.0490</td>
+                        <td style="padding:10px 14px;text-align:center;color:#9333EA;font-weight:600;">0.0530</td>
+                    </tr>
+                    <tr style="background:#F8FAFC;border-bottom:1px solid #E5E7EB;">
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">36 months</td>
+                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">0.0315</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">0.0340</td>
+                        <td style="padding:10px 14px;text-align:center;color:#9333EA;font-weight:600;">0.0375</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #E5E7EB;">
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">48 months</td>
+                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">0.0245</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">0.0268</td>
+                        <td style="padding:10px 14px;text-align:center;color:#9333EA;font-weight:600;">0.0300</td>
+                    </tr>
+                    <tr style="background:#F8FAFC;border-bottom:1px solid #E5E7EB;">
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">60 months</td>
+                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">0.0205</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">0.0228</td>
+                        <td style="padding:10px 14px;text-align:center;color:#9333EA;font-weight:600;">0.0260</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">72 months</td>
+                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">0.0178</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">0.0200</td>
+                        <td style="padding:10px 14px;text-align:center;color:#9333EA;font-weight:600;">0.0232</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p style="font-size:11px;color:var(--text-light);margin:12px 0 0;">* Rates are estimates. Actual rates depend on credit approval, equipment type, and lender terms. Use the Payment Estimator above for quick quotes.</p>
+    </div>
+
+    <!-- Am I Eligible? Checker -->
+    <div style="background:linear-gradient(135deg,#1a2e5a,#0D1E3D);border-radius:12px;padding:28px;margin-bottom:24px;color:white;">
+        <h3 style="margin:0 0 4px;font-size:18px;color:#C9A84C;">Am I Eligible? — Quick Client Checker</h3>
+        <p style="margin:0 0 20px;font-size:13px;opacity:0.8;">Answer 4 quick questions to see which programs your client qualifies for</p>
+
+        <div id="eligibilityChecker">
+            <!-- Step 1 -->
+            <div id="eligStep1" class="elig-step">
+                <div style="font-size:14px;font-weight:600;margin-bottom:12px;">1. How long has the business been operating?</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                    <button onclick="eligSelect(1,'startup')" id="elig1_startup" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        <div style="font-size:20px;margin-bottom:4px;">🌱</div>Startup<div style="font-size:11px;opacity:0.7;font-weight:400;">Under 2 years</div>
+                    </button>
+                    <button onclick="eligSelect(1,'established')" id="elig1_established" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        <div style="font-size:20px;margin-bottom:4px;">🏢</div>Established<div style="font-size:11px;opacity:0.7;font-weight:400;">2–5 years</div>
+                    </button>
+                    <button onclick="eligSelect(1,'mature')" id="elig1_mature" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        <div style="font-size:20px;margin-bottom:4px;">🏛️</div>Mature<div style="font-size:11px;opacity:0.7;font-weight:400;">5+ years</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div id="eligStep2" class="elig-step" style="display:none;">
+                <div style="font-size:14px;font-weight:600;margin-bottom:12px;">2. Approximate annual revenue?</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                    <button onclick="eligSelect(2,'low')" id="elig2_low" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        <div style="font-size:20px;margin-bottom:4px;">📉</div>Under $250K
+                    </button>
+                    <button onclick="eligSelect(2,'mid')" id="elig2_mid" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        <div style="font-size:20px;margin-bottom:4px;">📊</div>$250K – $1M
+                    </button>
+                    <button onclick="eligSelect(2,'high')" id="elig2_high" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        <div style="font-size:20px;margin-bottom:4px;">📈</div>$1M+
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div id="eligStep3" class="elig-step" style="display:none;">
+                <div style="font-size:14px;font-weight:600;margin-bottom:12px;">3. Owner's estimated credit score?</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
+                    <button onclick="eligSelect(3,'excellent')" id="elig3_excellent" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        <div style="font-size:16px;margin-bottom:4px;">🟢</div>720+
+                    </button>
+                    <button onclick="eligSelect(3,'good')" id="elig3_good" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        <div style="font-size:16px;margin-bottom:4px;">🟡</div>650–719
+                    </button>
+                    <button onclick="eligSelect(3,'fair')" id="elig3_fair" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        <div style="font-size:16px;margin-bottom:4px;">🟠</div>580–649
+                    </button>
+                    <button onclick="eligSelect(3,'poor')" id="elig3_poor" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        <div style="font-size:16px;margin-bottom:4px;">🔴</div>Below 580
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div id="eligStep4" class="elig-step" style="display:none;">
+                <div style="font-size:14px;font-weight:600;margin-bottom:12px;">4. Equipment amount needed?</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
+                    <button onclick="eligSelect(4,'small')" id="elig4_small" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        Under $75K
+                    </button>
+                    <button onclick="eligSelect(4,'medium')" id="elig4_medium" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        $75K – $250K
+                    </button>
+                    <button onclick="eligSelect(4,'large')" id="elig4_large" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        $250K – $500K
+                    </button>
+                    <button onclick="eligSelect(4,'xlarge')" id="elig4_xlarge" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
+                        $500K+
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div style="margin-top:16px;display:flex;align-items:center;gap:8px;">
+                <div style="flex:1;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden;">
+                    <div id="eligProgress" style="width:0%;height:100%;background:#C9A84C;border-radius:2px;transition:width 0.3s;"></div>
+                </div>
+                <span id="eligProgressText" style="font-size:11px;opacity:0.6;">0 of 4</span>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="eligResults" style="display:none;margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <div style="font-size:16px;font-weight:700;color:#C9A84C;">Results for Your Client</div>
+                <button onclick="resetEligibility()" style="padding:6px 14px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:6px;color:white;cursor:pointer;font-size:12px;">Start Over</button>
+            </div>
+            <div id="eligResultsList"></div>
         </div>
     </div>
 
@@ -4962,7 +5144,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-04-v99';
+    const DASHBOARD_VERSION = '2026-04-04-v100';
     console.log('Dashboard version:', DASHBOARD_VERSION);
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
@@ -5210,6 +5392,9 @@ if (location.hostname === 'alliancefinancing.ai') {
                 loadDashboard(),
                 loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
             ]);
+
+            // Initialize mobile quick actions bar (agents/ISOs on mobile)
+            initMobileQuickActions();
         } catch (error) {
             errorEl.textContent = error.message || 'Login failed';
         }
@@ -13523,6 +13708,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     // Agent Referral Partners
     // ============================================
+    var _subAgentTableData = []; // Stored for sorting/filtering
+    var _subAgentSortCol = '';
+    var _subAgentSortDir = 'asc';
+    var _subAgentFilter = 'all';
 
     async function loadAgentSubAgents() {
         const section = document.getElementById('agentSubAgentsSection');
@@ -13569,6 +13758,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // For each sub-agent, get their deals, overrides, and outreach activity
             const rows = [];
+            _subAgentTableData = []; // Reset stored data for sort/filter
             var leaderboardData = [];
             var orgTotalDeals = 0;
             var orgTotalOverride = 0;
@@ -13648,6 +13838,28 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     goalHtml = '<button onclick="openGoalSettingModal(\'' + sa.id + '\', \'' + (sa.full_name || 'Agent').replace(/'/g, "\\'") + '\')" style="font-size:10px;color:#6366F1;background:#EEF2FF;border:1px dashed #C7D2FE;border-radius:4px;padding:3px 8px;cursor:pointer;">+ Set Goal</button>';
                 }
 
+                // Store data for sorting/filtering
+                _subAgentTableData.push({
+                    id: sa.id,
+                    name: sa.full_name || 'N/A',
+                    email: sa.email || 'N/A',
+                    phone: sa.phone || '-',
+                    status: sa.agent_status || 'Pending',
+                    dashboardStatus: sa.invite_accepted_at ? 'active' : (sa.invite_sent_at ? 'invited' : 'not_setup'),
+                    deals: dealCount,
+                    outreach: outreachCount,
+                    conversion: conversionRate,
+                    override: totalOverride,
+                    createdAt: sa.created_at,
+                    isActive: !!(sa.invite_accepted_at || sa.onboarding_status === 'active'),
+                    // Pre-rendered HTML cells
+                    statusBadge: getStatusBadge(sa.agent_status || 'Pending'),
+                    dashboardBadge: dashboardBadge,
+                    outreachBadge: outreachBadge,
+                    convBadge: convBadge,
+                    goalHtml: goalHtml
+                });
+
                 rows.push(`
                     <tr>
                         <td><a href="#" onclick="event.preventDefault();viewSubAgent('${sa.id}')" style="color:#0D1E3D;font-weight:700;text-decoration:none;border-bottom:1px dashed #C9A84C;cursor:pointer;" onmouseover="this.style.color='#C9A84C'" onmouseout="this.style.color='#0D1E3D'">${sa.full_name || 'N/A'}</a></td>
@@ -13693,6 +13905,241 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (err) {
             console.error('Load sub-agents error:', err);
         }
+    }
+
+    // ============================================
+    // Mobile Quick Actions
+    // ============================================
+
+    function initMobileQuickActions() {
+        // Show mobile bar for agents/ISOs on mobile screens
+        if (window.innerWidth <= 768 && currentUserRole !== 'admin' && currentUserRole !== 'super_admin') {
+            var bar = document.getElementById('mobileQuickActionsBar');
+            if (bar) bar.style.display = 'block';
+            // Add bottom padding to main content so it doesn't get hidden behind the bar
+            var mainContent = document.querySelector('.main-content');
+            if (mainContent) mainContent.style.paddingBottom = '70px';
+            // Set user name
+            var userLabel = document.getElementById('mobileQuickActionsUser');
+            if (userLabel && currentUserName) userLabel.textContent = currentUserName;
+        }
+    }
+
+    // Run after login completes
+    window.addEventListener('resize', function() {
+        var bar = document.getElementById('mobileQuickActionsBar');
+        if (!bar) return;
+        if (window.innerWidth <= 768 && currentUserRole !== 'admin' && currentUserRole !== 'super_admin') {
+            bar.style.display = 'block';
+        } else {
+            bar.style.display = 'none';
+        }
+    });
+
+    function openMobileQuickActions() {
+        var panel = document.getElementById('mobileQuickActionsPanel');
+        if (panel) {
+            panel.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            var userLabel = document.getElementById('mobileQuickActionsUser');
+            if (userLabel && currentUserName) userLabel.textContent = currentUserName;
+        }
+    }
+
+    function closeMobileQuickActions() {
+        var panel = document.getElementById('mobileQuickActionsPanel');
+        if (panel) {
+            panel.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    }
+
+    function mobileQuickAction(action) {
+        switch (action) {
+            case 'app':
+                // Navigate to Application Hub and trigger send application
+                navigateToPage('applicationHub');
+                setTimeout(function() {
+                    var slug = (typeof agentProfile !== 'undefined' && agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+                    if (typeof openSendApplicationModalWithRef === 'function') openSendApplicationModalWithRef(slug);
+                }, 300);
+                break;
+            case 'deals':
+                navigateToPage('deals');
+                break;
+            case 'calc':
+                navigateToPage('vendorTools');
+                setTimeout(function() {
+                    var calcInput = document.getElementById('calcEquipCost');
+                    if (calcInput) { calcInput.scrollIntoView({ behavior: 'smooth', block: 'center' }); calcInput.focus(); }
+                }, 300);
+                break;
+            case 'share':
+                // Copy referral link to clipboard
+                var refUrl = '';
+                if (typeof agentProfile !== 'undefined' && agentProfile && agentProfile.referral_slug) {
+                    refUrl = 'https://alliancefinancing.ai/' + agentProfile.referral_slug;
+                }
+                if (refUrl && navigator.clipboard) {
+                    navigator.clipboard.writeText(refUrl).then(function() {
+                        showToast('Referral link copied!', 'success');
+                    }).catch(function() {
+                        showToast('Link: ' + refUrl, 'info');
+                    });
+                } else if (refUrl) {
+                    prompt('Copy your referral link:', refUrl);
+                } else {
+                    showToast('Referral link not available', 'warning');
+                }
+                break;
+            case 'eligible':
+                navigateToPage('vendorTools');
+                setTimeout(function() {
+                    var eligChecker = document.getElementById('eligibilityChecker');
+                    if (eligChecker) eligChecker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+                break;
+            case 'rates':
+                navigateToPage('vendorTools');
+                // Scroll to rate card (it's the first white card after the calculator)
+                setTimeout(function() {
+                    var vendorToolsSection = document.getElementById('vendorTools');
+                    if (vendorToolsSection) {
+                        var rateTable = vendorToolsSection.querySelectorAll('table');
+                        if (rateTable.length > 0) rateTable[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 300);
+                break;
+            case 'notifications':
+                navigateToPage('notifications');
+                break;
+            case 'partners':
+                navigateToPage('agentPartners');
+                break;
+            case 'help':
+                navigateToPage('helpResources');
+                break;
+        }
+    }
+
+    // ============================================
+    // Referral Partners: Sort, Filter, Search
+    // ============================================
+
+    function renderSubAgentRows(data) {
+        var tbody = document.getElementById('agentSubAgentsBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No partners match this filter</td></tr>';
+            return;
+        }
+        var html = '';
+        data.forEach(function(sa) {
+            html += '<tr>' +
+                '<td><a href="#" onclick="event.preventDefault();viewSubAgent(\'' + sa.id + '\')" style="color:#0D1E3D;font-weight:700;text-decoration:none;border-bottom:1px dashed #C9A84C;cursor:pointer;" onmouseover="this.style.color=\'#C9A84C\'" onmouseout="this.style.color=\'#0D1E3D\'">' + sa.name + '</a></td>' +
+                '<td>' + sa.email + '</td>' +
+                '<td>' + sa.phone + '</td>' +
+                '<td>' + sa.statusBadge + '</td>' +
+                '<td>' + sa.dashboardBadge + '</td>' +
+                '<td>' + sa.deals + '</td>' +
+                '<td>' + sa.outreachBadge + '</td>' +
+                '<td>' + sa.convBadge + '</td>' +
+                '<td>' + (sa.override > 0 ? formatCurrency(sa.override) : '-') + '</td>' +
+                '<td>' + sa.goalHtml + '</td>' +
+                '<td><button class="btn btn-secondary btn-sm" onclick="viewSubAgent(\'' + sa.id + '\')">View</button></td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    function getFilteredSubAgents() {
+        var data = _subAgentTableData.slice();
+        var search = (document.getElementById('subAgentSearchInput') || {}).value || '';
+        search = search.toLowerCase().trim();
+
+        // Apply filter tabs
+        if (_subAgentFilter === 'attention') {
+            data = data.filter(function(sa) {
+                return sa.deals === 0 || sa.dashboardStatus === 'not_setup' || sa.dashboardStatus === 'invited' || sa.status === 'Inactive';
+            });
+        } else if (_subAgentFilter === 'top') {
+            data = data.filter(function(sa) {
+                return sa.deals >= 3 || sa.conversion >= 50 || sa.override >= 500;
+            });
+        } else if (_subAgentFilter === 'new') {
+            var thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            data = data.filter(function(sa) {
+                return sa.createdAt && new Date(sa.createdAt) >= thirtyDaysAgo;
+            });
+        }
+
+        // Apply search
+        if (search) {
+            data = data.filter(function(sa) {
+                return sa.name.toLowerCase().indexOf(search) !== -1 ||
+                       sa.email.toLowerCase().indexOf(search) !== -1 ||
+                       (sa.phone && sa.phone.toLowerCase().indexOf(search) !== -1);
+            });
+        }
+
+        // Apply sort
+        if (_subAgentSortCol) {
+            data.sort(function(a, b) {
+                var valA, valB;
+                switch (_subAgentSortCol) {
+                    case 'name': valA = a.name.toLowerCase(); valB = b.name.toLowerCase(); break;
+                    case 'status': valA = a.status; valB = b.status; break;
+                    case 'dashboard': valA = a.dashboardStatus; valB = b.dashboardStatus; break;
+                    case 'deals': valA = a.deals; valB = b.deals; break;
+                    case 'outreach': valA = a.outreach; valB = b.outreach; break;
+                    case 'conversion': valA = a.conversion; valB = b.conversion; break;
+                    case 'override': valA = a.override; valB = b.override; break;
+                    default: return 0;
+                }
+                if (typeof valA === 'string') {
+                    var cmp = valA.localeCompare(valB);
+                    return _subAgentSortDir === 'asc' ? cmp : -cmp;
+                }
+                return _subAgentSortDir === 'asc' ? valA - valB : valB - valA;
+            });
+        }
+        return data;
+    }
+
+    function sortSubAgents(col) {
+        if (_subAgentSortCol === col) {
+            _subAgentSortDir = _subAgentSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            _subAgentSortCol = col;
+            _subAgentSortDir = col === 'name' ? 'asc' : 'desc'; // Numbers default desc, name default asc
+        }
+        // Update sort indicators
+        document.querySelectorAll('[id^="saSort_"]').forEach(function(el) { el.textContent = ''; });
+        var indicator = document.getElementById('saSort_' + col);
+        if (indicator) indicator.textContent = _subAgentSortDir === 'asc' ? '▲' : '▼';
+        renderSubAgentRows(getFilteredSubAgents());
+    }
+
+    function setSubAgentFilter(filter) {
+        _subAgentFilter = filter;
+        // Update tab styles
+        document.querySelectorAll('.sa-filter-tab').forEach(function(tab) {
+            tab.style.background = 'white';
+            tab.style.color = 'var(--text-light)';
+            tab.classList.remove('sa-filter-active');
+        });
+        var tabs = document.querySelectorAll('.sa-filter-tab');
+        var idx = filter === 'all' ? 0 : filter === 'attention' ? 1 : filter === 'top' ? 2 : 3;
+        if (tabs[idx]) {
+            tabs[idx].style.background = 'var(--navy)';
+            tabs[idx].style.color = 'white';
+            tabs[idx].classList.add('sa-filter-active');
+        }
+        renderSubAgentRows(getFilteredSubAgents());
+    }
+
+    function filterSubAgentsTable() {
+        renderSubAgentRows(getFilteredSubAgents());
     }
 
     // ============================================
@@ -18853,6 +19300,139 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         resultDiv.style.display = 'block';
         document.getElementById('calcPaymentAmount').textContent = '$' + monthlyPayment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         document.getElementById('calcPaymentDetails').textContent = term + ' months | ' + credit + ' Credit | Total: $' + totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // ========== Am I Eligible? Checker ==========
+    var eligAnswers = {};
+
+    function eligSelect(step, value) {
+        eligAnswers[step] = value;
+        // Highlight selected button
+        document.querySelectorAll('#eligStep' + step + ' .elig-option-btn').forEach(function(btn) {
+            btn.style.background = 'rgba(255,255,255,0.1)';
+            btn.style.borderColor = 'rgba(255,255,255,0.2)';
+        });
+        var selectedBtn = document.getElementById('elig' + step + '_' + value);
+        if (selectedBtn) {
+            selectedBtn.style.background = 'rgba(201,168,76,0.3)';
+            selectedBtn.style.borderColor = '#C9A84C';
+        }
+        // Update progress
+        var answered = Object.keys(eligAnswers).length;
+        document.getElementById('eligProgress').style.width = (answered * 25) + '%';
+        document.getElementById('eligProgressText').textContent = answered + ' of 4';
+        // Show next step or results
+        if (step < 4) {
+            var nextStep = document.getElementById('eligStep' + (step + 1));
+            if (nextStep) {
+                nextStep.style.display = 'block';
+                nextStep.style.opacity = '0';
+                nextStep.style.transform = 'translateY(10px)';
+                setTimeout(function() {
+                    nextStep.style.transition = 'opacity 0.3s, transform 0.3s';
+                    nextStep.style.opacity = '1';
+                    nextStep.style.transform = 'translateY(0)';
+                }, 50);
+            }
+        }
+        if (answered === 4) {
+            setTimeout(showEligibilityResults, 400);
+        }
+    }
+
+    function showEligibilityResults() {
+        var biz = eligAnswers[1];    // startup, established, mature
+        var rev = eligAnswers[2];    // low, mid, high
+        var credit = eligAnswers[3]; // excellent, good, fair, poor
+        var amount = eligAnswers[4]; // small, medium, large, xlarge
+
+        var programs = [];
+
+        // Standard Lease — available to most
+        if (credit !== 'poor') {
+            var stdNote = '';
+            if (biz === 'startup' && rev === 'low') stdNote = 'May require additional documentation or guarantor';
+            else if (credit === 'fair') stdNote = 'Approval likely with financial statements';
+            else stdNote = 'Strong candidate — best rates available';
+            programs.push({ name: 'Standard Lease', icon: '📋', color: '#C9A84C', match: credit === 'excellent' ? 'Excellent Match' : credit === 'good' ? 'Good Match' : 'Possible', note: stdNote, terms: '$5,000 – $500,000 | 24–72 months' });
+        }
+
+        // Quick Approval Under $75K — only for small amounts
+        if ((amount === 'small') && credit !== 'poor') {
+            var qaNote = biz === 'startup' ? 'App-only — great for startups with limited docs' : 'Fast-track — same-day approval likely';
+            programs.push({ name: 'Quick Approval (Under $75K)', icon: '⚡', color: '#3B82F6', match: 'Excellent Match', note: qaNote, terms: 'Up to $75K | App-only | Same-day decisions' });
+        }
+
+        // $1 Buyout Lease — best for established+, good credit
+        if (credit !== 'poor' && credit !== 'fair') {
+            var buyNote = biz === 'startup' ? 'Available but higher rates for startups' : 'Ideal for long-term equipment ownership';
+            programs.push({ name: '$1 Buyout Lease', icon: '🔑', color: '#10B981', match: (biz !== 'startup' && (credit === 'excellent' || credit === 'good')) ? 'Excellent Match' : 'Good Match', note: buyNote, terms: 'Own equipment at end of term | Best for long-term assets' });
+        }
+
+        // FMV Lease — available broadly, great for tech/short lifecycle
+        if (credit !== 'poor') {
+            programs.push({ name: 'Fair Market Value (FMV) Lease', icon: '🔄', color: '#8B5CF6', match: 'Good Match', note: 'Lower payments with flexibility at end of term — upgrade, return, or purchase', terms: 'Lower monthly payments | Flexible end-of-term options' });
+        }
+
+        // 90-Day Deferred promo
+        if (amount !== 'xlarge' || (credit === 'excellent' && biz !== 'startup')) {
+            programs.push({ name: '90-Day Deferred Payment (Promo)', icon: '🔥', color: '#F59E0B', match: 'Available', note: 'No payments for first 90 days — great closer for budget-conscious clients. Q2 2026 promo.', terms: 'Available on new leases over $10,000' });
+        }
+
+        // Handle poor credit
+        if (credit === 'poor') {
+            programs.push({ name: 'Alternative Financing', icon: '🤝', color: '#EF4444', match: 'Contact Alliance', note: 'Below 580 credit — we may have options with additional collateral, higher down payment, or a co-signer. Call Alliance to discuss.', terms: 'Case-by-case basis | Additional requirements' });
+        }
+
+        // Build HTML
+        var html = '';
+        programs.forEach(function(p) {
+            var matchColor = p.match === 'Excellent Match' ? '#10B981' : p.match === 'Good Match' ? '#3B82F6' : p.match === 'Possible' ? '#F59E0B' : p.match === 'Available' ? '#8B5CF6' : '#EF4444';
+            html += '<div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:16px;margin-bottom:10px;border-left:4px solid ' + p.color + ';">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+            html += '<div style="font-weight:700;font-size:14px;">' + p.icon + ' ' + p.name + '</div>';
+            html += '<span style="padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + matchColor + '20;color:' + matchColor + ';border:1px solid ' + matchColor + '40;">' + p.match + '</span>';
+            html += '</div>';
+            html += '<div style="font-size:12px;opacity:0.7;margin-bottom:6px;">' + p.terms + '</div>';
+            html += '<div style="font-size:12px;opacity:0.9;">' + p.note + '</div>';
+            html += '</div>';
+        });
+
+        // Summary tip at bottom
+        var tip = '';
+        if (credit === 'excellent' && biz !== 'startup') tip = 'This client is a strong candidate across all programs. Lead with the $1 Buyout or Standard Lease for best rates, and mention the 90-Day Deferral to close faster.';
+        else if (credit === 'good') tip = 'Good credit profile. Quick Approval is the fastest path for deals under $75K. For larger amounts, Standard Lease with full docs will get the best terms.';
+        else if (credit === 'fair') tip = 'Fair credit — focus on Standard Lease or FMV. Gather financial statements early to speed up approval. The 90-Day Deferral can help overcome budget objections.';
+        else if (credit === 'poor') tip = 'Below typical approval thresholds, but don\'t give up. Contact Alliance directly — we can sometimes work with additional collateral, larger down payments, or co-signers.';
+        else tip = 'Multiple programs available. Use the Payment Estimator above to show the client their monthly cost — leading with the payment is the best way to close.';
+
+        html += '<div style="margin-top:16px;padding:14px;background:rgba(201,168,76,0.15);border-radius:8px;border:1px solid rgba(201,168,76,0.3);">';
+        html += '<div style="font-weight:700;font-size:13px;color:#C9A84C;margin-bottom:4px;">💡 Sales Tip</div>';
+        html += '<div style="font-size:12px;opacity:0.9;">' + tip + '</div>';
+        html += '</div>';
+
+        document.getElementById('eligResultsList').innerHTML = html;
+        document.getElementById('eligResults').style.display = 'block';
+        document.getElementById('eligResults').style.opacity = '0';
+        setTimeout(function() {
+            document.getElementById('eligResults').style.transition = 'opacity 0.4s';
+            document.getElementById('eligResults').style.opacity = '1';
+        }, 50);
+    }
+
+    function resetEligibility() {
+        eligAnswers = {};
+        document.getElementById('eligResults').style.display = 'none';
+        document.getElementById('eligProgress').style.width = '0%';
+        document.getElementById('eligProgressText').textContent = '0 of 4';
+        for (var s = 2; s <= 4; s++) {
+            var step = document.getElementById('eligStep' + s);
+            if (step) step.style.display = 'none';
+        }
+        document.querySelectorAll('.elig-option-btn').forEach(function(btn) {
+            btn.style.background = 'rgba(255,255,255,0.1)';
+            btn.style.borderColor = 'rgba(255,255,255,0.2)';
+        });
     }
 
     function openAddSalespersonModal() {
@@ -37697,6 +38277,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
                     ]);
                 }
+                // Initialize mobile quick actions bar (agents/ISOs on mobile)
+                initMobileQuickActions();
                 return;
             }
         } catch(e) {}
@@ -37716,6 +38298,98 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         });
     }
 </script>
+
+<!-- Mobile Quick Actions Bar (visible on mobile for agents/ISOs) -->
+<div id="mobileQuickActionsBar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:999;background:linear-gradient(135deg,#0D1E3D,#1a2e5a);padding:8px 12px;box-shadow:0 -4px 20px rgba(0,0,0,0.3);border-top:2px solid #C9A84C;">
+    <div style="display:flex;justify-content:space-around;align-items:center;max-width:500px;margin:0 auto;">
+        <button onclick="mobileQuickAction('app')" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:white;cursor:pointer;padding:6px 8px;">
+            <span style="font-size:22px;">📋</span><span style="font-size:9px;font-weight:600;">Apply</span>
+        </button>
+        <button onclick="mobileQuickAction('deals')" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:white;cursor:pointer;padding:6px 8px;">
+            <span style="font-size:22px;">📊</span><span style="font-size:9px;font-weight:600;">Deals</span>
+        </button>
+        <button onclick="mobileQuickAction('calc')" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:white;cursor:pointer;padding:6px 8px;">
+            <span style="font-size:22px;">🧮</span><span style="font-size:9px;font-weight:600;">Calculator</span>
+        </button>
+        <button onclick="mobileQuickAction('share')" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:white;cursor:pointer;padding:6px 8px;">
+            <span style="font-size:22px;">🔗</span><span style="font-size:9px;font-weight:600;">Share</span>
+        </button>
+        <button onclick="openMobileQuickActions()" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:rgba(201,168,76,0.3);border:1px solid #C9A84C;border-radius:8px;color:#C9A84C;cursor:pointer;padding:6px 10px;">
+            <span style="font-size:22px;">⚡</span><span style="font-size:9px;font-weight:700;">More</span>
+        </button>
+    </div>
+</div>
+
+<!-- Mobile Quick Actions Full Panel -->
+<div id="mobileQuickActionsPanel" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1100;background:linear-gradient(180deg,#0D1E3D 0%,#1a2e5a 100%);overflow-y:auto;-webkit-overflow-scrolling:touch;">
+    <div style="padding:20px;max-width:500px;margin:0 auto;">
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+            <div>
+                <h2 style="margin:0;font-size:20px;color:white;font-weight:700;">Quick Actions</h2>
+                <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.5);" id="mobileQuickActionsUser">Alliance Financing</p>
+            </div>
+            <button onclick="closeMobileQuickActions()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
+
+        <!-- Primary Actions (big buttons) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;">
+            <button onclick="mobileQuickAction('app');closeMobileQuickActions();" style="padding:24px 16px;background:linear-gradient(135deg,#C9A84C,#B8942E);border:none;border-radius:14px;color:#0D1E3D;cursor:pointer;text-align:center;box-shadow:0 4px 12px rgba(201,168,76,0.3);">
+                <div style="font-size:32px;margin-bottom:8px;">📋</div>
+                <div style="font-size:14px;font-weight:700;">Send Application</div>
+                <div style="font-size:11px;opacity:0.7;margin-top:2px;">Email credit app to client</div>
+            </button>
+            <button onclick="mobileQuickAction('deals');closeMobileQuickActions();" style="padding:24px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:14px;color:white;cursor:pointer;text-align:center;">
+                <div style="font-size:32px;margin-bottom:8px;">📊</div>
+                <div style="font-size:14px;font-weight:700;">Deal Pipeline</div>
+                <div style="font-size:11px;opacity:0.5;margin-top:2px;">Check deal status & updates</div>
+            </button>
+            <button onclick="mobileQuickAction('calc');closeMobileQuickActions();" style="padding:24px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:14px;color:white;cursor:pointer;text-align:center;">
+                <div style="font-size:32px;margin-bottom:8px;">🧮</div>
+                <div style="font-size:14px;font-weight:700;">Payment Estimator</div>
+                <div style="font-size:11px;opacity:0.5;margin-top:2px;">Quick quote for your client</div>
+            </button>
+            <button onclick="mobileQuickAction('share');closeMobileQuickActions();" style="padding:24px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:14px;color:white;cursor:pointer;text-align:center;">
+                <div style="font-size:32px;margin-bottom:8px;">🔗</div>
+                <div style="font-size:14px;font-weight:700;">Share Referral Link</div>
+                <div style="font-size:11px;opacity:0.5;margin-top:2px;">Copy your landing page URL</div>
+            </button>
+        </div>
+
+        <!-- Secondary Actions -->
+        <div style="margin-bottom:20px;">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.4);font-weight:600;margin-bottom:10px;">More Tools</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <button onclick="mobileQuickAction('eligible');closeMobileQuickActions();" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:white;cursor:pointer;text-align:left;width:100%;">
+                    <span style="font-size:24px;">✅</span>
+                    <div><div style="font-size:13px;font-weight:600;">Am I Eligible?</div><div style="font-size:11px;opacity:0.5;">Check client eligibility for programs</div></div>
+                </button>
+                <button onclick="mobileQuickAction('rates');closeMobileQuickActions();" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:white;cursor:pointer;text-align:left;width:100%;">
+                    <span style="font-size:24px;">📊</span>
+                    <div><div style="font-size:13px;font-weight:600;">Rate Cards</div><div style="font-size:11px;opacity:0.5;">View rates by credit tier & term</div></div>
+                </button>
+                <button onclick="mobileQuickAction('notifications');closeMobileQuickActions();" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:white;cursor:pointer;text-align:left;width:100%;">
+                    <span style="font-size:24px;">🔔</span>
+                    <div><div style="font-size:13px;font-weight:600;">Notifications</div><div style="font-size:11px;opacity:0.5;">Deal updates & follow-ups</div></div>
+                </button>
+                <button onclick="mobileQuickAction('partners');closeMobileQuickActions();" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:white;cursor:pointer;text-align:left;width:100%;">
+                    <span style="font-size:24px;">👥</span>
+                    <div><div style="font-size:13px;font-weight:600;">My Partners</div><div style="font-size:11px;opacity:0.5;">View referral partner activity</div></div>
+                </button>
+                <button onclick="mobileQuickAction('help');closeMobileQuickActions();" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:white;cursor:pointer;text-align:left;width:100%;">
+                    <span style="font-size:24px;">📞</span>
+                    <div><div style="font-size:13px;font-weight:600;">Contact Alliance</div><div style="font-size:11px;opacity:0.5;">info@alliancefinancing.com</div></div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Alliance branding -->
+        <div style="text-align:center;padding:16px 0;opacity:0.3;">
+            <div style="font-size:11px;color:white;">Alliance Financing Group</div>
+            <div style="font-size:10px;color:white;">alliancefinancing.ai</div>
+        </div>
+    </div>
+</div>
 
 <!--/email_off-->
 </body>
