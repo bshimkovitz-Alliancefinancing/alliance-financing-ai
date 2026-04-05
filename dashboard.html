@@ -2100,6 +2100,19 @@
                     </div>
                 </div>
 
+                <!-- Partner Type Tab Toggle -->
+                <div id="partnerTypeTabs" style="display:flex;gap:0;margin-bottom:16px;border:2px solid var(--navy);border-radius:8px;overflow:hidden;max-width:420px;">
+                    <button class="partner-type-tab active" data-ptab="referral" onclick="switchPartnerTypeTab('referral')" style="flex:1;padding:10px 20px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:var(--navy);color:white;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;">
+                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                        Referral Partners <span id="partnerTabCountRef" style="background:rgba(255,255,255,0.3);padding:1px 7px;border-radius:10px;font-size:11px;"></span>
+                    </button>
+                    <button class="partner-type-tab" data-ptab="mortgage" onclick="switchPartnerTypeTab('mortgage')" style="flex:1;padding:10px 20px;border:none;border-left:1px solid rgba(255,255,255,0.2);cursor:pointer;font-size:13px;font-weight:600;background:white;color:var(--navy);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;">
+                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        Mortgage Partners <span id="partnerTabCountMtg" style="background:rgba(13,30,61,0.1);padding:1px 7px;border-radius:10px;font-size:11px;"></span>
+                    </button>
+                </div>
+
+                <!-- Referral Partners Section -->
                 <div id="agentSubAgentsSection" class="table-container">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Active Referral Partners</div>
@@ -2134,6 +2147,44 @@
                         </thead>
                         <tbody id="agentSubAgentsBody">
                             <tr><td colspan="11" class="empty-state">Loading referral partners...</td></tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+
+                <!-- Mortgage Partners Section (hidden by default) -->
+                <div id="mortgagePartnersSection" class="table-container" style="display:none;">
+                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
+                        <div class="table-title">Mortgage Brokers & Agents</div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" id="mtgPartnerSearchInput" placeholder="Search mortgage partners..." oninput="filterMortgagePartnersTable()" style="padding:7px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:13px;width:200px;">
+                            <button class="btn btn-gold btn-sm" onclick="openInviteMortgagePartnerModal()">+ Add Mortgage Partner</button>
+                        </div>
+                    </div>
+                    <div id="mtgPartnerFilterTabs" style="display:flex;gap:6px;padding:0 16px 12px;flex-wrap:wrap;">
+                        <button onclick="setMtgPartnerFilter('all')" class="mtg-filter-tab mtg-filter-active" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border-gray);background:var(--navy);color:white;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;">All</button>
+                        <button onclick="setMtgPartnerFilter('brokers')" class="mtg-filter-tab" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border-gray);background:white;color:var(--text-light);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;">Brokers</button>
+                        <button onclick="setMtgPartnerFilter('agents')" class="mtg-filter-tab" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border-gray);background:white;color:var(--text-light);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;">Agents</button>
+                        <button onclick="setMtgPartnerFilter('pending')" class="mtg-filter-tab" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border-gray);background:white;color:var(--text-light);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;">Pending Setup</button>
+                    </div>
+                    <div style="overflow-x:auto;">
+                    <table id="mtgPartnersTable">
+                        <thead>
+                            <tr>
+                                <th style="cursor:pointer;user-select:none;">Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Dashboard</th>
+                                <th>Deals</th>
+                                <th>Agents</th>
+                                <th>Conversion</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mtgPartnersBody">
+                            <tr><td colspan="10" class="empty-state">Loading mortgage partners...</td></tr>
                         </tbody>
                     </table>
                     </div>
@@ -3688,6 +3739,40 @@
                 </select>
             </div>
             <button id="inviteSubAgentBtn" class="btn btn-gold" onclick="handleInviteSubAgent()" style="width: 100%; margin-top: 10px;">Invite Referral Partner</button>
+        </div>
+    </div>
+</div>
+
+<!-- Invite Mortgage Partner Modal -->
+<div id="inviteMtgPartnerModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Add a Mortgage Partner</h3>
+            <span class="modal-close" onclick="document.getElementById('inviteMtgPartnerModal').style.display='none'">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p style="color: #64748b; font-size: 13px; margin-bottom: 15px;">Add a mortgage broker or agent to your network. They'll have access to Alliance's financing products to cross-sell to their mortgage clients.</p>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Full Name *</label>
+                <input type="text" id="mtgPartnerName" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Email *</label>
+                <input type="email" id="mtgPartnerEmail" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Phone</label>
+                <input type="text" id="mtgPartnerPhone" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 4px;">Partner Type *</label>
+                <select id="mtgPartnerType" style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    <option value="">Select type...</option>
+                    <option value="mortgage_broker">Mortgage Broker</option>
+                    <option value="mortgage_agent">Mortgage Agent</option>
+                </select>
+            </div>
+            <button class="btn btn-gold" onclick="handleInviteMortgagePartner()" style="width: 100%; margin-top: 10px;">Send Invite</button>
         </div>
     </div>
 </div>
@@ -13721,6 +13806,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (!section) return;
         section.style.display = 'block';
 
+        // Show partner type tabs only for ISOs (super_agent), hide for mortgage brokers
+        var partnerTypeTabs = document.getElementById('partnerTypeTabs');
+        if (partnerTypeTabs) {
+            partnerTypeTabs.style.display = (currentAgentType === 'super_agent') ? 'flex' : 'none';
+        }
+
         // Hide Prospect Outreach for mortgage brokers (not relevant for their workflow)
         var outreachContainer = section.parentElement ? section.parentElement.querySelector('.table-container:first-child') : null;
         if (outreachContainer && outreachContainer !== section) {
@@ -13729,11 +13820,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         try {
             // Get sub-agents (users with parent_agent_id = current user)
-            const { data: subAgents, error } = await db
+            // For ISOs: filter to referring_agents only (mortgage types shown in Mortgage tab)
+            var subAgentQuery = db
                 .from('users')
-                .select('id, full_name, email, phone, agent_status, business_type, referral_slug, created_at, onboarding_status, invite_accepted_at, invite_sent_at')
+                .select('id, full_name, email, phone, agent_status, business_type, referral_slug, created_at, onboarding_status, invite_accepted_at, invite_sent_at, agent_type')
                 .eq('parent_agent_id', currentUserId)
                 .eq('role', 'agent');
+
+            if (currentAgentType === 'super_agent') {
+                subAgentQuery = subAgentQuery.not('agent_type', 'in', '("mortgage_broker","mortgage_agent")');
+            }
+
+            const { data: subAgents, error } = await subAgentQuery;
 
             if (error) throw error;
 
@@ -13746,6 +13844,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (sectionTitle) sectionTitle.textContent = isBroker ? 'My Mortgage Agents' : 'Active Referral Partners';
             var inviteBtn = document.querySelector('#agentSubAgentsSection .btn-gold');
             if (inviteBtn) inviteBtn.textContent = isBroker ? '+ Invite Mortgage Agent' : '+ Invite Referral Partner';
+
+            // Update referral partner tab count badge (even if 0)
+            var refCountBadge = document.getElementById('partnerTabCountRef');
+            if (refCountBadge) refCountBadge.textContent = (subAgents ? subAgents.length : 0);
 
             if (!subAgents || subAgents.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No ' + memberLabel + ' yet. Invite one above!</td></tr>';
@@ -13908,6 +14010,353 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (err) {
             console.error('Load sub-agents error:', err);
         }
+    }
+
+    // ============================================
+    // Partner Type Tab Toggle (Referral / Mortgage)
+    // ============================================
+
+    var currentPartnerTypeTab = 'referral';
+    var _mtgPartnerTableData = [];
+    var _currentMtgFilter = 'all';
+
+    function switchPartnerTypeTab(tab) {
+        currentPartnerTypeTab = tab;
+        document.querySelectorAll('#partnerTypeTabs .partner-type-tab').forEach(function(btn) {
+            if (btn.dataset.ptab === tab) {
+                btn.style.background = 'var(--navy)';
+                btn.style.color = 'white';
+                btn.style.fontWeight = '700';
+            } else {
+                btn.style.background = 'white';
+                btn.style.color = 'var(--navy)';
+                btn.style.fontWeight = '600';
+            }
+        });
+        document.getElementById('agentSubAgentsSection').style.display = tab === 'referral' ? 'block' : 'none';
+        document.getElementById('mortgagePartnersSection').style.display = tab === 'mortgage' ? 'block' : 'none';
+        // Lazy-load mortgage partners on first visit
+        if (tab === 'mortgage' && _mtgPartnerTableData.length === 0) {
+            loadMortgagePartners();
+        }
+    }
+
+    async function loadMortgagePartners() {
+        var section = document.getElementById('mortgagePartnersSection');
+        if (!section) return;
+
+        var tbody = document.getElementById('mtgPartnersBody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Loading mortgage partners...</td></tr>';
+
+        try {
+            // Get mortgage brokers and agents under this ISO
+            var { data: mtgPartners, error } = await db
+                .from('users')
+                .select('id, full_name, email, phone, agent_type, agent_status, created_at, onboarding_status, invite_accepted_at, invite_sent_at, parent_agent_id')
+                .eq('parent_agent_id', currentUserId)
+                .in('agent_type', ['mortgage_broker', 'mortgage_agent']);
+
+            if (error) throw error;
+
+            // Also get any mortgage agents under those brokers (sub-sub-agents)
+            var brokerIds = (mtgPartners || []).filter(function(p) { return p.agent_type === 'mortgage_broker'; }).map(function(p) { return p.id; });
+            var subMtgAgents = [];
+            if (brokerIds.length > 0) {
+                var { data: subAgents } = await db
+                    .from('users')
+                    .select('id, full_name, email, phone, agent_type, agent_status, created_at, onboarding_status, invite_accepted_at, invite_sent_at, parent_agent_id')
+                    .in('parent_agent_id', brokerIds)
+                    .eq('agent_type', 'mortgage_agent');
+                subMtgAgents = subAgents || [];
+            }
+
+            var allPartners = (mtgPartners || []).concat(subMtgAgents);
+
+            if (allPartners.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No mortgage partners yet. Add one to get started!</td></tr>';
+                updateMtgPartnerTabCounts(0);
+                return;
+            }
+
+            _mtgPartnerTableData = [];
+            var rows = [];
+
+            for (var i = 0; i < allPartners.length; i++) {
+                var mp = allPartners[i];
+
+                // Get deals for this partner
+                var { data: mpDeals } = await db
+                    .from('deals')
+                    .select('id, deal_amount')
+                    .eq('source_agent_id', mp.id);
+
+                var dealCount = mpDeals ? mpDeals.length : 0;
+
+                // Count agents under this partner (if broker)
+                var agentCount = 0;
+                if (mp.agent_type === 'mortgage_broker') {
+                    agentCount = subMtgAgents.filter(function(a) { return a.parent_agent_id === mp.id; }).length;
+                }
+
+                // Conversion: deals / outreach
+                var { data: mpOutreach } = await db
+                    .from('prospect_outreach')
+                    .select('id, status')
+                    .eq('sent_by_id', mp.id);
+                var outreachCount = mpOutreach ? mpOutreach.length : 0;
+                var outreachConverted = mpOutreach ? mpOutreach.filter(function(o) { return o.status === 'converted'; }).length : 0;
+                var convRate = outreachCount > 0 ? Math.round((outreachConverted / outreachCount) * 100) : 0;
+
+                // Type badge
+                var typeBadge = mp.agent_type === 'mortgage_broker'
+                    ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#EFF6FF;color:#1E40AF;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">Broker</span>'
+                    : '<span style="display:inline-flex;align-items:center;gap:3px;background:#F0FDF4;color:#166534;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">Agent</span>';
+
+                // Dashboard status badge
+                var dashBadge = '';
+                if (mp.invite_accepted_at || mp.onboarding_status === 'active') {
+                    dashBadge = '<span style="display:inline-flex;align-items:center;gap:4px;background:#D1FAE5;color:#065F46;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;"><span style="font-size:10px;">&#10003;</span> Active</span>';
+                } else if (mp.invite_sent_at) {
+                    dashBadge = '<span style="display:inline-flex;align-items:center;gap:4px;background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">&#9202; Invite Sent</span>';
+                } else {
+                    dashBadge = '<span style="display:inline-flex;align-items:center;gap:4px;background:#FEE2E2;color:#991B1B;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;">&#10007; Not Set Up</span>';
+                }
+
+                // Conversion badge
+                var convBadge = outreachCount > 0
+                    ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;' +
+                      (convRate >= 50 ? 'background:#D1FAE5;color:#065F46;' : convRate > 0 ? 'background:#FEF3C7;color:#92400E;' : 'background:#F3F4F6;color:#6B7280;') +
+                      '">' + convRate + '%</span>'
+                    : '<span style="color:#94A3B8;font-size:11px;">-</span>';
+
+                _mtgPartnerTableData.push({
+                    id: mp.id,
+                    name: mp.full_name || 'N/A',
+                    email: mp.email || 'N/A',
+                    phone: mp.phone || '-',
+                    agentType: mp.agent_type,
+                    status: mp.agent_status || 'Pending',
+                    dashboardStatus: mp.invite_accepted_at ? 'active' : (mp.invite_sent_at ? 'invited' : 'not_setup'),
+                    deals: dealCount,
+                    agents: agentCount,
+                    conversion: convRate,
+                    createdAt: mp.created_at,
+                    onboardingStatus: mp.onboarding_status,
+                    typeBadge: typeBadge,
+                    statusBadge: getStatusBadge(mp.agent_status || 'Pending'),
+                    dashBadge: dashBadge,
+                    convBadge: convBadge
+                });
+
+                rows.push(
+                    '<tr>' +
+                    '<td><a href="#" onclick="event.preventDefault();viewSubAgent(\'' + mp.id + '\')" style="color:#0D1E3D;font-weight:700;text-decoration:none;border-bottom:1px dashed #C9A84C;cursor:pointer;" onmouseover="this.style.color=\'#C9A84C\'" onmouseout="this.style.color=\'#0D1E3D\'">' + (mp.full_name || 'N/A') + '</a></td>' +
+                    '<td>' + (mp.email || 'N/A') + '</td>' +
+                    '<td>' + (mp.phone || '-') + '</td>' +
+                    '<td>' + typeBadge + '</td>' +
+                    '<td>' + getStatusBadge(mp.agent_status || 'Pending') + '</td>' +
+                    '<td>' + dashBadge + '</td>' +
+                    '<td>' + dealCount + '</td>' +
+                    '<td>' + (mp.agent_type === 'mortgage_broker' ? agentCount : '-') + '</td>' +
+                    '<td>' + convBadge + '</td>' +
+                    '<td><button class="btn btn-secondary btn-sm" onclick="viewSubAgent(\'' + mp.id + '\')">View</button></td>' +
+                    '</tr>'
+                );
+            }
+
+            tbody.innerHTML = rows.join('');
+            updateMtgPartnerTabCounts(allPartners.length);
+            applyMtgPartnerFilter();
+
+        } catch (err) {
+            console.error('Load mortgage partners error:', err);
+            tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Error loading mortgage partners.</td></tr>';
+        }
+    }
+
+    function updateMtgPartnerTabCounts(totalMtg) {
+        var mtgCountEl = document.getElementById('partnerTabCountMtg');
+        if (mtgCountEl) mtgCountEl.textContent = totalMtg;
+    }
+
+    function setMtgPartnerFilter(filter) {
+        _currentMtgFilter = filter;
+        document.querySelectorAll('#mtgPartnerFilterTabs .mtg-filter-tab').forEach(function(btn) {
+            var isActive = btn.textContent.trim().toLowerCase().replace(/\s+/g, '') ===
+                (filter === 'all' ? 'all' : filter === 'brokers' ? 'brokers' : filter === 'agents' ? 'agents' : 'pendingsetup');
+            if (isActive) {
+                btn.style.background = 'var(--navy)';
+                btn.style.color = 'white';
+                btn.classList.add('mtg-filter-active');
+            } else {
+                btn.style.background = 'white';
+                btn.style.color = 'var(--text-light)';
+                btn.classList.remove('mtg-filter-active');
+            }
+        });
+        applyMtgPartnerFilter();
+    }
+
+    function applyMtgPartnerFilter() {
+        var searchTerm = (document.getElementById('mtgPartnerSearchInput') ? document.getElementById('mtgPartnerSearchInput').value : '').toLowerCase();
+        var tbody = document.getElementById('mtgPartnersBody');
+        if (!tbody || _mtgPartnerTableData.length === 0) return;
+
+        var filtered = _mtgPartnerTableData.filter(function(mp) {
+            // Apply type filter
+            if (_currentMtgFilter === 'brokers' && mp.agentType !== 'mortgage_broker') return false;
+            if (_currentMtgFilter === 'agents' && mp.agentType !== 'mortgage_agent') return false;
+            if (_currentMtgFilter === 'pending' && mp.onboardingStatus !== 'pending_setup') return false;
+
+            // Apply search
+            if (searchTerm) {
+                return (mp.name.toLowerCase().indexOf(searchTerm) >= 0 ||
+                        mp.email.toLowerCase().indexOf(searchTerm) >= 0 ||
+                        mp.phone.toLowerCase().indexOf(searchTerm) >= 0);
+            }
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No mortgage partners match the current filter.</td></tr>';
+            return;
+        }
+
+        var rows = filtered.map(function(mp) {
+            return '<tr>' +
+                '<td><a href="#" onclick="event.preventDefault();viewSubAgent(\'' + mp.id + '\')" style="color:#0D1E3D;font-weight:700;text-decoration:none;border-bottom:1px dashed #C9A84C;cursor:pointer;" onmouseover="this.style.color=\'#C9A84C\'" onmouseout="this.style.color=\'#0D1E3D\'">' + mp.name + '</a></td>' +
+                '<td>' + mp.email + '</td>' +
+                '<td>' + mp.phone + '</td>' +
+                '<td>' + mp.typeBadge + '</td>' +
+                '<td>' + mp.statusBadge + '</td>' +
+                '<td>' + mp.dashBadge + '</td>' +
+                '<td>' + mp.deals + '</td>' +
+                '<td>' + (mp.agentType === 'mortgage_broker' ? mp.agents : '-') + '</td>' +
+                '<td>' + mp.convBadge + '</td>' +
+                '<td><button class="btn btn-secondary btn-sm" onclick="viewSubAgent(\'' + mp.id + '\')">View</button></td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = rows.join('');
+    }
+
+    function filterMortgagePartnersTable() {
+        applyMtgPartnerFilter();
+    }
+
+    function openInviteMortgagePartnerModal() {
+        document.getElementById('inviteMtgPartnerModal').style.display = 'flex';
+    }
+
+    async function handleInviteMortgagePartner() {
+        var name = document.getElementById('mtgPartnerName').value.trim();
+        var email = document.getElementById('mtgPartnerEmail').value.trim();
+        var phone = document.getElementById('mtgPartnerPhone').value.trim();
+        var partnerType = document.getElementById('mtgPartnerType').value;
+
+        if (!name || !email) { alert('Please fill in the name and email.'); return; }
+        if (!partnerType) { alert('Please select a partner type.'); return; }
+
+        try {
+            // Check if user already exists
+            var { data: existing } = await db.from('users').select('id, full_name, parent_agent_id, role').eq('email', email).maybeSingle();
+
+            if (existing) {
+                if (existing.parent_agent_id === currentUserId) {
+                    alert(existing.full_name + ' is already one of your mortgage partners.');
+                    return;
+                }
+                if (existing.parent_agent_id) {
+                    alert('This email is already associated with another agent. Please contact admin to reassign.');
+                    return;
+                }
+                // Exists but no parent — link them
+                var { error: updateErr } = await db.from('users').update({
+                    parent_agent_id: currentUserId,
+                    agent_type: partnerType,
+                    agent_status: existing.agent_status || 'Pending'
+                }).eq('id', existing.id);
+
+                if (updateErr) throw updateErr;
+
+                document.getElementById('inviteMtgPartnerModal').style.display = 'none';
+                clearMtgPartnerForm();
+                alert(existing.full_name + ' has been added as your mortgage partner.');
+                _mtgPartnerTableData = [];
+                loadMortgagePartners();
+                return;
+            }
+
+            // Create new user with invite token
+            var inviteToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2) + Date.now().toString(36);
+            var { error } = await db.from('users').insert({
+                full_name: name,
+                email: email,
+                phone: phone || null,
+                role: 'agent',
+                agent_type: partnerType,
+                agent_status: 'Pending',
+                parent_agent_id: currentUserId,
+                invite_token: inviteToken,
+                onboarding_status: 'pending_setup'
+            });
+
+            if (error) throw error;
+
+            // Send invite email
+            try {
+                var activateUrl = window.location.origin + '/agent-activate.html?token=' + inviteToken;
+                var inviterName = currentUserName || 'An ISO Partner';
+                var roleLabel = partnerType === 'mortgage_broker' ? 'Mortgage Broker' : 'Mortgage Agent';
+                var roleDescription = partnerType === 'mortgage_broker'
+                    ? 'As a mortgage broker partner, you\'ll have access to our full suite of equipment financing products to cross-sell to your clients. Manage your own team of agents and grow your business with Alliance.'
+                    : 'As a mortgage agent partner, you\'ll have access to Alliance\'s financing products to offer your clients alongside your mortgage services.';
+                var inviteSubject = 'Welcome to Alliance Financing Group — ' + inviterName + ' invited you';
+                var inviteHtml =
+                    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                    '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                    '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                    '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                    '<p style="font-size:16px;color:#1E293B;">Hi ' + name + ',</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;"><strong>' + inviterName + '</strong> has invited you to join Alliance Financing Group as a <strong>' + roleLabel + '</strong>.</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">' + roleDescription + '</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">To activate your account and get started, click the button below:</p>' +
+                    '<div style="text-align:center;margin:25px 0;">' +
+                    '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Activate My Account</a></div>' +
+                    '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;">' + activateUrl + '</a></p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, reach out to ' + inviterName + ' or contact Alliance at info@alliancefinancing.com.</p>' +
+                    '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong></p>' +
+                    '</div>' +
+                    '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                    '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+
+                await sendEmailViaResend(email, inviteSubject, inviteHtml);
+
+                // Update invite_sent_at
+                var { data: newUser } = await db.from('users').select('id').eq('email', email).maybeSingle();
+                if (newUser) {
+                    await db.from('users').update({ invite_sent_at: new Date().toISOString() }).eq('id', newUser.id);
+                }
+            } catch(emailErr) {
+                console.error('Mortgage partner invite email failed (non-critical):', emailErr);
+            }
+
+            document.getElementById('inviteMtgPartnerModal').style.display = 'none';
+            clearMtgPartnerForm();
+            showToast('Invite sent to ' + email + '!', 'success');
+            _mtgPartnerTableData = [];
+            loadMortgagePartners();
+        } catch (err) {
+            console.error('Invite mortgage partner error:', err);
+            alert('Error inviting mortgage partner: ' + err.message);
+        }
+    }
+
+    function clearMtgPartnerForm() {
+        document.getElementById('mtgPartnerName').value = '';
+        document.getElementById('mtgPartnerEmail').value = '';
+        document.getElementById('mtgPartnerPhone').value = '';
+        document.getElementById('mtgPartnerType').value = '';
     }
 
     // ============================================
@@ -21191,6 +21640,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             case 'subAgents':
                 await loadAgentSubAgents();
                 await loadOutreachHistory();
+                // Pre-load mortgage partners count for the tab badge
+                loadMortgagePartners();
                 break;
             case 'myReferrals':
                 // Redirect to dashboard — My Referrals is now unified into the pipeline
