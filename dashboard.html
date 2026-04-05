@@ -13468,39 +13468,163 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     notesHtml += '</div>';
 
                     if (visibleNotes.length > 0) {
-                        visibleNotes.slice().reverse().forEach(n => {
+                        // Sort: pinned first, then newest first
+                        var sortedNotes = visibleNotes.slice().sort(function(a, b) {
+                            if (a.pinned && !b.pinned) return -1;
+                            if (!a.pinned && b.pinned) return 1;
+                            return visibleNotes.indexOf(b) - visibleNotes.indexOf(a);
+                        });
+                        sortedNotes.forEach(n => {
                             const noteDate = n.date || '';
                             const isAgentNote = n.from_agent === true;
                             const isAudit = n.is_audit_log === true;
+                            const isEmail = n.type === 'email' || n.is_email === true;
 
-                            // Audit log entries get a distinct gray/purple style
                             var bg, border, authorColor, badge;
                             if (isAudit) {
                                 bg = '#F5F3FF'; border = '#DDD6FE'; authorColor = '#5B21B6';
                                 badge = '<span style="background:#EDE9FE;color:#6D28D9;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">Change Log</span>';
+                            } else if (isEmail) {
+                                bg = '#FFFBEB'; border = '#FDE68A'; authorColor = '#92400E';
+                                badge = '<span style="background:#FEF3C7;color:#92400E;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">📧 Email</span>';
+                                if (isAgentNote) badge += '<span style="background:#DBEAFE;color:#1E40AF;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:4px;">You</span>';
                             } else if (isAgentNote) {
                                 bg = '#EFF6FF'; border = '#BFDBFE'; authorColor = '#1D4ED8';
                                 badge = '<span style="background:#DBEAFE;color:#1E40AF;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">You</span>';
                             } else {
-                                bg = '#FFFBEB'; border = '#FDE68A'; authorColor = '#92400E';
+                                bg = '#F8FAFC'; border = '#E2E8F0'; authorColor = '#475569';
                                 badge = '<span style="background:#FEF3C7;color:#92400E;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:6px;">Admin</span>';
                             }
 
+                            // Category badge
+                            if (n.category && n.category !== 'General') {
+                                badge += '<span style="background:#F0F9FF;color:#0369A1;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:4px;">' + n.category + '</span>';
+                            }
+                            // Pin badge
+                            if (n.pinned) {
+                                badge += '<span style="font-size:10px;margin-left:4px;" title="Pinned">📌</span>';
+                            }
+                            // Follow-up badge
+                            if (n.followup_date) {
+                                var today = new Date().toISOString().split('T')[0];
+                                var fuColor = n.followup_date < today ? '#DC2626' : n.followup_date === today ? '#D97706' : '#059669';
+                                var fuLabel = n.followup_date < today ? 'Overdue' : n.followup_date === today ? 'Due Today' : n.followup_date;
+                                badge += '<span style="background:' + (n.followup_date <= today ? '#FEF2F2' : '#F0FDF4') + ';color:' + fuColor + ';font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:4px;">⏰ ' + fuLabel + '</span>';
+                            }
+
                             notesHtml += '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;padding:10px 12px;margin-bottom:8px;">';
-                            notesHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
-                            notesHtml += '<span style="font-weight:600;color:' + authorColor + ';font-size:12px;">' + (n.author || 'Unknown') + badge + '</span>';
-                            notesHtml += '<span style="color:#94A3B8;font-size:11px;">' + noteDate + '</span></div>';
+                            notesHtml += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;flex-wrap:wrap;gap:4px;">';
+                            notesHtml += '<span style="font-weight:600;color:' + authorColor + ';font-size:12px;display:flex;align-items:center;flex-wrap:wrap;">' + (n.author || 'Unknown') + badge + '</span>';
+                            notesHtml += '<span style="color:#94A3B8;font-size:11px;white-space:nowrap;">' + noteDate + '</span></div>';
+
+                            // Email metadata
+                            if (isEmail) {
+                                if (n.email_to) notesHtml += '<div style="font-size:11px;color:#64748B;margin-bottom:2px;"><strong>To:</strong> ' + (n.email_to || '').replace(/</g, '&lt;') + '</div>';
+                                if (n.email_cc) notesHtml += '<div style="font-size:11px;color:#64748B;margin-bottom:2px;"><strong>CC:</strong> ' + (n.email_cc || '').replace(/</g, '&lt;') + '</div>';
+                                if (n.email_subject) notesHtml += '<div style="font-size:11px;color:#64748B;margin-bottom:4px;"><strong>Subject:</strong> ' + (n.email_subject || '').replace(/</g, '&lt;') + '</div>';
+                            }
+
+                            // Follow-up reason
+                            if (n.followup_reason) {
+                                notesHtml += '<div style="font-size:11px;color:#64748B;font-style:italic;margin-bottom:4px;">Follow-up: ' + n.followup_reason.replace(/</g, '&lt;') + '</div>';
+                            }
+
                             notesHtml += '<div style="font-size:13px;color:#334155;white-space:pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+
+                            // Attachment
+                            if (n.attachment && n.attachment.url) {
+                                var aSize = n.attachment.size ? (n.attachment.size > 1048576 ? (n.attachment.size / 1048576).toFixed(1) + ' MB' : Math.round(n.attachment.size / 1024) + ' KB') : '';
+                                notesHtml += '<div style="margin-top:6px;"><a href="' + n.attachment.url + '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#2563EB;text-decoration:none;background:#EFF6FF;padding:4px 10px;border-radius:4px;border:1px solid #BFDBFE;">📎 ' + (n.attachment.name || 'Attachment') + (aSize ? ' (' + aSize + ')' : '') + '</a></div>';
+                            }
+
                             notesHtml += '</div>';
                         });
                     } else {
                         notesHtml += '<div style="color:#94A3B8;font-size:13px;padding:8px 0;">No activity yet.</div>';
                     }
 
-                    // Add reply input
-                    notesHtml += '<div style="margin-top:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px;">';
-                    notesHtml += '<textarea id="agentVendorNoteText" placeholder="Write a note to admin..." style="width:100%;min-height:60px;padding:8px;border:1px solid #CBD5E1;border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;margin-bottom:8px;"></textarea>';
-                    notesHtml += '<button onclick="agentAddVendorNote(\'' + vendorId + '\')" style="padding:6px 14px;background:var(--gold);color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;">Send Note</button>';
+                    // Full communication compose form
+                    notesHtml += '<div id="agentVendorCompose_' + vendorId + '" style="margin-top:12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:14px;">';
+
+                    // Toggle: Note vs Email
+                    notesHtml += '<div style="display:flex;gap:0;margin-bottom:12px;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;">';
+                    notesHtml += '<button id="avComposeNoteBtn_' + vendorId + '" onclick="toggleAgentVendorCompose(\'' + vendorId + '\', \'note\')" style="flex:1;padding:8px 12px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:var(--navy);color:white;transition:all .2s;">+ Note</button>';
+                    notesHtml += '<button id="avComposeEmailBtn_' + vendorId + '" onclick="toggleAgentVendorCompose(\'' + vendorId + '\', \'email\')" style="flex:1;padding:8px 12px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:600;background:white;color:#64748B;transition:all .2s;">Send Email</button>';
+                    notesHtml += '</div>';
+
+                    // Header label
+                    notesHtml += '<div id="avComposeHeader_' + vendorId + '" style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:8px;">Add a Note</div>';
+
+                    // Category
+                    notesHtml += '<div style="margin-bottom:8px;">';
+                    notesHtml += '<select id="avComposeCategory_' + vendorId + '" style="width:100%;padding:7px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;color:#475569;background:white;">';
+                    notesHtml += '<option value="General">General</option><option value="Commission">Commission</option><option value="Compliance">Compliance</option><option value="Onboarding">Onboarding</option><option value="Follow-up">Follow-up</option><option value="Support">Support</option>';
+                    notesHtml += '</select></div>';
+
+                    // Email-only fields (hidden by default)
+                    notesHtml += '<div id="avComposeEmailFields_' + vendorId + '" style="display:none;">';
+
+                    // To: multi-select from contacts
+                    notesHtml += '<div style="margin-bottom:8px;"><label style="font-size:11px;font-weight:600;color:#475569;display:block;margin-bottom:3px;">To</label>';
+                    if (contacts && contacts.length > 0) {
+                        notesHtml += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">';
+                        contacts.filter(c => c.contact_email && c.status !== 'Left Company').forEach(c => {
+                            notesHtml += '<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#1E293B;background:white;border:1px solid #E2E8F0;border-radius:4px;padding:4px 8px;cursor:pointer;">';
+                            notesHtml += '<input type="checkbox" class="avEmailTo_' + vendorId + '" value="' + c.contact_email + '" data-name="' + (c.contact_name || '').replace(/"/g, '&quot;') + '"> ';
+                            notesHtml += (c.contact_name || c.contact_email) + (c.role ? ' <span style="color:#94A3B8;font-size:10px;">(' + c.role + ')</span>' : '');
+                            notesHtml += '</label>';
+                        });
+                        notesHtml += '</div>';
+                    }
+                    notesHtml += '<input type="text" id="avComposeToManual_' + vendorId + '" placeholder="Or enter email manually..." style="width:100%;padding:7px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;">';
+                    notesHtml += '</div>';
+
+                    // CC
+                    notesHtml += '<div style="margin-bottom:8px;"><label style="font-size:11px;font-weight:600;color:#475569;display:block;margin-bottom:3px;">CC (comma-separated)</label>';
+                    notesHtml += '<input type="text" id="avComposeCc_' + vendorId + '" placeholder="e.g. john@example.com, jane@company.com" style="width:100%;padding:7px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;">';
+                    notesHtml += '</div>';
+
+                    // Subject
+                    notesHtml += '<div style="margin-bottom:8px;"><label style="font-size:11px;font-weight:600;color:#475569;display:block;margin-bottom:3px;">Subject</label>';
+                    notesHtml += '<input type="text" id="avComposeSubject_' + vendorId + '" value="Re: ' + (vendor.name || 'Vendor').replace(/"/g, '&quot;') + '" style="width:100%;padding:7px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;">';
+                    notesHtml += '</div>';
+
+                    notesHtml += '</div>'; // end email fields
+
+                    // Message body
+                    notesHtml += '<textarea id="avComposeBody_' + vendorId + '" placeholder="Type your message..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;margin-bottom:8px;"></textarea>';
+
+                    // Options row: Attach + Follow-up
+                    notesHtml += '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">';
+
+                    // Attach file
+                    notesHtml += '<label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;cursor:pointer;font-size:12px;color:#475569;">';
+                    notesHtml += '📎 Attach File <input type="file" id="avComposeFile_' + vendorId + '" style="display:none;" onchange="handleAgentVendorFileSelect(this, \'' + vendorId + '\')">';
+                    notesHtml += '</label>';
+                    notesHtml += '<span id="avComposeFileName_' + vendorId + '" style="font-size:11px;color:#64748B;"></span>';
+
+                    // Follow-up
+                    notesHtml += '<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#475569;cursor:pointer;">';
+                    notesHtml += '<input type="checkbox" id="avComposeFollowup_' + vendorId + '" onchange="document.getElementById(\'avFollowupFields_' + vendorId + '\').style.display=this.checked?\'flex\':\'none\'"> Follow-up';
+                    notesHtml += '</label>';
+
+                    // Include admin
+                    notesHtml += '<label id="avIncludeAdminLabel_' + vendorId + '" style="display:flex;align-items:center;gap:4px;font-size:12px;color:#475569;cursor:pointer;">';
+                    notesHtml += '<input type="checkbox" id="avComposeIncludeAdmin_' + vendorId + '" checked> Notify Admin';
+                    notesHtml += '</label>';
+
+                    notesHtml += '</div>';
+
+                    // Follow-up fields (hidden)
+                    notesHtml += '<div id="avFollowupFields_' + vendorId + '" style="display:none;gap:8px;margin-bottom:10px;">';
+                    notesHtml += '<input type="date" id="avComposeFollowupDate_' + vendorId + '" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;">';
+                    notesHtml += '<input type="text" id="avComposeFollowupReason_' + vendorId + '" placeholder="Reason for follow-up..." style="flex:1;padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;">';
+                    notesHtml += '</div>';
+
+                    // Hidden type field + action buttons
+                    notesHtml += '<input type="hidden" id="avComposeType_' + vendorId + '" value="note">';
+                    notesHtml += '<div style="display:flex;gap:8px;justify-content:flex-end;">';
+                    notesHtml += '<button id="avComposeSendBtn_' + vendorId + '" onclick="submitAgentVendorComm(\'' + vendorId + '\')" style="padding:8px 18px;background:var(--gold);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Add Note</button>';
                     notesHtml += '</div>';
                     notesHtml += '</div>';
                     return notesHtml;
@@ -13688,7 +13812,201 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    // Agent: Add note to vendor (visible to admin)
+    // Agent Vendor Compose: Toggle between Note and Email mode
+    var _avComposeTypes = {};
+    function toggleAgentVendorCompose(vendorId, type) {
+        var emailFields = document.getElementById('avComposeEmailFields_' + vendorId);
+        var header = document.getElementById('avComposeHeader_' + vendorId);
+        var sendBtn = document.getElementById('avComposeSendBtn_' + vendorId);
+        var noteBtn = document.getElementById('avComposeNoteBtn_' + vendorId);
+        var emailBtn = document.getElementById('avComposeEmailBtn_' + vendorId);
+        var hiddenType = document.getElementById('avComposeType_' + vendorId);
+        var adminLabel = document.getElementById('avIncludeAdminLabel_' + vendorId);
+
+        _avComposeTypes[vendorId] = type;
+        if (hiddenType) hiddenType.value = type;
+
+        if (type === 'email') {
+            if (emailFields) emailFields.style.display = 'block';
+            if (header) header.textContent = 'Send Email';
+            if (sendBtn) sendBtn.textContent = 'Send Email';
+            if (noteBtn) { noteBtn.style.background = 'white'; noteBtn.style.color = '#64748B'; }
+            if (emailBtn) { emailBtn.style.background = 'var(--navy)'; emailBtn.style.color = 'white'; }
+            if (adminLabel) adminLabel.style.display = 'none';
+        } else {
+            if (emailFields) emailFields.style.display = 'none';
+            if (header) header.textContent = 'Add a Note';
+            if (sendBtn) sendBtn.textContent = 'Add Note';
+            if (noteBtn) { noteBtn.style.background = 'var(--navy)'; noteBtn.style.color = 'white'; }
+            if (emailBtn) { emailBtn.style.background = 'white'; emailBtn.style.color = '#64748B'; }
+            if (adminLabel) adminLabel.style.display = 'flex';
+        }
+    }
+
+    // Agent Vendor Compose: Handle file selection display
+    function handleAgentVendorFileSelect(input, vendorId) {
+        var nameSpan = document.getElementById('avComposeFileName_' + vendorId);
+        if (input.files && input.files[0]) {
+            var f = input.files[0];
+            var sizeStr = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : Math.round(f.size / 1024) + ' KB';
+            if (nameSpan) nameSpan.innerHTML = f.name + ' (' + sizeStr + ') <span onclick="clearAgentVendorFile(\'' + vendorId + '\')" style="color:#EF4444;cursor:pointer;font-weight:700;margin-left:4px;">✕</span>';
+        } else {
+            if (nameSpan) nameSpan.innerHTML = '';
+        }
+    }
+    function clearAgentVendorFile(vendorId) {
+        var fileInput = document.getElementById('avComposeFile_' + vendorId);
+        var nameSpan = document.getElementById('avComposeFileName_' + vendorId);
+        if (fileInput) fileInput.value = '';
+        if (nameSpan) nameSpan.innerHTML = '';
+    }
+
+    // Agent Vendor Compose: Submit note or email
+    var _avSubmitting = false;
+    async function submitAgentVendorComm(vendorId) {
+        if (_avSubmitting) return;
+        var type = (_avComposeTypes[vendorId] || document.getElementById('avComposeType_' + vendorId).value) || 'note';
+        var body = document.getElementById('avComposeBody_' + vendorId).value.trim();
+        if (!body) { showToast('Please enter a message.', 'warning'); return; }
+
+        var sendBtn = document.getElementById('avComposeSendBtn_' + vendorId);
+        _avSubmitting = true;
+        if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Sending...'; }
+
+        try {
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var userEmail = document.getElementById('userEmailDisplay') ? document.getElementById('userEmailDisplay').textContent : '';
+
+            var categoryEl = document.getElementById('avComposeCategory_' + vendorId);
+            var followupCheck = document.getElementById('avComposeFollowup_' + vendorId);
+            var followupDate = document.getElementById('avComposeFollowupDate_' + vendorId);
+            var followupReason = document.getElementById('avComposeFollowupReason_' + vendorId);
+            var includeAdmin = document.getElementById('avComposeIncludeAdmin_' + vendorId);
+
+            var newEntry = {
+                text: body,
+                author: currentUserName || userEmail || 'Agent',
+                date: dateStr,
+                type: type === 'email' ? 'email' : 'note',
+                visible_to_agent: true,
+                from_agent: true,
+                is_audit_log: false,
+                category: categoryEl ? categoryEl.value : 'General',
+                pinned: false,
+                followup_date: (followupCheck && followupCheck.checked && followupDate && followupDate.value) ? followupDate.value : null,
+                followup_reason: (followupCheck && followupCheck.checked && followupReason) ? followupReason.value : ''
+            };
+
+            // Fetch vendor for name and current notes
+            var { data: vendor, error: fetchErr } = await db.from('vendors').select('admin_notes, name').eq('id', vendorId).single();
+            if (fetchErr) throw fetchErr;
+            var vendorName = vendor.name || 'Vendor';
+
+            // Handle email sending
+            if (type === 'email') {
+                // Gather To recipients from checkboxes
+                var toEmails = [];
+                var toNames = [];
+                var checkboxes = document.querySelectorAll('.avEmailTo_' + vendorId + ':checked');
+                checkboxes.forEach(function(cb) { toEmails.push(cb.value); toNames.push(cb.getAttribute('data-name') || cb.value); });
+                // Manual entry
+                var manualTo = document.getElementById('avComposeToManual_' + vendorId);
+                if (manualTo && manualTo.value.trim()) {
+                    manualTo.value.split(',').forEach(function(e) { var t = e.trim(); if (t && toEmails.indexOf(t) === -1) toEmails.push(t); });
+                }
+                if (toEmails.length === 0) { showToast('Please select at least one recipient.', 'warning'); _avSubmitting = false; if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Email'; } return; }
+
+                var subject = document.getElementById('avComposeSubject_' + vendorId);
+                var subjectVal = subject ? subject.value.trim() : 'Re: ' + vendorName;
+                if (!subjectVal) { showToast('Please enter a subject.', 'warning'); _avSubmitting = false; if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Email'; } return; }
+
+                // Gather CC
+                var ccEmails = [];
+                var ccInput = document.getElementById('avComposeCc_' + vendorId);
+                if (ccInput && ccInput.value.trim()) {
+                    ccInput.value.split(',').forEach(function(e) { var t = e.trim(); if (t) ccEmails.push(t); });
+                }
+
+                // Build branded email HTML
+                var senderName = currentUserName || 'Alliance Financing';
+                var senderEmail = userEmail || 'info@alliancefinancing.com';
+                var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                    '<div style="background:#0D1E3D;padding:16px 25px;border-radius:8px 8px 0 0;">' +
+                    '<span style="color:#C9A84C;font-weight:700;font-size:16px;">Alliance Financing Group</span></div>' +
+                    '<div style="background:white;padding:25px;border:1px solid #E2E8F0;border-top:none;">' +
+                    '<div style="font-size:15px;color:#334155;line-height:1.7;white-space:pre-wrap;">' + body.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') + '</div>' +
+                    '<div style="margin-top:25px;padding-top:15px;border-top:1px solid #E2E8F0;font-size:13px;color:#64748B;">' +
+                    '<strong style="color:#0D1E3D;">' + senderName + '</strong><br>' +
+                    senderEmail + '<br>Alliance Financing Group Ltd.<br>1-877-660-3660</div>' +
+                    '</div>' +
+                    '<div style="background:#F8FAFC;padding:12px 25px;text-align:center;font-size:11px;color:#94A3B8;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 8px 8px;">' +
+                    'Alliance Financing Group | alliancefinancing.ai</div></div>';
+
+                // Send to first recipient, CC the rest + any manual CCs
+                var primaryTo = toEmails[0];
+                var allCc = ccEmails.slice();
+                for (var ti = 1; ti < toEmails.length; ti++) {
+                    if (allCc.indexOf(toEmails[ti]) === -1) allCc.push(toEmails[ti]);
+                }
+
+                await sendEmailViaResend(primaryTo, subjectVal, htmlBody, body, senderEmail, allCc.length > 0 ? allCc : undefined);
+
+                newEntry.is_email = true;
+                newEntry.email_to = toEmails.join(', ');
+                newEntry.email_cc = ccEmails.join(', ');
+                newEntry.email_subject = subjectVal;
+                showToast('Email sent successfully!', 'success');
+            }
+
+            // Handle file attachment
+            var fileInput = document.getElementById('avComposeFile_' + vendorId);
+            if (fileInput && fileInput.files[0]) {
+                try {
+                    var fileData = await uploadCommFile(fileInput.files[0], 'vendor', vendorId);
+                    newEntry.attachment = fileData;
+                } catch(uploadErr) {
+                    showToast('File upload failed: ' + uploadErr.message, 'error');
+                    _avSubmitting = false;
+                    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = type === 'email' ? 'Send Email' : 'Add Note'; }
+                    return;
+                }
+            }
+
+            // Save to admin_notes JSON
+            var notes = [];
+            try { notes = vendor.admin_notes ? JSON.parse(vendor.admin_notes) : []; } catch(e) { notes = []; }
+            notes.push(newEntry);
+            var { error: updateErr } = await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
+            if (updateErr) throw updateErr;
+
+            // Optionally notify admin
+            if (type !== 'email' && includeAdmin && includeAdmin.checked) {
+                try {
+                    var agentName = currentUserName || 'An agent';
+                    var adminHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px 0;">' +
+                        '<div style="padding:0 25px;">' +
+                        '<p style="font-size:15px;color:#333;margin-bottom:8px;">New note from agent:</p>' +
+                        '<p style="font-size:15px;color:#555;margin-bottom:15px;"><strong>' + agentName + '</strong> added a note on vendor <strong>' + vendorName + '</strong>:</p>' +
+                        '<div style="background:#f8f9fa;border-left:4px solid #3B82F6;padding:15px;margin:15px 0;border-radius:0 4px 4px 0;">' +
+                        '<p style="font-size:15px;color:#333;line-height:1.7;margin:0;white-space:pre-wrap;">' + body.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p></div>' +
+                        '</div><div style="padding:12px 25px;text-align:center;font-size:11px;color:#999;border-top:1px solid #f0f0f0;margin-top:10px;">Alliance Financing Group | alliancefinancing.ai</div></div>';
+                    await sendEmailViaResend('bernie@alliancefinancing.com', 'Agent note re: ' + vendorName + ' — from ' + agentName, adminHtml, null, 'info@alliancefinancing.com');
+                } catch(emailErr) { console.log('Admin notification email failed (non-critical):', emailErr); }
+            }
+
+            if (type !== 'email') showToast('Note added!', 'success');
+            await viewAgentVendor(vendorId);
+        } catch(err) {
+            console.error('Agent vendor comm error:', err);
+            showToast('Failed: ' + (err.message || err), 'error');
+        } finally {
+            _avSubmitting = false;
+            if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = (_avComposeTypes[vendorId] === 'email') ? 'Send Email' : 'Add Note'; }
+        }
+    }
+
+    // Agent: Add note to vendor (visible to admin) — LEGACY, kept for backward compat
     var _agentNoteSubmitting = false;
     async function agentAddVendorNote(vendorId) {
         if (_agentNoteSubmitting) return; // prevent double-click
