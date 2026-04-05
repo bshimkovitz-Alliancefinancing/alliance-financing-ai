@@ -13823,7 +13823,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // For ISOs: filter to referring_agents only (mortgage types shown in Mortgage tab)
             var subAgentQuery = db
                 .from('users')
-                .select('id, full_name, email, phone, agent_status, business_type, referral_slug, created_at, onboarding_status, invite_accepted_at, invite_sent_at, agent_type')
+                .select('id, full_name, email, phone, agent_status, business_type, referral_slug, created_at, onboarding_status, invite_accepted_at, invite_sent_at, agent_type, welcome_email_sent')
                 .eq('parent_agent_id', currentUserId)
                 .eq('role', 'agent');
 
@@ -13983,6 +13983,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             tbody.innerHTML = rows.join('');
+
+            // Send welcome/getting-started email to newly activated agents who haven't received it
+            for (var wi = 0; wi < subAgents.length; wi++) {
+                var wa = subAgents[wi];
+                if ((wa.invite_accepted_at || wa.onboarding_status === 'active') && !wa.welcome_email_sent) {
+                    sendWelcomeGuidesEmail(wa.id, wa.email, wa.full_name, wa.agent_type || 'referring_agent');
+                }
+            }
 
             // Update Organization Performance KPIs
             var totalPartners = subAgents.length;
@@ -20851,6 +20859,120 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch(e) {}
         // Fallback: serve directly from repo root as static file
         window.open(filename, '_blank');
+    }
+
+    // ============================================
+    // Welcome / Getting Started Email (sent on activation)
+    // ============================================
+    async function sendWelcomeGuidesEmail(agentId, agentEmail, agentName, agentType) {
+        try {
+            // Determine the correct guide set based on agent type
+            var guideSet = {
+                'super_agent':      { guide: 'Guide-ISO-Partner.pdf', quickRef: 'ISO-Partner-Quick-Reference.pdf', presentation: 'ISO-Partner-Presentation.pdf', label: 'ISO Partner' },
+                'referring_agent':  { guide: 'Guide-ISO-Partner.pdf', quickRef: 'ISO-Partner-Quick-Reference.pdf', presentation: 'ISO-Partner-Presentation.pdf', label: 'Referral Partner' },
+                'mortgage_broker':  { guide: 'Guide-ISO-Partner.pdf', quickRef: 'ISO-Partner-Quick-Reference.pdf', presentation: 'ISO-Partner-Presentation.pdf', label: 'Mortgage Broker' },
+                'mortgage_agent':   { guide: 'Guide-ISO-Partner.pdf', quickRef: 'ISO-Partner-Quick-Reference.pdf', presentation: 'ISO-Partner-Presentation.pdf', label: 'Mortgage Agent' }
+            };
+            var guides = guideSet[agentType] || guideSet['referring_agent'];
+
+            // Generate signed URLs for the three guide PDFs (valid for 7 days)
+            var signedUrls = {};
+            var guideFiles = [
+                { key: 'guide', file: guides.guide, label: 'Partner Guide' },
+                { key: 'quickRef', file: guides.quickRef, label: 'Quick Reference Card' },
+                { key: 'presentation', file: guides.presentation, label: 'Partner Presentation' }
+            ];
+            for (var i = 0; i < guideFiles.length; i++) {
+                try {
+                    var { data } = await db.storage.from('deal-documents').createSignedUrl('partner-guides/' + guideFiles[i].file, 604800);
+                    signedUrls[guideFiles[i].key] = data && data.signedUrl ? data.signedUrl : null;
+                } catch(e) {
+                    signedUrls[guideFiles[i].key] = null;
+                }
+            }
+
+            // Get the ISO / parent agent contact info
+            var isoName = '';
+            var isoEmail = '';
+            var isoPhone = '';
+            var { data: agent } = await db.from('users').select('parent_agent_id').eq('id', agentId).maybeSingle();
+            if (agent && agent.parent_agent_id) {
+                var { data: parentAgent } = await db.from('users').select('full_name, email, phone').eq('id', agent.parent_agent_id).maybeSingle();
+                if (parentAgent) {
+                    isoName = parentAgent.full_name || '';
+                    isoEmail = parentAgent.email || '';
+                    isoPhone = parentAgent.phone || '';
+                }
+            }
+
+            // Build guide cards HTML
+            var guideCardsHtml = '';
+            var cardStyle = 'display:block;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px;margin-bottom:10px;text-decoration:none;';
+            var cardTitleStyle = 'font-size:14px;font-weight:700;color:#0D1E3D;margin:0 0 4px;';
+            var cardDescStyle = 'font-size:12px;color:#64748B;margin:0;';
+
+            if (signedUrls.presentation) {
+                guideCardsHtml += '<a href="' + signedUrls.presentation + '" style="' + cardStyle + '">' +
+                    '<p style="' + cardTitleStyle + '">📊 Partner Presentation</p>' +
+                    '<p style="' + cardDescStyle + '">Overview of Alliance Financing — products, rate card, and how the partnership works.</p></a>';
+            }
+            if (signedUrls.guide) {
+                guideCardsHtml += '<a href="' + signedUrls.guide + '" style="' + cardStyle + '">' +
+                    '<p style="' + cardTitleStyle + '">📘 Partner Guide</p>' +
+                    '<p style="' + cardDescStyle + '">Step-by-step guide to your dashboard — submitting deals, tracking applications, and managing your pipeline.</p></a>';
+            }
+            if (signedUrls.quickRef) {
+                guideCardsHtml += '<a href="' + signedUrls.quickRef + '" style="' + cardStyle + '">' +
+                    '<p style="' + cardTitleStyle + '">⚡ Quick Reference Card</p>' +
+                    '<p style="' + cardDescStyle + '">One-page cheat sheet — key steps, rate tiers, and contact information at a glance.</p></a>';
+            }
+
+            // Build ISO contact block
+            var isoContactHtml = '';
+            if (isoName || isoEmail) {
+                isoContactHtml = '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:16px;margin-top:20px;">' +
+                    '<p style="font-size:13px;font-weight:700;color:#92400E;margin:0 0 8px;">Your ISO Partner Contact</p>' +
+                    (isoName ? '<p style="font-size:14px;color:#1E293B;margin:0 0 4px;font-weight:600;">' + isoName + '</p>' : '') +
+                    (isoEmail ? '<p style="font-size:13px;color:#475569;margin:0 0 2px;">📧 <a href="mailto:' + isoEmail + '" style="color:#3B82F6;">' + isoEmail + '</a></p>' : '') +
+                    (isoPhone ? '<p style="font-size:13px;color:#475569;margin:0;">📞 ' + isoPhone + '</p>' : '') +
+                    '</div>';
+            }
+
+            // Build the full email
+            var dashboardUrl = window.location.origin + '/dashboard.html';
+            var emailSubject = 'Welcome to Alliance Financing — Here\'s How to Get Started';
+            var emailHtml =
+                '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                '<p style="font-size:16px;color:#1E293B;">Hi ' + (agentName || 'there') + ',</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">Welcome aboard! Your account is now active and your dashboard is ready to go. Here are three guides to help you get started:</p>' +
+                '<div style="margin:20px 0;">' + guideCardsHtml + '</div>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;"><strong>Quick first steps:</strong></p>' +
+                '<div style="font-size:14px;color:#475569;line-height:1.8;padding-left:4px;">' +
+                '1. Review the <strong>Partner Presentation</strong> for an overview of our products and rate card<br>' +
+                '2. Read the <strong>Partner Guide</strong> to learn how to submit deals and track your pipeline<br>' +
+                '3. Keep the <strong>Quick Reference Card</strong> handy for day-to-day use' +
+                '</div>' +
+                '<div style="text-align:center;margin:25px 0;">' +
+                '<a href="' + dashboardUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Open My Dashboard</a></div>' +
+                isoContactHtml +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;margin-top:20px;">If you have any questions, don\'t hesitate to reach out. We\'re here to help you succeed!</p>' +
+                '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group</strong><br><a href="https://www.alliancefinancing.ai" style="color:#3B82F6;">alliancefinancing.ai</a></p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.ai</p></div></div>';
+
+            await sendEmailViaResend(agentEmail, emailSubject, emailHtml);
+
+            // Mark that welcome email was sent so we don't send it again
+            await db.from('users').update({ welcome_email_sent: true }).eq('id', agentId);
+
+            console.log('Welcome guides email sent to ' + agentEmail);
+        } catch(err) {
+            console.error('Welcome guides email error (non-critical):', err);
+        }
     }
 
     async function loadStatsReports() {
@@ -31289,6 +31411,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         }).eq('id', agentId);
                         agent.onboarding_status = 'active';
                         agent.invite_accepted_at = agent.invite_accepted_at || new Date().toISOString();
+
+                        // Send welcome/getting-started email with guides (if not already sent)
+                        if (!agent.welcome_email_sent) {
+                            sendWelcomeGuidesEmail(agentId, agent.email, agent.full_name, agent.agent_type);
+                        }
                     }
                 }
             }
