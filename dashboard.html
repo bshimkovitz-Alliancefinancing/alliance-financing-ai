@@ -2415,6 +2415,39 @@
                     </div>
                 </div>
 
+                <!-- Mortgage Partnership Presentation -->
+                <div class="table-container" style="margin-bottom: 24px;">
+                    <div class="table-header">
+                        <div class="table-title">Mortgage Partnership Presentation</div>
+                    </div>
+                    <div style="padding: 20px;">
+                        <p style="color: #64748b; font-size: 13px; margin: 0 0 16px 0;">Full 6-page partnership presentation for mortgage brokers and agents. Covers the opportunity, partner portal, AI lender matching, revenue model, and next steps — branded with your contact info.</p>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button onclick="openBrandedOnePager('mortgage-partnership')" class="btn btn-gold" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px;">
+                                <span style="font-size: 20px;">📊</span>
+                                <div style="text-align: left;">
+                                    <div style="font-weight: 600; font-size: 13px;">View Presentation</div>
+                                    <div style="font-size: 11px; opacity: 0.85;">Opens with your contact info</div>
+                                </div>
+                            </button>
+                            <button onclick="openBrandedOnePager('mortgage-partnership', true)" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: var(--navy); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                <span style="font-size: 20px;">💾</span>
+                                <div style="text-align: left;">
+                                    <div style="font-weight: 600; font-size: 13px;">Download PDF</div>
+                                    <div style="font-size: 11px; opacity: 0.85;">Select "Save as PDF" in print dialog</div>
+                                </div>
+                            </button>
+                            <button onclick="showSendMortgagePartnershipModal()" class="btn" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: #10B981; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                <span style="font-size: 20px;">📧</span>
+                                <div style="text-align: left;">
+                                    <div style="font-weight: 600; font-size: 13px;">Send to Prospect</div>
+                                    <div style="font-size: 11px; opacity: 0.85;">Email with your referral link</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="marketingPagePDFs" style="display:none;"></div>
 
                 <!-- Vendor Equipment Leasing One-Pager -->
@@ -6072,6 +6105,8 @@ if (location.hostname === 'alliancefinancing.ai') {
             openAllianceOverviewOnePager(contacts, agentSlug, autoPrint);
         } else if (docKey === 'mortgage-brokers') {
             openMortgageBrokersOnePager(contacts, agentSlug, autoPrint);
+        } else if (docKey === 'mortgage-partnership') {
+            openMortgagePartnershipPresentation(contacts, agentSlug, autoPrint);
         } else {
             showToast('Document type not found', 'error');
         }
@@ -7113,6 +7148,235 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             newWindow.document.close();
         } else {
             alert('Please allow popups for this site to view the one-pager.');
+        }
+    }
+
+    // ============================================
+    // Mortgage Partnership Presentation (6-page, dynamic contact)
+    // ============================================
+    function openMortgagePartnershipPresentation(contacts, agentSlug, autoPrint, returnHtml) {
+        var contactsHtml = contacts.map(function(c, i) {
+            var html = '';
+            if (i > 0) html += '<div style="width:1px;background:#C9A84C;margin:0 20px;"></div>';
+            html += '<div style="text-align:center;">';
+            html += '<div style="font-weight:700;font-size:16px;color:white;">' + c.name + ' | Alliance Financing Group</div>';
+            if (c.phone) html += '<div style="color:#8A9BB0;font-size:13px;margin-top:4px;">' + c.phone + '</div>';
+            if (c.email) html += '<div style="color:#C9A84C;font-size:13px;margin-top:2px;">' + c.email + ' | alliancefinancing.ai</div>';
+            html += '</div>';
+            return html;
+        }).join('');
+
+        var referralLink = 'https://www.alliancefinancing.ai/mortgage-inquiry?ref=' + agentSlug;
+
+        var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">';
+        html += '<title>Alliance Financing — Revenue Partnership for Mortgage Professionals</title>';
+        html += '<style>';
+        html += '@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;800&family=Inter:wght@300;400;500;600;700&display=swap");';
+        html += '*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }';
+        html += 'body { font-family: "Inter", Arial, sans-serif; background: #f0f2f5; color: #1E293B; }';
+        html += '.slide { width: 100%; max-width: 1100px; margin: 0 auto 30px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); page-break-after: always; }';
+        html += '.slide:last-child { page-break-after: avoid; }';
+        html += '.navy-section { background: #0D1E3D; color: white; padding: 48px 56px; }';
+        html += '.content-section { padding: 48px 56px; }';
+        html += '.gold { color: #C9A84C; }';
+        html += '.section-label { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #C9A84C; margin-bottom: 12px; }';
+        html += 'h1 { font-family: "Playfair Display", Georgia, serif; font-size: 42px; font-weight: 800; line-height: 1.15; }';
+        html += 'h2 { font-family: "Playfair Display", Georgia, serif; font-size: 32px; font-weight: 700; line-height: 1.2; }';
+        html += '.stat-row { display: flex; gap: 24px; margin-top: 24px; }';
+        html += '.stat-box { flex: 1; text-align: center; background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.3); border-radius: 10px; padding: 20px 16px; }';
+        html += '.stat-num { font-family: "Playfair Display", Georgia, serif; font-size: 38px; font-weight: 800; color: #C9A84C; }';
+        html += '.stat-label { font-size: 12px; font-weight: 600; color: #8A9BB0; margin-top: 4px; }';
+        html += '.card-row { display: flex; gap: 20px; margin-top: 28px; }';
+        html += '.card { flex: 1; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 28px 20px; text-align: center; }';
+        html += '.card-icon { width: 56px; height: 56px; background: #0D1E3D; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 24px; }';
+        html += '.card h3 { font-size: 16px; font-weight: 700; color: #0D1E3D; margin-bottom: 8px; }';
+        html += '.card p { font-size: 13px; color: #64748B; line-height: 1.6; }';
+        html += '.step-row { display: flex; gap: 12px; margin-top: 28px; align-items: stretch; }';
+        html += '.step { flex: 1; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 24px 16px; text-align: center; position: relative; }';
+        html += '.step-num { width: 40px; height: 40px; background: #0D1E3D; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; margin: 0 auto 12px; }';
+        html += '.step h4 { font-size: 14px; font-weight: 700; color: #0D1E3D; margin-bottom: 6px; }';
+        html += '.step p { font-size: 12px; color: #64748B; line-height: 1.5; }';
+        html += '.arrow { display: flex; align-items: center; color: #C9A84C; font-size: 20px; font-weight: 700; }';
+        html += 'table.revenue { width: 100%; border-collapse: collapse; margin-top: 20px; }';
+        html += 'table.revenue th { background: #F1F5F9; font-size: 13px; font-weight: 700; color: #0D1E3D; padding: 12px 16px; text-align: left; border-bottom: 2px solid #E2E8F0; }';
+        html += 'table.revenue td { padding: 12px 16px; font-size: 13px; color: #334155; border-bottom: 1px solid #F1F5F9; }';
+        html += '.feature-row { display: flex; gap: 20px; margin-top: 28px; }';
+        html += '.feature { flex: 1; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 24px 20px; text-align: center; }';
+        html += '.feature .icon { font-size: 32px; color: #C9A84C; margin-bottom: 10px; }';
+        html += '.feature h4 { font-size: 15px; font-weight: 700; color: #0D1E3D; margin-bottom: 6px; }';
+        html += '.feature p { font-size: 12px; color: #64748B; line-height: 1.5; }';
+        html += '.portal-grid { display: flex; gap: 24px; margin-top: 24px; }';
+        html += '.portal-demo { flex: 1; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 20px; }';
+        html += '.portal-features { flex: 1; display: flex; flex-direction: column; gap: 16px; }';
+        html += '.pf-item { display: flex; gap: 12px; align-items: flex-start; }';
+        html += '.pf-icon { width: 40px; height: 40px; background: #0D1E3D; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }';
+        html += '.footer { background: #0D1E3D; padding: 24px 56px; display: flex; align-items: center; justify-content: center; }';
+        html += '.footer-text { text-align: center; font-size: 12px; color: #64748B; }';
+        html += '.cta-steps { margin-top: 28px; }';
+        html += '.cta-step { background: rgba(255,255,255,0.08); border-radius: 8px; padding: 16px 24px; margin-bottom: 10px; display: flex; align-items: center; gap: 16px; }';
+        html += '.cta-step-num { font-family: "Playfair Display", Georgia, serif; font-size: 24px; font-weight: 800; color: #C9A84C; }';
+        html += '.cta-step span { font-size: 15px; color: #CBD5E1; }';
+        html += '.gold-bar { height: 4px; background: #C9A84C; width: 80px; margin: 24px auto; border-radius: 2px; }';
+        html += '@media print { body { background: white; } .slide { box-shadow: none; margin: 0; border-radius: 0; } }';
+        html += '</style></head><body>';
+
+        // SLIDE 1: Title
+        html += '<div class="slide">';
+        html += '<div class="navy-section" style="min-height: 420px; display:flex;">';
+        html += '<div style="flex:1;">';
+        html += '<div class="section-label">ALLIANCE FINANCING GROUP</div>';
+        html += '<h1 style="color:white;margin-bottom:20px;">Revenue Partnership<br>for Mortgage<br>Professionals</h1>';
+        html += '<p style="color:#8A9BB0;font-size:15px;line-height:1.7;max-width:500px;">Unlock a new income stream by referring your commercial clients to Canada\'s premier financing platform.</p>';
+        html += '<div style="height:4px;background:#C9A84C;width:80px;margin-top:24px;border-radius:2px;"></div>';
+        html += '</div>';
+        html += '<div style="width:280px;background:rgba(255,255,255,0.05);border-radius:12px;padding:32px;display:flex;flex-direction:column;justify-content:center;gap:28px;">';
+        html += '<div style="text-align:center;"><div class="stat-num">35+</div><div class="stat-label">Years Experience</div></div>';
+        html += '<div style="text-align:center;"><div class="stat-num">70+</div><div class="stat-label">Lender Network</div></div>';
+        html += '<div style="text-align:center;"><div class="stat-num">85%</div><div class="stat-label">Approval Rate</div></div>';
+        html += '</div></div>';
+        html += '<div class="footer"><div class="footer-text">Alliance Financing Group | alliancefinancing.ai | 1-877-660-3660</div></div>';
+        html += '</div>';
+
+        // SLIDE 2: The Opportunity
+        html += '<div class="slide">';
+        html += '<div class="navy-section" style="padding-bottom:24px;">';
+        html += '<div class="section-label">THE OPPORTUNITY</div>';
+        html += '<h2 style="color:white;">Your Clients Already Need Commercial Financing</h2>';
+        html += '<div style="height:4px;background:#C9A84C;width:80px;margin-top:16px;border-radius:2px;"></div>';
+        html += '</div>';
+        html += '<div class="content-section">';
+        html += '<p style="font-size:15px;color:#475569;line-height:1.8;margin-bottom:8px;">As a mortgage professional, you already have deep relationships with business owners. When those clients need equipment financing, working capital, or commercial debt — that\'s a referral opportunity sitting on the table.</p>';
+        html += '<div class="card-row">';
+        html += '<div class="card"><div class="card-icon">🏗️</div><h3>Equipment Leasing</h3><p>Your clients buying equipment, vehicles, or machinery need lease financing — $20K to $5M+</p></div>';
+        html += '<div class="card"><div class="card-icon">💰</div><h3>Working Capital</h3><p>MCA, lines of credit, and business loans for cash flow, inventory, and growth</p></div>';
+        html += '<div class="card"><div class="card-icon">📈</div><h3>Private Debt & More</h3><p>CSBFL, SRED financing, factoring, trade finance — products your mortgage lenders don\'t offer</p></div>';
+        html += '</div></div>';
+        html += '<div class="footer"><div class="footer-text">Alliance Financing Group | alliancefinancing.ai | 1-877-660-3660</div></div>';
+        html += '</div>';
+
+        // SLIDE 3: Partner Portal
+        html += '<div class="slide">';
+        html += '<div class="navy-section" style="padding-bottom:24px;">';
+        html += '<div class="section-label">YOUR PARTNER PORTAL</div>';
+        html += '<h2 style="color:white;">Real-Time Deal Tracking & Commission Visibility</h2>';
+        html += '<div style="height:4px;background:#C9A84C;width:80px;margin-top:16px;border-radius:2px;"></div>';
+        html += '</div>';
+        html += '<div class="content-section">';
+        html += '<div class="portal-grid">';
+        // Demo mockup
+        html += '<div class="portal-demo">';
+        html += '<div style="background:#0D1E3D;color:#C9A84C;font-weight:700;padding:12px 16px;border-radius:8px 8px 0 0;font-size:14px;">ALLIANCE</div>';
+        html += '<div style="padding:4px 0;">';
+        var demoItems = [['Dashboard',''],['Deal Pipeline','background:#C9A84C22;border-left:3px solid #C9A84C;font-weight:600;'],['Documents',''],['Commissions','']];
+        for (var d = 0; d < demoItems.length; d++) {
+            html += '<div style="padding:8px 16px;font-size:12px;color:#475569;' + demoItems[d][1] + '">' + demoItems[d][0] + '</div>';
+        }
+        html += '</div>';
+        html += '<div style="padding:12px;border-top:1px solid #E2E8F0;">';
+        html += '<div style="font-weight:700;font-size:13px;color:#0D1E3D;margin-bottom:8px;">Deal Pipeline</div>';
+        html += '<div style="display:flex;gap:4px;margin-bottom:8px;"><span style="background:#0D1E3D;color:white;padding:4px 10px;border-radius:4px;font-size:10px;font-weight:600;">Active</span><span style="background:#F1F5F9;padding:4px 10px;border-radius:4px;font-size:10px;color:#64748B;">Funded</span><span style="background:#F1F5F9;padding:4px 10px;border-radius:4px;font-size:10px;color:#64748B;">Pending</span></div>';
+        var demoDeals = [['ABC Equipment Co.','$87,000','In Funding','#3B82F6'],['Maple Logistics Inc.','$145,000','Approved','#10B981'],['Nova Tech Solutions','$52,000','Docs Sent','#F59E0B'],['GreenBuild Corp.','$210,000','Funded','#10B981']];
+        for (var dd = 0; dd < demoDeals.length; dd++) {
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F1F5F9;font-size:11px;">';
+            html += '<span style="color:#334155;">' + demoDeals[dd][0] + '</span><span style="color:#64748B;">' + demoDeals[dd][1] + '</span>';
+            html += '<span style="background:' + demoDeals[dd][3] + '15;color:' + demoDeals[dd][3] + ';padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;">' + demoDeals[dd][2] + '</span></div>';
+        }
+        html += '</div></div>';
+        // Features
+        html += '<div class="portal-features">';
+        var portalFeatures = [
+            ['📊','Live Deal Pipeline','See every referral\'s status in real time — from submission to funding. No more calling for updates.'],
+            ['💎','Commission Tracking','Transparent fee visibility on every funded deal. Know exactly what you\'ve earned and when you\'ll be paid.'],
+            ['👥','Client Application Tracker','Your clients can track their own application status online — a professional touch that builds trust.'],
+            ['🔒','Secure Document Sharing','Upload and share financials through an encrypted portal. No more emailing sensitive documents.']
+        ];
+        for (var pf = 0; pf < portalFeatures.length; pf++) {
+            html += '<div class="pf-item"><div class="pf-icon">' + portalFeatures[pf][0] + '</div><div><div style="font-weight:700;font-size:14px;color:#0D1E3D;margin-bottom:2px;">' + portalFeatures[pf][1] + '</div><div style="font-size:12px;color:#64748B;line-height:1.5;">' + portalFeatures[pf][2] + '</div></div></div>';
+        }
+        html += '</div></div></div>';
+        html += '<div class="footer"><div class="footer-text">Alliance Financing Group | alliancefinancing.ai | 1-877-660-3660</div></div>';
+        html += '</div>';
+
+        // SLIDE 4: AI-Powered Matching
+        html += '<div class="slide">';
+        html += '<div class="navy-section" style="padding-bottom:24px;">';
+        html += '<div class="section-label">AI-POWERED MATCHING</div>';
+        html += '<h2 style="color:white;">70+ Lenders. One Platform. Instant Matching.</h2>';
+        html += '<div style="height:4px;background:#C9A84C;width:80px;margin-top:16px;border-radius:2px;"></div>';
+        html += '</div>';
+        html += '<div class="content-section">';
+        html += '<div class="stat-row">';
+        var stats = [['70+','Active Lenders','Canada & US'],['15+','Product Types','Leasing to Private Debt'],['<48h','Avg. Response Time','From Submission'],['85%+','Approval Rate','All Credit Profiles']];
+        for (var s = 0; s < stats.length; s++) {
+            html += '<div class="stat-box"><div class="stat-num">' + stats[s][0] + '</div><div style="font-weight:700;font-size:13px;color:#0D1E3D;margin-top:4px;">' + stats[s][1] + '</div><div class="stat-label">' + stats[s][2] + '</div></div>';
+        }
+        html += '</div>';
+        html += '<h3 style="font-size:18px;font-weight:700;color:#0D1E3D;margin-top:32px;">How AI Lender Matching Works</h3>';
+        html += '<div style="height:3px;background:#C9A84C;width:60px;margin-top:8px;border-radius:2px;"></div>';
+        html += '<div class="step-row">';
+        var steps = [['1','Submit Deal','Enter client details and financing needs into the portal'],['2','AI Analyzes','Our AI scores the deal against 70+ lender criteria instantly'],['3','Top Matches','Ranked lender matches with approval likelihood and terms'],['4','Get Funded','Alliance handles lender negotiation through to funding']];
+        for (var st = 0; st < steps.length; st++) {
+            if (st > 0) html += '<div class="arrow">→</div>';
+            html += '<div class="step"><div class="step-num">' + steps[st][0] + '</div><h4>' + steps[st][1] + '</h4><p>' + steps[st][2] + '</p></div>';
+        }
+        html += '</div></div>';
+        html += '<div class="footer"><div class="footer-text">Alliance Financing Group | alliancefinancing.ai | 1-877-660-3660</div></div>';
+        html += '</div>';
+
+        // SLIDE 5: Revenue Model
+        html += '<div class="slide">';
+        html += '<div class="navy-section" style="padding-bottom:24px;">';
+        html += '<div class="section-label">REVENUE MODEL</div>';
+        html += '<h2 style="color:white;">How You Earn with Alliance</h2>';
+        html += '<div style="height:4px;background:#C9A84C;width:80px;margin-top:16px;border-radius:2px;"></div>';
+        html += '</div>';
+        html += '<div class="content-section">';
+        html += '<div style="border-left:4px solid #C9A84C;background:#FFFBEB;border-radius:0 8px 8px 0;padding:20px 24px;margin-bottom:24px;">';
+        html += '<h3 style="font-size:16px;font-weight:700;color:#0D1E3D;margin-bottom:12px;">Example Revenue Scenario</h3>';
+        html += '<table class="revenue"><thead><tr><th></th><th>Conservative</th><th>Moderate</th><th>Strong</th></tr></thead><tbody>';
+        html += '<tr><td style="font-weight:600;">Referrals / Month</td><td>3</td><td>6</td><td>10</td></tr>';
+        html += '<tr><td style="font-weight:600;">Avg. Deal Size</td><td>$75,000</td><td>$100,000</td><td>$150,000</td></tr>';
+        html += '<tr><td style="font-weight:600;">Referral Fee (1-2%)</td><td>$1,500 - $3,000</td><td>$4,000 - $8,000</td><td>$10,000 - $20,000</td></tr>';
+        html += '<tr style="background:#F0FDF4;"><td style="font-weight:700;color:#0D1E3D;">Annual Revenue</td><td style="font-weight:700;color:#16A34A;">$18K - $36K</td><td style="font-weight:700;color:#16A34A;">$48K - $96K</td><td style="font-weight:700;color:#16A34A;">$120K - $240K</td></tr>';
+        html += '</tbody></table></div>';
+        html += '<div class="feature-row">';
+        html += '<div class="feature"><div class="icon">💲</div><h4>Zero Cost to Start</h4><p>No platform fees, no setup costs. You earn from day one.</p></div>';
+        html += '<div class="feature"><div class="icon">⚡</div><h4>Passive Income</h4><p>Refer once — we handle everything from application to funding.</p></div>';
+        html += '<div class="feature"><div class="icon">🚀</div><h4>Grow Over Time</h4><p>As your referral volume increases, so does your revenue share.</p></div>';
+        html += '</div></div>';
+        html += '<div class="footer"><div class="footer-text">Alliance Financing Group | alliancefinancing.ai | 1-877-660-3660</div></div>';
+        html += '</div>';
+
+        // SLIDE 6: CTA / Get Started
+        html += '<div class="slide">';
+        html += '<div class="navy-section" style="min-height:420px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">';
+        html += '<div class="section-label">LET\'S GET STARTED</div>';
+        html += '<h1 style="color:white;margin-bottom:8px;">Ready to Unlock a New<br>Revenue Stream?</h1>';
+        html += '<div class="gold-bar"></div>';
+        html += '<div class="cta-steps" style="width:100%;max-width:500px;">';
+        html += '<div class="cta-step"><div class="cta-step-num">01</div><span>Sign referral partner agreement</span></div>';
+        html += '<div class="cta-step"><div class="cta-step-num">02</div><span>Get portal access and onboarding</span></div>';
+        html += '<div class="cta-step"><div class="cta-step-num">03</div><span>Start referring and earning</span></div>';
+        html += '</div>';
+        html += '<div style="margin-top:28px;">';
+        html += '<a href="' + referralLink + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;text-decoration:none;padding:14px 40px;border-radius:8px;font-weight:700;font-size:16px;">Get Started Today →</a>';
+        html += '</div>';
+        html += '<div style="margin-top:32px;display:flex;align-items:center;justify-content:center;gap:20px;">';
+        html += contactsHtml;
+        html += '</div>';
+        html += '</div></div>';
+
+        html += '</body></html>';
+
+        if (returnHtml) return html;
+
+        var w = window.open('', '_blank');
+        if (w) {
+            w.document.write(html);
+            w.document.close();
+            if (autoPrint) { w.onload = function() { w.print(); }; }
+        } else {
+            alert('Please allow popups for this site to view the presentation.');
         }
     }
 
@@ -8237,6 +8501,122 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             } catch(trackErr) { console.error('Track Mortgage Brokers send:', trackErr); }
             alert('Mortgage Brokers One-Pager sent to ' + recipientEmail + '!');
             document.getElementById('mbSendModal').style.display = 'none';
+        } catch (err) {
+            alert('Error sending email: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = '📧 Send Email';
+        }
+    }
+
+    // ============================================
+    // Send Mortgage Partnership Presentation Email
+    // ============================================
+    function showSendMortgagePartnershipModal() {
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var modalHtml = '<div style="padding:24px;">';
+        modalHtml += '<h3 style="color:var(--navy);margin:0 0 16px;">Send Mortgage Partnership Presentation</h3>';
+        modalHtml += '<p style="color:#64748b;font-size:13px;margin:0 0 16px;">Email the full partnership presentation to a mortgage broker or agent prospect.</p>';
+        modalHtml += '<div class="modal-row"><div class="modal-field"><label>Recipient Name</label>';
+        modalHtml += '<input type="text" id="mpSendName" placeholder="Broker / Agent name" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div>';
+        modalHtml += '<div class="modal-field"><label>Recipient Email</label>';
+        modalHtml += '<input type="email" id="mpSendEmail" placeholder="broker@brokerage.com" style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;"></div></div>';
+        modalHtml += '<div class="modal-row"><div class="modal-field full"><label>Personal Message (optional)</label>';
+        modalHtml += '<textarea id="mpSendMessage" rows="3" placeholder="Add a personal note..." style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;resize:vertical;"></textarea></div></div>';
+        modalHtml += '<div style="display:flex;gap:10px;margin-top:16px;">';
+        modalHtml += '<button id="mpSendBtn" onclick="sendMortgagePartnershipEmail()" style="padding:10px 24px;background:#10B981;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">📧 Send Email</button>';
+        modalHtml += '<button onclick="document.getElementById(\'mpSendModal\').style.display=\'none\'" style="padding:10px 24px;background:#E5E7EB;color:#374151;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:14px;">Cancel</button>';
+        modalHtml += '</div></div>';
+        var existingModal = document.getElementById('mpSendModal');
+        if (existingModal) existingModal.remove();
+        var modal = document.createElement('div');
+        modal.id = 'mpSendModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = '<div style="background:white;border-radius:10px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' + modalHtml + '</div>';
+        modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+        document.body.appendChild(modal);
+    }
+
+    async function sendMortgagePartnershipEmail() {
+        var recipientName = document.getElementById('mpSendName').value.trim();
+        var recipientEmail = document.getElementById('mpSendEmail').value.trim();
+        var customMessage = document.getElementById('mpSendMessage').value.trim();
+        var btn = document.getElementById('mpSendBtn');
+        if (!recipientEmail) { alert('Please enter the recipient email'); return; }
+        var agentName = (agentProfile && agentProfile.full_name) ? agentProfile.full_name : (currentUserName || 'Alliance Financing Group');
+        var agentEmailAddr = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
+        var agentPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
+        var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
+        var partnerLink = 'https://www.alliancefinancing.ai/mortgage-inquiry?ref=' + agentSlug;
+        btn.disabled = true;
+        btn.textContent = '⏳ Sending...';
+        try {
+            var greeting = recipientName ? 'Hi ' + recipientName + ',' : 'Hi there,';
+            var customNoteHtml = customMessage ? '<tr><td style="padding:0 48px 24px;"><div style="background:#FEF9E7;border-left:4px solid #C9A84C;padding:16px 20px;border-radius:0 8px 8px 0;font-size:15px;color:#1F2937;line-height:1.7;">' + customMessage.replace(/\n/g, '<br>') + '</div></td></tr>' : '';
+            var logoUrl = 'https://www.alliancefinancing.ai/alliance-logo-transparent.png';
+            var htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>';
+            htmlBody += '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">';
+            htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 0;">';
+            htmlBody += '<tr><td align="center">';
+            htmlBody += '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">';
+            // Navy header
+            htmlBody += '<tr><td style="background:#0D1E3D;padding:36px 48px;text-align:center;">';
+            htmlBody += '<img src="' + logoUrl + '" alt="Alliance Financing Group" width="220" style="display:block;margin:0 auto 16px;max-width:220px;height:auto;filter:brightness(0) invert(1);">';
+            htmlBody += '<p style="margin:0;color:#8A9BB0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">Revenue Partnership for Mortgage Professionals</p>';
+            htmlBody += '</td></tr>';
+            // Greeting
+            htmlBody += '<tr><td style="background:white;padding:40px 48px 12px;">';
+            htmlBody += '<p style="font-size:16px;color:#1F2937;line-height:1.7;margin:0;">' + greeting + '</p>';
+            htmlBody += '</td></tr>';
+            htmlBody += customNoteHtml;
+            // Main pitch
+            htmlBody += '<tr><td style="background:white;padding:0 48px 20px;">';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0 0 18px;">I wanted to share our partnership presentation with you. Alliance Financing helps mortgage professionals unlock a new revenue stream by referring their commercial clients to our 70+ lender network.</p>';
+            htmlBody += '<p style="font-size:15px;color:#374151;line-height:1.8;margin:0;">Your clients already need equipment financing, working capital, and commercial debt — <strong style="color:#0D1E3D;">you can earn referral fees on every funded deal</strong> without any extra work.</p>';
+            htmlBody += '</td></tr>';
+            // Key stats
+            htmlBody += '<tr><td style="background:white;padding:0 48px 24px;">';
+            htmlBody += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>';
+            var emailStats = [['70+','Lender Partners'],['15+','Product Types'],['<48h','Response Time'],['85%+','Approval Rate']];
+            for (var es = 0; es < emailStats.length; es++) {
+                htmlBody += '<td style="text-align:center;padding:16px 8px;background:#F8FAFC;' + (es < 3 ? 'border-right:1px solid #E2E8F0;' : '') + '">';
+                htmlBody += '<div style="font-size:24px;font-weight:800;color:#C9A84C;">' + emailStats[es][0] + '</div>';
+                htmlBody += '<div style="font-size:11px;color:#64748B;margin-top:4px;">' + emailStats[es][1] + '</div></td>';
+            }
+            htmlBody += '</tr></table></td></tr>';
+            // Revenue highlight
+            htmlBody += '<tr><td style="background:white;padding:0 48px 24px;">';
+            htmlBody += '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:20px;text-align:center;">';
+            htmlBody += '<p style="font-size:13px;color:#64748B;margin:0 0 4px;">Potential Annual Revenue</p>';
+            htmlBody += '<p style="font-size:28px;font-weight:800;color:#16A34A;margin:0;">$18K — $240K+</p>';
+            htmlBody += '<p style="font-size:12px;color:#64748B;margin:4px 0 0;">Based on 3-10 referrals per month at 1-2% referral fee</p>';
+            htmlBody += '</div></td></tr>';
+            // CTA
+            htmlBody += '<tr><td style="background:white;padding:8px 48px 20px;text-align:center;">';
+            htmlBody += '<a href="' + partnerLink + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;text-decoration:none;padding:16px 48px;border-radius:8px;font-weight:700;font-size:16px;">Learn More & Get Started →</a>';
+            htmlBody += '</td></tr>';
+            htmlBody += '<tr><td style="background:white;padding:4px 48px 36px;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">No commitments. Takes 30 seconds.</p>';
+            htmlBody += '</td></tr>';
+            // Signature
+            htmlBody += '<tr><td style="background:white;padding:0 48px 36px;">';
+            htmlBody += '<div style="border-top:1px solid #E2E8F0;padding-top:28px;">';
+            htmlBody += '<p style="font-size:15px;color:#1F2937;margin:0 0 4px;">Talk soon,</p>';
+            htmlBody += '<p style="font-size:16px;color:#0D1E3D;margin:0;font-weight:700;">' + agentName + '</p>';
+            if (agentEmailAddr) htmlBody += '<p style="font-size:13px;color:#64748B;margin:6px 0 0;"><a href="mailto:' + agentEmailAddr + '" style="color:#C9A84C;text-decoration:none;">' + agentEmailAddr + '</a></p>';
+            if (agentPhone) htmlBody += '<p style="font-size:13px;color:#64748B;margin:3px 0 0;">' + agentPhone + '</p>';
+            htmlBody += '</div></td></tr>';
+            // Footer
+            htmlBody += '<tr><td style="background:#F8FAFC;padding:24px 48px;border-top:1px solid #E2E8F0;text-align:center;">';
+            htmlBody += '<p style="font-size:12px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>';
+            htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://www.alliancefinancing.ai" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.ai</a></p>';
+            htmlBody += '</td></tr></table></td></tr></table></body></html>';
+            var subject = 'Partnership Opportunity — Commercial Financing Revenue for Mortgage Professionals';
+            await sendEmailViaResend(recipientEmail, subject, htmlBody);
+            try {
+                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Mortgage Partnership Presentation', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null });
+            } catch(trackErr) { console.error('Track Mortgage Partnership send:', trackErr); }
+            alert('Mortgage Partnership Presentation sent to ' + recipientEmail + '!');
+            document.getElementById('mpSendModal').style.display = 'none';
         } catch (err) {
             alert('Error sending email: ' + err.message);
             btn.disabled = false;
