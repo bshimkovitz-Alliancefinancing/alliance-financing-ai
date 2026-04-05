@@ -186,6 +186,7 @@
         .app-container {
             display: flex;
             height: 100vh;
+            overflow: hidden;
         }
 
         /* Sidebar */
@@ -273,8 +274,10 @@
         /* Main Content */
         .main-content {
             flex: 1;
+            min-width: 0;
             display: flex;
             flex-direction: column;
+            overflow-x: hidden;
         }
 
         .header {
@@ -635,13 +638,22 @@
         .modal-close {
             background: none;
             border: none;
-            font-size: 24px;
+            font-size: 28px;
             cursor: pointer;
             color: var(--text-light);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: background 0.15s, color 0.15s;
+            flex-shrink: 0;
         }
 
         .modal-close:hover {
             color: var(--text-dark);
+            background: #F1F5F9;
         }
 
         .modal-body {
@@ -1126,17 +1138,27 @@
                     <!-- Pipeline Table -->
                     <div style="background:white;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 16px 16px;overflow:hidden;">
                         <div style="overflow-x:auto;">
-                        <table style="min-width:1100px;" id="pipelineTable">
+                        <table style="width:100%;table-layout:fixed;" id="pipelineTable">
+                            <colgroup>
+                                <col style="width:17%;"><!-- Client -->
+                                <col style="width:11%;"><!-- Source -->
+                                <col style="width:9%;"><!-- Type -->
+                                <col style="width:9%;"><!-- Amount -->
+                                <col style="width:9%;"><!-- Stage -->
+                                <col style="width:15%;"><!-- Progress -->
+                                <col style="width:8%;"><!-- Date -->
+                                <col style="width:22%;"><!-- Actions -->
+                            </colgroup>
                             <thead>
                                 <tr style="background:#F8FAFC;">
-                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Client</th>
-                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Source</th>
-                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Type</th>
-                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Amount</th>
-                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Stage</th>
-                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;min-width:200px;">Progress</th>
-                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Date</th>
-                                    <th style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Actions</th>
+                                    <th style="padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Client</th>
+                                    <th style="padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Source</th>
+                                    <th style="padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Type</th>
+                                    <th style="padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Amount</th>
+                                    <th style="padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Stage</th>
+                                    <th style="padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Progress</th>
+                                    <th style="padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Date</th>
+                                    <th style="padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="pipelineBody">
@@ -10927,7 +10949,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             if (!leads || leads.length === 0) {
-                var emptyMsg = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No vendor inquiries yet. Send the leasing one-pager to potential vendors to generate leads.</p>';
+                var emptyMsg = '<div style="text-align:center;padding:30px 20px;">' +
+                    '<div style="font-size:36px;margin-bottom:10px;">📋</div>' +
+                    '<p style="color:#0D1E3D;font-size:15px;font-weight:600;margin:0 0 6px;">No vendor outreach yet</p>' +
+                    '<p style="color:#94a3b8;font-size:13px;margin:0 0 16px;max-width:400px;margin-left:auto;margin-right:auto;">Share the Vendor Equipment Leasing one-pager with potential vendors from your <strong>Application Hub</strong>. When they inquire, their leads will appear here for you to track and convert.</p>' +
+                    '<button onclick="showPage(\'applicationHub\')" style="padding:8px 20px;background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Go to Application Hub</button>' +
+                '</div>';
                 for (var ci = 0; ci < containers.length; ci++) containers[ci].innerHTML = emptyMsg;
                 return;
             }
@@ -10937,7 +10964,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var archivedLeads = leads.filter(function(l) { return l.status === 'Archived'; });
 
             if (activeLeads.length === 0 && archivedLeads.length === 0) {
-                var emptyMsg = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No vendor inquiries yet.</p>';
+                var emptyMsg = '<div style="text-align:center;padding:30px 20px;">' +
+                    '<div style="font-size:36px;margin-bottom:10px;">📋</div>' +
+                    '<p style="color:#0D1E3D;font-size:15px;font-weight:600;margin:0 0 6px;">No vendor outreach yet</p>' +
+                    '<p style="color:#94a3b8;font-size:13px;margin:0 0 16px;max-width:400px;margin-left:auto;margin-right:auto;">Share the Vendor Equipment Leasing one-pager with potential vendors from your <strong>Application Hub</strong>. When they inquire, their leads will appear here.</p>' +
+                    '<button onclick="showPage(\'applicationHub\')" style="padding:8px 20px;background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Go to Application Hub</button>' +
+                '</div>';
                 for (var ci = 0; ci < containers.length; ci++) containers[ci].innerHTML = emptyMsg;
                 return;
             }
@@ -29061,14 +29093,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Date display
             var dateHtml = item.date ? '<span style="font-size:12px;">' + new Date(item.date).toLocaleDateString() + '</span>' : '—';
 
-            // Actions
+            // Actions — larger buttons for better usability
             var actionHtml = '';
             if (item.source === 'outbound' && !item.isCompleted && item.stageLabel !== 'Returned' && item.stage !== 'received') {
                 var appRaw = item.raw;
                 if (item.isOverdue) {
-                    actionHtml += '<button onclick="sendFollowUpEmail(\'' + appRaw.id + '\', \'' + (appRaw.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.application_type || '').replace(/'/g, "\\'") + '\')" style="padding:5px 12px;background:#F59E0B;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">Follow Up</button> ';
+                    actionHtml += '<button onclick="sendFollowUpEmail(\'' + appRaw.id + '\', \'' + (appRaw.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.application_type || '').replace(/'/g, "\\'") + '\')" style="padding:6px 14px;background:#F59E0B;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">Follow Up</button> ';
                 }
-                actionHtml += '<select onchange="updateAppSentStatus(\'' + appRaw.id + '\', this.value);setTimeout(loadReferralPipeline,500);" style="padding:4px 8px;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;">' +
+                actionHtml += '<select onchange="updateAppSentStatus(\'' + appRaw.id + '\', this.value);setTimeout(loadReferralPipeline,500);" style="padding:5px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;cursor:pointer;">' +
                     '<option value="Sent"' + (appRaw.status === 'Sent' ? ' selected' : '') + '>Sent</option>' +
                     '<option value="Follow-Up Needed"' + (appRaw.status === 'Follow-Up Needed' ? ' selected' : '') + '>Follow-Up</option>' +
                     '<option value="Opened"' + (appRaw.status === 'Opened' ? ' selected' : '') + '>Opened</option>' +
@@ -29077,17 +29109,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '</select>';
             } else if (item.source === 'outbound' && (item.isReturned || item.stageLabel === 'Returned')) {
                 // Returned = in credit, managed by credit team. Show locked status + archive option
-                actionHtml = '<span style="padding:4px 10px;background:#10B98115;color:#059669;border:1px solid #10B981;border-radius:6px;font-size:11px;font-weight:600;display:inline-block;">Returned</span> ' +
-                    '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;margin-left:4px;">Archive</button>';
+                actionHtml = '<span style="padding:5px 12px;background:#10B98115;color:#059669;border:1px solid #10B981;border-radius:6px;font-size:12px;font-weight:600;display:inline-block;">Returned</span> ' +
+                    '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:5px 12px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;margin-left:4px;">Archive</button>';
             } else if (item.source === 'outbound' && item.isCompleted) {
                 // Expired/completed — just show archive
-                actionHtml = '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">Archive</button>';
+                actionHtml = '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:5px 12px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">Archive</button>';
             }
             // View button: use inbound app ID if available, otherwise search by email
             if (item.inboundApp && item.inboundApp.id) {
-                actionHtml += ' <button onclick="viewApplication(\'' + item.inboundApp.id + '\')" style="padding:4px 10px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">View</button>';
+                actionHtml += ' <button onclick="viewApplication(\'' + item.inboundApp.id + '\')" style="padding:5px 12px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">View</button>';
             } else if (item.email) {
-                actionHtml += ' <button onclick="viewAppSentSubmission(\'' + item.email.replace(/'/g, "\\'") + '\', \'' + (item.clientName || '').replace(/'/g, "\\'") + '\')" style="padding:4px 10px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">View</button>';
+                actionHtml += ' <button onclick="viewAppSentSubmission(\'' + item.email.replace(/'/g, "\\'") + '\', \'' + (item.clientName || '').replace(/'/g, "\\'") + '\')" style="padding:5px 12px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">View</button>';
             }
 
             var rowBg = item.needsAction ? 'background:#FFF7ED;' : (item.stage === 'funded' ? 'background:#F0FDF4;' : '');
@@ -29109,17 +29141,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 sourceLabelHtml = '<span style="display:inline-flex;align-items:center;gap:4px;background:#F0FDF4;color:#166534;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap;"><span style="width:6px;height:6px;border-radius:50%;background:#16A34A;display:inline-block;"></span>' + sl + '</span>';
             }
 
-            return '<tr style="' + rowBg + 'border-bottom:1px solid #F1F5F9;">' +
-                '<td style="padding:12px 16px;">' + sourceIcon + '<strong style="color:#0D1E3D;">' + item.clientName + '</strong>' + personSubtitle +
+            // Build row click handler — open the deal if there's an inbound app, otherwise view the sent submission
+            var rowClick = '';
+            if (item.inboundApp && item.inboundApp.id) {
+                rowClick = 'onclick="viewApplication(\'' + item.inboundApp.id + '\')" style="cursor:pointer;" title="Click to view deal details"';
+            } else if (item.email) {
+                rowClick = 'onclick="viewAppSentSubmission(\'' + item.email.replace(/'/g, "\\'") + '\', \'' + (item.clientName || '').replace(/'/g, "\\'") + '\')" style="cursor:pointer;" title="Click to view details"';
+            }
+
+            return '<tr ' + rowClick + ' style="' + rowBg + 'border-bottom:1px solid #F1F5F9;' + (rowClick ? 'cursor:pointer;' : '') + '" ' + (rowClick ? 'onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'' + (item.needsAction ? '#FFF7ED' : (item.stage === 'funded' ? '#F0FDF4' : '')) + '\'"' : '') + '>' +
+                '<td style="padding:10px 12px;overflow:hidden;text-overflow:ellipsis;">' + sourceIcon + '<strong style="color:#0D1E3D;">' + item.clientName + '</strong>' + personSubtitle +
                     (item.email ? '<br><span style="font-size:11px;color:#94A3B8;">' + item.email + '</span>' : '') + '</td>' +
-                '<td style="padding:12px 16px;">' + sourceLabelHtml + '</td>' +
-                '<td style="padding:12px 16px;font-size:13px;">' + item.type + '</td>' +
-                '<td style="padding:12px 16px;">' + amountHtml + '</td>' +
-                '<td style="padding:12px 16px;"><span style="background:' + stageColor + '15;color:' + stageColor + ';padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;">' + item.stageLabel + '</span>' +
+                '<td style="padding:10px 12px;">' + sourceLabelHtml + '</td>' +
+                '<td style="padding:10px 12px;font-size:13px;">' + item.type + '</td>' +
+                '<td style="padding:10px 12px;">' + amountHtml + '</td>' +
+                '<td style="padding:10px 12px;"><span style="background:' + stageColor + '15;color:' + stageColor + ';padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;">' + item.stageLabel + '</span>' +
                     (item.isOverdue ? ' <span style="color:#DC2626;font-size:10px;font-weight:700;">OVERDUE</span>' : '') + '</td>' +
-                '<td style="padding:12px 16px;">' + progressHtml + '</td>' +
-                '<td style="padding:12px 16px;">' + dateHtml + '</td>' +
-                '<td style="padding:12px 16px;white-space:nowrap;">' + actionHtml + '</td>' +
+                '<td style="padding:10px 12px;">' + progressHtml + '</td>' +
+                '<td style="padding:10px 12px;">' + dateHtml + '</td>' +
+                '<td style="padding:10px 12px;white-space:nowrap;" onclick="event.stopPropagation();">' + actionHtml + '</td>' +
             '</tr>';
         }).join('');
     }
