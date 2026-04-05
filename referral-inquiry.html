@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partner With Alliance — Referral Partner Program</title>
+    <link rel="icon" href="https://alliancefinancing.ai/favicon.ico">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0D1E3D; min-height: 100vh; }
+
+        .hero {
+            background: linear-gradient(135deg, #0D1E3D 0%, #1a2e5a 100%);
+            text-align: center;
+            padding: 48px 20px 32px;
+            color: white;
+        }
+        .hero img { height: 52px; margin-bottom: 14px; }
+        .hero h1 { font-size: 17px; font-weight: 500; color: #C9A84C; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 28px; }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        .stat { text-align: center; }
+        .stat-number { font-size: 32px; font-weight: 800; color: #C9A84C; line-height: 1.1; }
+        .stat-label { font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: rgba(255,255,255,0.7); margin-top: 4px; }
+
+        .form-section {
+            max-width: 680px;
+            margin: -8px auto 0;
+            padding: 0 16px 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            padding: 36px 32px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .form-card h2 { font-size: 26px; color: #0D1E3D; font-weight: 800; margin-bottom: 8px; }
+        .form-card .subtitle { color: #64748B; font-size: 14px; line-height: 1.5; margin-bottom: 24px; }
+
+        .referred-by {
+            background: #FFF7ED;
+            border: 1px solid #FDE68A;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 14px;
+            color: #92400E;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .referred-by strong { color: #C9A84C; }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        @media (max-width: 560px) { .form-row { grid-template-columns: 1fr; } }
+
+        label { display: block; font-weight: 600; font-size: 13px; color: #1E293B; margin-bottom: 5px; }
+        label .req { color: #C9A84C; }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #1E293B;
+            background: #FAFBFC;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #C9A84C; box-shadow: 0 0 0 3px rgba(201,168,76,0.1); }
+        textarea { resize: vertical; min-height: 80px; }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: #C9A84C;
+            color: #0D1E3D;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background 0.2s;
+        }
+        .submit-btn:hover { background: #B8943F; }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .form-footer { text-align: center; font-size: 12px; color: #94A3B8; margin-top: 12px; }
+
+        .trust-badges {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: rgba(255,255,255,0.85);
+            font-weight: 500;
+        }
+        .trust-badge span:first-child { font-size: 18px; }
+
+        .success-card {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 48px 32px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .success-card h2 { font-size: 24px; color: #0D1E3D; margin-bottom: 12px; }
+        .success-card p { font-size: 14px; color: #475569; line-height: 1.6; }
+        .success-card p strong { color: #0D1E3D; }
+        .success-card a { color: #3B82F6; }
+
+        .status-msg { display: none; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 8px; }
+        .status-msg.error { display: block; background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+        .page-footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.4);
+        }
+        .page-footer a { color: rgba(255,255,255,0.6); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <img src="https://uernphejrcsicnkobsdw.supabase.co/storage/v1/object/public/deal-documents/alliance-logo-white.png" alt="Alliance Financing Group">
+        <h1>Referral Partner Program</h1>
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number">70<span style="font-size:22px;">+</span></div>
+                <div class="stat-label">Lender Partners</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">15<span style="font-size:22px;">+</span></div>
+                <div class="stat-label">Financial Products</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">48<span style="font-size:22px;">hr</span></div>
+                <div class="stat-label">Fast Approvals</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">All</div>
+                <div class="stat-label">Credit Profiles</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <div id="formCard" class="form-card">
+            <h2>Become a Referral Partner</h2>
+            <p class="subtitle">Earn referral fees by connecting your clients with financing solutions. Alliance handles everything from application to funding — you just make the introduction.</p>
+
+            <div id="referredBySection" class="referred-by">
+                Referred by: <strong id="referredByName"></strong>
+            </div>
+
+            <form onsubmit="submitInquiry(event)">
+                <div class="form-row">
+                    <div>
+                        <label>Your Name <span class="req">*</span></label>
+                        <input type="text" id="contactName" placeholder="Full name" required>
+                    </div>
+                    <div>
+                        <label>Company / Business Name</label>
+                        <input type="text" id="companyName" placeholder="Your company or business name">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label>Email <span class="req">*</span></label>
+                        <input type="email" id="contactEmail" placeholder="you@company.com" required>
+                    </div>
+                    <div>
+                        <label>Phone <span class="req">*</span></label>
+                        <input type="tel" id="contactPhone" placeholder="(555) 123-4567" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label>Your Industry <span class="req">*</span></label>
+                        <select id="businessType" required>
+                            <option value="">Select your industry...</option>
+                            <option value="Insurance">Insurance</option>
+                            <option value="Accounting / CPA">Accounting / CPA</option>
+                            <option value="Financial Advisory">Financial Advisory</option>
+                            <option value="Consulting">Consulting</option>
+                            <option value="Real Estate">Real Estate</option>
+                            <option value="Legal">Legal</option>
+                            <option value="Banking">Banking</option>
+                            <option value="Business Brokerage">Business Brokerage</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Number of Clients You Serve</label>
+                        <select id="clientVolume">
+                            <option value="">Select range...</option>
+                            <option value="Under 50">Under 50</option>
+                            <option value="50 - 200">50 – 200</option>
+                            <option value="200 - 500">200 – 500</option>
+                            <option value="500 - 1000">500 – 1,000</option>
+                            <option value="Over 1000">Over 1,000</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label>Anything else you'd like us to know?</label>
+                    <textarea id="message" placeholder="Tell us about your business, your clients, or any questions you have..."></textarea>
+                </div>
+
+                <button type="submit" id="submitBtn" class="submit-btn">Submit Interest</button>
+                <div id="formStatus" class="status-msg"></div>
+                <p class="form-footer">We'll review your info and have someone reach out within 1 business day. No spam, no obligations.</p>
+            </form>
+        </div>
+
+        <div class="trust-badges">
+            <div class="trust-badge"><span>💰</span> Earn Referral<br>Fees</div>
+            <div class="trust-badge"><span>🤝</span> We Handle<br>Everything</div>
+            <div class="trust-badge"><span>🌍</span> Canada, US<br>& Europe</div>
+        </div>
+
+        <div id="successCard" class="success-card">
+            <h2>🎉 Thanks for Your Interest!</h2>
+            <p>We've received your inquiry and a member of our team will reach out within <strong>1 business day</strong> to discuss how the referral partner program can work for your business.</p>
+            <br>
+            <p>Questions in the meantime? <a href="mailto:info@alliancefinancing.com">info@alliancefinancing.com</a> or 1-877-660-3660 ext. 222</p>
+        </div>
+    </div>
+
+    <div class="page-footer">
+        &copy; 2025 Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai">alliancefinancing.ai</a>
+    </div>
+
+<script>
+    var SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+    var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    var refSlug = null;
+    var referrerName = null;
+
+    async function init() {
+        var params = new URLSearchParams(window.location.search);
+        refSlug = params.get('ref') || null;
+
+        if (refSlug && refSlug !== 'alliance-house') {
+            try {
+                var { data: agent } = await db.from('users').select('full_name').eq('referral_slug', refSlug).single();
+                if (agent && agent.full_name) {
+                    referrerName = agent.full_name;
+                    document.getElementById('referredByName').textContent = agent.full_name;
+                    document.getElementById('referredBySection').style.display = 'block';
+                }
+            } catch(e) { /* slug not found */ }
+        }
+    }
+
+    async function submitInquiry(event) {
+        event.preventDefault();
+        var btn = document.getElementById('submitBtn');
+        var statusEl = document.getElementById('formStatus');
+        btn.disabled = true;
+        btn.textContent = 'Submitting...';
+        statusEl.className = 'status-msg';
+        statusEl.style.display = 'none';
+
+        try {
+            var inquiryData = {
+                contact_name: document.getElementById('contactName').value.trim(),
+                company_name: document.getElementById('companyName').value.trim() || null,
+                contact_email: document.getElementById('contactEmail').value.trim(),
+                contact_phone: document.getElementById('contactPhone').value.trim(),
+                business_type: document.getElementById('businessType').value,
+                client_volume: document.getElementById('clientVolume').value || null,
+                message: document.getElementById('message').value.trim() || null,
+                referral_slug: refSlug || null,
+                referred_by: referrerName || null,
+                inquiry_type: 'referral_partner',
+                status: 'New'
+            };
+
+            var { data, error } = await db.from('partner_inquiries').insert([inquiryData]);
+            if (error) throw error;
+
+            // Show success
+            document.getElementById('formCard').style.display = 'none';
+            document.getElementById('successCard').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (err) {
+            console.error('Submit error:', err);
+            statusEl.className = 'status-msg error';
+            var errMsg = (err && err.message) ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
+            statusEl.textContent = 'Error: ' + errMsg + '. Please try again or email info@alliancefinancing.com directly.';
+            statusEl.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Submit Interest';
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>

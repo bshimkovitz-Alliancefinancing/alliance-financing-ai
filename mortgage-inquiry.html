@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partner With Alliance — Mortgage Partner Program</title>
+    <link rel="icon" href="https://alliancefinancing.ai/favicon.ico">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0D1E3D; min-height: 100vh; }
+
+        .hero {
+            background: linear-gradient(135deg, #0D1E3D 0%, #1a2e5a 100%);
+            text-align: center;
+            padding: 48px 20px 32px;
+            color: white;
+        }
+        .hero img { height: 52px; margin-bottom: 14px; }
+        .hero h1 { font-size: 17px; font-weight: 500; color: #C9A84C; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 28px; }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        .stat { text-align: center; }
+        .stat-number { font-size: 32px; font-weight: 800; color: #C9A84C; line-height: 1.1; }
+        .stat-label { font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: rgba(255,255,255,0.7); margin-top: 4px; }
+
+        .form-section {
+            max-width: 680px;
+            margin: -8px auto 0;
+            padding: 0 16px 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            padding: 36px 32px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .form-card h2 { font-size: 26px; color: #0D1E3D; font-weight: 800; margin-bottom: 8px; }
+        .form-card .subtitle { color: #64748B; font-size: 14px; line-height: 1.5; margin-bottom: 24px; }
+
+        .referred-by {
+            background: #FFF7ED;
+            border: 1px solid #FDE68A;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 14px;
+            color: #92400E;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .referred-by strong { color: #C9A84C; }
+
+        /* Type Toggle */
+        .type-toggle {
+            display: flex;
+            gap: 0;
+            margin-bottom: 24px;
+            border: 2px solid #0D1E3D;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .type-toggle-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .type-toggle-btn.active {
+            background: #0D1E3D;
+            color: white;
+        }
+        .type-toggle-btn:not(.active) {
+            background: white;
+            color: #0D1E3D;
+        }
+        .type-toggle-btn:not(:first-child) {
+            border-left: 1px solid #E2E8F0;
+        }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        @media (max-width: 560px) { .form-row { grid-template-columns: 1fr; } }
+
+        label { display: block; font-weight: 600; font-size: 13px; color: #1E293B; margin-bottom: 5px; }
+        label .req { color: #C9A84C; }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #1E293B;
+            background: #FAFBFC;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #C9A84C; box-shadow: 0 0 0 3px rgba(201,168,76,0.1); }
+        textarea { resize: vertical; min-height: 80px; }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: #C9A84C;
+            color: #0D1E3D;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background 0.2s;
+        }
+        .submit-btn:hover { background: #B8943F; }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .form-footer { text-align: center; font-size: 12px; color: #94A3B8; margin-top: 12px; }
+
+        .trust-badges {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: rgba(255,255,255,0.85);
+            font-weight: 500;
+        }
+        .trust-badge span:first-child { font-size: 18px; }
+
+        .success-card {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 48px 32px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .success-card h2 { font-size: 24px; color: #0D1E3D; margin-bottom: 12px; }
+        .success-card p { font-size: 14px; color: #475569; line-height: 1.6; }
+        .success-card p strong { color: #0D1E3D; }
+        .success-card a { color: #3B82F6; }
+
+        .status-msg { display: none; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 8px; }
+        .status-msg.error { display: block; background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+        .broker-fields, .agent-fields { display: none; }
+        .broker-fields.visible, .agent-fields.visible { display: block; }
+
+        .page-footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.4);
+        }
+        .page-footer a { color: rgba(255,255,255,0.6); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <img src="https://uernphejrcsicnkobsdw.supabase.co/storage/v1/object/public/deal-documents/alliance-logo-white.png" alt="Alliance Financing Group">
+        <h1>Mortgage Partner Program</h1>
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number">70<span style="font-size:22px;">+</span></div>
+                <div class="stat-label">Lender Partners</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">15<span style="font-size:22px;">+</span></div>
+                <div class="stat-label">Financial Products</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">48<span style="font-size:22px;">hr</span></div>
+                <div class="stat-label">Fast Approvals</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">All</div>
+                <div class="stat-label">Credit Profiles</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <div id="formCard" class="form-card">
+            <h2>Expand Your Practice</h2>
+            <p class="subtitle">Offer your mortgage clients commercial financing solutions — equipment leasing, working capital, bridge financing, and more. We handle everything from application to funding.</p>
+
+            <div id="referredBySection" class="referred-by">
+                Referred by: <strong id="referredByName"></strong>
+            </div>
+
+            <!-- Broker / Agent Toggle -->
+            <div class="type-toggle">
+                <button type="button" class="type-toggle-btn active" id="toggleBroker" onclick="setPartnerType('mortgage_broker')">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    I'm a Mortgage Broker
+                </button>
+                <button type="button" class="type-toggle-btn" id="toggleAgent" onclick="setPartnerType('mortgage_agent')">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4-4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    I'm a Mortgage Agent
+                </button>
+            </div>
+
+            <form onsubmit="submitInquiry(event)">
+                <div class="form-row">
+                    <div>
+                        <label>Your Name <span class="req">*</span></label>
+                        <input type="text" id="contactName" placeholder="Full name" required>
+                    </div>
+                    <div>
+                        <label>Email <span class="req">*</span></label>
+                        <input type="email" id="contactEmail" placeholder="you@brokerage.com" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label>Phone <span class="req">*</span></label>
+                        <input type="tel" id="contactPhone" placeholder="(555) 123-4567" required>
+                    </div>
+                    <div>
+                        <label id="brokerageLabel">Brokerage Name <span class="req">*</span></label>
+                        <input type="text" id="brokerageName" placeholder="Your brokerage name" required>
+                    </div>
+                </div>
+
+                <!-- Broker-specific fields -->
+                <div id="brokerFields" class="broker-fields visible">
+                    <div class="form-row">
+                        <div>
+                            <label>Number of Agents in Your Brokerage</label>
+                            <select id="agentCount">
+                                <option value="">Select range...</option>
+                                <option value="1 - 5">1 – 5</option>
+                                <option value="6 - 15">6 – 15</option>
+                                <option value="16 - 50">16 – 50</option>
+                                <option value="Over 50">Over 50</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Avg. Annual Mortgage Volume</label>
+                            <select id="mortgageVolume">
+                                <option value="">Select range...</option>
+                                <option value="Under $5M">Under $5M</option>
+                                <option value="$5M - $25M">$5M – $25M</option>
+                                <option value="$25M - $100M">$25M – $100M</option>
+                                <option value="Over $100M">Over $100M</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent-specific fields -->
+                <div id="agentFields" class="agent-fields">
+                    <div class="form-row">
+                        <div>
+                            <label>Years of Experience</label>
+                            <select id="experience">
+                                <option value="">Select...</option>
+                                <option value="Under 2 years">Under 2 years</option>
+                                <option value="2 - 5 years">2 – 5 years</option>
+                                <option value="5 - 10 years">5 – 10 years</option>
+                                <option value="Over 10 years">Over 10 years</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Avg. Deals Per Month</label>
+                            <select id="dealsPerMonth">
+                                <option value="">Select range...</option>
+                                <option value="1 - 3">1 – 3</option>
+                                <option value="4 - 10">4 – 10</option>
+                                <option value="11 - 25">11 – 25</option>
+                                <option value="Over 25">Over 25</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label>Anything else you'd like us to know?</label>
+                    <textarea id="message" placeholder="Tell us about your practice, your clients, or any questions you have..."></textarea>
+                </div>
+
+                <button type="submit" id="submitBtn" class="submit-btn">Submit Interest</button>
+                <div id="formStatus" class="status-msg"></div>
+                <p class="form-footer">We'll review your info and have someone reach out within 1 business day. No spam, no obligations.</p>
+            </form>
+        </div>
+
+        <div class="trust-badges">
+            <div class="trust-badge"><span>💰</span> New Revenue<br>Stream</div>
+            <div class="trust-badge"><span>🤝</span> We Handle<br>Everything</div>
+            <div class="trust-badge"><span>🌍</span> Canada, US<br>& Europe</div>
+        </div>
+
+        <div id="successCard" class="success-card">
+            <h2>🎉 Thanks for Your Interest!</h2>
+            <p>We've received your inquiry and a member of our team will reach out within <strong>1 business day</strong> to discuss how the mortgage partner program can help you expand your practice with commercial financing.</p>
+            <br>
+            <p>Questions in the meantime? <a href="mailto:info@alliancefinancing.com">info@alliancefinancing.com</a> or 1-877-660-3660 ext. 222</p>
+        </div>
+    </div>
+
+    <div class="page-footer">
+        &copy; 2025 Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai">alliancefinancing.ai</a>
+    </div>
+
+<script>
+    var SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+    var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    var refSlug = null;
+    var referrerName = null;
+    var selectedPartnerType = 'mortgage_broker';
+
+    async function init() {
+        var params = new URLSearchParams(window.location.search);
+        refSlug = params.get('ref') || null;
+
+        // Check for pre-selected type from URL
+        var typeParam = params.get('type');
+        if (typeParam === 'agent') {
+            setPartnerType('mortgage_agent');
+        }
+
+        if (refSlug && refSlug !== 'alliance-house') {
+            try {
+                var { data: agent } = await db.from('users').select('full_name').eq('referral_slug', refSlug).single();
+                if (agent && agent.full_name) {
+                    referrerName = agent.full_name;
+                    document.getElementById('referredByName').textContent = agent.full_name;
+                    document.getElementById('referredBySection').style.display = 'block';
+                }
+            } catch(e) { /* slug not found */ }
+        }
+    }
+
+    function setPartnerType(type) {
+        selectedPartnerType = type;
+        var brokerBtn = document.getElementById('toggleBroker');
+        var agentBtn = document.getElementById('toggleAgent');
+        var brokerFields = document.getElementById('brokerFields');
+        var agentFields = document.getElementById('agentFields');
+        var brokerageLabel = document.getElementById('brokerageLabel');
+
+        if (type === 'mortgage_broker') {
+            brokerBtn.classList.add('active');
+            agentBtn.classList.remove('active');
+            brokerFields.classList.add('visible');
+            agentFields.classList.remove('visible');
+            brokerageLabel.innerHTML = 'Brokerage Name <span class="req">*</span>';
+            document.getElementById('brokerageName').placeholder = 'Your brokerage name';
+        } else {
+            agentBtn.classList.add('active');
+            brokerBtn.classList.remove('active');
+            agentFields.classList.add('visible');
+            brokerFields.classList.remove('visible');
+            brokerageLabel.innerHTML = 'Brokerage You Work With <span class="req">*</span>';
+            document.getElementById('brokerageName').placeholder = 'Your brokerage name';
+        }
+    }
+
+    async function submitInquiry(event) {
+        event.preventDefault();
+        var btn = document.getElementById('submitBtn');
+        var statusEl = document.getElementById('formStatus');
+        btn.disabled = true;
+        btn.textContent = 'Submitting...';
+        statusEl.className = 'status-msg';
+        statusEl.style.display = 'none';
+
+        try {
+            var inquiryData = {
+                contact_name: document.getElementById('contactName').value.trim(),
+                contact_email: document.getElementById('contactEmail').value.trim(),
+                contact_phone: document.getElementById('contactPhone').value.trim(),
+                company_name: document.getElementById('brokerageName').value.trim(),
+                partner_type: selectedPartnerType,
+                message: document.getElementById('message').value.trim() || null,
+                referral_slug: refSlug || null,
+                referred_by: referrerName || null,
+                inquiry_type: 'mortgage_partner',
+                status: 'New'
+            };
+
+            // Add type-specific fields
+            if (selectedPartnerType === 'mortgage_broker') {
+                inquiryData.agent_count = document.getElementById('agentCount').value || null;
+                inquiryData.mortgage_volume = document.getElementById('mortgageVolume').value || null;
+            } else {
+                inquiryData.experience = document.getElementById('experience').value || null;
+                inquiryData.deals_per_month = document.getElementById('dealsPerMonth').value || null;
+            }
+
+            var { data, error } = await db.from('partner_inquiries').insert([inquiryData]);
+            if (error) throw error;
+
+            // Show success
+            document.getElementById('formCard').style.display = 'none';
+            document.getElementById('successCard').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (err) {
+            console.error('Submit error:', err);
+            statusEl.className = 'status-msg error';
+            var errMsg = (err && err.message) ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
+            statusEl.textContent = 'Error: ' + errMsg + '. Please try again or email info@alliancefinancing.com directly.';
+            statusEl.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Submit Interest';
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
