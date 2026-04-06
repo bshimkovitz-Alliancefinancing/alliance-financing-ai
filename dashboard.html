@@ -28887,7 +28887,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var appIds = inboundApps.map(a => a.id);
                 var dealMap = {};
                 if (appIds.length > 0) {
-                    var { data: deals } = await db.from('deals').select('id, deal_number, company_name, deal_amount, status, application_id, source_vendor_id').in('application_id', appIds);
+                    var { data: deals } = await db.from('deals').select('id, deal_number, company_name, deal_amount, status, application_id, source_vendor_id, is_archived').in('application_id', appIds);
                     if (deals) {
                         // Stage priority: pick the deal with the furthest stage for each application
                         var dealStageOrder = { 'Prospect': 1, 'Application Sent': 2, 'Quote Requested': 3, 'Quote sent': 4, 'Info received': 5, 'In Credit': 6, 'Approved': 7, 'Approval sent': 7, 'Docs requested': 8, 'Docs out for signing': 9, 'In funding': 10, 'Funded': 11 };
@@ -28969,6 +28969,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         existingOutbound.deal = deal;
                         existingOutbound.inboundApp = app;
                         existingOutbound.isCompleted = stage === 'funded';
+                        existingOutbound.isArchived = existingOutbound.isArchived || (deal && deal.is_archived) || app.status === 'Archived';
                         existingOutbound.needsAction = false;
                         existingOutbound.sourceLabel = sourceLabel;
                         return;
@@ -28988,6 +28989,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         isOverdue: false,
                         needsAction: app.status === 'Info Requested',
                         isCompleted: stage === 'funded',
+                        isArchived: (deal && deal.is_archived) || app.status === 'Archived',
                         deal: deal,
                         inboundApp: app,
                         sourceLabel: sourceLabel,
@@ -29161,11 +29163,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 // Expired/completed — just show archive
                 actionHtml = '<button onclick="archiveAppSent(\'' + item.id + '\')" style="padding:5px 12px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">Archive</button>';
             }
-            // View button: use inbound app ID if available, otherwise search by email
-            if (item.inboundApp && item.inboundApp.id) {
-                actionHtml += ' <button onclick="viewApplication(\'' + item.inboundApp.id + '\')" style="padding:5px 12px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">View</button>';
+            // View button: open deal view if a deal exists, otherwise application view
+            if (item.deal && item.deal.id) {
+                actionHtml += ' <button onclick="event.stopPropagation();viewDeal(\'' + item.deal.id + '\')" style="padding:5px 12px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">View</button>';
+            } else if (item.inboundApp && item.inboundApp.id) {
+                actionHtml += ' <button onclick="event.stopPropagation();viewApplication(\'' + item.inboundApp.id + '\')" style="padding:5px 12px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">View</button>';
             } else if (item.email) {
-                actionHtml += ' <button onclick="viewAppSentSubmission(\'' + item.email.replace(/'/g, "\\'") + '\', \'' + (item.clientName || '').replace(/'/g, "\\'") + '\')" style="padding:5px 12px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">View</button>';
+                actionHtml += ' <button onclick="event.stopPropagation();viewAppSentSubmission(\'' + item.email.replace(/'/g, "\\'") + '\', \'' + (item.clientName || '').replace(/'/g, "\\'") + '\')" style="padding:5px 12px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">View</button>';
             }
 
             var rowBg = item.needsAction ? 'background:#FFF7ED;' : (item.stage === 'funded' ? 'background:#F0FDF4;' : '');
@@ -29187,10 +29191,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 sourceLabelHtml = '<span style="display:inline-flex;align-items:center;gap:4px;background:#F0FDF4;color:#166534;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap;"><span style="width:6px;height:6px;border-radius:50%;background:#16A34A;display:inline-block;"></span>' + sl + '</span>';
             }
 
-            // Build row click handler — open the deal if there's an inbound app, otherwise view the sent submission
+            // Build row click handler — open the deal view if a deal exists, otherwise application or sent submission
             var rowClick = '';
-            if (item.inboundApp && item.inboundApp.id) {
-                rowClick = 'onclick="viewApplication(\'' + item.inboundApp.id + '\')" style="cursor:pointer;" title="Click to view deal details"';
+            if (item.deal && item.deal.id) {
+                rowClick = 'onclick="viewDeal(\'' + item.deal.id + '\')" style="cursor:pointer;" title="Click to view deal"';
+            } else if (item.inboundApp && item.inboundApp.id) {
+                rowClick = 'onclick="viewApplication(\'' + item.inboundApp.id + '\')" style="cursor:pointer;" title="Click to view application"';
             } else if (item.email) {
                 rowClick = 'onclick="viewAppSentSubmission(\'' + item.email.replace(/'/g, "\\'") + '\', \'' + (item.clientName || '').replace(/'/g, "\\'") + '\')" style="cursor:pointer;" title="Click to view details"';
             }
