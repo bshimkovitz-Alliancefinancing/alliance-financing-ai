@@ -10155,64 +10155,42 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
         } catch(e) { console.warn('Notifications: deal notes for agent load error', e); }
 
-        // 12. Document uploads by applicants (from document request links)
+        // 12. Document uploads by applicants (detected from deal notes with "uploaded" system notes)
         try {
-            var sevenDaysAgoDocUpload = new Date(Date.now() - 7 * 86400000).toISOString();
-            // Query documents uploaded recently that are linked to deals (uploaded via doc request links)
-            var { data: recentUploads } = await db.from('documents').select('id, deal_id, file_name, document_type, uploaded_at, uploaded_by_name')
-                .gte('uploaded_at', sevenDaysAgoDocUpload)
-                .order('uploaded_at', { ascending: false })
-                .limit(100);
-            if (recentUploads && recentUploads.length > 0) {
-                // Get deal info for these uploads
-                var uploadDealIds = [];
-                recentUploads.forEach(function(doc) { if (doc.deal_id && uploadDealIds.indexOf(doc.deal_id) === -1) uploadDealIds.push(doc.deal_id); });
-                var uploadDealsMap = {};
-                if (uploadDealIds.length > 0) {
-                    var { data: uploadDeals } = await db.from('deals').select('id, company_name, source_agent_id').in('id', uploadDealIds);
-                    if (uploadDeals) uploadDeals.forEach(function(d) { uploadDealsMap[d.id] = d; });
+            var sevenDaysAgoUpload = Date.now() - 7 * 86400000;
+            // Reuse deals already fetched or fetch fresh for upload detection
+            var uploadDealsQuery = db.from('deals').select('id, company_name, notes, source_agent_id').not('notes', 'is', null).order('updated_at', { ascending: false }).limit(200);
+            if (!isAdmin && !_hasSubAgents) uploadDealsQuery = uploadDealsQuery.eq('source_agent_id', currentUserId);
+            var { data: uploadCheckDeals } = await uploadDealsQuery;
+            if (uploadCheckDeals) {
+                if (!isAdmin && _hasSubAgents) {
+                    uploadCheckDeals = uploadCheckDeals.filter(function(d) { return _notifAgentSet[d.source_agent_id]; });
                 }
-                // Group uploads by deal_id to consolidate notifications
-                var uploadsByDeal = {};
-                recentUploads.forEach(function(doc) {
-                    if (!doc.deal_id) return;
-                    var deal = uploadDealsMap[doc.deal_id];
-                    if (!deal) return;
-                    // For agents, only show notifications for their own deals
-                    if (!isAdmin && !_notifAgentSet[deal.source_agent_id]) return;
-                    // Skip docs uploaded by dashboard users (admin/agents) — only show applicant uploads
-                    var uploaderName = (doc.uploaded_by_name || '').toLowerCase();
-                    var isInternalUpload = uploaderName.includes('alliancefinancing') || uploaderName === (currentUserName || '').toLowerCase();
-                    if (isInternalUpload) return;
-                    if (!uploadsByDeal[doc.deal_id]) uploadsByDeal[doc.deal_id] = { deal: deal, docs: [], latestTime: null };
-                    uploadsByDeal[doc.deal_id].docs.push(doc);
-                    var docTime = new Date(doc.uploaded_at);
-                    if (!uploadsByDeal[doc.deal_id].latestTime || docTime > uploadsByDeal[doc.deal_id].latestTime) {
-                        uploadsByDeal[doc.deal_id].latestTime = docTime;
-                    }
-                });
-                // Create one notification per deal with uploads
-                Object.keys(uploadsByDeal).forEach(function(dId) {
-                    var info = uploadsByDeal[dId];
-                    var docCount = info.docs.length;
-                    var docTypes = [];
-                    info.docs.forEach(function(d) {
-                        var t = d.document_type || d.file_name || 'Document';
-                        if (docTypes.indexOf(t) === -1) docTypes.push(t);
-                    });
-                    var uploaderLabel = info.docs[0].uploaded_by_name || 'Applicant';
-                    notifications.push({
-                        type: 'deals',
-                        category: 'action',
-                        icon: '📎',
-                        iconBg: '#D1FAE5',
-                        iconColor: '#065F46',
-                        title: uploaderLabel + ' uploaded ' + docCount + ' document' + (docCount !== 1 ? 's' : '') + ' for ' + (info.deal.company_name || 'a deal'),
-                        detail: docTypes.slice(0, 3).join(', ') + (docTypes.length > 3 ? ' + more' : ''),
-                        time: info.latestTime,
-                        action: "viewDeal('" + dId + "')",
-                        actionLabel: 'View Deal',
-                        priority: 1
+                uploadCheckDeals.forEach(function(d) {
+                    var dNotes = [];
+                    try { dNotes = d.notes ? JSON.parse(d.notes) : []; } catch(e) {}
+                    dNotes.forEach(function(n) {
+                        // Look for system notes about document uploads
+                        var noteText = (n.text || '').toLowerCase();
+                        var isUploadNote = (n.author === 'System' || n.is_system) && noteText.includes('document') && noteText.includes('upload');
+                        // Also catch notes from the doc_upload type
+                        if (!isUploadNote && n.type === 'doc_upload') isUploadNote = true;
+                        if (!isUploadNote) return;
+                        var noteDate = n.date ? new Date(n.date) : null;
+                        if (!noteDate || noteDate.getTime() < sevenDaysAgoUpload) return;
+                        notifications.push({
+                            type: 'deals',
+                            category: 'action',
+                            icon: '📎',
+                            iconBg: '#D1FAE5',
+                            iconColor: '#065F46',
+                            title: 'Documents uploaded for ' + (d.company_name || 'a deal'),
+                            detail: n.text || 'Applicant uploaded documents via request link',
+                            time: noteDate,
+                            action: "viewDeal('" + d.id + "')",
+                            actionLabel: 'View Deal',
+                            priority: 1
+                        });
                     });
                 });
             }
@@ -39971,6 +39949,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         }
                     }
                 } catch(e) {}
+                // Reload dismissed notifications now that currentUserId is set (auto-login path)
+                try { _dismissedNotifications = JSON.parse(localStorage.getItem('dismissed_notifications_' + currentUserId) || '{}'); } catch(e) { _dismissedNotifications = {}; }
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('appContainer').style.display = 'flex';
                 document.getElementById('userEmailDisplay').textContent = email;
