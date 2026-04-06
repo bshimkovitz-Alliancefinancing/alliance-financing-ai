@@ -10155,6 +10155,69 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
         } catch(e) { console.warn('Notifications: deal notes for agent load error', e); }
 
+        // 12. Document uploads by applicants (from document request links)
+        try {
+            var sevenDaysAgoDocUpload = new Date(Date.now() - 7 * 86400000).toISOString();
+            // Query documents uploaded recently that are linked to deals (uploaded via doc request links)
+            var { data: recentUploads } = await db.from('documents').select('id, deal_id, file_name, document_type, uploaded_at, uploaded_by_name')
+                .gte('uploaded_at', sevenDaysAgoDocUpload)
+                .order('uploaded_at', { ascending: false })
+                .limit(100);
+            if (recentUploads && recentUploads.length > 0) {
+                // Get deal info for these uploads
+                var uploadDealIds = [];
+                recentUploads.forEach(function(doc) { if (doc.deal_id && uploadDealIds.indexOf(doc.deal_id) === -1) uploadDealIds.push(doc.deal_id); });
+                var uploadDealsMap = {};
+                if (uploadDealIds.length > 0) {
+                    var { data: uploadDeals } = await db.from('deals').select('id, company_name, source_agent_id').in('id', uploadDealIds);
+                    if (uploadDeals) uploadDeals.forEach(function(d) { uploadDealsMap[d.id] = d; });
+                }
+                // Group uploads by deal_id to consolidate notifications
+                var uploadsByDeal = {};
+                recentUploads.forEach(function(doc) {
+                    if (!doc.deal_id) return;
+                    var deal = uploadDealsMap[doc.deal_id];
+                    if (!deal) return;
+                    // For agents, only show notifications for their own deals
+                    if (!isAdmin && !_notifAgentSet[deal.source_agent_id]) return;
+                    // Skip docs uploaded by dashboard users (admin/agents) — only show applicant uploads
+                    var uploaderName = (doc.uploaded_by_name || '').toLowerCase();
+                    var isInternalUpload = uploaderName.includes('alliancefinancing') || uploaderName === (currentUserName || '').toLowerCase();
+                    if (isInternalUpload) return;
+                    if (!uploadsByDeal[doc.deal_id]) uploadsByDeal[doc.deal_id] = { deal: deal, docs: [], latestTime: null };
+                    uploadsByDeal[doc.deal_id].docs.push(doc);
+                    var docTime = new Date(doc.uploaded_at);
+                    if (!uploadsByDeal[doc.deal_id].latestTime || docTime > uploadsByDeal[doc.deal_id].latestTime) {
+                        uploadsByDeal[doc.deal_id].latestTime = docTime;
+                    }
+                });
+                // Create one notification per deal with uploads
+                Object.keys(uploadsByDeal).forEach(function(dId) {
+                    var info = uploadsByDeal[dId];
+                    var docCount = info.docs.length;
+                    var docTypes = [];
+                    info.docs.forEach(function(d) {
+                        var t = d.document_type || d.file_name || 'Document';
+                        if (docTypes.indexOf(t) === -1) docTypes.push(t);
+                    });
+                    var uploaderLabel = info.docs[0].uploaded_by_name || 'Applicant';
+                    notifications.push({
+                        type: 'deals',
+                        category: 'action',
+                        icon: '📎',
+                        iconBg: '#D1FAE5',
+                        iconColor: '#065F46',
+                        title: uploaderLabel + ' uploaded ' + docCount + ' document' + (docCount !== 1 ? 's' : '') + ' for ' + (info.deal.company_name || 'a deal'),
+                        detail: docTypes.slice(0, 3).join(', ') + (docTypes.length > 3 ? ' + more' : ''),
+                        time: info.latestTime,
+                        action: "viewDeal('" + dId + "')",
+                        actionLabel: 'View Deal',
+                        priority: 1
+                    });
+                });
+            }
+        } catch(e) { console.warn('Notifications: document upload load error', e); }
+
         // Sort: priority first, then newest first
         notifications.sort(function(a, b) {
             if (a.priority !== b.priority) return a.priority - b.priority;
