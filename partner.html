@@ -3,578 +3,2027 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alliance Financing Group — Partner Page</title>
+    <title>Alliance Financing Group - Partner Program</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --navy: #0D1E3D;
-            --navy-mid: #1A3160;
-            --gold: #C9A84C;
-            --gold-light: #E8D5A0;
-            --white: #FFFFFF;
-            --off-white: #F8FAFC;
-            --gray: #64748B;
-            --border: #E2E8F0;
-            --text: #1E293B;
-            --text-light: #475569;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'DM Sans', sans-serif; color: var(--text); background: var(--white); }
 
-        /* Loading state */
-        .loading-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--off-white); }
-        .loading-spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        html {
+            scroll-behavior: smooth;
+        }
 
-        /* Error state */
-        .error-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: var(--off-white); text-align: center; padding: 40px; }
-        .error-screen h1 { color: var(--navy); font-size: 24px; margin-bottom: 10px; }
-        .error-screen p { color: var(--gray); font-size: 16px; margin-bottom: 20px; }
-        .error-screen a { color: var(--gold); font-weight: 600; text-decoration: none; }
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            color: #374151;
+            background-color: #ffffff;
+        }
 
-        /* Navbar */
-        .navbar { background: var(--navy); padding: 14px 0; position: sticky; top: 0; z-index: 100; }
-        .navbar-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
-        .navbar-brand { color: var(--gold); font-size: 16px; font-weight: 700; letter-spacing: 1px; text-decoration: none; }
-        .navbar-link { color: var(--gold-light); font-size: 13px; text-decoration: none; font-weight: 500; }
-        .navbar-link:hover { color: var(--gold); }
+        /* Typography */
+        h1 {
+            font-size: 56px;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            color: #111827;
+        }
 
-        /* Hero */
-        .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%); padding: 60px 0 50px; position: relative; overflow: hidden; }
-        .hero::after { content: ''; position: absolute; top: -50%; right: -20%; width: 600px; height: 600px; border-radius: 50%; background: rgba(201,168,76,0.04); }
-        .hero-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
-        .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(201,168,76,0.12); padding: 6px 14px; border-radius: 20px; margin-bottom: 20px; }
-        .hero-badge-dot { width: 6px; height: 6px; background: var(--gold); border-radius: 50%; }
-        .hero-badge-text { color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
-        .hero h1 { color: var(--white); font-size: 36px; font-weight: 700; line-height: 1.2; margin-bottom: 8px; }
-        .hero h1 em { font-style: normal; color: var(--gold); }
-        .hero-subtitle { color: #94A3B8; font-size: 15px; line-height: 1.6; max-width: 600px; margin-bottom: 24px; }
-        .hero-agent-card { display: inline-flex; align-items: center; gap: 16px; background: rgba(255,255,255,0.06); border: 1px solid rgba(201,168,76,0.2); border-radius: 12px; padding: 16px 24px; }
-        .hero-agent-avatar { width: 50px; height: 50px; background: var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: var(--navy); }
-        .hero-agent-name { color: var(--white); font-size: 16px; font-weight: 700; }
-        .hero-agent-title { color: #94A3B8; font-size: 13px; margin-top: 2px; }
-        .hero-agent-company { color: var(--gold); font-size: 12px; font-weight: 600; margin-top: 2px; }
+        h2 {
+            font-size: 40px;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.01em;
+            color: #111827;
+        }
 
-        /* Stats bar */
-        .stats-bar { background: var(--gold); padding: 16px 0; }
-        .stats-bar-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-around; gap: 20px; }
-        .stat-item { text-align: center; }
-        .stat-num { font-size: 24px; font-weight: 700; color: var(--navy); }
-        .stat-label { font-size: 11px; font-weight: 600; color: var(--navy); opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
+        h3 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+        }
 
-        /* Products section */
-        .section { padding: 50px 0; }
-        .section-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
-        .section-label { font-size: 11px; font-weight: 700; color: var(--gold); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
-        .section-title { font-size: 28px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
-        .section-subtitle { color: var(--gray); font-size: 15px; line-height: 1.6; max-width: 600px; margin-bottom: 30px; }
+        p {
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1.7;
+            color: #374151;
+        }
 
-        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-        .product-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 24px; transition: all 0.2s; cursor: default; }
-        .product-card:hover { border-color: var(--gold); box-shadow: 0 4px 16px rgba(201,168,76,0.12); transform: translateY(-2px); }
-        .product-icon { font-size: 28px; margin-bottom: 12px; }
-        .product-name { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
-        .product-range { font-size: 13px; font-weight: 600; color: var(--gold); margin-bottom: 8px; }
-        .product-desc { font-size: 13px; color: var(--text-light); line-height: 1.5; }
+        /* Navigation */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background-color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            padding: 16px 0;
+        }
 
-        /* How it works */
-        .how-section { background: var(--off-white); }
-        .steps-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-        .step-card { text-align: center; padding: 30px 20px; }
-        .step-num { width: 40px; height: 40px; background: var(--navy); color: var(--gold); font-size: 18px; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
-        .step-title { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
-        .step-desc { font-size: 13px; color: var(--text-light); line-height: 1.5; }
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
 
-        /* CTA */
-        .cta-section { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%); padding: 50px 0; text-align: center; }
-        .cta-section h2 { color: var(--white); font-size: 28px; font-weight: 700; margin-bottom: 8px; }
-        .cta-section h2 em { font-style: normal; color: var(--gold); }
-        .cta-section p { color: #94A3B8; font-size: 15px; margin-bottom: 24px; }
-        .cta-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-        .cta-btn { display: inline-block; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; transition: all 0.2s; }
-        .cta-btn-gold { background: var(--gold); color: var(--navy); }
-        .cta-btn-gold:hover { background: #D4B55C; }
-        .cta-btn-outline { background: transparent; color: var(--gold); border: 2px solid var(--gold); }
-        .cta-btn-outline:hover { background: rgba(201,168,76,0.1); }
+        .nav-logo img {
+            height: 40px;
+            width: auto;
+        }
 
-        /* Contact */
-        .contact-bar { background: var(--off-white); border-top: 1px solid var(--border); padding: 20px 0; }
-        .contact-bar-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; align-items: center; }
-        .contact-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-light); }
-        .contact-item a { color: var(--navy); font-weight: 600; text-decoration: none; }
+        .nav-center {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .nav-center a {
+            font-size: 15px;
+            font-weight: 500;
+            color: #374151;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .nav-center a:hover,
+        .nav-center a.active {
+            color: #C9A84C;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .nav-phone {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        /* Login dropdown */
+        .login-wrapper {
+            position: relative;
+        }
+
+        .login-btn {
+            background: none;
+            border: 1.5px solid #D1D5DB;
+            color: #0A1628;
+            padding: 10px 22px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.3s ease, color 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .login-btn:hover {
+            border-color: #0A1628;
+        }
+
+        .login-btn svg {
+            width: 14px;
+            height: 14px;
+            transition: transform 0.3s ease;
+        }
+
+        .login-wrapper.open .login-btn svg {
+            transform: rotate(180deg);
+        }
+
+        .login-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            min-width: 200px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-4px);
+            transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+            overflow: hidden;
+            z-index: 1001;
+        }
+
+        .login-wrapper.open .login-dropdown {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .login-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            text-decoration: none;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .login-dropdown a:hover {
+            background-color: #F8F9FB;
+            color: #0A1628;
+        }
+
+        .login-dropdown a + a {
+            border-top: 1px solid #F3F4F6;
+        }
+
+        .login-dropdown .portal-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .login-dropdown .portal-icon.agent {
+            background-color: #EEF2FF;
+            color: #4F46E5;
+        }
+
+        .login-dropdown .portal-icon.client {
+            background-color: #FBF7ED;
+            color: #C9A84C;
+        }
+
+        .login-dropdown .portal-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .login-dropdown .portal-label {
+            font-weight: 600;
+            color: #0A1628;
+            font-size: 14px;
+        }
+
+        .login-dropdown .portal-desc {
+            font-size: 12px;
+            color: #6B7280;
+            font-weight: 400;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background-color: #C9A84C;
+            color: #111827;
+            box-shadow: 0 2px 8px rgba(201, 168, 76, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: #E8C968;
+            box-shadow: 0 4px 12px rgba(201, 168, 76, 0.3);
+            transform: scale(1.02);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: #ffffff;
+            border: 2px solid #ffffff;
+        }
+
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: scale(1.02);
+        }
+
+        .btn-white {
+            background-color: #ffffff;
+            color: #C9A84C;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-white:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: scale(1.02);
+        }
+
+        /* Sections */
+        section {
+            padding: 100px 20px;
+            max-width: 100%;
+        }
+
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .section-title h2 {
+            margin-bottom: 16px;
+        }
+
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 60px;
+            height: 3px;
+            background-color: #C9A84C;
+            margin: 16px auto 0;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, #0A1628 0%, #1a2a4a 100%);
+            padding: 120px 20px;
+            color: #ffffff;
+        }
+
+        .hero-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .hero-text h1 {
+            color: #ffffff;
+            margin-bottom: 20px;
+            opacity: 1;
+            animation: fadeInLeft 0.8s ease 0.2s forwards;
+        }
+
+        .hero-text p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 18px;
+            margin-bottom: 32px;
+            opacity: 1;
+            animation: fadeInLeft 0.8s ease 0.4s forwards;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            opacity: 1;
+            animation: fadeInLeft 0.8s ease 0.6s forwards;
+        }
+
+        .hero-image {
+            position: relative;
+            opacity: 1;
+            animation: fadeInRight 0.8s ease 0.3s forwards;
+        }
+
+        .hero-circle {
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin: 0 auto;
+        }
+
+        .hero-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .hero-decoration {
+            position: absolute;
+            border-radius: 50%;
+        }
+
+        .hero-decoration-1 {
+            width: 100px;
+            height: 100px;
+            background-color: #C9A84C;
+            top: -40px;
+            right: -40px;
+            opacity: 0.3;
+        }
+
+        .hero-decoration-2 {
+            width: 150px;
+            height: 150px;
+            background-color: rgba(201, 168, 76, 0.2);
+            bottom: -60px;
+            left: -60px;
+        }
+
+        .hero-decoration-3 {
+            width: 80px;
+            height: 80px;
+            border: 3px solid #C9A84C;
+            bottom: 40px;
+            right: -100px;
+            opacity: 0.4;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            background-color: #FBF7ED;
+            padding: 60px 20px;
+            text-align: center;
+            border-top: 1px solid rgba(201, 168, 76, 0.2);
+            border-bottom: 1px solid rgba(201, 168, 76, 0.2);
+        }
+
+        .stats-bar-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 48px;
+        }
+
+        .stat-bar-item {
+            text-align: center;
+        }
+
+        .stat-bar-number {
+            font-size: 40px;
+            font-weight: 800;
+            color: #C9A84C;
+            margin-bottom: 8px;
+        }
+
+        .stat-bar-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        /* Cards */
+        .card {
+            background-color: #ffffff;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 200px;
+            border-radius: 12px;
+            object-fit: cover;
+            margin-bottom: 24px;
+        }
+
+        .card h3 {
+            margin-bottom: 16px;
+        }
+
+        .card p {
+            font-size: 15px;
+            margin-bottom: 12px;
+            color: #6B7280;
+        }
+
+        .card ul {
+            list-style: none;
+            margin-bottom: 20px;
+            padding: 0;
+        }
+
+        .card li {
+            font-size: 15px;
+            color: #6B7280;
+            margin-bottom: 10px;
+            padding-left: 24px;
+            position: relative;
+        }
+
+        .card li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            background-color: #C9A84C;
+            border-radius: 50%;
+        }
+
+        .card-link {
+            color: #C9A84C;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 0.3s ease;
+            font-size: 15px;
+        }
+
+        .card-link:hover {
+            color: #E8C968;
+        }
+
+        /* Partner Programs Section */
+        .partner-programs {
+            background-color: #ffffff;
+        }
+
+        .cards-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+            margin-top: 60px;
+        }
+
+        /* Why Partner Section */
+        .why-partner {
+            background-color: #F7F8FA;
+        }
+
+        .why-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+            margin-top: 60px;
+        }
+
+        .why-image img {
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .why-text h3 {
+            margin-bottom: 40px;
+            font-size: 32px;
+        }
+
+        .value-point {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 28px;
+            align-items: flex-start;
+        }
+
+        .value-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-color: #C9A84C;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .value-icon svg {
+            width: 24px;
+            height: 24px;
+            stroke: #ffffff;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .value-text h4 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .value-text p {
+            font-size: 15px;
+            color: #6B7280;
+            margin: 0;
+        }
+
+        /* Commission Tiers */
+        .commission-tiers {
+            background-color: #ffffff;
+        }
+
+        .tiers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+            margin-top: 60px;
+            align-items: stretch;
+        }
+
+        .tier-card {
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .tier-card:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .tier-card.featured {
+            transform: scale(1.05);
+            box-shadow: 0 20px 40px rgba(201, 168, 76, 0.15);
+        }
+
+        .tier-header {
+            padding: 32px;
+            color: #ffffff;
+        }
+
+        .tier-header.silver {
+            background-color: #F7F8FA;
+            color: #111827;
+        }
+
+        .tier-header.gold {
+            background-color: #C9A84C;
+        }
+
+        .tier-header.platinum {
+            background: linear-gradient(135deg, #0A1628 0%, #1a2a4a 100%);
+        }
+
+        .tier-name {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .tier-requirement {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 16px;
+        }
+
+        .tier-commission {
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        .tier-content {
+            padding: 32px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tier-benefits {
+            list-style: none;
+            margin: 0 0 32px 0;
+            padding: 0;
+            flex: 1;
+        }
+
+        .tier-benefits li {
+            font-size: 15px;
+            color: #6B7280;
+            margin-bottom: 12px;
+            padding-left: 24px;
+            position: relative;
+        }
+
+        .tier-benefits li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            background-color: #C9A84C;
+            border-radius: 50%;
+        }
+
+        .tier-cta {
+            width: 100%;
+        }
+
+        /* How It Works */
+        .how-it-works {
+            background-color: #F7F8FA;
+        }
+
+        .timeline {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-top: 60px;
+            position: relative;
+        }
+
+        .timeline-item {
+            text-align: center;
+            position: relative;
+        }
+
+        .timeline-number {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #C9A84C 0%, #E8C968 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 auto 20px;
+        }
+
+        .timeline-item h4 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 12px;
+        }
+
+        .timeline-item p {
+            font-size: 15px;
+            color: #6B7280;
+        }
+
+        /* Technology Platform */
+        .technology {
+            background-color: #ffffff;
+        }
+
+        .tech-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+            margin-top: 60px;
+        }
+
+        .tech-text h3 {
+            font-size: 32px;
+            margin-bottom: 32px;
+        }
+
+        .tech-feature {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .tech-feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-color: #FBF7ED;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: #C9A84C;
+        }
+
+        .tech-feature-text h4 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .tech-feature-text p {
+            font-size: 14px;
+            color: #6B7280;
+            margin: 0;
+        }
+
+        .tech-image img {
+            width: 100%;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Testimonials */
+        .testimonials {
+            background-color: #FBF7ED;
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+            margin-top: 60px;
+        }
+
+        .testimonial-card {
+            background-color: #ffffff;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s ease;
+        }
+
+        .testimonial-card:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .testimonial-stars {
+            color: #C9A84C;
+            font-size: 18px;
+            margin-bottom: 16px;
+            letter-spacing: 2px;
+        }
+
+        .testimonial-quote {
+            font-size: 16px;
+            font-style: italic;
+            color: #374151;
+            margin-bottom: 20px;
+            line-height: 1.8;
+        }
+
+        .testimonial-author {
+            font-weight: 600;
+            color: #111827;
+            font-size: 15px;
+        }
+
+        .testimonial-company {
+            font-size: 14px;
+            color: #6B7280;
+            margin-top: 4px;
+        }
+
+        /* Application Form */
+        .application {
+            background: linear-gradient(135deg, #0A1628 0%, #1a2a4a 100%);
+            color: #ffffff;
+        }
+
+        .form-container {
+            max-width: 600px;
+            margin: 60px auto 0;
+        }
+
+        .form-title {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #ffffff;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input::placeholder,
+        .form-group select {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #C9A84C;
+            box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.1);
+        }
+
+        .form-group select option {
+            background-color: #0A1628;
+            color: #ffffff;
+        }
+
+        .form-submit {
+            width: 100%;
+            margin-top: 32px;
+        }
+
+        /* FAQ Accordion */
+        .faq {
+            background-color: #ffffff;
+        }
+
+        .faq-container {
+            max-width: 800px;
+            margin: 60px auto 0;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid #E5E7EB;
+            padding: 24px 0;
+            transition: all 0.3s ease;
+        }
+
+        .faq-item:last-child {
+            border-bottom: none;
+        }
+
+        .faq-question {
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: color 0.3s ease;
+        }
+
+        .faq-question:hover {
+            color: #C9A84C;
+        }
+
+        .faq-toggle {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: transform 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .faq-item.active .faq-toggle {
+            transform: rotate(180deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            color: #6B7280;
+            margin-top: 16px;
+            line-height: 1.7;
+        }
+
+        .faq-item.active .faq-answer {
+            max-height: 500px;
+        }
+
+        /* CTA Section */
+        .cta {
+            background: linear-gradient(135deg, #C9A84C 0%, #E8C968 100%);
+            color: #111827;
+            text-align: center;
+            padding: 100px 20px;
+        }
+
+        .cta h2 {
+            color: #111827;
+            margin-bottom: 32px;
+        }
 
         /* Footer */
-        .footer { background: var(--navy); padding: 20px 0; text-align: center; }
-        .footer p { color: #64748B; font-size: 12px; }
-        .footer a { color: var(--gold); text-decoration: none; }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 26px; }
-            .stats-bar-inner { flex-wrap: wrap; gap: 12px; }
-            .stat-item { flex: 1 1 40%; }
-            .steps-row { grid-template-columns: 1fr; }
-            .products-grid { grid-template-columns: 1fr; }
-            .hero-agent-card { flex-direction: column; text-align: center; }
+        footer {
+            background-color: #0A1628;
+            color: #ffffff;
+            padding: 60px 20px 32px;
         }
 
-        /* Contact form */
-        .contact-form-section { display: none; background: var(--off-white); padding: 50px 0; border-top: 3px solid var(--gold); }
-        .contact-form-card { max-width: 560px; margin: 0 auto; background: var(--white); border-radius: 12px; padding: 36px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
-        .contact-form-card h2 { font-size: 22px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
-        .contact-form-card .form-sub { color: var(--gray); font-size: 14px; margin-bottom: 24px; }
-        .form-group { margin-bottom: 16px; }
-        .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; color: var(--text); background: var(--white); transition: border-color 0.2s; }
-        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,0.12); }
-        .form-group textarea { resize: vertical; min-height: 80px; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .form-submit { width: 100%; padding: 14px; background: var(--gold); color: var(--navy); border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.2s; margin-top: 8px; }
-        .form-submit:hover { background: #D4B55C; }
-        .form-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-        .form-success { text-align: center; padding: 30px 0; }
-        .form-success h3 { color: var(--navy); font-size: 20px; margin-bottom: 6px; }
-        .form-success p { color: var(--gray); font-size: 14px; }
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 48px;
+        }
 
-        /* Hidden until loaded */
-        .page-content { display: none; }
+        .footer-section h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .footer-section a {
+            display: block;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            margin-bottom: 12px;
+            transition: color 0.3s ease;
+        }
+
+        .footer-section a:hover {
+            color: #C9A84C;
+        }
+
+        .footer-logo {
+            margin-bottom: 20px;
+        }
+
+        .footer-logo img {
+            height: 32px;
+            width: auto;
+        }
+
+        .footer-description {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.7;
+            margin-bottom: 20px;
+        }
+
+        .footer-socials {
+            display: flex;
+            gap: 16px;
+        }
+
+        .social-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 18px;
+        }
+
+        .social-icon:hover {
+            background-color: #C9A84C;
+            color: #0A1628;
+        }
+
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 32px;
+            text-align: center;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Animations */
+        @keyframes fadeInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 36px;
+            }
+
+            h2 {
+                font-size: 28px;
+            }
+
+            section {
+                padding: 60px 20px;
+            }
+
+            .nav-center {
+                gap: 20px;
+            }
+
+            .nav-center a {
+                font-size: 13px;
+            }
+
+            .nav-right {
+                gap: 12px;
+            }
+
+            .nav-phone {
+                display: none;
+            }
+
+            .hero-content {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .hero-circle {
+                width: 300px;
+                height: 300px;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+
+            .cards-grid-3 {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+
+            .why-content {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .tiers-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tier-card.featured {
+                transform: scale(1);
+            }
+
+            .timeline {
+                grid-template-columns: 1fr;
+            }
+
+            .tech-content {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .testimonials-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-bar-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 32px;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .why-text h3,
+            .tech-text h3 {
+                font-size: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 28px;
+            }
+
+            h2 {
+                font-size: 22px;
+            }
+
+            .nav-logo img {
+                height: 32px;
+            }
+
+            .nav-center {
+                gap: 12px;
+            }
+
+            .nav-center a {
+                font-size: 12px;
+            }
+
+            .section {
+                padding: 40px 16px;
+            }
+
+            .hero-circle {
+                width: 250px;
+                height: 250px;
+            }
+
+            .hero-text p {
+                font-size: 16px;
+            }
+
+            .card {
+                padding: 24px;
+            }
+
+            .stats-bar-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+
+            .stat-bar-number {
+                font-size: 32px;
+            }
+
+            .tier-card {
+                padding: 20px;
+            }
+
+            .form-container {
+                padding: 0 16px;
+            }
+
+            .faq-container {
+                padding: 0 16px;
+            }
+        }
     </style>
 </head>
 <body>
-
-<!-- Loading state -->
-<div id="loadingScreen" class="loading-screen">
-    <div class="loading-spinner"></div>
-</div>
-
-<!-- Error state -->
-<div id="errorScreen" class="error-screen" style="display:none;">
-    <h1>Partner Not Found</h1>
-    <p>This referral link is not valid or has expired.</p>
-    <a href="https://alliancefinancing.ai">Visit AllianceFinancing.ai →</a>
-</div>
-
-<!-- Main content -->
-<div id="pageContent" class="page-content">
-    <nav class="navbar">
-        <div class="navbar-inner">
-            <a href="https://alliancefinancing.ai" class="navbar-brand">Alliance Financing Group</a>
-            <a href="#contact" class="navbar-link" onclick="document.getElementById('contactFormSection').style.display='block';document.getElementById('contactFormSection').scrollIntoView({behavior:'smooth'});return false;">Contact Us</a>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <div class="nav-logo">
+                <img src="assets/logo-blue.png" alt="Alliance Financing Group">
+            </div>
+            <div class="nav-center">
+                <a href="index.html">Products</a>
+                <a href="index.html#why">Why Alliance</a>
+                <a href="partner.html" class="active">Partners</a>
+                <a href="index.html#footer">Resources</a>
+            </div>
+            <div class="nav-right">
+                <span class="nav-phone">1-877-660-3660</span>
+                <div class="login-wrapper" id="loginWrapper">
+                    <button class="login-btn" id="loginBtn">
+                        Login
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <div class="login-dropdown">
+                        <a href="#agent-portal">
+                            <div class="portal-icon agent">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z"/></svg>
+                            </div>
+                            <div>
+                                <div class="portal-label">Agent Portal</div>
+                                <div class="portal-desc">Partner & broker access</div>
+                            </div>
+                        </a>
+                        <a href="#client-portal">
+                            <div class="portal-icon client">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M1 6a3 3 0 013-3h12a3 3 0 013 3v8a3 3 0 01-3 3H4a3 3 0 01-3-3V6zm4 1.5a2 2 0 114 0 2 2 0 01-4 0zm2 3a4 4 0 00-3.665 2.395.75.75 0 00.416 1A8.98 8.98 0 007 14.5a8.98 8.98 0 003.249-.604.75.75 0 00.416-1.001A4.001 4.001 0 007 10.5zm6-1a.75.75 0 01.75-.75h2.5a.75.75 0 010 1.5h-2.5a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h2.5a.75.75 0 000-1.5h-2.5z" clip-rule="evenodd"/></svg>
+                            </div>
+                            <div>
+                                <div class="portal-label">Client Portal</div>
+                                <div class="portal-desc">Manage your financing</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+                <a href="#application" class="btn btn-primary">Apply Now</a>
+            </div>
         </div>
     </nav>
 
+    <!-- Hero Section -->
     <section class="hero">
-        <div class="hero-inner">
-            <h1>Business Financing Made <em>Simple</em></h1>
-            <p class="hero-subtitle" id="heroSubtitle">Access working capital, equipment financing, and more through Alliance's network of 70+ lenders. Your dedicated partner is here to help.</p>
-            <div class="hero-agent-card">
-                <div class="hero-agent-avatar" id="agentAvatar"></div>
-                <div>
-                    <div class="hero-agent-name" id="agentName"></div>
-                    <div class="hero-agent-title" id="agentTitle"></div>
-                    <div class="hero-agent-company" id="agentCompany"></div>
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1>Grow Your Business With Alliance</h1>
+                <p>Partner with Alliance to offer competitive financing solutions to your customers. Earn passive referral income starting at 1-2% of every funded deal, with zero cost to start.</p>
+                <div class="hero-buttons">
+                    <a href="#application" class="btn btn-primary">Apply Now</a>
+                    <a href="#programs" class="btn btn-secondary">Learn More</a>
                 </div>
+            </div>
+            <div class="hero-image">
+                <div class="hero-circle">
+                    <img src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800&q=80&auto=format" alt="Partnership opportunity">
+                    <div class="hero-decoration hero-decoration-1"></div>
+                    <div class="hero-decoration hero-decoration-2"></div>
+                </div>
+                <div class="hero-decoration hero-decoration-3"></div>
             </div>
         </div>
     </section>
 
+    <!-- Partner Stats Bar -->
     <div class="stats-bar">
-        <div class="stats-bar-inner">
-            <div class="stat-item"><div class="stat-num">70+</div><div class="stat-label">Lender Partners</div></div>
-            <div class="stat-item"><div class="stat-num">85%+</div><div class="stat-label">Approval Rate</div></div>
-            <div class="stat-item"><div class="stat-num">Fast</div><div class="stat-label">Funding Decisions</div></div>
-            <div class="stat-item"><div class="stat-num">35+</div><div class="stat-label">Years Experience</div></div>
+        <div class="stats-bar-grid">
+            <div class="stat-bar-item">
+                <div class="stat-bar-number">70+</div>
+                <div class="stat-bar-label">Lender Partners</div>
+            </div>
+            <div class="stat-bar-item">
+                <div class="stat-bar-number">$1B+</div>
+                <div class="stat-bar-label">Funded to Date</div>
+            </div>
+            <div class="stat-bar-item">
+                <div class="stat-bar-number">85%</div>
+                <div class="stat-bar-label">Approval Rate</div>
+            </div>
+            <div class="stat-bar-item">
+                <div class="stat-bar-number"><48h</div>
+                <div class="stat-bar-label">Response Time</div>
+            </div>
         </div>
     </div>
 
-    <section class="section">
-        <div class="section-inner">
-            <div class="section-label">Financing Solutions</div>
-            <h2 class="section-title">Products Available Through Alliance</h2>
-            <p class="section-subtitle">Our AI-powered platform matches your business with the best lender from our 70+ partner network.</p>
-            <div class="products-grid" id="productsGrid">
-                <!-- Populated dynamically -->
+    <!-- Partner Programs -->
+    <section class="partner-programs" id="programs">
+        <div class="section-container">
+            <div class="section-title">
+                <h2>Four Partnership Channels to Fit Your Business</h2>
             </div>
-        </div>
-    </section>
-
-    <section class="section how-section">
-        <div class="section-inner">
-            <div class="section-label">How It Works</div>
-            <h2 class="section-title">Three Simple Steps</h2>
-            <p class="section-subtitle">From application to funding — we handle the heavy lifting.</p>
-            <div class="steps-row">
-                <div class="step-card">
-                    <div class="step-num">1</div>
-                    <div class="step-title">Apply Online</div>
-                    <div class="step-desc">Complete a quick application in under 5 minutes. No fees, no obligation, no impact to your credit score.</div>
+            <div class="cards-grid-3">
+                <div class="card">
+                    <img src="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=600&q=80&auto=format" alt="Direct Applications" class="card-image">
+                    <h3>Direct Applications</h3>
+                    <p style="margin-bottom: 16px; color: #6B7280;">SEO-optimized website with AI-powered credit application forms.</p>
+                    <ul>
+                        <li>Equipment leasing</li>
+                        <li>Merchant Cash Advance (MCA)</li>
+                        <li>Working capital financing</li>
+                        <li>Commercial mortgages</li>
+                    </ul>
+                    <a href="#application" class="card-link">Learn More →</a>
                 </div>
-                <div class="step-card">
-                    <div class="step-num">2</div>
-                    <div class="step-title">Get Matched</div>
-                    <div class="step-desc">Our AI scans 70+ lenders to find the best terms for your business. We work quickly to get you funded.</div>
+                <div class="card">
+                    <img src="https://images.unsplash.com/photo-1553877522-43269d4ea984?w=600&q=80&auto=format" alt="Referral Partners" class="card-image">
+                    <h3>Referral Partners</h3>
+                    <p style="margin-bottom: 16px; color: #6B7280;">Mortgage brokers, insurance agents, accountants, and financial advisors refer clients.</p>
+                    <ul>
+                        <li>Commission tracking</li>
+                        <li>Easy referral submission</li>
+                        <li>Monthly commission payouts</li>
+                        <li>Dedicated advisor support</li>
+                    </ul>
+                    <a href="#application" class="card-link">Learn More →</a>
                 </div>
-                <div class="step-card">
-                    <div class="step-num">3</div>
-                    <div class="step-title">Get Funded</div>
-                    <div class="step-desc">Once approved, funds are deposited directly to your business account. Flexible repayment terms available.</div>
+                <div class="card">
+                    <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&q=80&auto=format" alt="ISO / Agent Network" class="card-image">
+                    <h3>ISO / Agent Network</h3>
+                    <p style="margin-bottom: 16px; color: #6B7280;">Independent sales organizations source deals nationally with full CRM support.</p>
+                    <ul>
+                        <li>Pipeline management</li>
+                        <li>Sales overrides</li>
+                        <li>Nationwide reach</li>
+                        <li>Commission structure by tier</li>
+                    </ul>
+                    <a href="#application" class="card-link">Learn More →</a>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="cta-section">
-        <div class="section-inner">
-            <h2>Ready to <em>Get Started</em>?</h2>
-            <p>Choose the financing product that fits your business needs.</p>
-            <div class="cta-buttons" id="ctaButtons">
-                <!-- Populated dynamically -->
-            </div>
-        </div>
-    </section>
-
-    <div class="contact-bar" id="contactBar" style="display:none;">
-        <div class="contact-bar-inner" id="contactBarInner">
-            <!-- Populated dynamically -->
-        </div>
-    </div>
-
-    <section class="contact-form-section" id="contactFormSection">
-        <div class="section-inner">
-            <div class="contact-form-card">
-                <div id="contactFormContent">
-                    <h2>Get In Touch</h2>
-                    <p class="form-sub">Have a question or ready to explore your options? Fill out the form below and <span id="contactAgentName">your partner</span> will get back to you.</p>
-                    <form id="partnerContactForm" onsubmit="submitContactForm(event)">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>First Name *</label>
-                                <input type="text" id="contactFirstName" required placeholder="John">
-                            </div>
-                            <div class="form-group">
-                                <label>Last Name *</label>
-                                <input type="text" id="contactLastName" required placeholder="Smith">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Email *</label>
-                                <input type="email" id="contactEmail" required placeholder="john@company.com">
-                            </div>
-                            <div class="form-group">
-                                <label>Phone</label>
-                                <input type="tel" id="contactPhone" placeholder="(416) 555-1234">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Business Name</label>
-                            <input type="text" id="contactBusiness" placeholder="Your company name">
-                        </div>
-                        <div class="form-group">
-                            <label>What are you interested in?</label>
-                            <select id="contactInterest">
-                                <option value="">Select an option...</option>
-                                <option value="Working Capital">Working Capital</option>
-                                <option value="Equipment Financing">Equipment Financing</option>
-                                <option value="Merchant Cash Advance">Merchant Cash Advance</option>
-                                <option value="Tax Credit Financing">Tax Credit Financing</option>
-                                <option value="Business Acquisition">Business Acquisition</option>
-                                <option value="Bridge Financing">Bridge Financing</option>
-                                <option value="Construction Financing">Construction Financing</option>
-                                <option value="Other">Other / Not Sure</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Message</label>
-                            <textarea id="contactMessage" placeholder="Tell us a bit about what you're looking for..."></textarea>
-                        </div>
-                        <button type="submit" class="form-submit" id="contactSubmitBtn">Send Message</button>
-                    </form>
-                </div>
-                <div id="contactFormSuccess" class="form-success" style="display:none;">
-                    <div style="font-size:48px;margin-bottom:12px;">✓</div>
-                    <h3>Message Sent!</h3>
-                    <p id="contactSuccessMsg">Thank you for reaching out. Your partner will be in touch shortly.</p>
+                <div class="card">
+                    <img src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=600&q=80&auto=format" alt="Vendor Programs" class="card-image">
+                    <h3>Vendor Programs</h3>
+                    <p style="margin-bottom: 16px; color: #6B7280;">Equipment dealers and service providers offer Alliance financing at point of sale.</p>
+                    <ul>
+                        <li>Co-branded customer portal</li>
+                        <li>Embedded financing checkout</li>
+                        <li>White-label options</li>
+                        <li>Marketing support</li>
+                    </ul>
+                    <a href="#application" class="card-link">Learn More →</a>
                 </div>
             </div>
         </div>
     </section>
 
-    <footer class="footer">
-        <p>&copy; 2025 Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai">alliancefinancing.ai</a> | <a href="https://alliancefinancing.ai/privacy-policy.html">Privacy</a></p>
+    <!-- Why Partner With Us -->
+    <section class="why-partner">
+        <div class="section-container">
+            <div class="section-title">
+                <h2>Key Partner Benefits</h2>
+            </div>
+            <div class="why-content">
+                <div class="why-text">
+                    <h3>Built for mutual success</h3>
+                    <div class="value-point">
+                        <div class="value-icon">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="value-text">
+                            <h4>Zero Cost to Start</h4>
+                            <p>No platform fees, no setup costs, no minimum volume requirements. Begin earning immediately with no financial commitment.</p>
+                        </div>
+                    </div>
+                    <div class="value-point">
+                        <div class="value-icon">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="value-text">
+                            <h4>Passive Income Stream</h4>
+                            <p>Refer once and Alliance handles everything from application to funding. Get paid monthly on every approved and funded deal.</p>
+                        </div>
+                    </div>
+                    <div class="value-point">
+                        <div class="value-icon">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="value-text">
+                            <h4>Revenue Grows Over Time</h4>
+                            <p>As referral volume increases, so does your revenue share. Higher tiers unlock better terms and dedicated support.</p>
+                        </div>
+                    </div>
+                    <div class="value-point">
+                        <div class="value-icon">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="value-text">
+                            <h4>Branded or Non-Branded</h4>
+                            <p>Choose a white-label portal on your domain or simple referral model. Control how you present financing to your clients.</p>
+                        </div>
+                    </div>
+                    <div class="value-point">
+                        <div class="value-icon">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="value-text">
+                            <h4>Real-Time Deal Tracking</h4>
+                            <p>Live pipeline view, commission tracking, and application status. Everything transparent in one partner dashboard.</p>
+                        </div>
+                    </div>
+                    <div class="value-point">
+                        <div class="value-icon">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="value-text">
+                            <h4>Dedicated Support</h4>
+                            <p>Your own Alliance advisor handles all referred client calls and questions. White-glove partner support included.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="why-image">
+                    <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80&auto=format" alt="Partner collaboration">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Commission Tiers -->
+    <section class="commission-tiers">
+        <div class="section-container">
+            <div class="section-title">
+                <h2>Revenue Model</h2>
+            </div>
+            <div class="tiers-grid">
+                <div class="tier-card">
+                    <div class="tier-header silver">
+                        <div class="tier-name">Conservative</div>
+                        <div class="tier-requirement">3 referrals/month @ $75K avg</div>
+                        <div class="tier-commission">$18-36K/year</div>
+                    </div>
+                    <div class="tier-content">
+                        <ul class="tier-benefits">
+                            <li>1-2% referral fee on funded deal value</li>
+                            <li>3 deals per month</li>
+                            <li>Average deal size: $75,000</li>
+                            <li>Annual revenue: $18,000–$36,000</li>
+                        </ul>
+                        <a href="#application" class="btn btn-primary tier-cta">Get Started</a>
+                    </div>
+                </div>
+
+                <div class="tier-card featured">
+                    <div class="tier-header gold">
+                        <div class="tier-name">Moderate</div>
+                        <div class="tier-requirement">6 referrals/month @ $100K avg</div>
+                        <div class="tier-commission">$48-96K/year</div>
+                    </div>
+                    <div class="tier-content">
+                        <ul class="tier-benefits">
+                            <li>1-2% referral fee on funded deal value</li>
+                            <li>6 deals per month</li>
+                            <li>Average deal size: $100,000</li>
+                            <li>Annual revenue: $48,000–$96,000</li>
+                        </ul>
+                        <a href="#application" class="btn btn-primary tier-cta">Get Started</a>
+                    </div>
+                </div>
+
+                <div class="tier-card">
+                    <div class="tier-header platinum">
+                        <div class="tier-name">Strong</div>
+                        <div class="tier-requirement">10 referrals/month @ $150K avg</div>
+                        <div class="tier-commission">$120-240K/year</div>
+                    </div>
+                    <div class="tier-content">
+                        <ul class="tier-benefits">
+                            <li>1-2% referral fee on funded deal value</li>
+                            <li>10 deals per month</li>
+                            <li>Average deal size: $150,000</li>
+                            <li>Annual revenue: $120,000–$240,000</li>
+                        </ul>
+                        <a href="#application" class="btn btn-primary tier-cta">Get Started</a>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 60px; padding: 32px; background-color: #FBF7ED; border-radius: 16px;">
+                <h3 style="margin-bottom: 16px; color: #111827;">Example Deal Scenario</h3>
+                <p style="font-size: 18px; color: #374151; margin-bottom: 8px;"><strong>A $500,000 equipment financing deal generates:</strong></p>
+                <p style="font-size: 20px; font-weight: 700; color: #C9A84C;">$8,000–$15,000 in referral income</p>
+                <p style="font-size: 14px; color: #6B7280; margin-top: 16px;">Based on 1-2% commission structure on funded deal value</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Lender Matching -->
+    <section class="how-it-works">
+        <div class="section-container">
+            <div class="section-title">
+                <h2>AI Lender Matching Process</h2>
+            </div>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-number">1</div>
+                    <h4>Submit Deal</h4>
+                    <p>Enter client details and financing needs into the partner portal. Takes just minutes to complete.</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-number">2</div>
+                    <h4>AI Analyzes</h4>
+                    <p>Our AI scores the deal against 70+ lender criteria instantly and surfaces optimal matches.</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-number">3</div>
+                    <h4>Top Matches</h4>
+                    <p>View ranked lender matches with approval likelihood and transparent terms for each option.</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-number">4</div>
+                    <h4>Get Funded</h4>
+                    <p>Alliance negotiates terms and handles all lender communication through to funding completion.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Partner Portal Platform -->
+    <section class="technology">
+        <div class="section-container">
+            <div class="section-title">
+                <h2>Partner Portal Features</h2>
+            </div>
+            <div class="tech-content">
+                <div class="tech-text">
+                    <h3>Everything you need to manage partnerships</h3>
+                    <div class="tech-feature">
+                        <div class="tech-feature-icon">1</div>
+                        <div class="tech-feature-text">
+                            <h4>Live Deal Pipeline</h4>
+                            <p>See every referral's status in real time from submission through funding. No more email chains.</p>
+                        </div>
+                    </div>
+                    <div class="tech-feature">
+                        <div class="tech-feature-icon">2</div>
+                        <div class="tech-feature-text">
+                            <h4>Commission Tracking</h4>
+                            <p>Transparent fee visibility on every funded deal. Monthly commission statements and payment history.</p>
+                        </div>
+                    </div>
+                    <div class="tech-feature">
+                        <div class="tech-feature-icon">3</div>
+                        <div class="tech-feature-text">
+                            <h4>Client Application Tracker</h4>
+                            <p>Your clients track their own application status online. Reduces support burden on your team.</p>
+                        </div>
+                    </div>
+                    <div class="tech-feature">
+                        <div class="tech-feature-icon">4</div>
+                        <div class="tech-feature-text">
+                            <h4>Secure Document Sharing</h4>
+                            <p>Encrypted portal for sharing sensitive documents. No more insecure email attachments.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-image">
+                    <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80&auto=format" alt="Partner dashboard">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Partnership Paths -->
+    <section class="why-partner">
+        <div class="section-container">
+            <div class="section-title">
+                <h2>Two Partnership Paths</h2>
+            </div>
+            <div class="why-content">
+                <div class="why-text">
+                    <h3>Choose the path that fits your business</h3>
+                    <div class="value-point">
+                        <div class="value-icon">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="value-text">
+                            <h4>Branded Program</h4>
+                            <p>Custom-branded application portal on your domain. Financing introduced as your service to clients. White-label lender network. Clients see you as their capital partner. Higher revenue per deal.</p>
+                        </div>
+                    </div>
+                    <div class="value-point">
+                        <div class="value-icon">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="value-text">
+                            <h4>Non-Branded Referral</h4>
+                            <p>Simple model: introduce the client and Alliance does the rest. No technology burden. Alliance handles all application, approval, and underwriting. Ideal for fast launch with minimal setup.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="why-image">
+                    <img src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&q=80&auto=format" alt="Partnership paths">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Partner Testimonials -->
+    <section class="testimonials">
+        <div class="section-container">
+            <div class="section-title">
+                <h2>What Our Partners Say</h2>
+            </div>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="testimonial-quote">"Alliance's partner program has been a game-changer. The competitive commissions and dedicated support team have helped us grow revenue significantly without any upfront investment."</p>
+                    <div class="testimonial-author">David Martinez</div>
+                    <div class="testimonial-company">Founder, Equipment Solutions Co.</div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="testimonial-quote">"As an ISO, we needed a financing partner we could trust. Alliance delivers fast approvals, real-time tracking, and exceptional support. Our clients and our bottom line love them."</p>
+                    <div class="testimonial-author">Jennifer Lee</div>
+                    <div class="testimonial-company">VP Sales, Payment Solutions Inc.</div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="testimonial-quote">"The partner portal makes managing our referrals incredibly easy. Real-time tracking, automated updates, and straightforward monthly commissions have made this a seamless integration into our business."</p>
+                    <div class="testimonial-author">Robert Chen</div>
+                    <div class="testimonial-company">Senior Partner Manager, Business Growth Co.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Application Form -->
+    <section class="application" id="application">
+        <div class="form-container">
+            <div class="form-title">
+                <h2>Apply to Partner With Alliance</h2>
+                <p style="font-size: 16px; color: rgba(255, 255, 255, 0.8); margin-top: 16px;">Start earning passive referral income today. Complete this form and our team will review your application within 24 hours.</p>
+            </div>
+            <form class="partner-form">
+                <div class="form-group">
+                    <label for="fullname">Full Name</label>
+                    <input type="text" id="fullname" name="fullname" placeholder="Enter your full name" required>
+                </div>
+                <div class="form-group">
+                    <label for="company">Company Name</label>
+                    <input type="text" id="company" name="company" placeholder="Enter your company name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" placeholder="Enter your phone number" required>
+                </div>
+                <div class="form-group">
+                    <label for="program">Partnership Channel Interest</label>
+                    <select id="program" name="program" required>
+                        <option value="">Select a program</option>
+                        <option value="direct">Direct Applications</option>
+                        <option value="referral">Referral Partners</option>
+                        <option value="iso">ISO / Agent Network</option>
+                        <option value="vendor">Vendor Programs</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="volume">Estimated Monthly Deal Volume</label>
+                    <select id="volume" name="volume" required>
+                        <option value="">Select your volume tier</option>
+                        <option value="0-3">0-3 deals/month (Conservative)</option>
+                        <option value="3-6">3-6 deals/month (Moderate)</option>
+                        <option value="6-10">6-10+ deals/month (Strong)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-white form-submit">Submit Application</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- FAQ Accordion -->
+    <section class="faq">
+        <div class="section-container">
+            <div class="section-title">
+                <h2>Frequently Asked Questions</h2>
+            </div>
+            <div class="faq-container">
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>What is the commission structure?</span>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        Alliance pays 1-2% referral fees on the funded deal value. For example, a $500,000 equipment financing deal generates $8,000–$15,000 in referral income. Commissions are calculated monthly and paid by the first business day of each month for deals approved and funded in the previous month.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>What are the four partnership channels?</span>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        Direct Applications (SEO-optimized website with AI-powered credit applications), Referral Partners (mortgage brokers, insurance agents, accountants, financial advisors), ISO / Agent Network (independent sales organizations with CRM and pipeline management), and Vendor Programs (equipment dealers and service providers offering financing at point of sale with white-label options).
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>Is there a cost to start?</span>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        No. Zero cost to start — no platform fees, no setup costs, no minimum volume requirements. You can refer as few as one deal and still earn commissions. Begin earning immediately with no financial commitment.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>How fast are deals processed?</span>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        Most deals receive responses within 48 hours. Standard approval is 24-48 hours, and approved deals fund within 1-2 business days. All processing and lender negotiation is handled by Alliance — you just refer and collect commissions.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>Can I use a white-label / branded portal?</span>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        Yes. Choose between Branded Programs (custom portal on your domain with white-label lender network) or Non-Branded Referral (simple model where Alliance handles everything). Branded programs offer higher revenue per deal but require more setup. Non-Branded is ideal for fast launch.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>What financing products do you offer?</span>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        Equipment leasing, working capital financing, merchant cash advances (MCA), commercial mortgages, and more across 70+ lender relationships. AI-powered matching finds the best product and lender for every deal automatically.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>How do I track commissions?</span>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        All partners get access to a real-time portal showing live deal pipeline, commission tracking on every funded deal, and detailed monthly commission statements. Transparent fee visibility and deal status updates are included.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>Do I get dedicated support?</span>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        Yes. Each partner is assigned a dedicated Alliance advisor who handles all referred client calls and questions. White-glove support is included — we want you and your clients to succeed.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="section-container">
+            <h2>Ready to Grow Your Revenue?</h2>
+            <p style="font-size: 18px; color: #111827; margin-bottom: 32px; opacity: 0.9;">Join Alliance's partner network and start earning passive referral income. Zero cost to start, 1-2% commission per funded deal.</p>
+            <a href="#application" class="btn btn-white">Apply Now</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <div class="footer-logo">
+                    <img src="assets/logo-white.png" alt="Alliance Financing Group">
+                </div>
+                <p class="footer-description">Alliance Financing Group Ltd. provides technology-driven commercial financing solutions. Partner with us to offer competitive financing to your customers and earn recurring revenue.</p>
+                <div class="footer-socials">
+                    <a href="#" class="social-icon">f</a>
+                    <a href="#" class="social-icon">in</a>
+                    <a href="#" class="social-icon">tw</a>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h4>Company</h4>
+                <a href="#">About Us</a>
+                <a href="#">News</a>
+                <a href="#">Careers</a>
+                <a href="#">Contact</a>
+            </div>
+            <div class="footer-section">
+                <h4>Partners</h4>
+                <a href="#">Direct Applications</a>
+                <a href="#">Referral Partners</a>
+                <a href="#">ISO / Agent Network</a>
+                <a href="#">Vendor Programs</a>
+            </div>
+            <div class="footer-section">
+                <h4>Resources</h4>
+                <a href="#">Blog</a>
+                <a href="#">Partner Portal</a>
+                <a href="#">FAQ</a>
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Alliance Financing Group Ltd. All rights reserved. Website: alliancefinancing.ai | Phone: 1-877-660-3660</p>
+        </div>
     </footer>
-</div>
 
-<script>
-    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
-    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script>
+        gsap.registerPlugin(ScrollTrigger);
 
-    // All available products with metadata
-    const ALL_PRODUCTS = [
-        { key: 'working-capital', name: 'Working Capital & Factoring', icon: '📊', range: '$10K – $2M', desc: 'Flexible working capital solutions including lines of credit, invoice factoring, and revenue-based financing to keep your business running.', applyPage: 'apply-working-capital.html' },
-        { key: 'equipment-financing', name: 'Equipment Financing', icon: '🏗️', range: '$25K – $5M', desc: 'Finance new or used equipment with competitive rates. From construction machinery to technology — we cover it all.', applyPage: 'apply-leasing.html' },
-        { key: 'merchant-advance', name: 'Merchant Cash Advance', icon: '💰', range: '$10K – $2M', desc: 'Revenue-based funding with flexible repayment. Get capital based on your monthly sales — no collateral required.', applyPage: 'apply-merchant-advance.html' },
-        { key: 'tax-credit', name: 'Canadian Tax Credit Financing', icon: '🇨🇦', range: 'Up to 75% advance', desc: 'Get early access to your SR&ED, IRAP, and other government tax credits. Don\'t wait 12-18 months for your refund.', applyPage: 'apply-working-capital.html' },
-        { key: 'business-acquisition', name: 'Business Acquisition Loans', icon: '🏢', range: '$250K – $10M+', desc: 'Financing for buying an existing business. Leverage the target\'s cash flow and assets to fund your acquisition.', applyPage: 'apply-working-capital.html' },
-        { key: 'bridge-financing', name: 'Bridge Financing', icon: '🌉', range: '$100K – $5M', desc: 'Short-term funding to bridge gaps between transactions. Fast closings for time-sensitive opportunities.', applyPage: 'apply-working-capital.html' },
-        { key: 'construction', name: 'Construction Financing', icon: '🔨', range: '$500K – $20M+', desc: 'Project-based financing for builders and developers. Progress draws, completion financing, and more.', applyPage: 'apply-working-capital.html' },
-        { key: 'franchise', name: 'Franchise Financing', icon: '🏪', range: '$50K – $5M', desc: 'Specialized funding for franchise purchases, build-outs, and expansions. We know the franchise lending landscape.', applyPage: 'apply-working-capital.html' }
-    ];
+        // Login dropdown toggle
+        const loginBtn = document.getElementById('loginBtn');
+        const loginWrapper = document.getElementById('loginWrapper');
 
-    // Default products if agent has no specific config
-    const DEFAULT_PRODUCTS = ['working-capital', 'equipment-financing', 'merchant-advance', 'tax-credit', 'business-acquisition', 'bridge-financing'];
+        loginBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            loginWrapper.classList.toggle('open');
+        });
 
-    async function loadPartnerPage() {
-        try {
-            // Get slug from URL: /partner.html?ref=slug OR /ref/slug
-            const params = new URLSearchParams(window.location.search);
-            let slug = params.get('ref') || params.get('slug') || '';
-
-            // Also check path-based routing: /ref/slug-name
-            if (!slug) {
-                const path = window.location.pathname;
-                const refMatch = path.match(/\/ref\/([^\/]+)/);
-                if (refMatch) slug = refMatch[1];
+        document.addEventListener('click', (e) => {
+            if (!loginWrapper.contains(e.target)) {
+                loginWrapper.classList.remove('open');
             }
+        });
 
-            if (!slug) {
-                showError();
-                return;
+        // Card animations with fade-up
+        gsap.utils.toArray('.card').forEach((card) => {
+            gsap.fromTo(
+                card,
+                { opacity: 0, y: 20 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.8,
+                    ease: 'power2.out',
+                    scrollTrigger: {
+                        trigger: card,
+                        start: 'top 80%',
+                        once: true
+                    }
+                }
+            );
+        });
+
+        // Tier card animations with stagger
+        gsap.fromTo(
+            '.tier-card',
+            { opacity: 0, y: 20 },
+            {
+                opacity: 1,
+                y: 0,
+                duration: 0.8,
+                ease: 'power2.out',
+                stagger: 0.1,
+                scrollTrigger: {
+                    trigger: '.tiers-grid',
+                    start: 'top 80%',
+                    once: true
+                }
             }
+        );
 
-            // Fetch agent by referral slug
-            const { data: agent, error } = await db
-                .from('users')
-                .select('id, full_name, email, phone, company_name, agent_type, business_type, referral_slug, program_details, landing_page_products')
-                .eq('referral_slug', slug)
-                .eq('role', 'agent')
-                .maybeSingle();
-
-            if (error || !agent) {
-                showError();
-                return;
+        // Timeline item animations with stagger
+        gsap.fromTo(
+            '.timeline-item',
+            { opacity: 0, y: 20 },
+            {
+                opacity: 1,
+                y: 0,
+                duration: 0.8,
+                ease: 'power2.out',
+                stagger: 0.1,
+                scrollTrigger: {
+                    trigger: '.timeline',
+                    start: 'top 80%',
+                    once: true
+                }
             }
+        );
 
-            // Populate agent info
-            const initials = (agent.full_name || 'A').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-            document.getElementById('agentAvatar').textContent = initials;
-            document.getElementById('agentName').textContent = agent.full_name || 'Alliance Partner';
-
-            // Build title from business_type or agent_type
-            let title = agent.business_type || '';
-            if (!title && agent.program_details && agent.program_details.license_type) {
-                title = agent.program_details.license_type;
+        // Testimonial animations
+        gsap.fromTo(
+            '.testimonial-card',
+            { opacity: 0, y: 20 },
+            {
+                opacity: 1,
+                y: 0,
+                duration: 0.8,
+                ease: 'power2.out',
+                stagger: 0.1,
+                scrollTrigger: {
+                    trigger: '.testimonials-grid',
+                    start: 'top 80%',
+                    once: true
+                }
             }
-            if (!title) {
-                const typeLabels = { 'super_agent': 'ISO Partner', 'referring_agent': 'Referral Partner', 'vendor_program': 'Vendor Partner', 'syndication_desk': 'Syndication Partner' };
-                title = typeLabels[agent.agent_type] || 'Referral Partner';
-            }
-            document.getElementById('agentTitle').textContent = title;
+        );
 
-            if (agent.company_name) {
-                document.getElementById('agentCompany').textContent = agent.company_name;
-            }
+        // FAQ accordion functionality
+        const faqItems = document.querySelectorAll('.faq-item');
+        faqItems.forEach((item) => {
+            const question = item.querySelector('.faq-question');
+            question.addEventListener('click', () => {
+                // Close other items
+                faqItems.forEach((otherItem) => {
+                    if (otherItem !== item && otherItem.classList.contains('active')) {
+                        otherItem.classList.remove('active');
+                    }
+                });
+                // Toggle current item
+                item.classList.toggle('active');
+            });
+        });
 
-            // Set page title
-            document.title = agent.full_name + ' — Alliance Financing Group Partner';
+        // Form submission handler
+        const form = document.querySelector('.partner-form');
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                alert('Thank you for your application! Our team will review it and contact you within 24 hours.');
+                form.reset();
+            });
+        }
 
-            // Detect vendor agent type — show equipment-focused layout
-            const isVendor = ['vendor_program', 'vendor_salesperson'].includes(agent.agent_type);
-            if (isVendor) {
-                renderVendorLayout(agent, slug);
-                return;
-            }
-
-            // Determine which products to show
-            let productKeys = agent.landing_page_products || DEFAULT_PRODUCTS;
-            if (typeof productKeys === 'string') {
-                try { productKeys = JSON.parse(productKeys); } catch(e) { productKeys = DEFAULT_PRODUCTS; }
-            }
-            const products = productKeys.map(k => ALL_PRODUCTS.find(p => p.key === k)).filter(Boolean);
-
-            // Render products
-            const grid = document.getElementById('productsGrid');
-            grid.innerHTML = products.map(function(p) {
-                return '<div class="product-card">' +
-                    '<div class="product-icon">' + p.icon + '</div>' +
-                    '<div class="product-name">' + p.name + '</div>' +
-                    '<div class="product-range">' + p.range + '</div>' +
-                    '<div class="product-desc">' + p.desc + '</div>' +
-                '</div>';
-            }).join('');
-
-            // Render CTA buttons (unique apply pages only)
-            const uniquePages = {};
-            products.forEach(function(p) {
-                if (!uniquePages[p.applyPage]) {
-                    uniquePages[p.applyPage] = p;
+        // Smooth scroll behavior for nav links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                const href = this.getAttribute('href');
+                if (href !== '#' && document.querySelector(href)) {
+                    e.preventDefault();
+                    const target = document.querySelector(href);
+                    const offset = 80;
+                    const top = target.offsetTop - offset;
+                    window.scrollTo({
+                        top: top,
+                        behavior: 'smooth'
+                    });
                 }
             });
-            const ctaButtons = document.getElementById('ctaButtons');
-            const pageLabels = {
-                'apply-working-capital.html': 'Apply for Working Capital',
-                'apply-leasing.html': 'Apply for Equipment Financing',
-                'apply-merchant-advance.html': 'Apply for Merchant Advance'
-            };
-            let isFirst = true;
-            Object.keys(uniquePages).forEach(function(page) {
-                const label = pageLabels[page] || 'Apply Now';
-                const cls = isFirst ? 'cta-btn cta-btn-gold' : 'cta-btn cta-btn-outline';
-                ctaButtons.innerHTML += '<a href="' + page + '?ref=' + encodeURIComponent(slug) + '" class="' + cls + '">' + label + '</a>';
-                isFirst = false;
-            });
-
-            // Populate contact form with agent name
-            window._partnerAgent = agent;
-            var contactNameEl = document.getElementById('contactAgentName');
-            if (contactNameEl) contactNameEl.textContent = agent.full_name || 'your partner';
-            var successMsgEl = document.getElementById('contactSuccessMsg');
-            if (successMsgEl) successMsgEl.textContent = 'Thank you for reaching out. ' + (agent.full_name || 'Your partner') + ' will be in touch shortly.';
-
-            // Show contact info if available
-            if (agent.email || agent.phone) {
-                const contactBar = document.getElementById('contactBar');
-                const contactInner = document.getElementById('contactBarInner');
-                contactBar.style.display = 'block';
-                let contactHtml = '<span style="font-weight:600;color:var(--navy);">Contact ' + (agent.full_name || 'your partner') + ':</span>';
-                if (agent.phone) contactHtml += '<div class="contact-item">📞 <a href="tel:' + agent.phone.replace(/\s/g, '') + '">' + agent.phone + '</a></div>';
-                if (agent.email) contactHtml += '<div class="contact-item">✉️ <a href="mailto:' + agent.email + '">' + agent.email + '</a></div>';
-                contactInner.innerHTML = contactHtml;
-            }
-
-            // Show page
-            document.getElementById('loadingScreen').style.display = 'none';
-            document.getElementById('pageContent').style.display = 'block';
-
-        } catch (err) {
-            console.error('Partner page load error:', err);
-            showError();
-        }
-    }
-
-    function renderVendorLayout(agent, slug) {
-        // Replace hero content for vendor/equipment focus
-        document.querySelector('.hero h1').innerHTML = 'Finance Your Equipment <em>Today</em>';
-        document.getElementById('heroSubtitle').textContent = 'Get fast, flexible equipment financing through Alliance\'s network of 70+ lenders. ' + (agent.full_name || 'Your sales representative') + ' is here to help you secure the best rates.';
-
-        // Update stats bar for vendor context
-        var statsInner = document.querySelector('.stats-bar-inner');
-        statsInner.innerHTML =
-            '<div class="stat-item"><div class="stat-num">$2.5K–$10M+</div><div class="stat-label">Financing Range</div></div>' +
-            '<div class="stat-item"><div class="stat-num">70+</div><div class="stat-label">Lender Partners</div></div>' +
-            '<div class="stat-item"><div class="stat-num">New & Used</div><div class="stat-label">Equipment</div></div>' +
-            '<div class="stat-item"><div class="stat-num">Fast</div><div class="stat-label">Approvals</div></div>';
-
-        // Replace products section with equipment benefits
-        var productsSection = document.querySelector('.section');
-        productsSection.querySelector('.section-label').textContent = 'Equipment Financing';
-        productsSection.querySelector('.section-title').textContent = 'Why Finance Through Alliance?';
-        productsSection.querySelector('.section-subtitle').textContent = 'We make it easy for you and your customers to get the equipment financing they need.';
-        var grid = document.getElementById('productsGrid');
-        grid.innerHTML =
-            '<div class="product-card"><div class="product-icon">⚡</div><div class="product-name">Fast Approvals</div><div class="product-desc">Our AI-powered platform matches applications with the best lender from 70+ partners for quick decisions.</div></div>' +
-            '<div class="product-card"><div class="product-icon">📋</div><div class="product-name">Simple Application</div><div class="product-desc">One quick online application — no paperwork hassle. We handle the rest so you can focus on selling.</div></div>' +
-            '<div class="product-card"><div class="product-icon">🏗️</div><div class="product-name">All Equipment Types</div><div class="product-desc">Construction, technology, vehicles, medical, manufacturing — we finance virtually any type of business equipment.</div></div>' +
-            '<div class="product-card"><div class="product-icon">💰</div><div class="product-name">Competitive Rates</div><div class="product-desc">Access to 70+ lenders means competitive rates and flexible terms tailored to each customer\'s situation.</div></div>' +
-            '<div class="product-card"><div class="product-icon">🤝</div><div class="product-name">Vendor Support</div><div class="product-desc">Dedicated support for you and your customers throughout the entire financing process.</div></div>' +
-            '<div class="product-card"><div class="product-icon">✅</div><div class="product-name">High Approval Rates</div><div class="product-desc">Our broad lender network means more approvals — even for newer businesses or challenging credit situations.</div></div>';
-
-        // Update How It Works for vendor context
-        var steps = document.querySelectorAll('.step-card');
-        if (steps.length >= 3) {
-            steps[0].querySelector('.step-title').textContent = 'Customer Applies';
-            steps[0].querySelector('.step-desc').textContent = 'Your customer completes a quick online application in under 5 minutes. You can also send the application directly with a quote attached.';
-            steps[1].querySelector('.step-title').textContent = 'We Find the Best Lender';
-            steps[1].querySelector('.step-desc').textContent = 'Our AI scans 70+ lenders to find the best financing terms for your customer\'s equipment purchase.';
-            steps[2].querySelector('.step-title').textContent = 'Equipment Gets Funded';
-            steps[2].querySelector('.step-desc').textContent = 'Once approved, financing is arranged and you get paid. Flexible lease and loan terms available for your customers.';
-        }
-
-        // CTA section — single "Apply for Equipment Financing" button
-        document.querySelector('.cta-section h2').innerHTML = 'Ready to <em>Get Financed</em>?';
-        document.querySelector('.cta-section p').textContent = 'Start your equipment financing application in under 5 minutes.';
-        var ctaButtons = document.getElementById('ctaButtons');
-        ctaButtons.innerHTML = '<a href="apply-leasing.html?ref=' + encodeURIComponent(slug) + '" class="cta-btn cta-btn-gold">Apply for Equipment Financing</a>' +
-            '<a href="#contact" class="cta-btn cta-btn-outline" onclick="document.getElementById(\'contactFormSection\').style.display=\'block\';document.getElementById(\'contactFormSection\').scrollIntoView({behavior:\'smooth\'});return false;">Contact Us</a>';
-
-        // Populate contact form with agent name
-        window._partnerAgent = agent;
-        var contactNameEl = document.getElementById('contactAgentName');
-        if (contactNameEl) contactNameEl.textContent = agent.full_name || 'your sales representative';
-        var successMsgEl = document.getElementById('contactSuccessMsg');
-        if (successMsgEl) successMsgEl.textContent = 'Thank you for reaching out. ' + (agent.full_name || 'Your representative') + ' will be in touch shortly.';
-
-        // Show contact info
-        if (agent.email || agent.phone) {
-            var contactBar = document.getElementById('contactBar');
-            var contactInner = document.getElementById('contactBarInner');
-            contactBar.style.display = 'block';
-            var contactHtml = '<span style="font-weight:600;color:var(--navy);">Contact ' + (agent.full_name || 'your representative') + ':</span>';
-            if (agent.phone) contactHtml += '<div class="contact-item">📞 <a href="tel:' + agent.phone.replace(/\s/g, '') + '">' + agent.phone + '</a></div>';
-            if (agent.email) contactHtml += '<div class="contact-item">✉️ <a href="mailto:' + agent.email + '">' + agent.email + '</a></div>';
-            contactInner.innerHTML = contactHtml;
-        }
-
-        // Show page
-        document.getElementById('loadingScreen').style.display = 'none';
-        document.getElementById('pageContent').style.display = 'block';
-    }
-
-    function showError() {
-        document.getElementById('loadingScreen').style.display = 'none';
-        document.getElementById('errorScreen').style.display = 'flex';
-    }
-
-    // Contact form submission — saves to Supabase and tracks the lead
-    async function submitContactForm(event) {
-        event.preventDefault();
-        var btn = document.getElementById('contactSubmitBtn');
-        btn.disabled = true;
-        btn.textContent = 'Sending...';
-
-        try {
-            var agent = window._partnerAgent || {};
-            var leadData = {
-                first_name: document.getElementById('contactFirstName').value.trim(),
-                last_name: document.getElementById('contactLastName').value.trim(),
-                email: document.getElementById('contactEmail').value.trim(),
-                phone: document.getElementById('contactPhone').value.trim() || null,
-                business_name: document.getElementById('contactBusiness').value.trim() || null,
-                interest: document.getElementById('contactInterest').value || null,
-                message: document.getElementById('contactMessage').value.trim() || null,
-                referral_slug: agent.referral_slug || null,
-                agent_id: agent.id || null,
-                agent_name: agent.full_name || null,
-                source: 'partner_landing_page',
-                created_at: new Date().toISOString()
-            };
-
-            // Save to partner_leads table
-            var { error } = await db.from('partner_leads').insert([leadData]);
-            if (error) {
-                console.error('Save lead error:', error);
-                // If table doesn't exist yet, still show success (lead captured in console)
-                console.log('Lead data (table may not exist yet):', JSON.stringify(leadData));
-            }
-
-            // Show success
-            document.getElementById('contactFormContent').style.display = 'none';
-            document.getElementById('contactFormSuccess').style.display = 'block';
-
-        } catch (err) {
-            console.error('Contact form error:', err);
-            // Still show success — we don't want to frustrate the visitor
-            document.getElementById('contactFormContent').style.display = 'none';
-            document.getElementById('contactFormSuccess').style.display = 'block';
-        }
-    }
-
-    // Load on page ready
-    loadPartnerPage();
-</script>
+        });
+    </script>
 </body>
 </html>
