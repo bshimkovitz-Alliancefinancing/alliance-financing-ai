@@ -18222,14 +18222,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     document.getElementById('dealsMonthLabel').textContent = monthName;
                 }
 
-                // Calculate pipeline value (active deals)
-                let dealsQuery = db.from('deals').select('deal_amount, currency, status');
+                // Calculate pipeline value (active deals — exclude archived)
+                let dealsQuery = db.from('deals').select('deal_amount, currency, status, is_archived');
                 const { data: deals, error: dealsError } = await dealsQuery;
 
                 if (!dealsError && deals) {
-                    const activeDealStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
+                    const activeDealStatuses = ['Prospect', 'Application Sent', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
                     const activeDealValue = deals
-                        .filter(d => activeDealStatuses.includes(d.status))
+                        .filter(d => activeDealStatuses.includes(d.status) && !d.is_archived)
                         .reduce((sum, d) => sum + (d.deal_amount || 0), 0);
                     document.getElementById('pipelineValue').textContent = formatCurrency(activeDealValue);
                 }
@@ -18412,9 +18412,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             var alerts = [];
 
-            // 1. Stale deals (no activity in 7+ days, still active)
+            // 1. Stale deals (no activity in 7+ days, still active, not archived)
             var { data: staleDeals } = await db.from('deals').select('id, contact_name, status, updated_at')
-                .not('status', 'in', '(Funded,Declined,Withdrawn,Closed,Lost)')
+                .not('status', 'in', '(Funded,Declined,Withdrawn,Closed,Lost,Dead approval)')
+                .neq('is_archived', true)
                 .order('updated_at', { ascending: true }).limit(50);
             if (staleDeals) {
                 var sevenDaysAgo = Date.now() - 7 * 86400000;
@@ -19464,7 +19465,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     function updateDealStats() {
         try {
-            var activeStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
+            var activeStatuses = ['Prospect', 'Application Sent', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
             var activeDeals = (allDeals || []).filter(function(d) { return !d.is_archived && activeStatuses.includes(d.status); });
             var totalValue = activeDeals.reduce(function(sum, d) { return sum + (parseFloat(d.deal_amount) || 0); }, 0);
             var avgSize = activeDeals.length > 0 ? totalValue / activeDeals.length : 0;
@@ -22104,11 +22105,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (label) label.textContent = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
             }
 
-            // Active pipeline value
-            var { data: deals } = await db.from('deals').select('deal_amount, status');
+            // Active pipeline value (exclude archived)
+            var { data: deals } = await db.from('deals').select('deal_amount, status, is_archived');
             if (deals) {
-                var activeStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
-                var pipelineVal = deals.filter(function(d) { return activeStatuses.includes(d.status); }).reduce(function(sum, d) { return sum + (d.deal_amount || 0); }, 0);
+                var activeStatuses = ['Prospect', 'Application Sent', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
+                var pipelineVal = deals.filter(function(d) { return activeStatuses.includes(d.status) && !d.is_archived; }).reduce(function(sum, d) { return sum + (d.deal_amount || 0); }, 0);
                 var el2 = document.getElementById('pipelineValue');
                 if (el2) el2.textContent = formatCurrency(pipelineVal);
             }
