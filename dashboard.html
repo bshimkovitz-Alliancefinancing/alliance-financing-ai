@@ -9580,7 +9580,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     var pStatus = (p.status || '').toLowerCase();
                     var lastDate = p.created_at;
                     var isOverdue = lastDate && new Date(lastDate).getTime() < threeDaysAgo;
-                    if (isOverdue && ['sent', 'replied'].includes(pStatus)) {
+                    if (pStatus === 'replied') {
+                        // Replied prospects get one notification (not two)
+                        var daysAgo = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
+                        notifications.push({
+                            type: 'outreach',
+                            category: 'action',
+                            icon: '💬',
+                            iconBg: isOverdue ? '#FEF2F2' : '#FEF3C7',
+                            iconColor: isOverdue ? '#DC2626' : '#92400E',
+                            title: (p.prospect_name || 'Unknown') + ' replied to your outreach',
+                            detail: isOverdue ? 'Replied ' + daysAgo + ' days ago — needs response' : 'Follow up to convert this prospect',
+                            time: new Date(p.updated_at || p.created_at),
+                            action: "openProspectDetail('" + p.id + "')",
+                            actionLabel: 'View Details',
+                            priority: 1
+                        });
+                    } else if (isOverdue && pStatus === 'sent') {
+                        // Sent but no response in 3+ days
                         var daysAgo = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
                         notifications.push({
                             type: 'outreach',
@@ -9589,26 +9606,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             iconBg: '#FEF2F2',
                             iconColor: '#DC2626',
                             title: 'Follow up with ' + (p.prospect_name || 'Unknown'),
-                            detail: pStatus === 'replied' ? 'Replied ' + daysAgo + ' days ago — needs response' : 'Sent ' + daysAgo + ' days ago — no response yet',
+                            detail: 'Sent ' + daysAgo + ' days ago — no response yet',
                             time: new Date(lastDate),
-                            action: "showPage('subAgents')",
-                            actionLabel: 'View Outreach',
-                            priority: pStatus === 'replied' ? 1 : 2
-                        });
-                    }
-                    if (pStatus === 'replied') {
-                        notifications.push({
-                            type: 'outreach',
-                            category: 'action',
-                            icon: '💬',
-                            iconBg: '#FEF3C7',
-                            iconColor: '#92400E',
-                            title: (p.prospect_name || 'Unknown') + ' replied to your outreach',
-                            detail: 'Follow up to convert this prospect',
-                            time: new Date(p.updated_at || p.created_at),
                             action: "openProspectDetail('" + p.id + "')",
                             actionLabel: 'View Details',
-                            priority: 1
+                            priority: 2
                         });
                     }
                 });
@@ -29208,7 +29210,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<td style="padding:10px 12px;">' + sourceLabelHtml + '</td>' +
                 '<td style="padding:10px 12px;font-size:13px;">' + item.type + '</td>' +
                 '<td style="padding:10px 12px;">' + amountHtml + '</td>' +
-                '<td style="padding:10px 12px;"><span style="background:' + stageColor + '15;color:' + stageColor + ';padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;">' + item.stageLabel + '</span>' +
+                '<td style="padding:10px 12px;"><span style="background:' + stageColor + '15;color:' + stageColor + ';padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;display:inline-block;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="' + item.stageLabel + '">' + (item.stageLabel === 'Follow-Up Needed' ? 'Follow-Up' : item.stageLabel) + '</span>' +
                     (item.isOverdue ? ' <span style="color:#DC2626;font-size:10px;font-weight:700;">OVERDUE</span>' : '') + '</td>' +
                 '<td style="padding:10px 12px;overflow:hidden;">' + progressHtml + '</td>' +
                 '<td style="padding:10px 12px;">' + dateHtml + '</td>' +
