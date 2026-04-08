@@ -37368,7 +37368,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Fetch deals linked to this client (agents only see their own deals)
             let clientDeals = [];
             try {
-                let dealQuery = db.from('deals').select('id, company_name, deal_amount, status').eq('client_id', clientId);
+                let dealQuery = db.from('deals').select('id, company_name, deal_amount, status, assigned_lender_id, lenders(name)').eq('client_id', clientId);
                 if (!isAdmin && currentUserId) {
                     dealQuery = dealQuery.eq('source_agent_id', currentUserId);
                 }
@@ -37446,20 +37446,28 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Build deals HTML — agents cannot unlink deals
             const dealsHtml = (clientDeals && clientDeals.length > 0)
-                ? clientDeals.map(d => `
-                    <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--border-gray); display: flex; justify-content: space-between; align-items: center;">
+                ? clientDeals.map(d => {
+                    const lenderName = (d.lenders && d.lenders.name) || (cachedLenders || []).find(l => l.id === d.assigned_lender_id)?.name || '';
+                    const statusColor = d.status === 'Funded' ? '#DCFCE7' : d.status === 'Approved' ? '#DCFCE7' : d.status === 'Declined' ? '#FEE2E2' : d.status === 'Pending' ? '#FEF3C7' : '#DBEAFE';
+                    const statusText = d.status === 'Funded' ? '#166534' : d.status === 'Approved' ? '#166534' : d.status === 'Declined' ? '#991B1B' : d.status === 'Pending' ? '#92400E' : '#1E40AF';
+                    return `
+                    <div onclick="viewDeal('${d.id}')" style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--border-gray); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: border-color 0.2s;" onmouseover="this.style.borderColor='#2563EB'" onmouseout="this.style.borderColor='var(--border-gray)'">
                         <div>
                             <div style="font-weight: 600; color: var(--navy);">${d.company_name || 'N/A'}</div>
+                            ${lenderName ? `<div style="font-size: 12px; color: #64748B; margin-top: 2px;">Lender: <strong>${lenderName}</strong></div>` : ''}
                             <div style="font-size: 13px; color: var(--text-light); margin-top: 4px;">
                                 Amount: ${formatCurrency(d.deal_amount || 0)}
                             </div>
                             <div style="display: flex; gap: 8px; margin-top: 6px;">
-                                <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${d.status === 'Funded' ? '#DCFCE7' : d.status === 'Pending' ? '#FEF3C7' : '#DBEAFE'}; color: ${d.status === 'Funded' ? '#166534' : d.status === 'Pending' ? '#92400E' : '#1E40AF'};">${d.status}</span>
+                                <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${statusColor}; color: ${statusText};">${d.status}</span>
                             </div>
                         </div>
-                        ${isAdmin ? `<button onclick="unlinkDealFromClient('${d.id}', '${clientId}')" title="Unlink deal" style="background:none;border:1px solid #E2E8F0;border-radius:4px;padding:4px 8px;cursor:pointer;color:#94A3B8;font-size:12px;white-space:nowrap;" onmouseover="this.style.color='#EF4444';this.style.borderColor='#EF4444'" onmouseout="this.style.color='#94A3B8';this.style.borderColor='#E2E8F0'">✕ Unlink</button>` : ''}
-                    </div>
-                `).join('')
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span style="color:#2563EB;font-size:12px;font-weight:600;">View →</span>
+                            ${isAdmin ? `<button onclick="event.stopPropagation();unlinkDealFromClient('${d.id}', '${clientId}')" title="Unlink deal" style="background:none;border:1px solid #E2E8F0;border-radius:4px;padding:4px 8px;cursor:pointer;color:#94A3B8;font-size:12px;white-space:nowrap;" onmouseover="this.style.color='#EF4444';this.style.borderColor='#EF4444'" onmouseout="this.style.color='#94A3B8';this.style.borderColor='#E2E8F0'">✕ Unlink</button>` : ''}
+                        </div>
+                    </div>`;
+                }).join('')
                 : '<p style="color: var(--text-light); font-size: 14px;">No deals linked yet.</p>';
 
             const modalBody = document.getElementById('clientModalBody');
