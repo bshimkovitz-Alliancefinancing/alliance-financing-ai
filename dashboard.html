@@ -34599,24 +34599,37 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
             if (vendorError) throw vendorError;
 
-            // Insert the primary contact
+            // Insert the primary contact (use same core fields as addVendorContact)
             if (sendContactName && vendorData && vendorData.length > 0) {
                 const contactRole = document.getElementById('vendorContactRole').value || 'Admin';
-                const { error: contactError } = await db
+                const contactPhone = document.getElementById('vendorContactPhone').value.trim();
+                var contactPayload = {
+                    vendor_id: vendorData[0].id,
+                    contact_name: sendContactName,
+                    email: sendContactEmail || null,
+                    phone: contactPhone || null,
+                    role_title: contactRole || null,
+                    created_at: new Date().toISOString()
+                };
+                var { error: contactError } = await db
                     .from('vendor_contacts')
-                    .insert([{
-                        vendor_id: vendorData[0].id,
-                        contact_name: sendContactName,
-                        email: sendContactEmail || null,
-                        phone: document.getElementById('vendorContactPhone').value.trim() || null,
-                        role_title: contactRole,
-                        dashboard_access: contactRole === 'Admin' || contactRole === 'Owner' ? 'full' : contactRole === 'Sales' ? 'own' : 'none',
-                        is_portal_user: true,
-                        is_admin: contactRole === 'Admin' || contactRole === 'Owner',
-                        created_at: new Date().toISOString()
-                    }]);
+                    .insert([contactPayload]);
+
                 if (contactError) {
-                    console.warn('Warning: Vendor created but contact could not be added:', contactError);
+                    console.error('Vendor created but primary contact insert failed:', contactError);
+                    showToast('Vendor created but contact could not be saved: ' + contactError.message, 'warning');
+                } else {
+                    // Contact saved — now try to set extended portal fields (non-critical)
+                    try {
+                        var dashAccess = (contactRole === 'Admin' || contactRole === 'Owner') ? 'full' : contactRole === 'Sales' ? 'own' : 'none';
+                        var isAdminFlag = contactRole === 'Admin' || contactRole === 'Owner';
+                        await db.from('vendor_contacts')
+                            .update({ dashboard_access: dashAccess, is_portal_user: true, is_admin: isAdminFlag })
+                            .eq('vendor_id', vendorData[0].id)
+                            .eq('contact_name', sendContactName);
+                    } catch(portalErr) {
+                        console.warn('Could not set portal fields on new contact (non-critical):', portalErr);
+                    }
                 }
             }
 
@@ -36070,6 +36083,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     role_title: role || null,
                     created_at: new Date().toISOString()
                 }]);
+
+            // Try to set extended portal fields (non-critical if columns don't exist yet)
+            if (!error && role) {
+                try {
+                    var dashAccess = (role === 'Admin' || role === 'Owner') ? 'full' : role === 'Sales' ? 'own' : 'none';
+                    var isAdminFlag = role === 'Admin' || role === 'Owner';
+                    await db.from('vendor_contacts')
+                        .update({ dashboard_access: dashAccess, is_portal_user: true, is_admin: isAdminFlag })
+                        .eq('vendor_id', vendorId)
+                        .eq('contact_name', name);
+                } catch(portalErr) {
+                    console.warn('Could not set portal fields on contact (non-critical):', portalErr);
+                }
+            }
 
             if (error) throw error;
 
