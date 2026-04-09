@@ -993,7 +993,7 @@
     <!-- Main Content -->
     <div class="main-content">
         <div class="header">
-            <div class="header-title" id="pageTitle">Dashboard</div>
+            <div class="header-title" id="pageTitle">Command Center</div>
             <div class="header-actions">
                 <button class="btn btn-sm" onclick="refreshCurrentPage()" title="Refresh current page data" style="margin-right: 10px; font-size: 13px; padding: 6px 16px; background: var(--gold); color: var(--navy); font-weight: 600; border: none; border-radius: 4px; cursor: pointer;">🔄 Refresh</button>
                 <button class="btn btn-secondary btn-sm" onclick="openCSVImportModal()" style="margin-right: 10px;">Import CSV</button>
@@ -5944,9 +5944,11 @@ if (location.hostname === 'alliancefinancing.ai') {
                 }
             });
 
-            // Load dashboard and applications sent in parallel
+            // Load unified Command Center: dashboard + notifications + deals in parallel
             await Promise.all([
                 loadDashboard(),
+                loadNotifications().catch(function(e) { console.error('loadNotifications error:', e); }),
+                loadDeals().catch(function(e) { console.error('loadDeals error:', e); }),
                 loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
             ]);
 
@@ -6073,24 +6075,23 @@ if (location.hostname === 'alliancefinancing.ai') {
                 // Admins see everything except agent-only items
                 var agentOnlyItems = ['Marketing', 'Help & Resources', 'Vendor Programs', 'Referral Partners', 'Info & Quoting Tools', 'Application Hub', 'Documents'];
                 item.style.display = agentOnlyItems.includes(label) ? 'none' : 'flex';
-                // Admins also get Notifications
-                if (label === 'Notifications') item.style.display = 'flex';
+                // Notifications nav hidden for admins — merged into Command Center
+                if (label === 'Notifications') item.style.display = 'none';
             } else if (isVendor) {
-                // Vendor users see only Dashboard, Info & Quoting Tools, and Help
-                var vendorAllowed = ['Dashboard', 'Info & Quoting Tools', 'Help & Resources'];
+                // Vendor users see only Command Center, Info & Quoting Tools, and Help
+                var vendorAllowed = ['Command Center', 'Dashboard', 'Info & Quoting Tools', 'Help & Resources'];
                 item.style.display = vendorAllowed.includes(label) ? 'flex' : 'none';
             } else if (isMortgageBroker) {
-                // Mortgage brokers get: Brokerage Portal (as Dashboard), Notifications, Application Hub, Help
-                var brokerAllowed = ['Notifications', 'Dashboard', 'Application Hub', 'Help & Resources'];
+                // Mortgage brokers get: Brokerage Portal (as Command Center), Notifications, Application Hub, Help
+                var brokerAllowed = ['Notifications', 'Command Center', 'Dashboard', 'Application Hub', 'Help & Resources'];
                 item.style.display = brokerAllowed.includes(label) ? 'flex' : 'none';
             } else if (isMortgageAgent) {
-                // Mortgage agents get: Dashboard (brokerage portal), Notifications, Application Hub, Help
-                var mtgAgentAllowed = ['Notifications', 'Dashboard', 'Application Hub', 'Help & Resources'];
+                // Mortgage agents get: Command Center (brokerage portal), Notifications, Application Hub, Help
+                var mtgAgentAllowed = ['Notifications', 'Command Center', 'Dashboard', 'Application Hub', 'Help & Resources'];
                 item.style.display = mtgAgentAllowed.includes(label) ? 'flex' : 'none';
             } else if (isReferralAgent) {
-                // Referral agents get: Notifications, Dashboard, Application Hub, Vendor Programs, Help
-                // Deal Pipeline is hidden — everything is unified in the Dashboard
-                var referralAllowed = ['Notifications', 'Dashboard', 'Application Hub', 'Vendor Programs', 'Help & Resources'];
+                // Referral agents get: Notifications, Command Center, Application Hub, Vendor Programs, Help
+                var referralAllowed = ['Notifications', 'Command Center', 'Dashboard', 'Application Hub', 'Vendor Programs', 'Help & Resources'];
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
             } else {
                 // ISO/other agent views
@@ -18894,11 +18895,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 await loadAgentSubAgents();
             }
 
-            // Show unified referral pipeline for all users (admin sees all, agents see their own)
-            var pipelineSection = document.getElementById('referralPipelineSection');
-            if (pipelineSection) {
-                pipelineSection.style.display = 'block';
-                await loadReferralPipeline();
+            // Show unified referral pipeline for agents only (admins have full deal pipeline in Command Center)
+            if (!isAdmin) {
+                var pipelineSection = document.getElementById('referralPipelineSection');
+                if (pipelineSection) {
+                    pipelineSection.style.display = 'block';
+                    await loadReferralPipeline();
+                }
             }
 
         } catch (error) {
