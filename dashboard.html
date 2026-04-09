@@ -895,18 +895,14 @@
         </div>
 
         <div class="nav-section">
-            <div class="nav-item" id="notificationsNav" onclick="showPage('notifications')" style="display:none;">
+            <div class="nav-item" id="notificationsNav" onclick="showPage('dashboard')" style="display:none;">
                 <span class="nav-icon">🔔</span>
                 <span>Notifications</span>
                 <span id="notificationsBadge" style="display:none;background:#EF4444;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;"></span>
             </div>
             <div class="nav-item active" onclick="showPage('dashboard')">
-                <span class="nav-icon">📊</span>
-                <span>Dashboard</span>
-            </div>
-            <div class="nav-item" id="dealPipelineNav" onclick="showPage('deals')">
-                <span class="nav-icon">📈</span>
-                <span>Deal Pipeline</span>
+                <span class="nav-icon">🎯</span>
+                <span>Command Center</span>
             </div>
             <div class="nav-item" onclick="showPage('agents')">
                 <span class="nav-icon">👥</span>
@@ -1046,27 +1042,80 @@
                 </div>
             </div>
 
-            <!-- Dashboard Page -->
+            <!-- ============================================ -->
+            <!-- COMMAND CENTER (Unified: Dashboard + Notifications + Deal Pipeline) -->
+            <!-- ============================================ -->
             <div id="dashboard" class="page-section active">
-                <!-- Attention Alerts (admin only) -->
-                <div id="dashAttentionAlerts" style="display:none;margin-bottom:20px;">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <svg width="18" height="18" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                        <span style="font-size:15px;font-weight:700;color:var(--navy);">Needs Your Attention</span>
-                        <span id="alertBadgeCount" style="background:#EF4444;color:white;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;display:none;">0</span>
+
+                <!-- Section 1: Greeting + Stats Strip -->
+                <div style="background:linear-gradient(135deg,#0D1E3D 0%,#1a3a6b 100%);border-radius:14px;padding:24px 28px;margin-bottom:20px;color:white;position:relative;overflow:hidden;">
+                    <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;background:rgba(201,168,76,0.1);border-radius:50%;"></div>
+                    <div style="position:absolute;bottom:-30px;right:60px;width:80px;height:80px;background:rgba(201,168,76,0.08);border-radius:50%;"></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;position:relative;flex-wrap:wrap;gap:12px;">
+                        <div>
+                            <h2 id="notifGreeting" style="margin:0 0 4px;font-size:22px;font-weight:700;">Hi there 👋</h2>
+                            <p id="notifSummary" style="margin:0;color:rgba(255,255,255,0.75);font-size:14px;">Loading your command center...</p>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button onclick="markAllNotificationsRead()" class="btn btn-sm" style="font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:7px 14px;">✓ Clear All</button>
+                            <button onclick="refreshCommandCenter()" class="btn btn-sm" style="font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:7px 14px;">↻ Refresh</button>
+                        </div>
                     </div>
-                    <p style="font-size:13px;color:#64748B;margin:0 0 12px;">Pending agents, prospect replies, returned applications, vendor requests, credit responses, and overdue items that need your action.</p>
-                    <div id="alertCardsContainer" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;"></div>
+                    <!-- Inline Stats Strip -->
+                    <div id="commandCenterStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:20px;">
+                        <div onclick="scrollToDeals()" style="background:rgba(255,255,255,0.1);border-radius:10px;padding:12px 14px;text-align:center;cursor:pointer;transition:all 0.2s;border:1px solid rgba(255,255,255,0.15);" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                            <div style="font-size:22px;font-weight:800;color:white;" id="dealStatTotalValue">$0</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.7);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Pipeline Value</div>
+                        </div>
+                        <div onclick="scrollToDeals()" style="background:rgba(255,255,255,0.1);border-radius:10px;padding:12px 14px;text-align:center;cursor:pointer;transition:all 0.2s;border:1px solid rgba(255,255,255,0.15);" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                            <div style="font-size:22px;font-weight:800;color:white;" id="dealStatAvgSize">$0</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.7);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Avg Deal Size</div>
+                        </div>
+                        <div onclick="scrollToDeals();switchDealTab('funded')" style="background:rgba(16,185,129,0.2);border-radius:10px;padding:12px 14px;text-align:center;cursor:pointer;transition:all 0.2s;border:1px solid rgba(16,185,129,0.3);" onmouseover="this.style.background='rgba(16,185,129,0.3)'" onmouseout="this.style.background='rgba(16,185,129,0.2)'">
+                            <div style="font-size:22px;font-weight:800;color:#6EE7B7;" id="dealStatFundedCount">0</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.7);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Funded This Month</div>
+                        </div>
+                        <div onclick="scrollToDeals()" style="background:rgba(245,158,11,0.2);border-radius:10px;padding:12px 14px;text-align:center;cursor:pointer;transition:all 0.2s;border:1px solid rgba(245,158,11,0.3);" onmouseover="this.style.background='rgba(245,158,11,0.3)'" onmouseout="this.style.background='rgba(245,158,11,0.2)'">
+                            <div style="font-size:22px;font-weight:800;color:#FCD34D;" id="dealStatInCredit">0</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.7);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">In Credit</div>
+                        </div>
+                        <div onclick="scrollToDeals()" style="background:rgba(239,68,68,0.2);border-radius:10px;padding:12px 14px;text-align:center;cursor:pointer;transition:all 0.2s;border:1px solid rgba(239,68,68,0.3);" onmouseover="this.style.background='rgba(239,68,68,0.3)'" onmouseout="this.style.background='rgba(239,68,68,0.2)'">
+                            <div style="font-size:22px;font-weight:800;color:#FCA5A5;" id="dealStatStale">0</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.7);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Stale (7+ days)</div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Recent Activity Feed removed — dashboard is action-focused -->
+                <!-- Section 2: Notifications / Action Items -->
+                <div id="commandCenterNotifications" style="margin-bottom:20px;">
+                    <!-- Attention Alerts (admin only — quick action cards) -->
+                    <div id="dashAttentionAlerts" style="display:none;margin-bottom:16px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                            <svg width="18" height="18" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            <span style="font-size:15px;font-weight:700;color:var(--navy);">Needs Your Attention</span>
+                            <span id="alertBadgeCount" style="background:#EF4444;color:white;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;display:none;">0</span>
+                        </div>
+                        <div id="alertCardsContainer" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;"></div>
+                    </div>
 
-                <!-- Application Hub moved to its own page -->
+                    <!-- Notification Filter Bar + List -->
+                    <div id="notificationsFilterBar" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                        <button class="notif-filter-btn active" data-filter="all" onclick="filterNotifications('all')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:#0D1E3D;color:white;font-size:12px;font-weight:600;cursor:pointer;">All</button>
+                        <button class="notif-filter-btn" data-filter="action" onclick="filterNotifications('action')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Action Required</button>
+                        <button class="notif-filter-btn" data-filter="deals" onclick="filterNotifications('deals')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Deals</button>
+                        <button class="notif-filter-btn" data-filter="outreach" onclick="filterNotifications('outreach')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Outreach</button>
+                        <button class="notif-filter-btn" data-filter="applications" onclick="filterNotifications('applications')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Applications</button>
+                        <button class="notif-filter-btn" data-filter="vendor_note" onclick="filterNotifications('vendor_note')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Vendors</button>
+                        <button class="notif-filter-btn" data-filter="agent_vendor_note" onclick="filterNotifications('agent_vendor_note')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Agent Notes</button>
+                        <button class="notif-filter-btn" data-filter="inquiry" onclick="filterNotifications('inquiry')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Inquiries</button>
+                        <button class="notif-filter-btn" data-filter="pending_agent" onclick="filterNotifications('pending_agent')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Pending Agents</button>
+                    </div>
+                    <div id="notificationsList" style="display:flex;flex-direction:column;gap:8px;max-height:500px;overflow-y:auto;">
+                        <div style="text-align:center;padding:30px;color:#94A3B8;font-size:14px;">Loading notifications...</div>
+                    </div>
+                </div>
 
-                <!-- Vendor Programs and Referral Partners moved to their own pages -->
-
-                <!-- Email Replies Section moved to Recruitment Hub -->
-
+                <!-- Section 3: Agent-specific content (referral pipeline, agent deals) -->
                 <!-- Agent Deals Section (agents only) -->
                 <div id="agentCommissionsSection" class="table-container" style="display: none;">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
@@ -1098,11 +1147,8 @@
                     </table>
                 </div>
 
-                <!-- Unified Inbox moved to dedicated Inbox page — dashboard uses alert cards only -->
-
-                <!-- My Referral Pipeline (unified tracker) -->
+                <!-- My Referral Pipeline (unified tracker — agents/ISOs) -->
                 <div id="referralPipelineSection" style="display:none;margin-top:20px;">
-                    <!-- Pipeline Header with gradient -->
                     <div style="background:linear-gradient(135deg,#0D1E3D 0%,#1a3a6b 100%);border-radius:16px 16px 0 0;padding:20px 24px;color:white;position:relative;overflow:hidden;">
                         <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(201,168,76,0.1);border-radius:50%;"></div>
                         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
@@ -1119,12 +1165,7 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Pipeline Stats Cards -->
-                    <div id="pipelineStatsRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0;background:white;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;">
-                    </div>
-
-                    <!-- Pipeline Filter Tabs -->
+                    <div id="pipelineStatsRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0;background:white;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;"></div>
                     <div style="background:white;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
                         <div id="pipelineFilterTabs" style="display:flex;gap:0;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;font-size:12px;">
                             <button class="pl-tab active" data-filter="all" onclick="filterPipeline('all')" style="padding:7px 14px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:var(--navy);color:white;">All</button>
@@ -1135,25 +1176,15 @@
                             <button class="pl-tab" data-filter="funded" onclick="filterPipeline('funded')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Funded</button>
                             <button class="pl-tab" data-filter="archived" onclick="filterPipeline('archived')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Archived</button>
                         </div>
-                        <!-- Admin-only: filter by agent -->
                         <select id="appSentAgentFilter" onchange="loadReferralPipeline()" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;display:none;">
                             <option value="">All Agents</option>
                         </select>
                     </div>
-
-                    <!-- Pipeline Table -->
                     <div style="background:white;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 16px 16px;overflow:hidden;">
                         <div style="overflow-x:auto;">
                         <table style="width:100%;table-layout:fixed;" id="pipelineTable">
                             <colgroup>
-                                <col style="width:17%;"><!-- Client -->
-                                <col style="width:11%;"><!-- Source -->
-                                <col style="width:9%;"><!-- Type -->
-                                <col style="width:9%;"><!-- Amount -->
-                                <col style="width:9%;"><!-- Stage -->
-                                <col style="width:15%;"><!-- Progress -->
-                                <col style="width:8%;"><!-- Date -->
-                                <col style="width:22%;"><!-- Actions -->
+                                <col style="width:17%;"><col style="width:11%;"><col style="width:9%;"><col style="width:9%;"><col style="width:9%;"><col style="width:15%;"><col style="width:8%;"><col style="width:22%;">
                             </colgroup>
                             <thead>
                                 <tr style="background:#F8FAFC;">
@@ -1226,168 +1257,118 @@
                         <div id="followUpDetailBody" style="padding:12px 20px;max-height:500px;overflow-y:auto;"></div>
                     </div>
                 </div>
+
+                <!-- Section 4: Deal Pipeline (admin only — full filterable table) -->
+                <div id="commandCenterDeals" style="margin-top:24px;">
+                    <div id="dealPipelineAnchor"></div>
+                    <div class="table-container">
+                        <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
+                            <div class="table-title">Deal Pipeline</div>
+                            <div id="dealTabs" style="display:flex;gap:0;border:1px solid #ccc;border-radius:6px;overflow:visible;font-size:13px;flex-wrap:wrap;">
+                                <button class="deal-tab" data-tab="prospects" onclick="switchDealTab('prospects')" style="padding:7px 16px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Prospects <span id="dealCountProspects" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                                <button class="deal-tab active" data-tab="active" onclick="switchDealTab('active')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:600;background:var(--navy);color:white;transition:all .2s;">Active <span id="dealCountActive" style="background:rgba(255,255,255,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                                <button class="deal-tab" data-tab="funded" onclick="switchDealTab('funded')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Funded <span id="dealCountFunded" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                                <button class="deal-tab" data-tab="declined" onclick="switchDealTab('declined')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Declined <span id="dealCountDeclined" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                                <button class="deal-tab" data-tab="archived" onclick="switchDealTab('archived')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Archived <span id="dealCountArchived" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
+                            </div>
+                        </div>
+                        <div id="dealsContentArea">
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 0 20px 12px;">
+                                <input type="text" id="dealSearch" placeholder="Search AF#, AFG#, company, product, lender..."
+                                    oninput="filterDeals()"
+                                    style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 280px;">
+                                <select id="dealStatusFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                    <option value="">All Status</option>
+                                    <option value="Prospect">Prospect</option>
+                                    <option value="Quote Requested">Quote Requested</option>
+                                    <option value="Quote sent">Quote sent</option>
+                                    <option value="Info received">Info received</option>
+                                    <option value="In Credit">In Credit</option>
+                                    <option value="Approved">Approved</option>
+                                    <option value="Approval sent">Approval sent</option>
+                                    <option value="Docs requested">Docs requested</option>
+                                    <option value="Docs out for signing">Docs out for signing</option>
+                                    <option value="In funding">In funding</option>
+                                    <option value="Funded">Funded</option>
+                                    <option value="Declined">Declined</option>
+                                    <option value="Dead approval">Dead approval</option>
+                                    <option value="Withdrawn">Withdrawn</option>
+                                </select>
+                                <select id="dealSourceFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;" class="admin-or-iso-filter">
+                                    <option value="">All Sources</option>
+                                    <option value="Online">Online</option>
+                                    <option value="Agent Referral">Agent Referral</option>
+                                    <option value="Direct">Direct</option>
+                                    <option value="Vendor">Vendor</option>
+                                    <option value="Repeat Client">Repeat Client</option>
+                                </select>
+                                <select id="dealProductFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                    <option value="">All Products</option>
+                                    <option value="Equipment Leasing">Equipment Leasing</option>
+                                    <option value="MCA">MCA</option>
+                                    <option value="CSBFL">CSBFL</option>
+                                    <option value="SRED">SRED</option>
+                                    <option value="Private Debt">Private Debt</option>
+                                    <option value="Factoring">Factoring</option>
+                                    <option value="Merchant Advance">Merchant Advance</option>
+                                    <option value="SBA">SBA</option>
+                                    <option value="Loans">Loans</option>
+                                    <option value="Trade Finance">Trade Finance</option>
+                                    <option value="Working Capital Loan">Working Capital Loan</option>
+                                    <option value="Business Line of Credit">Business Line of Credit</option>
+                                    <option value="Startup Financing">Startup Financing</option>
+                                    <option value="Franchise Financing">Franchise Financing</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <select id="dealAssignedFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                    <option value="">All Analysts</option>
+                                    <option value="__mine__">My Deals</option>
+                                </select>
+                                <select id="dealSourcedByFilter" onchange="filterDeals()" style="display:none; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                    <option value="">All Deals</option>
+                                    <option value="__mine__">My Deals</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; gap: 8px; padding: 0 20px 12px;">
+                                <button class="btn btn-secondary btn-sm" onclick="exportDeals()">Export CSV</button>
+                                <button id="dealPipelineAddBtn" class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ Add Application</button>
+                            </div>
+                            <div style="overflow-x:auto;">
+                            <table id="dealsTable" style="min-width:1100px;">
+                                <thead>
+                                    <tr>
+                                        <th>AF #</th>
+                                        <th>AFG #</th>
+                                        <th>Company</th>
+                                        <th>Amount</th>
+                                        <th style="min-width:150px;">Product</th>
+                                        <th style="min-width:130px;">Source</th>
+                                        <th style="min-width:140px;" class="lender-col">Lender</th>
+                                        <th style="min-width:130px;" class="assigned-col">Assigned To</th>
+                                        <th style="min-width:130px; display:none;" class="sourced-by-col">Sourced By</th>
+                                        <th style="min-width:140px;">Status</th>
+                                        <th title="Days since deal was created or status last changed">Age</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dealsBody">
+                                    <tr>
+                                        <td colspan="12" class="empty-state">Loading...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            </div>
+                        </div><!-- close dealsContentArea -->
+                    </div>
+                </div>
             </div>
 
-            <!-- Notifications Page -->
-            <div id="notifications" class="page-section">
-                <div style="background:linear-gradient(135deg,#0D1E3D 0%,#1a3a6b 100%);border-radius:14px;padding:24px 28px;margin-bottom:20px;color:white;position:relative;overflow:hidden;">
-                    <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;background:rgba(201,168,76,0.1);border-radius:50%;"></div>
-                    <div style="position:absolute;bottom:-30px;right:60px;width:80px;height:80px;background:rgba(201,168,76,0.08);border-radius:50%;"></div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;position:relative;">
-                        <div>
-                            <h2 id="notifGreeting" style="margin:0 0 4px;font-size:22px;font-weight:700;">Hi there 👋</h2>
-                            <p id="notifSummary" style="margin:0;color:rgba(255,255,255,0.75);font-size:14px;">Checking your notifications...</p>
-                        </div>
-                        <div style="display:flex;gap:8px;">
-                            <button onclick="markAllNotificationsRead()" class="btn btn-sm" style="font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:7px 14px;">✓ Clear All</button>
-                            <button onclick="loadNotifications()" class="btn btn-sm" style="font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:7px 14px;">↻ Refresh</button>
-                        </div>
-                    </div>
-                </div>
-                <div id="notificationsFilterBar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-                    <button class="notif-filter-btn active" data-filter="all" onclick="filterNotifications('all')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:#0D1E3D;color:white;font-size:12px;font-weight:600;cursor:pointer;">All</button>
-                    <button class="notif-filter-btn" data-filter="action" onclick="filterNotifications('action')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Action Required</button>
-                    <button class="notif-filter-btn" data-filter="deals" onclick="filterNotifications('deals')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Deals</button>
-                    <button class="notif-filter-btn" data-filter="outreach" onclick="filterNotifications('outreach')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Outreach</button>
-                    <button class="notif-filter-btn" data-filter="applications" onclick="filterNotifications('applications')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Applications</button>
-                    <button class="notif-filter-btn" data-filter="vendor_note" onclick="filterNotifications('vendor_note')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Vendors</button>
-                    <button class="notif-filter-btn" data-filter="agent_vendor_note" onclick="filterNotifications('agent_vendor_note')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Agent Notes</button>
-                    <button class="notif-filter-btn" data-filter="inquiry" onclick="filterNotifications('inquiry')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Inquiries</button>
-                    <button class="notif-filter-btn" data-filter="pending_agent" onclick="filterNotifications('pending_agent')" style="padding:6px 14px;border-radius:20px;border:1px solid #E2E8F0;background:white;color:#334155;font-size:12px;font-weight:600;cursor:pointer;">Pending Agents</button>
-                </div>
-                <div id="notificationsList" style="display:flex;flex-direction:column;gap:8px;">
-                    <div style="text-align:center;padding:40px;color:#94A3B8;font-size:14px;">Loading notifications...</div>
-                </div>
-            </div>
+            <!-- Notifications Page (now redirects to dashboard) -->
+            <div id="notifications" class="page-section"></div>
 
-            <!-- Deal Pipeline Page -->
-            <div id="deals" class="page-section">
-                <div id="dealStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:20px;">
-                    <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                        <div style="font-size:24px;font-weight:800;color:#0D1E3D;" id="dealStatTotalValue">$0</div>
-                        <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Pipeline Value</div>
-                    </div>
-                    <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                        <div style="font-size:24px;font-weight:800;color:#0D1E3D;" id="dealStatAvgSize">$0</div>
-                        <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Avg Deal Size</div>
-                    </div>
-                    <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                        <div style="font-size:24px;font-weight:800;color:#10B981;" id="dealStatFundedCount">0</div>
-                        <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Funded This Month</div>
-                    </div>
-                    <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                        <div style="font-size:24px;font-weight:800;color:#F59E0B;" id="dealStatInCredit">0</div>
-                        <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">In Credit</div>
-                    </div>
-                    <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                        <div style="font-size:24px;font-weight:800;color:#EF4444;" id="dealStatStale">0</div>
-                        <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Stale (7+ days)</div>
-                    </div>
-                </div>
-                <div class="table-container">
-                    <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
-                        <div class="table-title">Deal Pipeline</div>
-                        <!-- Pipeline View Tabs -->
-                        <div id="dealTabs" style="display:flex;gap:0;border:1px solid #ccc;border-radius:6px;overflow:visible;font-size:13px;flex-wrap:wrap;">
-                            <button class="deal-tab" data-tab="prospects" onclick="switchDealTab('prospects')" style="padding:7px 16px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Prospects <span id="dealCountProspects" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
-                            <!-- Apps Out removed from tabs — shown as separate section below -->
-                            <button class="deal-tab active" data-tab="active" onclick="switchDealTab('active')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:600;background:var(--navy);color:white;transition:all .2s;">Active <span id="dealCountActive" style="background:rgba(255,255,255,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
-                            <button class="deal-tab" data-tab="funded" onclick="switchDealTab('funded')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Funded <span id="dealCountFunded" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
-                            <button class="deal-tab" data-tab="declined" onclick="switchDealTab('declined')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Declined <span id="dealCountDeclined" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
-                            <button class="deal-tab" data-tab="archived" onclick="switchDealTab('archived')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Archived <span id="dealCountArchived" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
-                        </div>
-                    </div>
-                    <div id="dealsContentArea">
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 0 20px 12px;">
-                            <input type="text" id="dealSearch" placeholder="Search AF#, AFG#, company, product, lender..."
-                                oninput="filterDeals()"
-                                style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 280px;">
-                            <select id="dealStatusFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                                <option value="">All Status</option>
-                                <option value="Prospect">Prospect</option>
-                                <option value="Quote Requested">Quote Requested</option>
-                                <option value="Quote sent">Quote sent</option>
-                                <option value="Info received">Info received</option>
-                                <option value="In Credit">In Credit</option>
-                                <option value="Approved">Approved</option>
-                                <option value="Approval sent">Approval sent</option>
-                                <option value="Docs requested">Docs requested</option>
-                                <option value="Docs out for signing">Docs out for signing</option>
-                                <option value="In funding">In funding</option>
-                                <option value="Funded">Funded</option>
-                                <option value="Declined">Declined</option>
-                                <option value="Dead approval">Dead approval</option>
-                                <option value="Withdrawn">Withdrawn</option>
-                            </select>
-                            <select id="dealSourceFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;" class="admin-or-iso-filter">
-                                <option value="">All Sources</option>
-                                <option value="Online">Online</option>
-                                <option value="Agent Referral">Agent Referral</option>
-                                <option value="Direct">Direct</option>
-                                <option value="Vendor">Vendor</option>
-                                <option value="Repeat Client">Repeat Client</option>
-                            </select>
-                            <select id="dealProductFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                                <option value="">All Products</option>
-                                <option value="Equipment Leasing">Equipment Leasing</option>
-                                <option value="MCA">MCA</option>
-                                <option value="CSBFL">CSBFL</option>
-                                <option value="SRED">SRED</option>
-                                <option value="Private Debt">Private Debt</option>
-                                <option value="Factoring">Factoring</option>
-                                <option value="Merchant Advance">Merchant Advance</option>
-                                <option value="SBA">SBA</option>
-                                <option value="Loans">Loans</option>
-                                <option value="Trade Finance">Trade Finance</option>
-                                <option value="Working Capital Loan">Working Capital Loan</option>
-                                <option value="Business Line of Credit">Business Line of Credit</option>
-                                <option value="Startup Financing">Startup Financing</option>
-                                <option value="Franchise Financing">Franchise Financing</option>
-                                <option value="Other">Other</option>
-                            </select>
-                            <select id="dealAssignedFilter" onchange="filterDeals()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                                <option value="">All Analysts</option>
-                                <option value="__mine__">My Deals</option>
-                            </select>
-                            <select id="dealSourcedByFilter" onchange="filterDeals()" style="display:none; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                                <option value="">All Deals</option>
-                                <option value="__mine__">My Deals</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; gap: 8px; padding: 0 20px 12px;">
-                            <button class="btn btn-secondary btn-sm" onclick="exportDeals()">Export CSV</button>
-                            <button id="dealPipelineAddBtn" class="btn btn-gold btn-sm" onclick="openAddDealModal()">+ Add Application</button>
-                        </div>
-                    <div style="overflow-x:auto;">
-                    <table id="dealsTable" style="min-width:1100px;">
-                        <thead>
-                            <tr>
-                                <th>AF #</th>
-                                <th>AFG #</th>
-                                <th>Company</th>
-                                <th>Amount</th>
-                                <th style="min-width:150px;">Product</th>
-                                <th style="min-width:130px;">Source</th>
-                                <th style="min-width:140px;" class="lender-col">Lender</th>
-                                <th style="min-width:130px;" class="assigned-col">Assigned To</th>
-                                <th style="min-width:130px; display:none;" class="sourced-by-col">Sourced By</th>
-                                <th style="min-width:140px;">Status</th>
-                                <th title="Days since deal was created or status last changed">Age</th>
-                                <th>Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dealsBody">
-                            <tr>
-                                <td colspan="12" class="empty-state">Loading...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    </div>
-                    </div><!-- close dealsContentArea -->
-                </div>
-
-            </div>
+            <!-- Deal Pipeline Page (now redirects to dashboard) -->
+            <div id="deals" class="page-section"></div>
 
             <!-- Agents Page -->
             <div id="agents" class="page-section">
@@ -5917,17 +5898,12 @@ if (location.hostname === 'alliancefinancing.ai') {
                 loadPageData('brokeragePortal');
             }
 
-            // Route ISO partners and referral partners directly to Notifications hub (their home page)
+            // Route ISO partners and referral partners to Command Center (dashboard)
             if ((currentAgentType === 'super_agent' || currentAgentType === 'referring_agent') && !['super_admin', 'admin'].includes(currentUserRole)) {
-                showPage('notifications');
-                loadPageData('notifications'); // calls loadNotifications()
+                showPage('dashboard');
+                loadPageData('dashboard');
                 // Pre-load outreach data in background so Marketing badge/banner appear immediately
                 loadOutreachHistory().catch(function(e) { console.warn('Background outreach load:', e); });
-            }
-
-            // Pre-load notifications for all users (if not already loaded by agent routing above)
-            if (!((currentAgentType === 'super_agent' || currentAgentType === 'referring_agent') && !['super_admin', 'admin'].includes(currentUserRole))) {
-                loadNotifications().catch(function(e) { console.warn('Background notifications load:', e); });
             }
 
             // Show admin agent filter on Applications Sent section
@@ -17964,6 +17940,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     function showPage(pageName) {
+        // Redirect deals and notifications to unified Command Center (dashboard)
+        if (pageName === 'deals' || pageName === 'notifications') {
+            pageName = 'dashboard';
+        }
+
         // Mortgage broker/agent users: redirect Dashboard to Brokerage Portal
         if (pageName === 'dashboard' && (currentAgentType === 'mortgage_broker' || currentAgentType === 'mortgage_agent') && !['super_admin', 'admin'].includes(currentUserRole)) {
             pageName = 'brokeragePortal';
@@ -18010,8 +17991,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         // Update header title
         const titles = {
-            'dashboard': 'Dashboard',
-            'deals': 'Deal Pipeline',
+            'dashboard': 'Command Center',
+            'deals': 'Command Center',
             'agents': 'Agents & Partners',
             'lenders': 'Lenders',
             'vendors': 'Vendors',
@@ -18019,7 +18000,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'clients': 'Clients',
             'inbox': 'Website Inquiries',
             'documents': 'Document Center',
-            'notifications': 'Notifications',
+            'notifications': 'Command Center',
             'alliance': 'Recruitment Hub',
             'vendorPrograms': 'Vendor Programs',
             'subAgents': (currentAgentType === 'mortgage_broker') ? 'My Agents' : 'Referral Partners',
@@ -18037,7 +18018,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var title = titles[pageName] || 'Dashboard';
         // For agents, show their type on the dashboard page
         if (pageName === 'dashboard' && !['super_admin', 'admin'].includes(currentUserRole) && currentAgentType) {
-            title = 'Dashboard';
+            title = 'Command Center';
         }
         document.getElementById('pageTitle').textContent = title;
         currentPage = pageName;
@@ -18658,21 +18639,46 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // ============================================
+    // Command Center Helpers
+    // ============================================
+    async function refreshCommandCenter() {
+        // Single refresh button reloads all unified sections in parallel
+        await Promise.all([
+            loadNotifications().catch(function(e) { console.error('Refresh notifications:', e); }),
+            loadDeals().catch(function(e) { console.error('Refresh deals:', e); }),
+            loadDashboard().catch(function(e) { console.error('Refresh dashboard:', e); })
+        ]);
+    }
+
+    function scrollToDeals() {
+        var anchor = document.getElementById('dealPipelineAnchor');
+        if (anchor) anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     async function loadDashboard() {
         try {
+            var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
+            // Toggle visibility of admin-only sections in the Command Center
+            var ccDeals = document.getElementById('commandCenterDeals');
+            var ccStats = document.getElementById('commandCenterStats');
+            if (ccDeals) ccDeals.style.display = isAdmin ? 'block' : 'none';
+            if (ccStats) ccStats.style.display = isAdmin ? 'grid' : 'none';
+
             // If agent (referring or sub), show simplified referral dashboard
-            if (!['super_admin', 'admin'].includes(currentUserRole) && ['referring_agent', 'sub_agent', 'mortgage_agent'].includes(currentAgentType)) {
+            if (!isAdmin && ['referring_agent', 'sub_agent', 'mortgage_agent'].includes(currentAgentType)) {
                 await loadReferralDashboard();
                 return;
             }
             // ISO partners and mortgage brokers: load their referral dashboard (includes pipeline)
-            if (!['super_admin', 'admin'].includes(currentUserRole) && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker')) {
+            if (!isAdmin && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker')) {
                 await loadReferralDashboard();
                 return;
             }
 
             // Vendor users: redirect to Vendor Portal instead of blank admin dashboard
-            if (!['super_admin', 'admin'].includes(currentUserRole) && (currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson')) {
+            if (!isAdmin && (currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson')) {
                 showPage('vendorPortal');
                 return;
             }
@@ -24783,22 +24789,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     async function loadPageData(pageName) {
         switch (pageName) {
             case 'dashboard':
+                // Unified Command Center: load dashboard + notifications + deals in parallel
                 await Promise.all([
                     loadDashboard().catch(function(e) { console.error('loadDashboard error:', e); }),
-                    loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
-                ]);
-                break;
-            case 'deals':
-                // Load deals and applications sent in parallel so one doesn't block the other
-                await Promise.all([
+                    loadNotifications().catch(function(e) { console.error('loadNotifications error:', e); }),
                     loadDeals().catch(function(e) { console.error('loadDeals error:', e); }),
                     loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
                 ]);
                 break;
+            case 'deals':
+            case 'notifications':
+                // Redirect to unified Command Center
+                showPage('dashboard');
+                return;
             case 'applications':
-                // Redirect applications to deals
-                await loadDeals();
-                break;
+                // Redirect applications to dashboard (which now includes deals)
+                showPage('dashboard');
+                return;
             case 'agents':
                 await loadAgents();
                 break;
@@ -24821,9 +24828,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 break;
             case 'documents':
                 await loadDocumentsPage();
-                break;
-            case 'notifications':
-                await loadNotifications();
                 break;
             case 'alliance':
                 await loadAllianceHouse();
@@ -42209,13 +42213,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     showPage('vendorPortal');
                     loadPageData('vendorPortal');
                 } else if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker' || currentAgentType === 'referring_agent') && !['super_admin', 'admin'].includes(currentUserRole)) {
-                    // Route ISO partners, mortgage brokers, and referral partners to Notifications hub
-                    showPage('notifications');
-                    loadPageData('notifications');
+                    // Route ISO partners, mortgage brokers, and referral partners to Command Center
+                    showPage('dashboard');
+                    loadPageData('dashboard');
                     loadOutreachHistory().catch(function(e) { console.warn('Background outreach load:', e); });
-                    // Also load dashboard data in background
-                    loadDashboard().catch(function(e) { console.error('loadDashboard error:', e); });
-                    loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); });
                 } else {
                     await Promise.all([
                         loadDashboard(),
