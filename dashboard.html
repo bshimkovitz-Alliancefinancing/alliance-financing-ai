@@ -4376,7 +4376,7 @@
                     </div>
                     <div class="modal-row full" style="margin-top: 8px;">
                         <div class="modal-field">
-                            <label>Referral Slug</label>
+                            <label id="slugLabel">Referral Slug</label>
                             <input type="text" id="agentSlug" readonly style="background-color: var(--light-gray); cursor: not-allowed;">
                             <small style="color: var(--text-light); font-size: 12px; margin-top: 5px;">Auto-generated from name</small>
                         </div>
@@ -20956,11 +20956,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </div>
                     <div>
                         <label style="display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">Office Phone</label>
-                        <div style="font-size:14px;color:#475569;">${brokerage.office_phone || '—'}</div>
+                        <div style="font-size:14px;color:#475569;">${brokerage.phone || '—'}</div>
                     </div>
                     <div>
                         <label style="display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">Cell Phone</label>
-                        <div style="font-size:14px;color:#475569;">${brokerage.cell_phone || '—'}</div>
+                        <div style="font-size:14px;color:#475569;">${(brokerage.program_details && brokerage.program_details.cell_phone) || '—'}</div>
                     </div>
                     <div>
                         <label style="display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">License #</label>
@@ -32738,6 +32738,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         else if (type === 'mortgage_broker') companyLabel.textContent = 'Brokerage Name';
         else if (type === 'mortgage_agent') companyLabel.textContent = 'Brokerage (auto-filled)';
         else companyLabel.textContent = 'Company Name';
+
+        // Update slug label and modal title based on type
+        var slugLabel = document.getElementById('slugLabel');
+        var modalTitle = document.getElementById('onboardModalTitle');
+        if (type === 'mortgage_broker') {
+            if (slugLabel) slugLabel.textContent = 'Brokerage Slug';
+            if (modalTitle) modalTitle.textContent = 'Onboard New Brokerage';
+        } else if (type === 'vendor_program') {
+            if (slugLabel) slugLabel.textContent = 'Vendor Slug';
+            if (modalTitle) modalTitle.textContent = 'Onboard New Vendor Program';
+        } else {
+            if (slugLabel) slugLabel.textContent = 'Referral Slug';
+            if (modalTitle) modalTitle.textContent = 'Onboard New Agent';
+        }
     }
 
     function onboardNextStep(step) {
@@ -32860,7 +32874,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         ${parentVendorInfo}
                         <strong>Business Type:</strong> <span>${btype}</span>
                         <strong>Commission:</strong> <span>${comm.replace('_', ' ')}</span>
-                        <strong>Referral Slug:</strong> <span style="font-family:monospace;">${slug}</span>
+                        <strong>${selectedAgentType === 'mortgage_broker' ? 'Brokerage Slug' : selectedAgentType === 'vendor_program' ? 'Vendor Slug' : 'Referral Slug'}:</strong> <span style="font-family:monospace;">${slug}</span>
                     </div>
                 `;
             }
@@ -32949,11 +32963,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const willSendInvite = sendInviteEl ? sendInviteEl.checked : false;
             const selectedStatus = document.getElementById('agentStatus').value || 'Active';
 
+            // Store cell phone in program_details so it works without a schema change
+            var cellPhoneVal = document.getElementById('agentCellPhone').value || '';
+            if (cellPhoneVal) programDetails.cell_phone = cellPhoneVal;
+
             const agentRecord = {
                 full_name: document.getElementById('agentName').value,
                 email: document.getElementById('agentEmail').value,
                 phone: document.getElementById('agentPhone').value || null,
-                cell_phone: document.getElementById('agentCellPhone').value || null,
                 role: 'agent',
                 agent_type: selectedAgentType,
                 agent_code: agentCode,
@@ -33190,7 +33207,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </div>
                     <div class="modal-field">
                         <label>Cell Phone</label>
-                        <input type="tel" value="${agent.cell_phone || ''}" onblur="updateAgentField('${agentId}', 'cell_phone', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                        <input type="tel" value="${(agent.program_details && agent.program_details.cell_phone) || ''}" onblur="updateAgentCellPhone('${agentId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                 </div>
                 <div class="modal-row">
@@ -33691,6 +33708,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (error) {
             console.error('Update agent field error:', error);
             alert('Error updating: ' + error.message);
+        }
+    }
+
+    async function updateAgentCellPhone(agentId, value) {
+        try {
+            var { data: agentData } = await db.from('users').select('program_details').eq('id', agentId).single();
+            var pd = (agentData && agentData.program_details) || {};
+            pd.cell_phone = value || null;
+            var { error } = await db.from('users').update({ program_details: pd }).eq('id', agentId);
+            if (error) throw error;
+        } catch (err) {
+            console.error('Update cell phone error:', err);
+            alert('Error updating cell phone: ' + err.message);
         }
     }
 
@@ -34859,6 +34889,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         openAddAgentModal();
         setTimeout(function() {
             selectAgentType('mortgage_broker');
+            // Update title and labels for brokerage context
+            var titleEl = document.getElementById('onboardModalTitle');
+            if (titleEl) titleEl.textContent = 'Onboard New Brokerage';
             onboardNextStep(2);
         }, 100);
     }
