@@ -1684,7 +1684,14 @@
                 <!-- Brokerage Stats Bar -->
                 <div id="brokerageStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;"></div>
 
-                <div class="table-container" style="border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                <!-- Tabs: Brokerages | Mortgage Agents -->
+                <div style="display:flex;gap:0;margin-bottom:0;">
+                    <button id="brokerageTabBrokerages" onclick="switchBrokerageTab('brokerages')" style="padding:10px 20px;font-size:13px;font-weight:600;border:1px solid #E2E8F0;border-bottom:none;border-radius:8px 8px 0 0;cursor:pointer;background:var(--gold);color:white;">Brokerages</button>
+                    <button id="brokerageTabAgents" onclick="switchBrokerageTab('agents')" style="padding:10px 20px;font-size:13px;font-weight:600;border:1px solid #E2E8F0;border-bottom:none;border-radius:8px 8px 0 0;cursor:pointer;background:#F8FAFC;color:#475569;">Mortgage Agents</button>
+                </div>
+
+                <!-- Brokerages Tab -->
+                <div id="brokerageTabContentBrokerages" class="table-container" style="border-radius:0 12px 12px 12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
                     <!-- Toolbar -->
                     <div style="padding:16px 20px;background:white;border-bottom:1px solid #E2E8F0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
                         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:1;">
@@ -1721,6 +1728,45 @@
                             </tr>
                         </thead>
                         <tbody id="brokeragesBody">
+                            <tr>
+                                <td colspan="7" class="empty-state">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mortgage Agents Tab -->
+                <div id="brokerageTabContentAgents" class="table-container" style="display:none;border-radius:0 12px 12px 12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                    <div style="padding:16px 20px;background:white;border-bottom:1px solid #E2E8F0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:1;">
+                            <div style="position:relative;flex:1;max-width:320px;">
+                                <input type="text" id="mortgageAgentSearch" placeholder="Search mortgage agents..."
+                                       oninput="filterMortgageAgents()"
+                                       style="width:100%;padding:8px 12px 8px 34px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;transition:border-color 0.2s;">
+                                <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94A3B8;font-size:14px;">🔍</span>
+                            </div>
+                            <select id="mortgageAgentStatusFilter" onchange="filterMortgageAgents()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
+                                <option value="">All Active</option>
+                                <option value="Active">Active</option>
+                                <option value="Invited">Invited</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="__all">All Agents</option>
+                            </select>
+                        </div>
+                    </div>
+                    <table style="border-collapse:separate;border-spacing:0;width:100%;">
+                        <thead>
+                            <tr style="background:#F8FAFC;">
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Agent Name</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Email</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Brokerage</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Phone</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:center;">Deals</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Status</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mortgageAgentsBody">
                             <tr>
                                 <td colspan="7" class="empty-state">Loading...</td>
                             </tr>
@@ -5997,7 +6043,7 @@ if (location.hostname === 'alliancefinancing.ai') {
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
             } else {
                 // ISO/other agent views
-                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Website Inquiries', 'Recruitment Hub', 'Team', 'Admin Resources', 'Vendor Resources', 'Documents'];
+                const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Website Inquiries', 'Recruitment Hub', 'Team', 'Admin Resources', 'Vendor Resources', 'Documents', 'Mortgage Brokerages', 'Clients'];
 
                 if (adminOnly.includes(label)) {
                     item.style.display = 'none';
@@ -9827,6 +9873,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     _notifAgentIds = _notifAgentIds.concat(_subAgentsNotif.map(function(s) { return s.id; }));
                     _hasSubAgents = true;
 
+                    // Auto-sync: if agent has invite_accepted_at but agent_status is still Pending/Invited, fix it
+                    _subAgentsNotif.forEach(function(sa) {
+                        if ((sa.invite_accepted_at || sa.onboarding_status === 'active') && (sa.agent_status === 'Pending' || sa.agent_status === 'Invited')) {
+                            db.from('users').update({ agent_status: 'Active' }).eq('id', sa.id)
+                                .then(function() { console.log('Auto-synced agent_status to Active for:', sa.full_name || sa.id); })
+                                .catch(function(e) { console.warn('Auto-sync agent_status failed:', e); });
+                        }
+                    });
+
                     // Notify about sub-agents who haven't activated their dashboard
                     var memberType = (currentAgentType === 'mortgage_broker') ? 'mortgage agent' : 'referral partner';
                     _subAgentsNotif.forEach(function(sa) {
@@ -10029,6 +10084,58 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
         } catch(e) { console.warn('Notifications: applications load error', e); }
+
+            // 3b. Admin: Pending agents needing review + recently activated agents
+        try {
+            if (isAdmin) {
+                var { data: pendingAgents } = await db.from('users').select('id, full_name, email, agent_status, agent_type, invite_accepted_at, created_at, parent_agent_id')
+                    .eq('role', 'agent').in('agent_status', ['Pending', 'Invited']);
+                var sevenDaysAgoPending = Date.now() - 7 * 86400000;
+                if (pendingAgents) {
+                    pendingAgents.forEach(function(a) {
+                        var createdAt = a.created_at ? new Date(a.created_at) : new Date();
+                        var daysAgo = Math.floor((Date.now() - createdAt.getTime()) / 86400000);
+                        var typeLabel = a.agent_type === 'mortgage_broker' ? 'Mortgage Broker' : a.agent_type === 'mortgage_agent' ? 'Mortgage Agent' : a.agent_type === 'super_agent' ? 'ISO Partner' : 'Referral Partner';
+                        notifications.push({
+                            type: 'pending_agent',
+                            category: 'action',
+                            icon: daysAgo >= 3 ? '🔴' : '🟡',
+                            iconBg: daysAgo >= 3 ? '#FEE2E2' : '#FEF3C7',
+                            iconColor: daysAgo >= 3 ? '#DC2626' : '#D97706',
+                            title: 'New ' + typeLabel + ': ' + (a.full_name || a.email || 'Unknown') + ' (' + (a.agent_status || 'Pending') + ')',
+                            detail: 'Added ' + daysAgo + ' day' + (daysAgo !== 1 ? 's' : '') + ' ago — needs review and approval',
+                            time: createdAt,
+                            action: "viewAgent('" + a.id + "')",
+                            actionLabel: 'Review Agent',
+                            priority: daysAgo >= 3 ? 1 : 2
+                        });
+                    });
+                }
+
+                // Recently activated agents (last 7 days) — admin info notification
+                var { data: recentlyActivated } = await db.from('users').select('id, full_name, email, agent_type, invite_accepted_at, parent_agent_id')
+                    .eq('role', 'agent').eq('agent_status', 'Active').not('invite_accepted_at', 'is', null)
+                    .gte('invite_accepted_at', new Date(sevenDaysAgoPending).toISOString());
+                if (recentlyActivated) {
+                    recentlyActivated.forEach(function(a) {
+                        var typeLabel = a.agent_type === 'mortgage_broker' ? 'Mortgage Broker' : a.agent_type === 'mortgage_agent' ? 'Mortgage Agent' : a.agent_type === 'super_agent' ? 'ISO Partner' : 'Referral Partner';
+                        notifications.push({
+                            type: 'pending_agent',
+                            category: 'info',
+                            icon: '🎉',
+                            iconBg: '#D1FAE5',
+                            iconColor: '#065F46',
+                            title: (a.full_name || a.email || 'Agent') + ' activated their dashboard',
+                            detail: typeLabel + ' — portal is set up and ready to go',
+                            time: new Date(a.invite_accepted_at),
+                            action: "viewAgent('" + a.id + "')",
+                            actionLabel: 'View Agent',
+                            priority: 4
+                        });
+                    });
+                }
+            }
+        } catch(e) { console.warn('Notifications: pending agents load error', e); }
 
             // 4. Follow-up reminders from notes (agents, vendors, lenders, clients)
         try {
@@ -20455,6 +20562,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (error) throw error;
             allAgentsData = (data || []);
 
+            // Auto-sync: fix agents who activated dashboard but still show Pending/Invited
+            allAgentsData.forEach(function(a) {
+                if ((a.invite_accepted_at || a.onboarding_status === 'active') && (a.agent_status === 'Pending' || a.agent_status === 'Invited')) {
+                    a.agent_status = 'Active'; // Fix in memory immediately
+                    db.from('users').update({ agent_status: 'Active' }).eq('id', a.id)
+                        .then(function() { console.log('Auto-synced agent_status to Active for:', a.full_name || a.id); })
+                        .catch(function(e) { console.warn('Auto-sync failed:', e); });
+                }
+            });
+
             // Update summary counts
             const counts = { super_agent: 0, referring_agent: 0, syndication_desk: 0, vendor_program: 0, mortgage_broker: 0, mortgage_agent: 0 };
             allAgentsData.forEach(a => {
@@ -20995,6 +21112,132 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         renderBrokeragesTable(filtered);
         renderBrokerageStats();
+    }
+
+    // ─── Tab switching for Brokerages / Mortgage Agents ───
+    function switchBrokerageTab(tab) {
+        var brkTab = document.getElementById('brokerageTabBrokerages');
+        var agentTab = document.getElementById('brokerageTabAgents');
+        var brkContent = document.getElementById('brokerageTabContentBrokerages');
+        var agentContent = document.getElementById('brokerageTabContentAgents');
+
+        if (tab === 'agents') {
+            brkTab.style.background = '#F8FAFC'; brkTab.style.color = '#475569';
+            agentTab.style.background = 'var(--gold)'; agentTab.style.color = 'white';
+            brkContent.style.display = 'none';
+            agentContent.style.display = 'block';
+            loadMortgageAgentsList();
+        } else {
+            brkTab.style.background = 'var(--gold)'; brkTab.style.color = 'white';
+            agentTab.style.background = '#F8FAFC'; agentTab.style.color = '#475569';
+            brkContent.style.display = 'block';
+            agentContent.style.display = 'none';
+        }
+    }
+
+    var allMortgageAgentsList = [];
+
+    async function loadMortgageAgentsList() {
+        try {
+            // Fetch all mortgage agents
+            var { data: agents, error } = await db.from('users').select('*')
+                .eq('agent_type', 'mortgage_agent')
+                .order('full_name', { ascending: true });
+            if (error) throw error;
+            allMortgageAgentsList = agents || [];
+
+            // Fetch all brokerages for name lookup
+            var { data: brokers } = await db.from('users').select('id, company_name, full_name')
+                .eq('agent_type', 'mortgage_broker');
+            var brokerMap = {};
+            (brokers || []).forEach(function(b) { brokerMap[b.id] = b.company_name || b.full_name || 'Unknown'; });
+
+            // Fetch deal counts per agent
+            var agentIds = allMortgageAgentsList.map(function(a) { return a.id; });
+            var dealCounts = {};
+            if (agentIds.length > 0) {
+                var { data: deals } = await db.from('deals').select('source_agent_id').in('source_agent_id', agentIds);
+                (deals || []).forEach(function(d) {
+                    dealCounts[d.source_agent_id] = (dealCounts[d.source_agent_id] || 0) + 1;
+                });
+            }
+
+            // Store broker map and deal counts for filtering
+            window._mortgageAgentBrokerMap = brokerMap;
+            window._mortgageAgentDealCounts = dealCounts;
+
+            filterMortgageAgents();
+        } catch(err) {
+            console.error('Load mortgage agents list error:', err);
+            document.getElementById('mortgageAgentsBody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#DC2626;">Error: ' + err.message + '</td></tr>';
+        }
+    }
+
+    function filterMortgageAgents() {
+        var search = (document.getElementById('mortgageAgentSearch').value || '').toLowerCase();
+        var statusFilter = document.getElementById('mortgageAgentStatusFilter').value;
+        var brokerMap = window._mortgageAgentBrokerMap || {};
+        var dealCounts = window._mortgageAgentDealCounts || {};
+
+        var filtered = allMortgageAgentsList.filter(function(a) {
+            var matchesSearch = !search ||
+                (a.full_name || '').toLowerCase().includes(search) ||
+                (a.email || '').toLowerCase().includes(search) ||
+                (brokerMap[a.parent_agent_id] || '').toLowerCase().includes(search);
+
+            var matchesStatus = true;
+            if (statusFilter === '__all') {
+                matchesStatus = true;
+            } else if (statusFilter) {
+                matchesStatus = (a.agent_status || '') === statusFilter;
+            } else {
+                matchesStatus = (a.agent_status || '') !== 'Inactive';
+            }
+
+            return matchesSearch && matchesStatus;
+        });
+
+        var tbody = document.getElementById('mortgageAgentsBody');
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px 20px;color:#94A3B8;font-size:14px;">No mortgage agents found.</td></tr>';
+            return;
+        }
+
+        var statusStyles = {
+            'Active': { bg: '#DCFCE7', color: '#166534' },
+            'Invited': { bg: '#DBEAFE', color: '#1E40AF' },
+            'Inactive': { bg: '#F1F5F9', color: '#64748B' }
+        };
+
+        tbody.innerHTML = filtered.map(function(a) {
+            var st = statusStyles[a.agent_status] || statusStyles['Active'];
+            var brokerName = brokerMap[a.parent_agent_id] || '—';
+            var aPd = a.program_details || {};
+            var phone = a.phone || aPd.cell_phone || '—';
+            var deals = dealCounts[a.id] || 0;
+
+            return '<tr style="border-bottom:1px solid #F1F5F9;" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'white\'">' +
+                '<td style="padding:12px 14px;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;">' +
+                        '<div style="width:32px;height:32px;border-radius:50%;background:var(--gold);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">' + (a.full_name || 'N').substring(0,2).toUpperCase() + '</div>' +
+                        '<div>' +
+                            '<div style="font-size:13px;font-weight:600;color:var(--navy);">' + (a.full_name || 'N/A') + '</div>' +
+                            '<div style="font-size:11px;color:#94A3B8;">' + (a.referral_code || '') + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</td>' +
+                '<td style="padding:12px 14px;font-size:13px;color:#475569;">' + (a.email || '—') + '</td>' +
+                '<td style="padding:12px 14px;font-size:13px;color:#475569;font-weight:500;">' + brokerName + '</td>' +
+                '<td style="padding:12px 14px;font-size:13px;color:#475569;">' + phone + '</td>' +
+                '<td style="padding:12px 14px;text-align:center;font-weight:600;color:var(--navy);">' + deals + '</td>' +
+                '<td style="padding:12px 14px;">' +
+                    '<span style="display:inline-block;padding:3px 10px;border-radius:4px;background:' + st.bg + ';color:' + st.color + ';font-size:11px;font-weight:600;">' + (a.agent_status || 'Active') + '</span>' +
+                '</td>' +
+                '<td style="padding:12px 14px;text-align:right;">' +
+                    '<button onclick="viewAgent(\'' + a.id + '\')" style="padding:5px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">View</button>' +
+                '</td>' +
+            '</tr>';
+        }).join('');
     }
 
     function renderBrokeragesTable(data) {
