@@ -21129,10 +21129,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var roleIcon = c.type === 'admin' ? '👤' : '🏠';
                 var dealsBadge = c.type === 'agent' ? ' <span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:4px;">' + (c.deals || 0) + ' deals</span>' : '';
 
-                return '<div style="background:#F8FAFC;padding:14px;border-radius:8px;margin-bottom:10px;border:1px solid #E2E8F0;">' +
+                // Inline edit form for admin contact (edits the brokerage user record directly)
+                var editFormHtml = '';
+                if (c.type === 'admin') {
+                    editFormHtml = '<div id="brokerageContactEdit_' + c.id + '" style="display:none;flex:1;">' +
+                        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+                            '<input type="text" id="editBrkContactName_' + c.id + '" value="' + (c.name || '').replace(/"/g, '&quot;') + '" placeholder="Full Name" style="padding:5px 8px;border:1px solid #E2E8F0;border-radius:4px;font-size:13px;">' +
+                            '<input type="email" id="editBrkContactEmail_' + c.id + '" value="' + (c.email || '').replace(/"/g, '&quot;') + '" placeholder="Email" style="padding:5px 8px;border:1px solid #E2E8F0;border-radius:4px;font-size:13px;">' +
+                        '</div>' +
+                        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+                            '<input type="tel" id="editBrkContactPhone_' + c.id + '" value="' + (c.phone || '').replace(/"/g, '&quot;') + '" placeholder="Office Phone" style="padding:5px 8px;border:1px solid #E2E8F0;border-radius:4px;font-size:13px;">' +
+                            '<input type="tel" id="editBrkContactCell_' + c.id + '" value="' + (c.cell || '').replace(/"/g, '&quot;') + '" placeholder="Cell Phone" style="padding:5px 8px;border:1px solid #E2E8F0;border-radius:4px;font-size:13px;">' +
+                        '</div>' +
+                        '<div style="display:flex;gap:8px;">' +
+                            '<button onclick="saveBrokerageAdminContact(\'' + brokerageId + '\')" style="padding:4px 12px;background:var(--gold);color:white;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Save</button>' +
+                            '<button onclick="cancelEditBrokerageContact(\'' + c.id + '\')" style="padding:4px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Cancel</button>' +
+                        '</div>' +
+                    '</div>';
+                }
+
+                return '<div class="brokerage-contact-card" style="background:#F8FAFC;padding:14px;border-radius:8px;margin-bottom:10px;border:1px solid #E2E8F0;">' +
                     '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
-                        '<div style="flex:1;">' +
-                            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
+                        '<div id="brokerageContactDisplay_' + c.id + '" style="flex:1;">' +
+                            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">' +
                                 '<span style="font-size:14px;">' + roleIcon + '</span>' +
                                 '<span style="font-size:14px;font-weight:700;color:var(--navy);">' + (c.name || 'N/A') + '</span>' +
                                 '<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:' + statusBg + ';color:' + statusColor + ';font-size:11px;font-weight:600;">' + c.status + '</span>' +
@@ -21146,9 +21165,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 (c.commission_type ? '<span>💰 ' + c.commission_type + '</span>' : '') +
                             '</div>' +
                         '</div>' +
-                        '<div style="display:flex;gap:4px;margin-left:8px;">' +
+                        editFormHtml +
+                        '<div style="display:flex;gap:4px;margin-left:8px;flex-shrink:0;">' +
+                            (c.email ? '<button onclick="brokerageEmailContact(\'' + brokerageId + '\',\'' + (c.email || '').replace(/'/g, "\\'") + '\',\'' + (c.name || '').replace(/'/g, "\\'") + '\')" style="padding:4px 10px;background:#2563EB;color:white;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;" title="Send email via dashboard">📧 Email</button>' : '') +
+                            (c.type === 'admin' ? '<button onclick="toggleEditBrokerageContact(\'' + c.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#475569;border:1px solid #E2E8F0;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;" title="Edit contact">Edit</button>' : '') +
                             (c.type === 'agent' ? '<button onclick="viewAgent(\'' + c.id + '\')" style="padding:4px 10px;background:#DBEAFE;color:#1E40AF;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;" title="View agent detail">View</button>' : '') +
-                            (c.email ? '<button onclick="window.open(\'mailto:' + c.email + '\')" style="padding:4px 10px;background:#FEF3C7;color:#92400E;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;" title="Quick email">📧 Email</button>' : '') +
                         '</div>' +
                     '</div>' +
                 '</div>';
@@ -21464,6 +21485,95 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     function closeBrokerageDetailModal() {
         var modal = document.getElementById('brokerageDetailModal');
         if (modal) modal.classList.remove('active');
+    }
+
+    function toggleEditBrokerageContact(contactId) {
+        var display = document.getElementById('brokerageContactDisplay_' + contactId);
+        var edit = document.getElementById('brokerageContactEdit_' + contactId);
+        if (display && edit) {
+            display.style.display = 'none';
+            edit.style.display = 'block';
+        }
+    }
+
+    function cancelEditBrokerageContact(contactId) {
+        var display = document.getElementById('brokerageContactDisplay_' + contactId);
+        var edit = document.getElementById('brokerageContactEdit_' + contactId);
+        if (display && edit) {
+            display.style.display = 'block';
+            edit.style.display = 'none';
+        }
+    }
+
+    async function saveBrokerageAdminContact(brokerageId) {
+        try {
+            var nameEl = document.querySelector('[id^="editBrkContactName_"]');
+            var emailEl = document.querySelector('[id^="editBrkContactEmail_"]');
+            var phoneEl = document.querySelector('[id^="editBrkContactPhone_"]');
+            var cellEl = document.querySelector('[id^="editBrkContactCell_"]');
+
+            var newName = nameEl ? nameEl.value.trim() : '';
+            var newEmail = emailEl ? emailEl.value.trim() : '';
+            var newPhone = phoneEl ? phoneEl.value.trim() : '';
+            var newCell = cellEl ? cellEl.value.trim() : '';
+
+            // Update core fields on users table
+            var updateObj = {};
+            if (newName) updateObj.full_name = newName;
+            updateObj.email = newEmail || null;
+            updateObj.phone = newPhone || null;
+
+            var { error } = await db.from('users').update(updateObj).eq('id', brokerageId);
+            if (error) throw error;
+
+            // Update cell phone in program_details
+            var { data: userData } = await db.from('users').select('program_details, admin_notes').eq('id', brokerageId).single();
+            var pd = (userData && userData.program_details) || {};
+            pd.cell_phone = newCell || null;
+            await db.from('users').update({ program_details: pd }).eq('id', brokerageId);
+
+            // Log audit entry
+            var notes = [];
+            try { notes = userData.admin_notes ? JSON.parse(userData.admin_notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var userEmail = document.getElementById('userEmailDisplay') ? document.getElementById('userEmailDisplay').textContent : 'System';
+            notes.unshift({
+                text: '📝 Admin contact updated: ' + newName + ' | ' + newEmail + ' | ' + newPhone + ' | Cell: ' + newCell,
+                author: userEmail,
+                date: dateStr,
+                visible_to_agent: false,
+                is_audit_log: true
+            });
+            await db.from('users').update({ admin_notes: JSON.stringify(notes) }).eq('id', brokerageId);
+
+            showToast('Admin contact updated', 'success');
+            await loadMortgageBrokerages();
+            await viewBrokerage(brokerageId);
+        } catch(err) {
+            console.error('Save brokerage admin contact error:', err);
+            alert('Error saving contact: ' + err.message);
+        }
+    }
+
+    function brokerageEmailContact(brokerageId, email, name) {
+        // Open the built-in email compose form and pre-select this contact
+        toggleEntityCompose('brokerage', brokerageId, 'email');
+        // After the form is shown, check the contact's checkbox
+        setTimeout(function() {
+            var key = 'brokerage_' + brokerageId;
+            var checkboxes = document.querySelectorAll('input[name="entityEmailToContact_' + key + '"]');
+            checkboxes.forEach(function(cb) {
+                if (cb.value === email) {
+                    cb.checked = true;
+                    if (cb.parentElement) cb.parentElement.style.background = '#DBEAFE';
+                }
+            });
+            updateBrokerageEmailToDisplay(brokerageId);
+            // Pre-fill subject
+            var subjectEl = document.getElementById('entityEmailSubject_' + key);
+            if (subjectEl && name) subjectEl.value = 'Re: ' + name;
+        }, 100);
     }
 
     function openAddMortgageAgentModal(brokerageId) {
