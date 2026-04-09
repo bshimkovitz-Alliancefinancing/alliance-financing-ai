@@ -5025,6 +5025,137 @@
     </div>
 </div>
 
+<!-- Add Brokerage Modal -->
+<div id="addBrokerageModal" class="modal">
+    <div class="modal-content" style="max-width:600px;max-height:90vh;overflow-y:auto;">
+        <div class="modal-header" style="background:var(--navy);padding:18px 24px;">
+            <h2 style="color:white;font-size:18px;margin:0;">Onboard New Brokerage</h2>
+            <button class="modal-close" onclick="closeAddBrokerageModal()" style="color:white;opacity:0.7;">✕</button>
+        </div>
+        <div class="modal-body" style="padding:24px;">
+            <!-- Step Indicator -->
+            <div id="brokerageSteps" style="display:flex;gap:6px;margin-bottom:24px;background:#F1F5F9;border-radius:10px;padding:4px;">
+                <div class="brk-step active" data-step="1" style="flex:1;text-align:center;padding:10px 8px;border-radius:8px;font-size:12px;font-weight:600;background:var(--navy);color:white;transition:all 0.2s ease;">1. Brokerage Info</div>
+                <div class="brk-step" data-step="2" style="flex:1;text-align:center;padding:10px 8px;border-radius:8px;font-size:12px;font-weight:600;background:transparent;color:#94A3B8;transition:all 0.2s ease;">2. Admin Contact</div>
+                <div class="brk-step" data-step="3" style="flex:1;text-align:center;padding:10px 8px;border-radius:8px;font-size:12px;font-weight:600;background:transparent;color:#94A3B8;transition:all 0.2s ease;">3. Review & Create</div>
+            </div>
+
+            <!-- Step 1: Brokerage Info -->
+            <div id="brkStep1">
+                <div style="background:#ECFEFF;border:1px solid #A5F3FC;border-radius:6px;padding:12px 16px;margin-bottom:20px;">
+                    <p style="font-size:13px;color:#0E7490;margin:0;line-height:1.5;">
+                        <strong>Step 1:</strong> Enter the brokerage details. You'll add the admin contact in the next step.
+                    </p>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field full">
+                        <label>Brokerage Name <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="brkName" required placeholder="e.g., Monty Capital Inc" oninput="generateBrokerageSlug()">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Brokerage License # <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="brkLicense" placeholder="e.g., 10464">
+                    </div>
+                    <div class="modal-field">
+                        <label>Province(s) Licensed</label>
+                        <input type="text" id="brkProvinces" placeholder="e.g., ON, BC, AB">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Office Phone</label>
+                        <input type="tel" id="brkOfficePhone" placeholder="Office / main line">
+                    </div>
+                    <div class="modal-field">
+                        <label>Business Type</label>
+                        <select id="brkBusinessType">
+                            <option value="Mortgage Broker" selected>Mortgage Broker</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-row full" style="margin-top:8px;">
+                    <div class="modal-field">
+                        <label>Brokerage Slug</label>
+                        <input type="text" id="brkSlug" readonly style="background-color:var(--light-gray);cursor:not-allowed;font-family:monospace;">
+                        <small style="color:var(--text-light);font-size:12px;margin-top:5px;">Auto-generated from brokerage name</small>
+                    </div>
+                </div>
+                <div style="margin-top:20px;display:flex;justify-content:space-between;">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddBrokerageModal()" style="width:auto;">Cancel</button>
+                    <button type="button" class="btn btn-gold" onclick="brokerageNextStep(2)" style="width:auto;padding:8px 20px;font-weight:600;">Next →</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Admin Contact -->
+            <div id="brkStep2" style="display:none;">
+                <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:12px 16px;margin-bottom:20px;">
+                    <p style="font-size:13px;color:#1E40AF;margin:0;line-height:1.5;">
+                        <strong>Step 2:</strong> Add the primary admin contact for this brokerage. This person will receive the invite and manage the brokerage dashboard.
+                    </p>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Admin Full Name <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="brkAdminName" required placeholder="e.g., Monty Sands">
+                    </div>
+                    <div class="modal-field">
+                        <label>Admin Email <span style="color:var(--danger);">*</span></label>
+                        <input type="email" id="brkAdminEmail" required placeholder="admin@brokerage.ca">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Admin Cell Phone</label>
+                        <input type="tel" id="brkAdminCell" placeholder="Mobile / cell">
+                    </div>
+                    <div class="modal-field">
+                        <label>Commission Type</label>
+                        <select id="brkCommissionType">
+                            <option value="referral_fee">Referral Fee</option>
+                            <option value="override">Override</option>
+                            <option value="facilitation">Facilitation</option>
+                            <option value="none">None</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top:20px;display:flex;justify-content:space-between;">
+                    <button type="button" class="btn btn-secondary" onclick="brokerageNextStep(1)" style="width:auto;">← Back</button>
+                    <button type="button" class="btn btn-gold" onclick="brokerageNextStep(3)" style="width:auto;padding:8px 20px;font-weight:600;">Next →</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Review & Create -->
+            <div id="brkStep3" style="display:none;">
+                <h3 style="font-size:15px;font-weight:700;color:var(--navy);margin:0 0 16px;border-bottom:1px solid #E2E8F0;padding-bottom:8px;">Review Brokerage Details</h3>
+                <div id="brkReviewContent" style="margin-bottom:20px;"></div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Status</label>
+                        <select id="brkStatus">
+                            <option value="Active">Active</option>
+                            <option value="Invited" selected>Invited</option>
+                            <option value="Under Review">Under Review</option>
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>Send Invite Email?</label>
+                        <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer;margin-top:6px;">
+                            <input type="checkbox" id="brkSendInvite"> Yes, send activation email to admin
+                        </label>
+                    </div>
+                </div>
+                <div style="margin-top:20px;display:flex;justify-content:space-between;">
+                    <button type="button" class="btn btn-secondary" onclick="brokerageNextStep(2)" style="width:auto;">← Back</button>
+                    <button type="button" class="btn btn-primary" id="brkCreateBtn" onclick="handleCreateBrokerage()" style="width:auto;padding:10px 24px;font-weight:700;background:var(--gold);color:white;border:none;border-radius:8px;cursor:pointer;">Create Brokerage & Send Invite</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Add Client Modal -->
 <div id="addClientModal" class="modal">
     <div class="modal-content" style="max-width:600px;">
@@ -21090,12 +21221,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     function openAddMortgageAgentModal(brokerageId) {
-        // This function would open the agent onboarding modal pre-set for mortgage_agent
-        // For now, just call the standard onboarding modal and let user set parent_agent_id
         openAddAgentModal();
         setTimeout(function() {
             selectAgentType('mortgage_agent');
-            // Pre-fill parent agent ID if possible (may require additional modal modifications)
+            // Pre-select the parent broker in the dropdown
+            setTimeout(function() {
+                var pbSelect = document.getElementById('parentBrokerSelect');
+                if (pbSelect && brokerageId) {
+                    pbSelect.value = brokerageId;
+                    onParentBrokerChange();
+                }
+            }, 200);
         }, 100);
     }
 
@@ -34886,14 +35022,191 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     function openAddBrokerageModal() {
-        openAddAgentModal();
-        setTimeout(function() {
-            selectAgentType('mortgage_broker');
-            // Update title and labels for brokerage context
-            var titleEl = document.getElementById('onboardModalTitle');
-            if (titleEl) titleEl.textContent = 'Onboard New Brokerage';
-            onboardNextStep(2);
-        }, 100);
+        // Reset form
+        ['brkName', 'brkLicense', 'brkProvinces', 'brkOfficePhone', 'brkSlug', 'brkAdminName', 'brkAdminEmail', 'brkAdminCell'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        var btEl = document.getElementById('brkBusinessType');
+        if (btEl) btEl.value = 'Mortgage Broker';
+        var commEl = document.getElementById('brkCommissionType');
+        if (commEl) commEl.value = 'referral_fee';
+        var statusEl = document.getElementById('brkStatus');
+        if (statusEl) statusEl.value = 'Invited';
+        var invEl = document.getElementById('brkSendInvite');
+        if (invEl) invEl.checked = false;
+        brokerageNextStep(1);
+        document.getElementById('addBrokerageModal').classList.add('active');
+    }
+
+    function closeAddBrokerageModal() {
+        document.getElementById('addBrokerageModal').classList.remove('active');
+    }
+
+    function generateBrokerageSlug() {
+        var name = document.getElementById('brkName').value.trim();
+        var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        document.getElementById('brkSlug').value = slug;
+    }
+
+    function brokerageNextStep(step) {
+        // Validate before advancing
+        if (step === 2) {
+            var name = document.getElementById('brkName').value.trim();
+            if (!name) { alert('Please enter the brokerage name.'); return; }
+        }
+        if (step === 3) {
+            var adminName = document.getElementById('brkAdminName').value.trim();
+            var adminEmail = document.getElementById('brkAdminEmail').value.trim();
+            if (!adminName) { alert('Please enter the admin contact name.'); return; }
+            if (!adminEmail) { alert('Please enter the admin email.'); return; }
+            var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(adminEmail)) { alert('Please enter a valid email address.'); return; }
+
+            // Build review
+            var brkNameVal = document.getElementById('brkName').value.trim();
+            var license = document.getElementById('brkLicense').value.trim() || '—';
+            var provinces = document.getElementById('brkProvinces').value.trim() || '—';
+            var officePhone = document.getElementById('brkOfficePhone').value.trim() || '—';
+            var cellPhone = document.getElementById('brkAdminCell').value.trim() || '—';
+            var slug = document.getElementById('brkSlug').value || '—';
+            var comm = document.getElementById('brkCommissionType').value || 'referral_fee';
+            document.getElementById('brkReviewContent').innerHTML =
+                '<div style="display:grid;grid-template-columns:160px 1fr;gap:6px 12px;">' +
+                '<strong>Brokerage Name:</strong> <span>' + brkNameVal + '</span>' +
+                '<strong>License #:</strong> <span>' + license + '</span>' +
+                '<strong>Province(s):</strong> <span>' + provinces + '</span>' +
+                '<strong>Office Phone:</strong> <span>' + officePhone + '</span>' +
+                '<strong>Brokerage Slug:</strong> <span style="font-family:monospace;">' + slug + '</span>' +
+                '</div>' +
+                '<div style="border-top:1px solid #E2E8F0;margin:12px 0;padding-top:12px;">' +
+                '<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:8px;">Admin Contact</div>' +
+                '<div style="display:grid;grid-template-columns:160px 1fr;gap:6px 12px;">' +
+                '<strong>Name:</strong> <span>' + adminName + '</span>' +
+                '<strong>Email:</strong> <span>' + adminEmail + '</span>' +
+                '<strong>Cell Phone:</strong> <span>' + cellPhone + '</span>' +
+                '<strong>Commission:</strong> <span>' + comm.replace('_', ' ') + '</span>' +
+                '</div></div>';
+        }
+
+        // Toggle steps
+        document.getElementById('brkStep1').style.display = step === 1 ? 'block' : 'none';
+        document.getElementById('brkStep2').style.display = step === 2 ? 'block' : 'none';
+        document.getElementById('brkStep3').style.display = step === 3 ? 'block' : 'none';
+        // Update step indicators
+        document.querySelectorAll('.brk-step').forEach(function(el) {
+            var s = parseInt(el.getAttribute('data-step'));
+            if (s <= step) {
+                el.style.background = 'var(--navy)';
+                el.style.color = 'white';
+            } else {
+                el.style.background = 'transparent';
+                el.style.color = '#94A3B8';
+            }
+        });
+    }
+
+    async function handleCreateBrokerage() {
+        var btn = document.getElementById('brkCreateBtn');
+        btn.disabled = true;
+        btn.textContent = 'Creating...';
+
+        try {
+            var brkName = document.getElementById('brkName').value.trim();
+            var license = document.getElementById('brkLicense').value.trim();
+            var provinces = document.getElementById('brkProvinces').value.trim();
+            var officePhone = document.getElementById('brkOfficePhone').value.trim();
+            var slug = document.getElementById('brkSlug').value.trim();
+            var adminName = document.getElementById('brkAdminName').value.trim();
+            var adminEmail = document.getElementById('brkAdminEmail').value.trim();
+            var adminCell = document.getElementById('brkAdminCell').value.trim();
+            var btype = document.getElementById('brkBusinessType').value;
+            var comm = document.getElementById('brkCommissionType').value;
+            var status = document.getElementById('brkStatus').value;
+            var sendInvite = document.getElementById('brkSendInvite').checked;
+
+            // Check slug uniqueness
+            if (slug) {
+                var { data: existingSlugs } = await db.from('users').select('id').eq('referral_slug', slug);
+                if (existingSlugs && existingSlugs.length > 0) {
+                    var suffix = Math.random().toString(36).substring(2, 6);
+                    slug = slug + '-' + suffix;
+                    showToast('Slug already taken, updated to: ' + slug, 'warning');
+                }
+            }
+
+            // Generate invite token and agent code
+            var inviteToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, function(c) { return (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16); });
+            var agentCode = await generateAgentCode('mortgage_broker');
+
+            var programDetails = {
+                brokerage_license: license,
+                provinces_licensed: provinces
+            };
+            if (adminCell) programDetails.cell_phone = adminCell;
+
+            var brokerageRecord = {
+                full_name: adminName,
+                email: adminEmail,
+                phone: officePhone || null,
+                role: 'agent',
+                agent_type: 'mortgage_broker',
+                agent_code: agentCode,
+                business_type: btype || 'Mortgage Broker',
+                commission_type: comm || 'referral_fee',
+                company_name: brkName,
+                referral_slug: slug,
+                agent_status: status,
+                onboarding_status: sendInvite ? 'invited' : 'pending_setup',
+                invite_token: inviteToken,
+                invite_sent_at: sendInvite ? new Date().toISOString() : null,
+                program_details: programDetails,
+                parent_agent_id: null,
+                created_at: new Date().toISOString()
+            };
+
+            var { data, error } = await db.from('users').insert([brokerageRecord]).select();
+            if (error) throw error;
+
+            // Send invite email if checked
+            if (sendInvite && data && data[0]) {
+                var activateUrl = window.location.origin + '/agent-activate.html?token=' + inviteToken;
+                var inviteSubject = 'Welcome to Alliance Financing Group - Activate Your Brokerage Account';
+                var inviteHtml =
+                    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                    '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                    '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                    '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                    '<p style="font-size:16px;color:#1E293B;">Hi ' + adminName + ',</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">Welcome to Alliance Financing Group! Your brokerage <strong>' + brkName + '</strong> has been registered in our system as a <strong>Mortgage Brokerage</strong>.</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">To activate your account and access your brokerage dashboard, click the button below:</p>' +
+                    '<div style="text-align:center;margin:25px 0;">' +
+                    '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">Activate Brokerage Account</a></div>' +
+                    '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;">' + activateUrl + '</a></p>' +
+                    '</div></div>';
+
+                try {
+                    await db.functions.invoke('send-email', {
+                        body: { to: adminEmail, subject: inviteSubject, html: inviteHtml }
+                    });
+                } catch(emailErr) {
+                    console.warn('Could not send invite email:', emailErr);
+                    showToast('Brokerage created but invite email could not be sent', 'warning');
+                }
+            }
+
+            closeAddBrokerageModal();
+            showToast('Brokerage "' + brkName + '" created successfully!', 'success');
+            await loadMortgageBrokerages();
+            await loadAgents();
+
+        } catch(err) {
+            console.error('Create brokerage error:', err);
+            alert('Error creating brokerage: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Create Brokerage & Send Invite';
+        }
     }
 
     // ============================================
