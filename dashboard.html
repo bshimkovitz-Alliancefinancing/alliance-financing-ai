@@ -920,6 +920,10 @@
                 <span class="nav-icon">🤝</span>
                 <span>Vendors</span>
             </div>
+            <div class="nav-item" onclick="showPage('mortgageBrokerages')">
+                <span class="nav-icon">🏠</span>
+                <span>Mortgage Brokerages</span>
+            </div>
             <div class="nav-item" onclick="showPage('clients')">
                 <span class="nav-icon">👥</span>
                 <span>Clients</span>
@@ -1672,6 +1676,56 @@
                             <p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">Loading leads...</p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Mortgage Brokerages Page -->
+            <div id="mortgageBrokerages" class="page-section">
+                <!-- Brokerage Stats Bar -->
+                <div id="brokerageStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;"></div>
+
+                <div class="table-container" style="border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                    <!-- Toolbar -->
+                    <div style="padding:16px 20px;background:white;border-bottom:1px solid #E2E8F0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:1;">
+                            <div style="position:relative;flex:1;max-width:320px;">
+                                <input type="text" id="brokerageSearch" placeholder="Search brokerages..."
+                                       oninput="filterBrokerages()"
+                                       style="width:100%;padding:8px 12px 8px 34px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;transition:border-color 0.2s;">
+                                <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94A3B8;font-size:14px;">🔍</span>
+                            </div>
+                            <select id="brokerageStatusFilter" onchange="filterBrokerages()" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;">
+                                <option value="">All Active</option>
+                                <option value="Active">Active</option>
+                                <option value="Invited">Invited</option>
+                                <option value="Under Review">Under Review</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="__all">All Brokerages</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button onclick="exportBrokerages()" style="padding:8px 14px;background:white;color:var(--navy);border:1px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;">Export CSV</button>
+                            <button onclick="openAddBrokerageModal()" style="padding:8px 14px;background:var(--gold);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;">+ New Brokerage</button>
+                        </div>
+                    </div>
+                    <table id="brokeragesTable" style="border-collapse:separate;border-spacing:0;">
+                        <thead>
+                            <tr style="background:#F8FAFC;">
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Brokerage</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">License #</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Province(s)</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:center;">Agents</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:center;">Deals</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;">Status</th>
+                                <th style="padding:10px 14px;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #E2E8F0;text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="brokeragesBody">
+                            <tr>
+                                <td colspan="7" class="empty-state">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -4189,12 +4243,20 @@
                     </div>
                     <div class="modal-row">
                         <div class="modal-field">
-                            <label>Phone</label>
-                            <input type="text" id="agentPhone">
+                            <label>Office Phone</label>
+                            <input type="tel" id="agentPhone" placeholder="Office / main line">
                         </div>
+                        <div class="modal-field">
+                            <label>Cell Phone</label>
+                            <input type="tel" id="agentCellPhone" placeholder="Mobile / cell">
+                        </div>
+                    </div>
+                    <div class="modal-row">
                         <div class="modal-field">
                             <label id="companyLabel">Company Name</label>
                             <input type="text" id="agentCompanyName" placeholder="Company / Institution name">
+                        </div>
+                        <div class="modal-field">
                         </div>
                     </div>
                     <div class="modal-row">
@@ -4949,6 +5011,17 @@
         <div class="modal-footer" style="display:flex;justify-content:flex-end;padding:15px 20px;border-top:1px solid #e2e8f0;">
             <button class="btn btn-gold" onclick="closeClientDetailModal()" style="padding:8px 24px;font-weight:600;">Save & Close</button>
         </div>
+    </div>
+</div>
+
+<!-- Brokerage Detail Modal -->
+<div id="brokerageDetailModal" class="modal">
+    <div class="modal-content" style="max-width:800px;max-height:90vh;overflow-y:auto;">
+        <div class="modal-header">
+            <h2 id="brokerageDetailTitle">Brokerage Details</h2>
+            <button class="modal-close" onclick="document.getElementById('brokerageDetailModal').classList.remove('active')">✕</button>
+        </div>
+        <div class="modal-body" id="brokerageModalBody">Loading...</div>
     </div>
 </div>
 
@@ -17517,6 +17590,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             'agents': 'Agents & Partners',
             'lenders': 'Lenders',
             'vendors': 'Vendors',
+            'mortgageBrokerages': 'Mortgage Brokerages',
             'clients': 'Clients',
             'inbox': 'Website Inquiries',
             'documents': 'Document Center',
@@ -20595,6 +20669,463 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         `;
     }
 
+    // ============================================
+    // Mortgage Brokerages
+    // ============================================
+    let allBrokerages = [];
+
+    async function loadMortgageBrokerages() {
+        try {
+            // Fetch all agents with mortgage_broker type
+            const { data: brokers, error: brokersError } = await db
+                .from('users')
+                .select('*')
+                .eq('agent_type', 'mortgage_broker')
+                .order('company_name', { ascending: true, nullsFirst: false })
+                .order('full_name', { ascending: true });
+
+            if (brokersError) throw brokersError;
+
+            // Fetch all mortgage agents and deals for agent and deal counts
+            const { data: agents, error: agentsError } = await db
+                .from('users')
+                .select('*')
+                .eq('agent_type', 'mortgage_agent');
+
+            const { data: deals, error: dealsError } = await db
+                .from('deals')
+                .select('*');
+
+            if (agentsError) console.warn('Error loading agents:', agentsError);
+            if (dealsError) console.warn('Error loading deals:', dealsError);
+
+            // Build brokerages with agent and deal counts
+            allBrokerages = (brokers || []).map(broker => {
+                // Count sub-agents (agents with parent_agent_id = broker.id)
+                const brokerAgents = (agents || []).filter(a => a.parent_agent_id === broker.id);
+                const agentCount = brokerAgents.length;
+
+                // Count deals where source_agent_id is broker or any of their agents
+                const agentIds = [broker.id, ...brokerAgents.map(a => a.id)];
+                const brokerDeals = (deals || []).filter(d => agentIds.includes(d.source_agent_id));
+                const dealCount = brokerDeals.length;
+                const dealVolume = brokerDeals.reduce((sum, d) => sum + (d.deal_amount || 0), 0);
+
+                return {
+                    ...broker,
+                    agent_count: agentCount,
+                    deal_count: dealCount,
+                    deal_volume: dealVolume,
+                    sub_agents: brokerAgents
+                };
+            });
+
+            filterBrokerages();
+        } catch (error) {
+            console.error('Load mortgage brokerages error:', error);
+        }
+    }
+
+    function filterBrokerages() {
+        const search = document.getElementById('brokerageSearch').value.toLowerCase();
+        const statusFilter = document.getElementById('brokerageStatusFilter').value;
+
+        let filtered = allBrokerages.filter(brokerage => {
+            const matchesSearch = !search ||
+                (brokerage.company_name || '').toLowerCase().includes(search) ||
+                (brokerage.full_name || '').toLowerCase().includes(search) ||
+                (brokerage.email || '').toLowerCase().includes(search);
+
+            // Default view hides Inactive
+            let matchesStatus = true;
+            if (statusFilter === '__all') {
+                matchesStatus = true;
+            } else if (statusFilter) {
+                matchesStatus = (brokerage.agent_status || '') === statusFilter;
+            } else {
+                // Default: hide Inactive
+                matchesStatus = (brokerage.agent_status || '') !== 'Inactive';
+            }
+
+            return matchesSearch && matchesStatus;
+        });
+
+        renderBrokeragesTable(filtered);
+        renderBrokerageStats();
+    }
+
+    function renderBrokeragesTable(data) {
+        const tbody = document.getElementById('brokeragesBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px 20px;color:#94A3B8;font-size:14px;">No brokerages found.</td></tr>';
+            return;
+        }
+
+        const statusStyles = {
+            'Active': { bg: '#DCFCE7', color: '#166534', icon: '●' },
+            'Invited': { bg: '#DBEAFE', color: '#1E40AF', icon: '●' },
+            'Under Review': { bg: '#FDE68A', color: '#78350F', icon: '●' },
+            'Inactive': { bg: '#F1F5F9', color: '#64748B', icon: '●' }
+        };
+
+        tbody.innerHTML = data.map(brokerage => {
+            const st = statusStyles[brokerage.agent_status] || statusStyles['Active'];
+            const brokerageName = brokerage.company_name || brokerage.full_name || 'N/A';
+            const licenseNum = (brokerage.program_details && brokerage.program_details.brokerage_license) ? brokerage.program_details.brokerage_license : '—';
+            const provinces = (brokerage.program_details && brokerage.program_details.provinces_licensed) ? brokerage.program_details.provinces_licensed : '—';
+            const provincesDisplay = Array.isArray(provinces) ? provinces.join(', ') : (typeof provinces === 'string' ? provinces : '—');
+
+            return `
+            <tr style="border-bottom:1px solid #F1F5F9;transition:background 0.15s;cursor:pointer;" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='white'" onclick="viewBrokerage('${brokerage.id}')">
+                <td style="padding:12px 14px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#0D1E3D,#1E3A5F);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0;">${(brokerageName || '?').substring(0, 2).toUpperCase()}</div>
+                        <div>
+                            <div style="font-weight:600;color:var(--navy);font-size:14px;">${brokerageName}</div>
+                            <div style="font-size:11px;color:#94A3B8;margin-top:2px;">${brokerage.email || '—'}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="padding:12px 14px;font-size:13px;color:#475569;">${licenseNum}</td>
+                <td style="padding:12px 14px;font-size:13px;color:#475569;">${provincesDisplay}</td>
+                <td style="padding:12px 14px;text-align:center;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#EFF6FF;color:#3B82F6;font-weight:700;font-size:13px;">${brokerage.agent_count || 0}</span>
+                </td>
+                <td style="padding:12px 14px;text-align:center;">
+                    <div style="font-weight:600;color:var(--navy);font-size:13px;">${brokerage.deal_count || 0}</div>
+                    <div style="font-size:11px;color:#94A3B8;">${formatCurrency(brokerage.deal_volume || 0)}</div>
+                </td>
+                <td style="padding:12px 14px;" onclick="event.stopPropagation()">
+                    <select onchange="updateBrokerageStatus('${brokerage.id}', this.value)" style="padding:5px 8px;border-radius:6px;border:1px solid ${st.bg};background:${st.bg};color:${st.color};font-size:12px;font-weight:600;cursor:pointer;appearance:auto;-webkit-appearance:auto;">
+                        ${'Active,Invited,Under Review,Inactive'.split(',').map(s => '<option value="' + s + '"' + ((brokerage.agent_status || '') === s ? ' selected' : '') + '>' + s + '</option>').join('')}
+                    </select>
+                </td>
+                <td style="padding:12px 14px;text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
+                    <button onclick="viewBrokerage('${brokerage.id}')" style="padding:6px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">View</button>
+                </td>
+            </tr>
+        `;
+        }).join('');
+    }
+
+    function renderBrokerageStats() {
+        const bar = document.getElementById('brokerageStatsBar');
+        if (!bar) return;
+
+        const total = allBrokerages.length;
+        const active = allBrokerages.filter(b => (b.agent_status || '') === 'Active').length;
+        const totalAgents = allBrokerages.reduce((sum, b) => sum + (b.agent_count || 0), 0);
+        const totalDeals = allBrokerages.reduce((sum, b) => sum + (b.deal_count || 0), 0);
+        const totalVolume = allBrokerages.reduce((sum, b) => sum + (b.deal_volume || 0), 0);
+
+        const statCard = (label, count, color, bgColor, filterVal) =>
+            '<div onclick="document.getElementById(\'brokerageStatusFilter\').value=\'' + filterVal + '\';filterBrokerages();" style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;cursor:pointer;transition:box-shadow 0.2s,border-color 0.2s;" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\';this.style.borderColor=\'' + color + '\'" onmouseout="this.style.boxShadow=\'none\';this.style.borderColor=\'#E2E8F0\'">' +
+            '<div style="font-size:24px;font-weight:700;color:' + color + ';">' + count + '</div>' +
+            '<div style="font-size:12px;color:#64748B;font-weight:500;margin-top:2px;">' + label + '</div></div>';
+
+        bar.innerHTML =
+            statCard('Total Brokerages', total, 'var(--navy)', '', '') +
+            statCard('Active', active, '#16A34A', '#F0FDF4', 'Active') +
+            statCard('Total Agents', totalAgents, '#3B82F6', '#EFF6FF', '') +
+            statCard('Total Deals', totalDeals, '#D97706', '#FFFBEB', '');
+    }
+
+    async function updateBrokerageStatus(brokerageId, newStatus) {
+        try {
+            const { error } = await db
+                .from('users')
+                .update({ agent_status: newStatus })
+                .eq('id', brokerageId);
+
+            if (error) throw error;
+            showToast('Brokerage status updated', 'success');
+            await loadMortgageBrokerages();
+        } catch(e) {
+            console.error('Update brokerage status error:', e);
+            alert('Error updating status: ' + e.message);
+        }
+    }
+
+    async function viewBrokerage(brokerageId) {
+        try {
+            // Fetch brokerage details
+            const { data: brokerage, error: brokerageError } = await db
+                .from('users')
+                .select('*')
+                .eq('id', brokerageId)
+                .single();
+
+            if (brokerageError) throw brokerageError;
+            if (!brokerage) { alert('Brokerage not found'); return; }
+
+            // Fetch sub-agents
+            const { data: subAgents, error: subAgentsError } = await db
+                .from('users')
+                .select('*')
+                .eq('parent_agent_id', brokerageId)
+                .eq('agent_type', 'mortgage_agent');
+
+            // Fetch deals for this broker and their agents
+            const agentIds = [brokerageId, ...(subAgents || []).map(a => a.id)];
+            const { data: brokerDeals, error: dealsError } = await db
+                .from('deals')
+                .select('*')
+                .in('source_agent_id', agentIds);
+
+            // Parse admin notes
+            let notes = [];
+            try {
+                notes = brokerage.admin_notes ? JSON.parse(brokerage.admin_notes) : [];
+            } catch(e) {
+                notes = brokerage.admin_notes ? [{ text: brokerage.admin_notes, author: 'System', date: 'Previously' }] : [];
+            }
+
+            const notesHtml = notes.length > 0
+                ? notes.map(n => {
+                    const isAudit = n.is_audit_log === true;
+                    const bgColor = isAudit ? '#F5F3FF' : n.from_agent ? '#EFF6FF' : n.visible_to_agent ? '#FFFBEB' : '#F8FAFC';
+                    const borderColor = isAudit ? '#7C3AED' : n.from_agent ? '#3B82F6' : n.visible_to_agent ? '#F59E0B' : 'var(--gold)';
+                    let badge;
+                    if (isAudit) {
+                        badge = '<span style="background:#EDE9FE;color:#6D28D9;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Change Log</span>';
+                    } else if (n.from_agent) {
+                        badge = '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Agent Note</span>';
+                    } else if (n.visible_to_agent) {
+                        badge = '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Visible to Agent</span>';
+                    } else {
+                        badge = '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:6px;">Internal</span>';
+                    }
+                    return '<div style="background:' + bgColor + ';border-left:3px solid ' + borderColor + ';padding:10px 12px;margin-bottom:8px;border-radius:0 4px 4px 0;">' +
+                        '<div style="font-size:12px;color:var(--text-light);margin-bottom:4px;">' +
+                        '<strong>' + (n.author || 'Admin') + '</strong> — ' + (n.date || 'N/A') + ' ' + badge +
+                        '</div>' +
+                        '<div style="font-size:14px;color:var(--text-dark);white-space:pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+                        '</div>';
+                }).join('')
+                : '<p style="color: var(--text-light); font-size: 14px;">No notes yet.</p>';
+
+            // Build agents HTML
+            const agentsHtml = (subAgents && subAgents.length > 0)
+                ? subAgents.map(agent => {
+                    const agentDeals = (brokerDeals || []).filter(d => d.source_agent_id === agent.id);
+                    const dealCount = agentDeals.length;
+                    return `
+                        <tr onclick="viewAgent('${agent.id}')" style="border-bottom:1px solid #F1F5F9;cursor:pointer;" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='white'">
+                            <td style="padding:12px 14px;font-size:13px;color:var(--navy);font-weight:600;">${agent.full_name || agent.email || 'N/A'}</td>
+                            <td style="padding:12px 14px;font-size:13px;color:#475569;">${agent.email || '—'}</td>
+                            <td style="padding:12px 14px;font-size:13px;">
+                                <span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${(agent.agent_status === 'Active') ? '#DCFCE7' : '#F1F5F9'};color:${(agent.agent_status === 'Active') ? '#166534' : '#64748B'};font-size:12px;font-weight:600;">${agent.agent_status || 'Active'}</span>
+                            </td>
+                            <td style="padding:12px 14px;text-align:center;font-weight:600;color:var(--navy);">${dealCount}</td>
+                        </tr>
+                    `;
+                }).join('')
+                : '<tr><td colspan="4" style="text-align:center;padding:20px;color:#94A3B8;font-size:13px;">No agents under this brokerage.</td></tr>';
+
+            // Build deals HTML
+            const dealsHtml = (brokerDeals && brokerDeals.length > 0)
+                ? brokerDeals.slice(0, 10).map(deal => {
+                    const dealAgent = [brokerage, ...(subAgents || [])].find(a => a.id === deal.source_agent_id);
+                    const agentName = dealAgent ? (dealAgent.full_name || dealAgent.company_name || dealAgent.email) : 'Unknown';
+                    return `
+                        <tr style="border-bottom:1px solid #F1F5F9;">
+                            <td style="padding:12px 14px;font-size:13px;font-family:monospace;color:var(--navy);font-weight:600;">${deal.deal_number || 'N/A'}</td>
+                            <td style="padding:12px 14px;font-size:13px;color:#475569;">${deal.company_name || '—'}</td>
+                            <td style="padding:12px 14px;font-size:13px;color:#475569;">${agentName}</td>
+                            <td style="padding:12px 14px;font-size:13px;color:#475569;text-align:right;">${formatCurrency(deal.deal_amount || 0)}</td>
+                            <td style="padding:12px 14px;font-size:13px;">
+                                <span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${(deal.status === 'Funded') ? '#DCFCE7' : (deal.status === 'Declined') ? '#FEE2E2' : '#DBEAFE'};color:${(deal.status === 'Funded') ? '#166534' : (deal.status === 'Declined') ? '#991B1B' : '#1E40AF'};font-size:11px;font-weight:600;">${deal.status || 'New'}</span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('')
+                : '<tr><td colspan="5" style="text-align:center;padding:20px;color:#94A3B8;font-size:13px;">No deals yet.</td></tr>';
+
+            const brokerageName = brokerage.company_name || brokerage.full_name || 'N/A';
+
+            // Build modal content
+            const modalBody = `
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">Brokerage Name</label>
+                        <div style="font-size:14px;color:var(--navy);font-weight:600;">${brokerageName}</div>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">Email</label>
+                        <div style="font-size:14px;color:#475569;">${brokerage.email || '—'}</div>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">Office Phone</label>
+                        <div style="font-size:14px;color:#475569;">${brokerage.office_phone || '—'}</div>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">Cell Phone</label>
+                        <div style="font-size:14px;color:#475569;">${brokerage.cell_phone || '—'}</div>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">License #</label>
+                        <div style="font-size:14px;color:#475569;">${(brokerage.program_details && brokerage.program_details.brokerage_license) ? brokerage.program_details.brokerage_license : '—'}</div>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">Provinces Licensed</label>
+                        <div style="font-size:14px;color:#475569;">${(brokerage.program_details && brokerage.program_details.provinces_licensed) ? (Array.isArray(brokerage.program_details.provinces_licensed) ? brokerage.program_details.provinces_licensed.join(', ') : brokerage.program_details.provinces_licensed) : '—'}</div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:8px;">Status</label>
+                    <select id="brokerageDetailStatusSelect" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;background:#F8FAFC;cursor:pointer;width:100%;">
+                        <option value="Active" ${brokerage.agent_status === 'Active' ? 'selected' : ''}>Active</option>
+                        <option value="Invited" ${brokerage.agent_status === 'Invited' ? 'selected' : ''}>Invited</option>
+                        <option value="Under Review" ${brokerage.agent_status === 'Under Review' ? 'selected' : ''}>Under Review</option>
+                        <option value="Inactive" ${brokerage.agent_status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <h3 style="font-size:14px;font-weight:700;color:var(--navy);margin:0 0 12px;">Agents (${subAgents ? subAgents.length : 0})</h3>
+                    <div style="border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;">
+                        <table style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr style="background:#F8FAFC;border-bottom:1px solid #E2E8F0;">
+                                    <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Agent Name</th>
+                                    <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Email</th>
+                                    <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Status</th>
+                                    <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Deals</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${agentsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button onclick="openAddMortgageAgentModal('${brokerageId}')" style="margin-top:12px;padding:8px 14px;background:var(--gold);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">+ Add Mortgage Agent</button>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <h3 style="font-size:14px;font-weight:700;color:var(--navy);margin:0 0 12px;">Deals (${brokerDeals ? brokerDeals.length : 0})</h3>
+                    <div style="border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;">
+                        <table style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr style="background:#F8FAFC;border-bottom:1px solid #E2E8F0;">
+                                    <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Deal #</th>
+                                    <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Company</th>
+                                    <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Agent</th>
+                                    <th style="padding:10px 14px;text-align:right;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Amount</th>
+                                    <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${dealsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:0;">
+                    <h3 style="font-size:14px;font-weight:700;color:var(--navy);margin:0 0 12px;">Notes</h3>
+                    <div id="brokerageNotesContainer" style="margin-bottom:12px;">
+                        ${notesHtml}
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <textarea id="brokerageNewNote" placeholder="Add a note..." style="flex:1;padding:10px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:80px;"></textarea>
+                        <button onclick="addBrokerageNote('${brokerageId}')" style="padding:10px 16px;background:var(--gold);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-end;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Add Note</button>
+                    </div>
+                </div>
+            `;
+
+            // Show modal
+            const modal = document.getElementById('brokerageDetailModal');
+            document.getElementById('brokerageDetailTitle').textContent = brokerageName + ' - Details';
+            document.getElementById('brokerageModalBody').innerHTML = modalBody;
+            modal.classList.add('active');
+
+            // Setup status change listener
+            document.getElementById('brokerageDetailStatusSelect').onchange = function() {
+                updateBrokerageStatus('${brokerageId}', this.value);
+            };
+        } catch(e) {
+            console.error('View brokerage error:', e);
+            alert('Error loading brokerage details: ' + e.message);
+        }
+    }
+
+    async function addBrokerageNote(brokerageId) {
+        const noteText = document.getElementById('brokerageNewNote').value.trim();
+        if (!noteText) {
+            alert('Please enter a note');
+            return;
+        }
+
+        try {
+            // Fetch current brokerage to get existing notes
+            const { data: brokerage } = await db.from('users').select('admin_notes').eq('id', brokerageId).single();
+            let notes = [];
+            if (brokerage && brokerage.admin_notes) {
+                try { notes = JSON.parse(brokerage.admin_notes); } catch(e) { notes = []; }
+            }
+
+            // Add new note
+            const newNote = {
+                text: noteText,
+                author: currentUserEmail || 'Admin',
+                date: new Date().toLocaleString(),
+                visible_to_agent: false
+            };
+            notes.push(newNote);
+
+            // Update in database
+            const { error } = await db.from('users').update({ admin_notes: JSON.stringify(notes) }).eq('id', brokerageId);
+            if (error) throw error;
+
+            showToast('Note added', 'success');
+            document.getElementById('brokerageNewNote').value = '';
+
+            // Refresh the modal
+            await viewBrokerage(brokerageId);
+        } catch(e) {
+            console.error('Add note error:', e);
+            alert('Error adding note: ' + e.message);
+        }
+    }
+
+    function openAddMortgageAgentModal(brokerageId) {
+        // This function would open the agent onboarding modal pre-set for mortgage_agent
+        // For now, just call the standard onboarding modal and let user set parent_agent_id
+        openAddAgentModal();
+        setTimeout(function() {
+            selectAgentType('mortgage_agent');
+            // Pre-fill parent agent ID if possible (may require additional modal modifications)
+        }, 100);
+    }
+
+    function exportBrokerages() {
+        try {
+            let csv = 'Brokerage,Email,License,Provinces,Agents,Deals,Volume,Status\n';
+            allBrokerages.forEach(b => {
+                const brokerageName = b.company_name || b.full_name || 'N/A';
+                const licenseNum = (b.program_details && b.program_details.brokerage_license) ? b.program_details.brokerage_license : '';
+                const provinces = (b.program_details && b.program_details.provinces_licensed)
+                    ? (Array.isArray(b.program_details.provinces_licensed) ? b.program_details.provinces_licensed.join(';') : b.program_details.provinces_licensed)
+                    : '';
+                csv += `"${brokerageName}","${b.email || ''}","${licenseNum}","${provinces}",${b.agent_count || 0},${b.deal_count || 0},${b.deal_volume || 0},"${b.agent_status || 'Active'}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'brokerages_' + new Date().toISOString().split('T')[0] + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            showToast('Brokerages exported', 'success');
+        } catch(e) {
+            console.error('Export error:', e);
+            alert('Error exporting data: ' + e.message);
+        }
+    }
+
     // Old loadContacts removed — replaced by loadInboxPage via backwards-compatible wrapper below
 
     // ============================================
@@ -22852,6 +23383,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             case 'vendors':
                 await loadVendors();
                 loadVendorInquiryLeads();
+                break;
+            case 'mortgageBrokerages':
+                await loadMortgageBrokerages();
                 break;
             case 'clients':
                 await loadClients();
@@ -32280,7 +32814,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (step === 3) {
                 const name = document.getElementById('agentName').value || 'N/A';
                 const email = document.getElementById('agentEmail').value || 'N/A';
-                const phone = document.getElementById('agentPhone').value || 'N/A';
+                const phone = document.getElementById('agentPhone').value || '-';
+                const cellPhone = document.getElementById('agentCellPhone').value || '-';
                 const company = document.getElementById('agentCompanyName').value || '-';
                 const btype = document.getElementById('agentBusinessType').value || '-';
                 const comm = document.getElementById('agentCommissionType').value || '-';
@@ -32319,7 +32854,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <strong>Agent Type:</strong> <span>${getAgentTypeBadge(selectedAgentType)}</span>
                         <strong>Name:</strong> <span>${name}</span>
                         <strong>Email:</strong> <span>${email}</span>
-                        <strong>Phone:</strong> <span>${phone}</span>
+                        <strong>Office Phone:</strong> <span>${phone}</span>
+                        <strong>Cell Phone:</strong> <span>${cellPhone}</span>
                         <strong>Company:</strong> <span>${company}</span>
                         ${parentVendorInfo}
                         <strong>Business Type:</strong> <span>${btype}</span>
@@ -32417,6 +32953,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 full_name: document.getElementById('agentName').value,
                 email: document.getElementById('agentEmail').value,
                 phone: document.getElementById('agentPhone').value || null,
+                cell_phone: document.getElementById('agentCellPhone').value || null,
                 role: 'agent',
                 agent_type: selectedAgentType,
                 agent_code: agentCode,
@@ -32648,12 +33185,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </div>
                 <div class="modal-row">
                     <div class="modal-field">
-                        <label>Phone</label>
+                        <label>Office Phone</label>
                         <input type="tel" value="${agent.phone || ''}" onblur="updateAgentField('${agentId}', 'phone', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                     </div>
                     <div class="modal-field">
+                        <label>Cell Phone</label>
+                        <input type="tel" value="${agent.cell_phone || ''}" onblur="updateAgentField('${agentId}', 'cell_phone', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
                         <label>Company Name</label>
                         <input type="text" value="${agent.company_name || ''}" onblur="updateAgentField('${agentId}', 'company_name', this.value || null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                    </div>
+                    <div class="modal-field">
                     </div>
                 </div>
                 <div class="modal-row">
@@ -34308,6 +34853,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     function closeAddVendorModal() {
         document.getElementById('addVendorModal').classList.remove('active');
+    }
+
+    function openAddBrokerageModal() {
+        openAddAgentModal();
+        setTimeout(function() {
+            selectAgentType('mortgage_broker');
+            onboardNextStep(2);
+        }, 100);
     }
 
     // ============================================
