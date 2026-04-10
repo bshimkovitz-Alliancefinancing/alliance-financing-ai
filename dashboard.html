@@ -6253,9 +6253,7 @@ if (location.hostname === 'alliancefinancing.ai') {
             // Reload dismissed notifications now that currentUserId is set
             try { _dismissedNotifications = JSON.parse(localStorage.getItem('dismissed_notifications_' + currentUserId) || '{}'); } catch(e) { _dismissedNotifications = {}; }
 
-            // Show app
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('appContainer').style.display = 'flex';
+            // Set up user display info (before showing app)
             document.getElementById('userEmailDisplay').textContent = email;
             var roleLabel = displayRole;
             if (displayRole === 'agent' && currentAgentType) {
@@ -6263,8 +6261,19 @@ if (location.hostname === 'alliancefinancing.ai') {
             }
             document.getElementById('currentUser').textContent = `${displayName} (${roleLabel})`;
 
-            // Apply role-based access
+            // Apply role-based access (before showing app so nav is correct)
             applyRoleAccess();
+
+            // Load all Command Center data BEFORE showing the app
+            await Promise.all([
+                loadDashboard().catch(function(e) { console.error('loadDashboard error:', e); }),
+                loadNotifications().catch(function(e) { console.error('loadNotifications error:', e); }),
+                loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
+            ]);
+
+            // NOW show the app (data is loaded, no more $0 flash)
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'flex';
 
             // Route vendor users to vendor portal (but not admin users)
             if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !['super_admin', 'admin'].includes(currentUserRole)) {
@@ -6326,13 +6335,6 @@ if (location.hostname === 'alliancefinancing.ai') {
                     document.getElementById('appContainer').style.display = 'none';
                 }
             });
-
-            // Load Command Center: dashboard + notifications in parallel
-            await Promise.all([
-                loadDashboard(),
-                loadNotifications().catch(function(e) { console.error('loadNotifications error:', e); }),
-                loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
-            ]);
 
             // Initialize mobile quick actions bar (agents/ISOs on mobile)
             initMobileQuickActions();
