@@ -5995,7 +5995,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix11';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix12';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -18497,22 +18497,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var inboxTable = document.getElementById('dashUnifiedInbox');
             if (inboxTable) inboxTable.style.display = 'none';
 
-            // Show unified referral pipeline for all agent types
-            var pipelineSection = document.getElementById('referralPipelineSection');
-            if (pipelineSection) pipelineSection.style.display = 'block';
-            await loadReferralPipeline();
+            // ISO Partners / Mortgage Brokers: Command Center = notifications + stats only
+            // "My Dashboard", "Team Overview", and "Vendor Programs" live on their own pages
+            if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
+                // Hide the referral pipeline section (Deal Pipeline page covers this)
+                var pipelineSection = document.getElementById('referralPipelineSection');
+                if (pipelineSection) pipelineSection.style.display = 'none';
+                // Don't load Team Overview or Vendor Overview (Referral Partners + Vendor Programs pages cover these)
+            } else {
+                // Regular agents: show unified referral pipeline on Command Center
+                var pipelineSection = document.getElementById('referralPipelineSection');
+                if (pipelineSection) pipelineSection.style.display = 'block';
+                await loadReferralPipeline();
+            }
 
-            // Remove old dashReferredApps if it was dynamically created before
+            // Remove old dynamically created sections if they exist
             var oldDashRef = document.getElementById('dashReferredApps');
             if (oldDashRef) oldDashRef.remove();
-
-            // ISO Partners and Mortgage Brokers: show sub-agent activity summary
-            if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
-                await loadISOTeamOverview();
-                if (currentAgentType === 'super_agent') {
-                    await loadISOVendorOverview();
-                }
-            }
+            var oldTeamOverview = document.getElementById('dashISOTeamOverview');
+            if (oldTeamOverview) oldTeamOverview.remove();
+            var oldVendorOverview = document.getElementById('dashISOVendorOverview');
+            if (oldVendorOverview) oldVendorOverview.remove();
 
             // Applications Sent section is inside Deal Pipeline page — keep it visible there
 
