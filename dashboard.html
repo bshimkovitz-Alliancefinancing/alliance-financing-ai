@@ -6077,7 +6077,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix6';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix7';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -20743,7 +20743,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     ' onclick="openDealSlideout(\'' + deal.id + '\')">' +
                     getHealthDot(health.level) +
                     '<div class="kc-company">' + (deal.company_name || 'N/A') + '</div>' +
-                    '<div class="kc-amount">' + formatCurrency(deal.deal_amount || 0) + '</div>' +
+                    '<div class="kc-amount">' + formatCurrency(deal.deal_amount || deal.amount_requested || 0) + '</div>' +
                     '<div class="kc-meta">' +
                         '<span class="kc-tag" style="background:' + stage.bg + ';color:' + stage.color + ';">' + (deal.product_type || '—') + '</span>' +
                         (daysInStage ? '<span>' + daysInStage + '</span>' : '') +
@@ -20858,7 +20858,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 html += '<div class="kanban-card" style="cursor:pointer;" onclick="openDealSlideout(\'' + deal.id + '\')">' +
                     getHealthDot(health.level) +
                     '<div class="kc-company">' + (deal.company_name || 'N/A') + unreadHtml + '</div>' +
-                    '<div class="kc-amount">' + formatCurrency(deal.deal_amount || 0) + '</div>' +
+                    '<div class="kc-amount">' + formatCurrency(deal.deal_amount || deal.amount_requested || 0) + '</div>' +
                     '<div style="font-size:11px;color:#64748B;margin-bottom:6px;">' + (deal.product_type || '—') + ' · ' + statusLabel + '</div>' +
                     '<div style="display:flex;align-items:flex-start;gap:2px;padding:4px 0;">' + progressDots + '</div>' +
                     '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">' +
@@ -21793,6 +21793,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Track when status changes so "Age" column reflects time in current stage
             if (field === 'status') {
                 updateObj.status_changed_at = new Date().toISOString();
+            }
+            // Keep deal_amount and amount_requested in sync
+            if (field === 'amount_requested') {
+                updateObj.deal_amount = value ? parseFloat(value) : null;
+            } else if (field === 'deal_amount') {
+                updateObj.amount_requested = value ? parseFloat(value) : null;
             }
             const { error } = await db
                 .from('deals')
