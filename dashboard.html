@@ -6077,7 +6077,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix2';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix3';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -33344,6 +33344,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 effectiveReplyTo = 'info@alliancefinancing.com';
             }
 
+            // Normalize CC to always be an array of strings (Resend API format)
+            var ccArray = [];
+            if (cc) {
+                if (Array.isArray(cc)) {
+                    ccArray = cc.filter(function(e) { return e && e.trim(); });
+                } else if (typeof cc === 'string' && cc.trim()) {
+                    ccArray = cc.split(',').map(function(e) { return e.trim(); }).filter(Boolean);
+                }
+            }
+
             var payload = {
                 to: to,
                 subject: subject,
@@ -33351,8 +33361,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 text: textBody || '',
                 reply_to: effectiveReplyTo
             };
-            if (cc) payload.cc = cc;
+            if (ccArray.length > 0) payload.cc = ccArray;
             if (fromAddress) payload.from = fromAddress;
+
+            console.log('sendEmailViaResend — To:', to, 'CC:', ccArray, 'Subject:', subject);
 
             var response = await fetch(EMAIL_FUNCTION_URL, {
                 method: 'POST',
@@ -33363,10 +33375,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 body: JSON.stringify(payload)
             });
             if (!response.ok) {
-                var errData = await response.json().catch(function() { return { message: response.statusText }; });
+                var errText = await response.text().catch(function() { return response.statusText; });
+                console.error('Email API error response:', response.status, errText);
+                var errData;
+                try { errData = JSON.parse(errText); } catch(e) { errData = { message: errText }; }
                 throw new Error(errData.error || errData.message || 'Email send failed (' + response.status + ')');
             }
-            return await response.json();
+            var result = await response.json();
+            console.log('Email sent successfully:', result);
+            return result;
         } catch (err) {
             console.error('Email send error:', err);
             throw err;
@@ -37001,6 +37018,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var body = document.getElementById('entityComposeBody_' + key);
         if (!body || !body.value.trim()) { alert('Please enter a message.'); return; }
 
+        // Disable send button to prevent double-clicks
+        var sendBtn = document.getElementById('entityComposeSend_' + key);
+        var originalBtnText = sendBtn ? sendBtn.textContent : '';
+        if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = type === 'email' ? '⏳ Sending...' : '⏳ Saving...'; }
+
         try {
             var now = new Date();
             var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -37025,62 +37047,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 followup_reason: (followupCheck && followupCheck.checked) ? (document.getElementById('entityComposeFollowupReason_' + key) || {}).value || '' : ''
             };
 
-            // Handle email sending
-            if (type === 'email') {
-                // Rebuild To from checkboxes + manual entries for vendor/lender emails
-                if (entityType === 'vendor' || entityType === 'lender' || entityType === 'brokerage') {
-                    updateVendorEmailToDisplay(entityType, entityId);
-                }
-                var toInput = document.getElementById('entityEmailTo_' + key);
-                var ccInput = document.getElementById('entityEmailCc_' + key);
-                var subjectInput = document.getElementById('entityEmailSubject_' + key);
-
-                var toEmailRaw = toInput ? toInput.value.trim() : '';
-                if (!toEmailRaw) { alert('Please select at least one recipient.'); return; }
-                var subject = subjectInput ? subjectInput.value.trim() : '';
-                if (!subject) { alert('Please enter a subject.'); return; }
-
-                // Parse multiple To recipients
-                var toEmails = [];
-                toEmailRaw.split(',').forEach(function(e) { var t = e.trim(); if (t) toEmails.push(t); });
-
-                var ccEmails = [];
-                if (ccInput && ccInput.value.trim()) {
-                    ccInput.value.split(',').forEach(function(e) { var t = e.trim(); if (t) ccEmails.push(t); });
-                }
-
-                var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px 0;">' +
-                    '<div style="padding:0 25px;">' +
-                    '<div style="font-size:15px;color:#334155;line-height:1.7;white-space:pre-wrap;">' + body.value.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') + '</div>' +
-                    '</div><div style="padding:12px 25px;text-align:center;font-size:11px;color:#94A3B8;border-top:1px solid #f0f0f0;margin-top:10px;">Alliance Financing Group | alliancefinancing.ai</div></div>';
-
-                // Send to primary recipient with all others in To as well
-                // Resend supports array of recipients — send to first, put rest in CC along with explicit CC
-                var primaryTo = toEmails[0];
-                var additionalTo = toEmails.slice(1);
-                var allCc = additionalTo.concat(ccEmails);
-
-                await sendEmailViaResend(primaryTo, subject, htmlBody, body.value.trim(), null, allCc.length > 0 ? allCc : undefined);
-
-                // Build readable recipient names for the log
-                var toNames = [];
-                var contactsList = entityType === 'vendor' ? window._currentVendorContacts : entityType === 'lender' ? window._currentLenderContacts : entityType === 'brokerage' ? window._currentBrokerageContacts : null;
-                if (contactsList) {
-                    toEmails.forEach(function(email) {
-                        var contact = contactsList.find(function(c) { return c.email === email; });
-                        toNames.push(contact ? (contact.contact_name + ' <' + email + '>') : email);
-                    });
-                } else {
-                    toNames = toEmails;
-                }
-
-                newEntry.email_to = toNames.join(', ');
-                newEntry.email_cc = ccEmails.join(', ');
-                newEntry.email_subject = subject;
-                showToast('Email sent to ' + toEmails.length + ' recipient' + (toEmails.length > 1 ? 's' : '') + '!');
-            }
-
-            // Determine table and field based on entity type
+            // Determine table and field FIRST (before email, so we can save even if email fails)
             var table, field, idField;
             if (entityType === 'agent') {
                 table = 'users'; field = 'notes'; idField = 'id';
@@ -37096,6 +37063,75 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 table = 'website_contacts'; field = 'admin_notes'; idField = 'id';
             }
 
+            // Handle email sending
+            var emailSentOk = false;
+            if (type === 'email') {
+                // Rebuild To from checkboxes + manual entries for vendor/lender emails
+                if (entityType === 'vendor' || entityType === 'lender' || entityType === 'brokerage') {
+                    updateVendorEmailToDisplay(entityType, entityId);
+                }
+                var toInput = document.getElementById('entityEmailTo_' + key);
+                var ccInput = document.getElementById('entityEmailCc_' + key);
+                var subjectInput = document.getElementById('entityEmailSubject_' + key);
+
+                var toEmailRaw = toInput ? toInput.value.trim() : '';
+                if (!toEmailRaw) { alert('Please select at least one recipient.'); if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = originalBtnText; } return; }
+                var subject = subjectInput ? subjectInput.value.trim() : '';
+                if (!subject) { alert('Please enter a subject.'); if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = originalBtnText; } return; }
+
+                // Parse multiple To recipients
+                var toEmails = [];
+                toEmailRaw.split(',').forEach(function(e) { var t = e.trim(); if (t) toEmails.push(t); });
+
+                var ccEmails = [];
+                if (ccInput && ccInput.value.trim()) {
+                    ccInput.value.split(',').forEach(function(e) { var t = e.trim(); if (t) ccEmails.push(t); });
+                }
+
+                // Build branded email HTML
+                var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                    '<div style="background:#0D1E3D;padding:18px 25px;border-radius:8px 8px 0 0;">' +
+                    '<h1 style="margin:0;color:#C9A84C;font-size:17px;font-weight:700;">Alliance Financing Group</h1></div>' +
+                    '<div style="padding:20px 25px;background:white;border:1px solid #E5E7EB;border-top:none;">' +
+                    '<div style="font-size:14px;color:#334155;line-height:1.7;white-space:pre-wrap;">' + body.value.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') + '</div>' +
+                    '<hr style="border:none;border-top:1px solid #E5E7EB;margin:20px 0 12px;">' +
+                    '<p style="font-size:12px;color:#64748B;margin:0;">' + (currentUserName || 'Alliance Financing Group') + '</p>' +
+                    '<p style="font-size:12px;color:#64748B;margin:2px 0;">' + (userEmail || '') + '</p>' +
+                    '<p style="font-size:12px;color:#64748B;margin:2px 0;">Alliance Financing Group Ltd. | 1-877-660-3660</p>' +
+                    '</div>' +
+                    '<div style="padding:10px 25px;text-align:center;font-size:11px;color:#94A3B8;border-top:1px solid #f0f0f0;border-radius:0 0 8px 8px;">Alliance Financing Group | alliancefinancing.ai</div></div>';
+
+                // Send to primary recipient with all others in To as well
+                // Resend supports array of recipients — send to first, put rest in CC along with explicit CC
+                var primaryTo = toEmails[0];
+                var additionalTo = toEmails.slice(1);
+                var allCc = additionalTo.concat(ccEmails);
+
+                // Pass CC as comma-separated string for maximum Edge Function compatibility
+                var ccString = allCc.length > 0 ? allCc.join(', ') : undefined;
+
+                console.log('Sending email — To:', primaryTo, 'CC:', ccString, 'Subject:', subject);
+                await sendEmailViaResend(primaryTo, subject, htmlBody, body.value.trim(), null, ccString);
+                emailSentOk = true;
+
+                // Build readable recipient names for the log
+                var toNames = [];
+                var contactsList = entityType === 'vendor' ? window._currentVendorContacts : entityType === 'lender' ? window._currentLenderContacts : entityType === 'brokerage' ? window._currentBrokerageContacts : null;
+                if (contactsList) {
+                    toEmails.forEach(function(email) {
+                        var contact = contactsList.find(function(c) { return c.email === email; });
+                        toNames.push(contact ? (contact.contact_name + ' <' + email + '>') : email);
+                    });
+                } else {
+                    toNames = toEmails;
+                }
+
+                newEntry.email_to = toNames.join(', ');
+                newEntry.email_cc = allCc.join(', ');
+                newEntry.email_subject = subject;
+                newEntry.is_email = true;
+            }
+
             // Handle file attachment
             var fileInput = document.getElementById('entityComposeFile_' + key);
             if (fileInput && fileInput.files[0]) {
@@ -37103,30 +37139,57 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     var fileData = await uploadCommFile(fileInput.files[0], entityType, entityId);
                     newEntry.attachment = fileData;
                 } catch(uploadErr) {
-                    alert('File upload failed: ' + uploadErr.message);
-                    return;
+                    console.error('File upload failed:', uploadErr);
+                    // Continue saving note even if file upload fails
+                    newEntry.text += '\n[File attachment failed: ' + uploadErr.message + ']';
                 }
             }
 
             // Fetch current notes
+            if (sendBtn) sendBtn.textContent = '⏳ Saving record...';
             var fetchResult = await db.from(table).select(field).eq(idField, entityId).single();
+            if (fetchResult.error) {
+                console.error('Failed to fetch existing notes:', fetchResult.error);
+                // If we can't read current notes, start with empty array
+                // This way we at least save the new note rather than losing it
+            }
             var notes = [];
-            try { notes = fetchResult.data[field] ? JSON.parse(fetchResult.data[field]) : []; } catch(e) { notes = []; }
+            try {
+                if (fetchResult.data && fetchResult.data[field]) {
+                    notes = JSON.parse(fetchResult.data[field]);
+                }
+            } catch(e) {
+                console.warn('Could not parse existing notes, starting fresh:', e);
+                notes = [];
+            }
             notes.push(newEntry);
 
-            // Also update last_contacted timestamp
+            // Save the updated notes
             var updateObj = {};
             updateObj[field] = JSON.stringify(notes);
             // Try to set last_contacted (gracefully handle if column missing)
             updateObj.last_contacted = now.toISOString();
+            console.log('Saving ' + type + ' to ' + table + '.' + field + ' for entity ' + entityId);
             var { error } = await db.from(table).update(updateObj).eq(idField, entityId);
             if (error && error.message && error.message.includes('last_contacted')) {
+                console.warn('last_contacted column missing on ' + table + ', retrying without it');
                 delete updateObj.last_contacted;
                 var retry = await db.from(table).update(updateObj).eq(idField, entityId);
-                if (retry.error) throw retry.error;
-            } else if (error) throw error;
+                if (retry.error) {
+                    console.error('Note save failed on retry:', retry.error);
+                    throw retry.error;
+                }
+            } else if (error) {
+                console.error('Note save failed:', error);
+                throw error;
+            }
 
-            if (type !== 'email') showToast('Note added');
+            console.log(type === 'email' ? 'Email sent and recorded successfully' : 'Note saved successfully');
+            if (type === 'email') {
+                showToast('Email sent and recorded!');
+            } else {
+                showToast('Note added');
+            }
 
             // Refresh the view
             if (entityType === 'agent') await viewAgent(entityId);
@@ -37136,7 +37199,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             else if (entityType === 'brokerage') await viewBrokerage(entityId);
         } catch (err) {
             console.error('Submit entity communication error:', err);
-            alert('Error: ' + err.message);
+            alert('Error: ' + err.message + (type === 'email' && emailSentOk ? '\n\nNote: The email was sent but the record may not have been saved. Please check the activity log.' : ''));
+            if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = originalBtnText; }
         }
     }
 
