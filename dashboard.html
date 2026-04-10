@@ -6077,7 +6077,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix4';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix5';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -40792,21 +40792,30 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     var cachedClientContacts = [];
 
     async function loadClients() {
+        var tbody = document.getElementById('clientsBody');
         try {
             const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
 
-            // Ensure agents are cached for source agent lookup
-            if (cachedAgents.length === 0) {
-                const { data: agts } = await db.from('users').select('id, full_name, email, parent_agent_id').eq('role', 'agent');
-                cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
-            }
-            if (cachedTeamMembers.length === 0) {
-                const { data: tmList } = await db.from('team_members').select('id, full_name, role_title, email').eq('is_active', true).order('full_name');
-                cachedTeamMembers = tmList || [];
-            }
-            // Fetch all client contacts
-            const { data: ccData } = await db.from('client_contact_persons').select('id, client_id, full_name, status');
-            cachedClientContacts = ccData || [];
+            // Cache agents and team members (non-critical — failures won't block clients)
+            try {
+                if (cachedAgents.length === 0) {
+                    const { data: agts } = await db.from('users').select('id, full_name, email, parent_agent_id').eq('role', 'agent');
+                    cachedAgents = (agts || []).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
+                }
+            } catch(e) { console.warn('Cache agents failed:', e); }
+
+            try {
+                if (cachedTeamMembers.length === 0) {
+                    const { data: tmList } = await db.from('team_members').select('id, full_name, role_title, email').eq('is_active', true).order('full_name');
+                    cachedTeamMembers = tmList || [];
+                }
+            } catch(e) { console.warn('Cache team members failed:', e); }
+
+            // Fetch client contacts (non-critical)
+            try {
+                const { data: ccData } = await db.from('client_contact_persons').select('id, client_id, full_name, status');
+                cachedClientContacts = ccData || [];
+            } catch(e) { console.warn('Client contacts fetch failed:', e); cachedClientContacts = []; }
 
             // For agents: only show clients linked to their deals (ISO Partners include sub-agent deals)
             let agentClientIds = null;
@@ -40820,10 +40829,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         }
                     } catch(e) { console.warn('Sub-agent lookup for clients failed:', e); }
                 }
-                const { data: agentDeals } = await db.from('deals').select('client_id').in('source_agent_id', clientAgentIds).not('client_id', 'is', null);
-                agentClientIds = new Set((agentDeals || []).map(d => d.client_id));
+                try {
+                    const { data: agentDeals } = await db.from('deals').select('client_id').in('source_agent_id', clientAgentIds).not('client_id', 'is', null);
+                    agentClientIds = new Set((agentDeals || []).map(d => d.client_id));
+                } catch(e) { console.warn('Agent deals lookup failed:', e); agentClientIds = new Set(); }
             }
 
+            // CRITICAL: Fetch all clients
             const { data, error } = await db
                 .from('clients')
                 .select('*')
@@ -40831,14 +40843,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
-            // Count deals per client (agent sees only their deal counts, ISO includes sub-agents)
-            let dealQuery = db.from('deals').select('client_id').not('client_id', 'is', null);
-            if (!isAdmin && currentUserId) {
-                dealQuery = dealQuery.in('source_agent_id', clientAgentIds || [currentUserId]);
-            }
-            const { data: dealLinks } = await dealQuery;
-            const dealCounts = {};
-            (dealLinks || []).forEach(d => { dealCounts[d.client_id] = (dealCounts[d.client_id] || 0) + 1; });
+            // Count deals per client (non-critical — defaults to 0)
+            var dealCounts = {};
+            try {
+                let dealQuery = db.from('deals').select('client_id').not('client_id', 'is', null);
+                if (!isAdmin && currentUserId) {
+                    dealQuery = dealQuery.in('source_agent_id', clientAgentIds || [currentUserId]);
+                }
+                const { data: dealLinks } = await dealQuery;
+                (dealLinks || []).forEach(d => { dealCounts[d.client_id] = (dealCounts[d.client_id] || 0) + 1; });
+            } catch(e) { console.warn('Deal counts fetch failed:', e); }
 
             let clientList = (data || []).map(c => ({ ...c, deals_count: dealCounts[c.id] || 0 }));
 
@@ -40855,6 +40869,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             filterClients();
         } catch (error) {
             console.error('Load clients error:', error);
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px 20px;color:#EF4444;font-size:14px;">Failed to load clients: ' + (error.message || error) + '<br><button onclick="loadClients()" style="margin-top:10px;padding:6px 16px;background:var(--navy);color:white;border:none;border-radius:6px;cursor:pointer;">Retry</button></td></tr>';
+            }
         }
     }
 
