@@ -20634,9 +20634,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // ----- Kanban Board Rendering -----
+    // Agent Deal Health Card stages (simplified for referring agents / ISOs)
+    var agentKanbanStages = [
+        { key: 'In Progress',  label: 'In Progress',  color: '#3B82F6', bg: '#EFF6FF',
+          statuses: ['Prospect','Application Sent','Quote Requested','Quote sent','Info received','In Credit','Requires Approval'] },
+        { key: 'Approved',     label: 'Approved',      color: '#10B981', bg: '#ECFDF5',
+          statuses: ['Approved','Approval sent','Docs requested','Docs out for signing'] },
+        { key: 'Funding',      label: 'In Funding',    color: '#8B5CF6', bg: '#EDE9FE',
+          statuses: ['In funding'] },
+        { key: 'Funded',       label: 'Funded',        color: '#059669', bg: '#D1FAE5',
+          statuses: ['Funded'] },
+        { key: 'Closed',       label: 'Closed',        color: '#EF4444', bg: '#FEF2F2',
+          statuses: ['Declined','Dead approval','Withdrawn'] }
+    ];
+
     function renderKanbanBoard() {
         var board = document.getElementById('kanbanBoard');
         if (!board) return;
+
+        var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+
+        // If agent/ISO, render simplified health card view
+        if (!isAdmin) {
+            renderAgentKanbanBoard(board);
+            return;
+        }
 
         // Apply same filters as table (except tab)
         var deals = (allDeals || []).filter(function(d) { return !d.is_archived; });
@@ -20724,6 +20746,115 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     // ----- Kanban Drag & Drop -----
     var _kanbanDragDealId = null;
+
+    function renderAgentKanbanBoard(board) {
+        var deals = (allDeals || []).filter(function(d) { return !d.is_archived; });
+
+        // Apply search filter
+        var search = (document.getElementById('dealSearch') || {}).value;
+        if (search) {
+            search = search.toLowerCase();
+            deals = deals.filter(function(d) {
+                return (d.company_name || '').toLowerCase().includes(search) ||
+                       (d.deal_number || '').toLowerCase().includes(search) ||
+                       (d.product_type || '').toLowerCase().includes(search);
+            });
+        }
+
+        // Group into simplified stages
+        var stageBuckets = {};
+        agentKanbanStages.forEach(function(s) { stageBuckets[s.key] = []; });
+
+        deals.forEach(function(d) {
+            var placed = false;
+            for (var i = 0; i < agentKanbanStages.length; i++) {
+                if (agentKanbanStages[i].statuses.includes(d.status)) {
+                    stageBuckets[agentKanbanStages[i].key].push(d);
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) stageBuckets['In Progress'].push(d);
+        });
+
+        var html = '';
+        agentKanbanStages.forEach(function(stage) {
+            var bucket = stageBuckets[stage.key] || [];
+
+            html += '<div class="kanban-column" style="min-width:240px;max-width:300px;">' +
+                '<div class="kanban-column-header" style="background:' + stage.bg + ';">' +
+                    '<span class="col-title" style="color:' + stage.color + ';">' + stage.label + '</span>' +
+                    '<span class="col-count" style="color:' + stage.color + ';">' + bucket.length + '</span>' +
+                '</div>' +
+                '<div class="kanban-column-body">';
+
+            if (bucket.length === 0) {
+                html += '<div style="text-align:center;padding:20px;color:#94A3B8;font-size:12px;">No deals</div>';
+            }
+
+            bucket.forEach(function(deal) {
+                var health = calcDealHealth(deal);
+                var docPct = deal._docCompletePct || 0;
+                var docColor = docPct === 100 ? '#10B981' : docPct >= 60 ? '#F59E0B' : '#EF4444';
+                var statusLabel = deal.status || 'Unknown';
+
+                // Progress steps for the agent
+                var progressSteps = ['Submitted', 'In Review', 'Approved', 'Funding', 'Complete'];
+                var currentStep = 0;
+                if (['Prospect','Application Sent','Quote Requested','Quote sent'].includes(deal.status)) currentStep = 0;
+                else if (['Info received','In Credit','Requires Approval'].includes(deal.status)) currentStep = 1;
+                else if (['Approved','Approval sent','Docs requested','Docs out for signing'].includes(deal.status)) currentStep = 2;
+                else if (deal.status === 'In funding') currentStep = 3;
+                else if (deal.status === 'Funded') currentStep = 4;
+
+                // Build mini progress bar
+                var progressDots = progressSteps.map(function(step, idx) {
+                    var active = idx <= currentStep;
+                    var dotColor = active ? stage.color : '#CBD5E1';
+                    return '<div style="display:flex;flex-direction:column;align-items:center;flex:1;">' +
+                        '<div style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';"></div>' +
+                        '<div style="font-size:8px;color:' + (active ? '#334155' : '#CBD5E1') + ';margin-top:2px;white-space:nowrap;">' + step + '</div>' +
+                    '</div>';
+                }).join('');
+
+                // Missing docs warning
+                var missingDocsHtml = '';
+                if (docPct < 100 && deal._docTotalCount && stage.key !== 'Funded' && stage.key !== 'Closed') {
+                    var missing = (deal._docTotalCount || 0) - (deal._docCompleteCount || 0);
+                    missingDocsHtml = '<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;padding:6px 8px;margin-top:6px;font-size:11px;color:#DC2626;">' +
+                        '⚠ ' + missing + ' doc' + (missing !== 1 ? 's' : '') + ' still needed' +
+                    '</div>';
+                }
+
+                // Unread note indicator
+                var unreadHtml = '';
+                try {
+                    var rowNotes = deal.notes ? JSON.parse(deal.notes) : [];
+                    if (typeof normalizeNotes === 'function') rowNotes = normalizeNotes(rowNotes);
+                    var hasUnread = rowNotes.some(function(n) { return n.visible_to_agent && (!n.read_by || !n.read_by[currentUserId]); });
+                    if (hasUnread) unreadHtml = '<span style="display:inline-block;width:8px;height:8px;background:#dc3545;border-radius:50%;margin-left:4px;" title="New update"></span>';
+                } catch(e) {}
+
+                html += '<div class="kanban-card" style="cursor:pointer;" onclick="openDealSlideout(\'' + deal.id + '\')">' +
+                    getHealthDot(health.level) +
+                    '<div class="kc-company">' + (deal.company_name || 'N/A') + unreadHtml + '</div>' +
+                    '<div class="kc-amount">' + formatCurrency(deal.deal_amount || 0) + '</div>' +
+                    '<div style="font-size:11px;color:#64748B;margin-bottom:6px;">' + (deal.product_type || '—') + ' · ' + statusLabel + '</div>' +
+                    '<div style="display:flex;align-items:flex-start;gap:2px;padding:4px 0;">' + progressDots + '</div>' +
+                    '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">' +
+                        '<div class="kc-docs-bar" style="flex:1;" title="Docs: ' + docPct + '%"><div class="fill" style="width:' + docPct + '%;background:' + docColor + ';"></div></div>' +
+                        '<span style="font-size:10px;font-weight:700;color:' + docColor + ';">' + docPct + '%</span>' +
+                    '</div>' +
+                    missingDocsHtml +
+                '</div>';
+            });
+
+            html += '</div>'; // column body
+            html += '</div>'; // column
+        });
+
+        board.innerHTML = html;
+    }
 
     function kanbanDragStart(event, card) {
         _kanbanDragDealId = card.dataset.dealId;
@@ -20918,6 +21049,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var iconBg = '#F1F5F9';
                 if (a.event_type === 'status_change') { icon = '🔄'; iconBg = '#EFF6FF'; }
                 else if (a.event_type === 'note_added') { icon = '💬'; iconBg = '#FFFBEB'; }
+                else if (a.event_type === 'email_sent') { icon = '📧'; iconBg = '#EFF6FF'; }
                 else if (a.event_type === 'document_upload') { icon = '📎'; iconBg = '#F0FDF4'; }
                 else if (a.event_type === 'lender_update') { icon = '🏦'; iconBg = '#EDE9FE'; }
 
@@ -20954,19 +21086,32 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             notes = Array.isArray(notes) ? notes : [];
             if (typeof normalizeNotes === 'function') notes = normalizeNotes(notes);
 
-            body.innerHTML =
-                (notes.length === 0 ? '<div style="text-align:center;padding:30px;color:#94A3B8;">No notes on this deal</div>' :
-                notes.map(function(n) {
-                    var isAdmin = n.user && (n.user.includes('Admin') || n.user.includes('admin'));
-                    var bg = isAdmin ? '#F8FAFC' : '#FFFBEB';
-                    var border = isAdmin ? '#E2E8F0' : '#FDE68A';
+            // Compose form + notes list
+            body.innerHTML = buildDsCommForm(deal) +
+                '<div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Activity (' + notes.length + ')</div>' +
+                (notes.length === 0 ? '<div style="text-align:center;padding:20px;color:#94A3B8;font-size:12px;">No notes on this deal yet</div>' :
+                notes.slice().reverse().map(function(n) {
+                    var isEmail = n.is_email || n.type === 'email';
+                    var isAdminNote = n.user && (n.user.includes('Admin') || n.user.includes('admin'));
+                    var bg = isEmail ? '#EFF6FF' : isAdminNote ? '#F8FAFC' : '#FFFBEB';
+                    var border = isEmail ? '#BFDBFE' : isAdminNote ? '#E2E8F0' : '#FDE68A';
+                    var typeLabel = isEmail ? '📧 Email' : '📝 Note';
                     return '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:8px;padding:10px 12px;margin-bottom:8px;">' +
-                        '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">' +
-                            '<strong style="font-size:12px;color:#0D1E3D;">' + (n.user || 'Unknown') + '</strong>' +
-                            '<span style="font-size:10px;color:#94A3B8;">' + (n.timestamp ? new Date(n.timestamp).toLocaleString() : '') + '</span>' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+                            '<div><strong style="font-size:12px;color:#0D1E3D;">' + (n.user || n.author || 'Unknown') + '</strong>' +
+                                '<span style="font-size:10px;color:#94A3B8;margin-left:6px;">' + typeLabel + '</span>' +
+                                (n.category ? '<span style="font-size:10px;background:#F1F5F9;color:#64748B;padding:1px 5px;border-radius:3px;margin-left:4px;">' + n.category + '</span>' : '') +
+                            '</div>' +
+                            '<span style="font-size:10px;color:#94A3B8;">' + (n.timestamp ? new Date(n.timestamp).toLocaleString() : (n.date || '')) + '</span>' +
                         '</div>' +
-                        '<div style="font-size:13px;color:#334155;line-height:1.5;">' + (n.text || '') + '</div>' +
-                        (n.visible_to_agent ? '<div style="margin-top:4px;"><span style="font-size:10px;background:#DBEAFE;color:#1E40AF;padding:2px 6px;border-radius:3px;">Visible to Agent</span></div>' : '') +
+                        (isEmail ? '<div style="font-size:11px;color:#64748B;margin-bottom:4px;">To: ' + (n.email_to || '—') + (n.email_cc ? ' · CC: ' + n.email_cc : '') + (n.email_subject ? '<br>Subject: ' + n.email_subject : '') + '</div>' : '') +
+                        '<div style="font-size:13px;color:#334155;line-height:1.5;white-space:pre-wrap;">' + (n.text || '') + '</div>' +
+                        (n.attachment ? '<div style="margin-top:4px;"><a href="' + (n.attachment.url || '#') + '" target="_blank" style="font-size:11px;color:#2563EB;">📎 ' + (n.attachment.name || 'Attachment') + '</a></div>' : '') +
+                        '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">' +
+                            (n.visible_to_agent ? '<span style="font-size:10px;background:#DBEAFE;color:#1E40AF;padding:2px 6px;border-radius:3px;">Visible to Agent</span>' : '') +
+                            (n.followup_date ? '<span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:2px 6px;border-radius:3px;">Follow-up: ' + n.followup_date + '</span>' : '') +
+                            (n.pinned ? '<span style="font-size:10px;background:#FEE2E2;color:#991B1B;padding:2px 6px;border-radius:3px;">📌 Pinned</span>' : '') +
+                        '</div>' +
                     '</div>';
                 }).join(''));
 
@@ -21028,6 +21173,207 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // ----- Refresh Kanban when filters change -----
+    // ----- Communication Logging (Phase 1) -----
+    var _dsCommMode = 'note'; // 'note' or 'email'
+
+    function toggleDsCommMode(mode) {
+        _dsCommMode = mode;
+        var noteBtn = document.getElementById('dsCommNoteBtn');
+        var emailBtn = document.getElementById('dsCommEmailBtn');
+        var emailFields = document.getElementById('dsCommEmailFields');
+        if (mode === 'email') {
+            noteBtn.style.background = '#F1F5F9'; noteBtn.style.color = '#64748B'; noteBtn.style.fontWeight = '500';
+            emailBtn.style.background = 'var(--navy)'; emailBtn.style.color = 'white'; emailBtn.style.fontWeight = '600';
+            emailFields.style.display = 'block';
+        } else {
+            emailBtn.style.background = '#F1F5F9'; emailBtn.style.color = '#64748B'; emailBtn.style.fontWeight = '500';
+            noteBtn.style.background = 'var(--navy)'; noteBtn.style.color = 'white'; noteBtn.style.fontWeight = '600';
+            emailFields.style.display = 'none';
+        }
+    }
+
+    function buildDsCommForm(deal) {
+        var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+        return '<div style="background:#FAFBFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;margin-bottom:16px;">' +
+            '<div style="display:flex;gap:0;margin-bottom:12px;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;">' +
+                '<button id="dsCommNoteBtn" onclick="toggleDsCommMode(\'note\')" style="flex:1;padding:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:var(--navy);color:white;">+ Note</button>' +
+                '<button id="dsCommEmailBtn" onclick="toggleDsCommMode(\'email\')" style="flex:1;padding:6px;border:none;cursor:pointer;font-size:12px;font-weight:500;background:#F1F5F9;color:#64748B;">Send Email</button>' +
+            '</div>' +
+            '<div id="dsCommEmailFields" style="display:none;margin-bottom:10px;">' +
+                '<div style="margin-bottom:6px;">' +
+                    '<label style="font-size:11px;font-weight:600;color:#64748B;">To</label>' +
+                    '<input type="email" id="dsCommTo" placeholder="recipient@email.com" style="width:100%;padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;box-sizing:border-box;">' +
+                '</div>' +
+                '<div style="margin-bottom:6px;">' +
+                    '<label style="font-size:11px;font-weight:600;color:#64748B;">CC <span style="font-weight:400;">(comma-separated)</span></label>' +
+                    '<input type="text" id="dsCommCC" placeholder="cc@example.com" style="width:100%;padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;box-sizing:border-box;">' +
+                '</div>' +
+                '<div style="margin-bottom:6px;">' +
+                    '<label style="font-size:11px;font-weight:600;color:#64748B;">Subject</label>' +
+                    '<input type="text" id="dsCommSubject" value="Re: ' + (deal.company_name || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;box-sizing:border-box;">' +
+                '</div>' +
+            '</div>' +
+            '<div style="margin-bottom:8px;">' +
+                '<select id="dsCommCategory" style="padding:5px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;background:white;">' +
+                    '<option value="General">General</option>' +
+                    '<option value="Lender Update">Lender Update</option>' +
+                    '<option value="Document Request">Document Request</option>' +
+                    '<option value="Status Update">Status Update</option>' +
+                    '<option value="Follow-up">Follow-up</option>' +
+                    '<option value="Escalation">Escalation</option>' +
+                '</select>' +
+            '</div>' +
+            '<textarea id="dsCommMessage" placeholder="Type your message..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>' +
+            '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;">' +
+                '<label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500;">' +
+                    '📎 Attach File <input type="file" id="dsCommFile" style="display:none;" onchange="dsCommFileSelected(this)">' +
+                '</label>' +
+                '<span id="dsCommFileName" style="font-size:11px;color:#64748B;"></span>' +
+                (isAdmin ? '<label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748B;cursor:pointer;"><input type="checkbox" id="dsCommVisibleToAgent"> Visible to Agent</label>' : '') +
+                '<label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748B;cursor:pointer;"><input type="checkbox" id="dsCommFollowup" onchange="document.getElementById(\'dsCommFollowupFields\').style.display=this.checked?\'flex\':\'none\'"> Follow-up</label>' +
+            '</div>' +
+            '<div id="dsCommFollowupFields" style="display:none;gap:8px;margin-top:8px;">' +
+                '<input type="date" id="dsCommFollowupDate" style="padding:5px 8px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;">' +
+                '<input type="text" id="dsCommFollowupReason" placeholder="Follow-up reason..." style="flex:1;padding:5px 8px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;">' +
+            '</div>' +
+            '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">' +
+                '<button onclick="sendDealComm()" id="dsCommSendBtn" style="padding:7px 16px;background:var(--gold);color:var(--navy);border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Add Note</button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function dsCommFileSelected(input) {
+        var nameSpan = document.getElementById('dsCommFileName');
+        if (input.files && input.files[0]) {
+            var f = input.files[0];
+            nameSpan.innerHTML = f.name + ' (' + (f.size / 1024).toFixed(1) + 'KB) <span onclick="dsCommClearFile()" style="color:#EF4444;cursor:pointer;font-weight:700;">✕</span>';
+        } else {
+            nameSpan.textContent = '';
+        }
+    }
+
+    function dsCommClearFile() {
+        document.getElementById('dsCommFile').value = '';
+        document.getElementById('dsCommFileName').textContent = '';
+    }
+
+    async function sendDealComm() {
+        var deal = _slideoutDeal;
+        if (!deal) return;
+        var msg = (document.getElementById('dsCommMessage') || {}).value;
+        if (!msg || !msg.trim()) { showNotification('Please enter a message', 'error'); return; }
+        msg = msg.trim();
+
+        var sendBtn = document.getElementById('dsCommSendBtn');
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+
+        try {
+            var isEmail = _dsCommMode === 'email';
+            var category = (document.getElementById('dsCommCategory') || {}).value || 'General';
+            var userEmail = document.getElementById('userEmailDisplay').textContent || '';
+            var isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+            var visibleCheckbox = document.getElementById('dsCommVisibleToAgent');
+            var visibleToAgent = isAdmin ? (visibleCheckbox ? visibleCheckbox.checked : false) : true;
+            var followupChecked = (document.getElementById('dsCommFollowup') || {}).checked;
+            var followupDate = followupChecked ? (document.getElementById('dsCommFollowupDate') || {}).value : null;
+            var followupReason = followupChecked ? (document.getElementById('dsCommFollowupReason') || {}).value : null;
+
+            // Handle file attachment
+            var attachment = null;
+            var fileInput = document.getElementById('dsCommFile');
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                attachment = await uploadCommFile(fileInput.files[0], 'deal', deal.id);
+            }
+
+            // Build note entry (per alliance-comms standard)
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var noteEntry = {
+                text: msg,
+                author: userEmail,
+                user: currentUserName || userEmail,
+                date: dateStr,
+                timestamp: now.toISOString(),
+                type: isEmail ? 'email' : 'note',
+                is_email: isEmail,
+                visible_to_agent: visibleToAgent,
+                from_agent: !isAdmin,
+                category: category,
+                pinned: false
+            };
+
+            if (followupDate) { noteEntry.followup_date = followupDate; noteEntry.followup_reason = followupReason || ''; }
+            if (attachment) { noteEntry.attachment = attachment; }
+
+            if (isEmail) {
+                var emailTo = (document.getElementById('dsCommTo') || {}).value || '';
+                var emailCC = (document.getElementById('dsCommCC') || {}).value || '';
+                var emailSubject = (document.getElementById('dsCommSubject') || {}).value || 'Re: ' + (deal.company_name || '');
+                noteEntry.email_to = emailTo;
+                noteEntry.email_cc = emailCC;
+                noteEntry.email_subject = emailSubject;
+
+                if (!emailTo) { showNotification('Please enter a recipient email', 'error'); sendBtn.disabled = false; sendBtn.textContent = 'Send Email'; return; }
+
+                // Build branded HTML body
+                var senderName = currentUserName || userEmail;
+                var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                    '<div style="background:#0D1E3D;padding:16px 24px;border-radius:8px 8px 0 0;">' +
+                        '<span style="color:#C9A84C;font-size:18px;font-weight:700;">Alliance Financing Group</span>' +
+                    '</div>' +
+                    '<div style="background:white;padding:24px;border:1px solid #E2E8F0;">' +
+                        '<p style="font-size:14px;color:#333;line-height:1.6;white-space:pre-wrap;">' + msg.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>' +
+                        (attachment ? '<p style="margin-top:12px;"><a href="' + attachment.url + '" style="color:#2563EB;font-size:13px;">📎 ' + attachment.name + '</a></p>' : '') +
+                        '<div style="margin-top:20px;padding-top:16px;border-top:1px solid #E2E8F0;font-size:12px;color:#64748B;">' +
+                            '<strong>' + senderName + '</strong><br>' + userEmail + '<br>Alliance Financing Group Ltd.' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="padding:10px 24px;text-align:center;font-size:11px;color:#94A3B8;">Alliance Financing Group | alliancefinancing.ai</div>' +
+                '</div>';
+
+                var ccArray = emailCC ? emailCC.split(',').map(function(e) { return e.trim(); }).filter(Boolean) : undefined;
+                await sendEmailViaResend(emailTo, emailSubject, htmlBody, msg, userEmail, ccArray);
+            }
+
+            // Save note to deal.notes
+            var { data: freshDeal } = await db.from('deals').select('notes').eq('id', deal.id).single();
+            var notes = [];
+            try { notes = freshDeal && freshDeal.notes ? JSON.parse(freshDeal.notes) : []; } catch(e) { notes = []; }
+            if (!Array.isArray(notes)) notes = [];
+            notes.push(noteEntry);
+            await db.from('deals').update({ notes: JSON.stringify(notes) }).eq('id', deal.id);
+
+            // Log to activity timeline
+            var eventType = isEmail ? 'email_sent' : 'note_added';
+            var desc = isEmail
+                ? 'Email sent to ' + (noteEntry.email_to || 'unknown') + ' — ' + (noteEntry.email_subject || '')
+                : 'Note added (' + category + ')' + (visibleToAgent ? ' — shared with agent' : '');
+            await logDealActivity(deal.id, eventType, desc, {
+                type: isEmail ? 'email' : 'note',
+                category: category,
+                to: noteEntry.email_to || null,
+                cc: noteEntry.email_cc || null,
+                subject: noteEntry.email_subject || null,
+                preview: msg.substring(0, 120),
+                visible_to_agent: visibleToAgent,
+                has_attachment: !!attachment,
+                followup_date: followupDate || null
+            });
+
+            showNotification(isEmail ? 'Email sent and logged!' : 'Note added!', 'success');
+
+            // Refresh the slideout
+            await openDealSlideout(deal.id);
+
+        } catch (e) {
+            console.error('sendDealComm error:', e);
+            showNotification('Error: ' + e.message, 'error');
+            sendBtn.disabled = false;
+            sendBtn.textContent = isEmail ? 'Send Email' : 'Add Note';
+        }
+    }
+
     var _origFilterDeals = filterDeals;
     // We'll patch filterDeals to also refresh kanban if active
     // (done inline below since filterDeals is already defined)
