@@ -2396,14 +2396,7 @@
             <div id="subAgents" class="page-section">
                 <!-- Organization Performance Dashboard -->
                 <div id="orgPerformanceSection" style="margin-bottom:24px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                        <div>
-                            <h3 style="margin:0 0 4px;font-size:16px;font-weight:700;color:var(--navy);">Organization Performance</h3>
-                            <p style="margin:0;font-size:12px;color:var(--text-light);">Real-time overview of your referral network</p>
-                        </div>
-                        <button class="btn btn-secondary btn-sm" onclick="refreshOrgPerformance()" style="font-size:11px;">↻ Refresh</button>
-                    </div>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:8px;">
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:8px;">
                         <!-- KPI Card: Total Partners -->
                         <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:18px 16px;position:relative;overflow:hidden;">
                             <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0D1E3D,#1A3A5C);"></div>
@@ -2432,231 +2425,9 @@
                             <div id="kpiPipelineTotal" style="font-size:28px;font-weight:800;color:#6366F1;line-height:1;">0</div>
                             <div id="kpiConversionRate" style="font-size:11px;color:var(--text-light);margin-top:4px;">0% conversion rate</div>
                         </div>
-                        <!-- KPI Card: Needs Follow-Up -->
-                        <div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:18px 16px;position:relative;overflow:hidden;">
-                            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#F59E0B,#FBBF24);"></div>
-                            <div style="font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Needs Follow-Up</div>
-                            <div id="kpiFollowUp" style="font-size:28px;font-weight:800;color:#F59E0B;line-height:1;">0</div>
-                            <div id="kpiFollowUpLabel" style="font-size:11px;color:#F59E0B;margin-top:4px;">prospects awaiting action</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Commission & Override Reports -->
-                <div id="commissionReportsSection" class="table-container" style="margin-bottom:24px;">
-                    <div class="table-header" style="cursor:pointer;" onclick="toggleCommissionReports()">
-                        <div class="table-title" style="display:flex;align-items:center;gap:8px;">
-                            <span id="commissionToggleIcon" style="transition:transform 0.2s;">▶</span>
-                            Commission & Override Reports
-                        </div>
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <span id="commissionSummary" style="font-size:12px;color:var(--text-light);"></span>
-                        </div>
-                    </div>
-                    <div id="commissionReportsBody" style="display:none;">
-                        <!-- Controls Row -->
-                        <div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;">
-                            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                                <div style="display:flex;align-items:center;gap:6px;">
-                                    <label style="font-size:12px;font-weight:600;color:#64748B;">Period:</label>
-                                    <select id="commissionPeriod" onchange="loadCommissionReport()" style="padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;background:white;">
-                                        <option value="this_month">This Month</option>
-                                        <option value="last_month">Last Month</option>
-                                        <option value="this_quarter">This Quarter</option>
-                                        <option value="last_quarter">Last Quarter</option>
-                                        <option value="this_year">This Year</option>
-                                        <option value="all_time">All Time</option>
-                                        <option value="custom">Custom Range</option>
-                                    </select>
-                                </div>
-                                <div style="display:flex;align-items:center;gap:6px;">
-                                    <label style="font-size:12px;font-weight:600;color:#64748B;">Status:</label>
-                                    <select id="commissionStatus" onchange="loadCommissionReport()" style="padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;background:white;">
-                                        <option value="all">All Deals</option>
-                                        <option value="Funded">Funded Only</option>
-                                        <option value="Approved">Approved</option>
-                                        <option value="Submitted">Submitted</option>
-                                    </select>
-                                </div>
-                                <div style="display:flex;gap:6px;">
-                                    <button onclick="exportCommissionCSV()" class="btn btn-secondary btn-sm" style="font-size:11px;display:flex;align-items:center;gap:4px;padding:6px 12px;">
-                                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                        CSV
-                                    </button>
-                                    <button onclick="exportCommissionPDF()" class="btn btn-gold btn-sm" style="font-size:11px;display:flex;align-items:center;gap:4px;padding:6px 12px;">
-                                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                        PDF
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="customDateRange" style="display:none;align-items:center;gap:6px;margin-top:10px;">
-                                <input type="date" id="commissionDateFrom" style="padding:5px 8px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;">
-                                <span style="font-size:12px;color:#94A3B8;">to</span>
-                                <input type="date" id="commissionDateTo" style="padding:5px 8px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;">
-                                <button onclick="loadCommissionReport()" class="btn btn-secondary btn-sm" style="font-size:11px;padding:5px 10px;">Apply</button>
-                            </div>
-                        </div>
-                        <!-- Summary KPI Row -->
-                        <div id="commissionKPIs" style="padding:16px 20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-bottom:1px solid #E2E8F0;">
-                            <div style="text-align:center;padding:12px;background:#F8FAFC;border-radius:8px;">
-                                <div style="font-size:10px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Total Deals</div>
-                                <div id="crTotalDeals" style="font-size:22px;font-weight:800;color:var(--navy);margin-top:4px;">0</div>
-                            </div>
-                            <div style="text-align:center;padding:12px;background:#F8FAFC;border-radius:8px;">
-                                <div style="font-size:10px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Deal Volume</div>
-                                <div id="crDealVolume" style="font-size:22px;font-weight:800;color:var(--navy);margin-top:4px;">$0</div>
-                            </div>
-                            <div style="text-align:center;padding:12px;background:#D1FAE5;border-radius:8px;">
-                                <div style="font-size:10px;font-weight:600;color:#065F46;text-transform:uppercase;letter-spacing:0.5px;">Override Earned</div>
-                                <div id="crOverrideTotal" style="font-size:22px;font-weight:800;color:#10B981;margin-top:4px;">$0</div>
-                            </div>
-                            <div style="text-align:center;padding:12px;background:#F8FAFC;border-radius:8px;">
-                                <div style="font-size:10px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Avg Override/Deal</div>
-                                <div id="crAvgOverride" style="font-size:22px;font-weight:800;color:var(--navy);margin-top:4px;">$0</div>
-                            </div>
-                        </div>
-                        <!-- Agent Breakdown Table -->
-                        <div style="padding:0 0 8px;">
-                            <table style="width:100%;border-collapse:collapse;">
-                                <thead>
-                                    <tr style="background:#F8FAFC;border-bottom:2px solid #E2E8F0;">
-                                        <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Agent</th>
-                                        <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;"># Deals</th>
-                                        <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Deal Volume</th>
-                                        <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Override Earned</th>
-                                        <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Avg / Deal</th>
-                                        <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">% of Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="commissionTableBody">
-                                    <tr><td colspan="6" style="padding:30px;text-align:center;color:var(--text-light);font-size:13px;">Click to expand and load report data</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <!-- Deal Detail Section (expandable per agent) -->
-                        <div id="commissionDealDetail" style="display:none;padding:0 20px 16px;">
-                            <div style="background:#F8FAFC;border-radius:8px;border:1px solid #E2E8F0;overflow:hidden;">
-                                <div style="padding:12px 16px;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;">
-                                    <span id="commissionDetailTitle" style="font-size:13px;font-weight:700;color:var(--navy);">Deal Details</span>
-                                    <button onclick="document.getElementById('commissionDealDetail').style.display='none'" style="font-size:11px;color:#94A3B8;background:none;border:none;cursor:pointer;">✕ Close</button>
-                                </div>
-                                <div id="commissionDetailBody" style="max-height:300px;overflow-y:auto;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Team Leaderboard -->
-                <div id="teamLeaderboardSection" class="table-container" style="margin-bottom:24px;display:none;">
-                    <div class="table-header" style="cursor:pointer;" onclick="toggleTeamLeaderboard()">
-                        <div class="table-title" style="display:flex;align-items:center;gap:8px;">
-                            <svg width="18" height="18" fill="none" stroke="#D4A843" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15l-2 5h4l-2-5z"/><path d="M8 21h8"/><path d="M6 3h12l-1.5 4H7.5L6 3z"/><circle cx="12" cy="11" r="4"/></svg>
-                            Team Leaderboard
-                        </div>
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <span id="leaderboardAgentCount" style="font-size:12px;color:var(--text-light);"></span>
-                            <svg id="leaderboardChevron" width="16" height="16" fill="none" stroke="#94A3B8" stroke-width="2" viewBox="0 0 24 24" style="transition:transform 0.2s;transform:rotate(0deg);"><path d="M6 9l6 6 6-6"/></svg>
-                        </div>
-                    </div>
-                    <div id="leaderboardBody" style="display:none;">
-                        <!-- Metric Tabs -->
-                        <div style="display:flex;gap:6px;padding:12px 16px;border-bottom:1px solid #E2E8F0;flex-wrap:wrap;">
-                            <button class="lb-metric-btn active" data-metric="deals" onclick="switchLeaderboardMetric('deals')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:#0D1E3D;color:white;transition:all 0.15s;">Deals Closed</button>
-                            <button class="lb-metric-btn" data-metric="volume" onclick="switchLeaderboardMetric('volume')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">Deal Volume</button>
-                            <button class="lb-metric-btn" data-metric="outreach" onclick="switchLeaderboardMetric('outreach')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">Outreach Sent</button>
-                            <button class="lb-metric-btn" data-metric="conversion" onclick="switchLeaderboardMetric('conversion')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">Conversion Rate</button>
-                            <button class="lb-metric-btn" data-metric="override" onclick="switchLeaderboardMetric('override')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">Override Earned</button>
-                        </div>
-                        <!-- Leaderboard Rankings -->
-                        <div id="leaderboardRankings" style="padding:16px;">
-                            <div style="text-align:center;color:var(--text-light);font-size:13px;padding:20px;">Loading leaderboard...</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Agent Activity Feed -->
-                <div id="activityFeedSection" class="table-container" style="margin-bottom:24px;display:none;">
-                    <div class="table-header" style="cursor:pointer;" onclick="toggleActivityFeed()">
-                        <div class="table-title" style="display:flex;align-items:center;gap:8px;">
-                            <svg width="18" height="18" fill="none" stroke="#D4A843" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                            Agent Activity Feed
-                            <span id="activityFeedCount" style="font-size:11px;color:var(--text-light);font-weight:400;"></span>
-                        </div>
-                        <svg id="activityFeedChevron" width="16" height="16" fill="none" stroke="#94A3B8" stroke-width="2" viewBox="0 0 24 24" style="transition:transform 0.2s;transform:rotate(0deg);flex-shrink:0;"><path d="M6 9l6 6 6-6"/></svg>
-                    </div>
-                    <div id="activityFeedBody" style="display:none;">
-                        <!-- Filter Tabs + Refresh -->
-                        <div style="display:flex;gap:6px;padding:12px 16px;border-bottom:1px solid #E2E8F0;flex-wrap:wrap;align-items:center;">
-                            <button class="af-filter-btn active" data-filter="all" onclick="filterActivityFeed('all')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:#0D1E3D;color:white;transition:all 0.15s;">All Activity</button>
-                            <button class="af-filter-btn" data-filter="outreach" onclick="filterActivityFeed('outreach')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">Outreach</button>
-                            <button class="af-filter-btn" data-filter="deal" onclick="filterActivityFeed('deal')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">Deals</button>
-                            <button class="af-filter-btn" data-filter="onboarding" onclick="filterActivityFeed('onboarding')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">Onboarding</button>
-                            <button onclick="loadActivityFeed();" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#94A3B8;transition:all 0.15s;margin-left:4px;">&#x21BB; Refresh</button>
-                        </div>
-                        <!-- Timeline -->
-                        <div id="activityFeedTimeline" style="padding:16px;max-height:480px;overflow-y:auto;">
-                            <div style="text-align:center;color:var(--text-light);font-size:13px;padding:20px;">Loading activity feed...</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Agent Onboarding Pipeline -->
-                <div id="onboardingPipelineSection" class="table-container" style="margin-bottom:24px;display:none;">
-                    <div class="table-header">
-                        <div class="table-title">Onboarding Pipeline</div>
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <span id="onboardingCount" style="font-size:12px;color:var(--text-light);"></span>
-                        </div>
-                    </div>
-                    <div id="onboardingPipelineBody" style="padding:16px;">
-                        <div style="text-align:center;color:var(--text-light);font-size:13px;padding:20px;">Loading onboarding data...</div>
-                    </div>
-                </div>
-
-                <!-- Prospect Outreach / Recruitment Pipeline -->
-                <div class="table-container" style="margin-bottom: 24px;">
-                    <div class="table-header">
-                        <div class="table-title">Recruitment Pipeline</div>
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <span id="outreachCount" style="font-size:12px;color:var(--text-light);"></span>
-                            <button class="btn btn-secondary btn-sm" onclick="loadOutreachHistory()" style="font-size:12px;">Refresh</button>
-                            <button class="btn btn-gold btn-sm" onclick="openBulkOutreachModal()" style="display:flex;align-items:center;gap:6px;font-size:12px;">
-                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>
-                                Bulk Send
-                            </button>
-                            <button class="btn btn-gold btn-sm" onclick="openSendMarketingPackageModal()" style="display:flex;align-items:center;gap:6px;font-size:12px;">
-                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
-                                Send Marketing Package
-                            </button>
-                        </div>
-                    </div>
-                    <!-- Pipeline Stage Filter Tabs -->
-                    <div id="pipelineFilterTabs" style="display:flex;gap:6px;padding:12px 16px;border-bottom:1px solid #E2E8F0;flex-wrap:wrap;">
-                        <button class="pipeline-filter-btn active" data-filter="all" onclick="filterPipeline('all')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:#0D1E3D;color:white;transition:all 0.15s;">All <span id="pipelineCountAll" style="margin-left:4px;opacity:0.7;"></span></button>
-                        <button class="pipeline-filter-btn" data-filter="sent" onclick="filterPipeline('sent')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">📤 Sent <span id="pipelineCountSent" style="margin-left:4px;opacity:0.7;"></span></button>
-                        <button class="pipeline-filter-btn" data-filter="opened" onclick="filterPipeline('opened')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">👀 Opened <span id="pipelineCountOpened" style="margin-left:4px;opacity:0.7;"></span></button>
-                        <button class="pipeline-filter-btn" data-filter="replied" onclick="filterPipeline('replied')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">💬 Replied <span id="pipelineCountReplied" style="margin-left:4px;opacity:0.7;"></span></button>
-                        <button class="pipeline-filter-btn" data-filter="meeting_booked" onclick="filterPipeline('meeting_booked')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">📅 Meeting <span id="pipelineCountMeeting" style="margin-left:4px;opacity:0.7;"></span></button>
-                        <button class="pipeline-filter-btn" data-filter="converted" onclick="filterPipeline('converted')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">✅ Converted <span id="pipelineCountConverted" style="margin-left:4px;opacity:0.7;"></span></button>
-                        <button class="pipeline-filter-btn" data-filter="no_response" onclick="filterPipeline('no_response')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">🔇 No Response <span id="pipelineCountNoResponse" style="margin-left:4px;opacity:0.7;"></span></button>
-                        <button class="pipeline-filter-btn" data-filter="follow_up" onclick="filterPipeline('follow_up')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #FEE2E2;background:white;color:#DC2626;transition:all 0.15s;">🔥 Needs Follow-Up <span id="pipelineCountFollowUp" style="margin-left:4px;opacity:0.7;"></span></button>
-                    </div>
-                    <div style="overflow-x:auto;">
-                        <table style="width:100%;border-collapse:collapse;">
-                            <thead>
-                                <tr style="background:#F8FAFC;border-bottom:2px solid #E2E8F0;">
-                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Prospect</th>
-                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Materials Sent</th>
-                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Sent By</th>
-                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Date</th>
-                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Status</th>
-                                    <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="outreachTableBody">
-                                <tr><td colspan="6" style="padding:40px;text-align:center;color:var(--text-light);font-size:13px;">Loading outreach history...</td></tr>
-                            </tbody>
-                        </table>
+                        <!-- Needs Follow-Up removed from KPI bar — visible in Recruitment Pipeline filter -->
+                        <span id="kpiFollowUp" style="display:none;">0</span>
+                        <span id="kpiFollowUpLabel" style="display:none;"></span>
                     </div>
                 </div>
 
@@ -2749,6 +2520,162 @@
                     </table>
                     </div>
                 </div>
+
+                <!-- Agent Onboarding Pipeline -->
+                <div id="onboardingPipelineSection" class="table-container" style="margin-bottom:24px;display:none;">
+                    <div class="table-header">
+                        <div class="table-title">Onboarding Pipeline</div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span id="onboardingCount" style="font-size:12px;color:var(--text-light);"></span>
+                        </div>
+                    </div>
+                    <div id="onboardingPipelineBody" style="padding:16px;">
+                        <div style="text-align:center;color:var(--text-light);font-size:13px;padding:20px;">Loading onboarding data...</div>
+                    </div>
+                </div>
+
+                <!-- Prospect Outreach / Recruitment Pipeline -->
+                <div class="table-container" style="margin-bottom: 24px;">
+                    <div class="table-header">
+                        <div class="table-title">Recruitment Pipeline</div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span id="outreachCount" style="font-size:12px;color:var(--text-light);"></span>
+                            <button class="btn btn-secondary btn-sm" onclick="loadOutreachHistory()" style="font-size:12px;">Refresh</button>
+                            <button class="btn btn-gold btn-sm" onclick="openBulkOutreachModal()" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>
+                                Bulk Send
+                            </button>
+                            <button class="btn btn-gold btn-sm" onclick="openSendMarketingPackageModal()" style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+                                Send Marketing Package
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Pipeline Stage Filter Tabs -->
+                    <div id="pipelineFilterTabs" style="display:flex;gap:6px;padding:12px 16px;border-bottom:1px solid #E2E8F0;flex-wrap:wrap;">
+                        <button class="pipeline-filter-btn active" data-filter="all" onclick="filterPipeline('all')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:#0D1E3D;color:white;transition:all 0.15s;">All <span id="pipelineCountAll" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="sent" onclick="filterPipeline('sent')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">📤 Sent <span id="pipelineCountSent" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="opened" onclick="filterPipeline('opened')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">👀 Opened <span id="pipelineCountOpened" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="replied" onclick="filterPipeline('replied')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">💬 Replied <span id="pipelineCountReplied" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="meeting_booked" onclick="filterPipeline('meeting_booked')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">📅 Meeting <span id="pipelineCountMeeting" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="converted" onclick="filterPipeline('converted')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">✅ Converted <span id="pipelineCountConverted" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="no_response" onclick="filterPipeline('no_response')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2E8F0;background:white;color:#64748B;transition:all 0.15s;">🔇 No Response <span id="pipelineCountNoResponse" style="margin-left:4px;opacity:0.7;"></span></button>
+                        <button class="pipeline-filter-btn" data-filter="follow_up" onclick="filterPipeline('follow_up')" style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #FEE2E2;background:white;color:#DC2626;transition:all 0.15s;">🔥 Needs Follow-Up <span id="pipelineCountFollowUp" style="margin-left:4px;opacity:0.7;"></span></button>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr style="background:#F8FAFC;border-bottom:2px solid #E2E8F0;">
+                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Prospect</th>
+                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Materials Sent</th>
+                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Sent By</th>
+                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Date</th>
+                                    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Status</th>
+                                    <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="outreachTableBody">
+                                <tr><td colspan="6" style="padding:40px;text-align:center;color:var(--text-light);font-size:13px;">Loading outreach history...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Commission & Override Reports -->
+                <div id="commissionReportsSection" class="table-container" style="margin-bottom:24px;">
+                    <div class="table-header" style="cursor:pointer;" onclick="toggleCommissionReports()">
+                        <div class="table-title" style="display:flex;align-items:center;gap:8px;">
+                            <span id="commissionToggleIcon" style="transition:transform 0.2s;">▶</span>
+                            Commission & Override Reports
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span id="commissionSummary" style="font-size:12px;color:var(--text-light);"></span>
+                        </div>
+                    </div>
+                    <div id="commissionReportsBody" style="display:none;">
+                        <!-- Controls Row -->
+                        <div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;">
+                            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <label style="font-size:12px;font-weight:600;color:#64748B;">Period:</label>
+                                    <select id="commissionPeriod" onchange="loadCommissionReport()" style="padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;background:white;">
+                                        <option value="this_month">This Month</option>
+                                        <option value="last_month">Last Month</option>
+                                        <option value="this_quarter">This Quarter</option>
+                                        <option value="last_quarter">Last Quarter</option>
+                                        <option value="this_year">This Year</option>
+                                        <option value="all_time">All Time</option>
+                                        <option value="custom">Custom Range</option>
+                                    </select>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <label style="font-size:12px;font-weight:600;color:#64748B;">Status:</label>
+                                    <select id="commissionStatus" onchange="loadCommissionReport()" style="padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;background:white;">
+                                        <option value="all">All Deals</option>
+                                        <option value="Funded">Funded Only</option>
+                                        <option value="Approved">Approved</option>
+                                        <option value="Submitted">Submitted</option>
+                                    </select>
+                                </div>
+                                <div style="display:flex;gap:6px;">
+                                    <button onclick="exportCommissionCSV()" class="btn btn-secondary btn-sm" style="font-size:11px;display:flex;align-items:center;gap:4px;padding:6px 12px;">
+                                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        CSV
+                                    </button>
+                                    <button onclick="exportCommissionPDF()" class="btn btn-gold btn-sm" style="font-size:11px;display:flex;align-items:center;gap:4px;padding:6px 12px;">
+                                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                        PDF
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="customDateRange" style="display:none;align-items:center;gap:6px;margin-top:10px;">
+                                <input type="date" id="commissionDateFrom" style="padding:5px 8px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;">
+                                <span style="font-size:12px;color:#94A3B8;">to</span>
+                                <input type="date" id="commissionDateTo" style="padding:5px 8px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;">
+                                <button onclick="loadCommissionReport()" class="btn btn-secondary btn-sm" style="font-size:11px;padding:5px 10px;">Apply</button>
+                            </div>
+                        </div>
+                        <!-- Summary KPI row removed — top-level KPIs cover these; keeping hidden elements for JS compatibility -->
+                        <div id="commissionKPIs" style="display:none;">
+                            <div id="crTotalDeals">0</div>
+                            <div id="crDealVolume">$0</div>
+                            <div id="crOverrideTotal">$0</div>
+                            <div id="crAvgOverride">$0</div>
+                        </div>
+                        <!-- Agent Breakdown Table -->
+                        <div style="padding:0 0 8px;">
+                            <table style="width:100%;border-collapse:collapse;">
+                                <thead>
+                                    <tr style="background:#F8FAFC;border-bottom:2px solid #E2E8F0;">
+                                        <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Agent</th>
+                                        <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;"># Deals</th>
+                                        <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Deal Volume</th>
+                                        <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Override Earned</th>
+                                        <th style="padding:10px 16px;text-align:right;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Avg / Deal</th>
+                                        <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">% of Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="commissionTableBody">
+                                    <tr><td colspan="6" style="padding:30px;text-align:center;color:var(--text-light);font-size:13px;">Click to expand and load report data</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Deal Detail Section (expandable per agent) -->
+                        <div id="commissionDealDetail" style="display:none;padding:0 20px 16px;">
+                            <div style="background:#F8FAFC;border-radius:8px;border:1px solid #E2E8F0;overflow:hidden;">
+                                <div style="padding:12px 16px;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;">
+                                    <span id="commissionDetailTitle" style="font-size:13px;font-weight:700;color:var(--navy);">Deal Details</span>
+                                    <button onclick="document.getElementById('commissionDealDetail').style.display='none'" style="font-size:11px;color:#94A3B8;background:none;border:none;cursor:pointer;">✕ Close</button>
+                                </div>
+                                <div id="commissionDetailBody" style="max-height:300px;overflow-y:auto;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Team Leaderboard removed — agent breakdown available in Commission Reports -->
+
+                <!-- Activity Feed removed — available on Command Center -->
             </div>
 
             <!-- Application Hub Page -->
@@ -6077,7 +6004,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix8';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix9';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
