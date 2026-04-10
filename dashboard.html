@@ -823,6 +823,322 @@
             background-color: #F5F3FF !important;
             box-shadow: inset 4px 0 0 #8B5CF6;
         }
+
+        /* ===== Phase 1: Kanban Board ===== */
+        .kanban-board {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 0 4px 16px;
+            min-height: 500px;
+            scroll-behavior: smooth;
+        }
+        .kanban-board::-webkit-scrollbar { height: 8px; }
+        .kanban-board::-webkit-scrollbar-track { background: #F1F5F9; border-radius: 4px; }
+        .kanban-board::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 4px; }
+
+        .kanban-column {
+            min-width: 260px;
+            max-width: 280px;
+            flex-shrink: 0;
+            background: #F8FAFC;
+            border-radius: 12px;
+            border: 1px solid #E2E8F0;
+            display: flex;
+            flex-direction: column;
+            max-height: 80vh;
+        }
+        .kanban-column-header {
+            padding: 12px 14px;
+            border-bottom: 1px solid #E2E8F0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px 12px 0 0;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .kanban-column-header .col-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .kanban-column-header .col-count {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.5);
+        }
+        .kanban-column-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .kanban-column-body::-webkit-scrollbar { width: 4px; }
+        .kanban-column-body::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 2px; }
+
+        .kanban-card {
+            background: white;
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid #E2E8F0;
+            cursor: grab;
+            transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+            position: relative;
+        }
+        .kanban-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transform: translateY(-1px);
+            border-color: #C9A84C;
+        }
+        .kanban-card:active { cursor: grabbing; }
+        .kanban-card.dragging {
+            opacity: 0.5;
+            transform: rotate(2deg);
+        }
+        .kanban-card .kc-company {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0D1E3D;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .kanban-card .kc-amount {
+            font-size: 14px;
+            font-weight: 800;
+            color: #0D1E3D;
+            margin-bottom: 6px;
+        }
+        .kanban-card .kc-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #64748B;
+            flex-wrap: wrap;
+        }
+        .kanban-card .kc-tag {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .kanban-card .kc-health {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .kanban-card .kc-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #F1F5F9;
+        }
+        .kanban-card .kc-docs-bar {
+            height: 4px;
+            border-radius: 2px;
+            background: #E2E8F0;
+            flex: 1;
+            margin-right: 6px;
+            overflow: hidden;
+        }
+        .kanban-card .kc-docs-bar .fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+        .kanban-drop-zone {
+            border: 2px dashed #C9A84C;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            color: #C9A84C;
+            font-size: 12px;
+            font-weight: 600;
+            display: none;
+            min-height: 60px;
+            transition: background 0.2s;
+        }
+        .kanban-column.drag-over .kanban-drop-zone {
+            display: block;
+            background: #FFFBEB;
+        }
+        .kanban-column.drag-over { border-color: #C9A84C; background: #FFFDF5; }
+        .kanban-column-total {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748B;
+            padding: 8px 14px;
+            border-top: 1px solid #E2E8F0;
+            text-align: center;
+        }
+
+        /* ===== Phase 1: View Toggle ===== */
+        .view-toggle {
+            display: inline-flex;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #F8FAFC;
+        }
+        .view-toggle button {
+            padding: 6px 14px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            background: transparent;
+            color: #64748B;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+        .view-toggle button.active-view {
+            background: var(--navy);
+            color: white;
+            font-weight: 600;
+        }
+        .view-toggle button:not(.active-view):hover {
+            background: #EEF2FF;
+            color: #0D1E3D;
+        }
+
+        /* ===== Phase 1: Slide-Out Deal Panel ===== */
+        .deal-slideout-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 9998;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s;
+        }
+        .deal-slideout-overlay.open { opacity: 1; pointer-events: all; }
+        .deal-slideout {
+            position: fixed;
+            top: 0;
+            right: -520px;
+            width: 500px;
+            max-width: 90vw;
+            height: 100vh;
+            background: white;
+            z-index: 9999;
+            box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .deal-slideout.open { right: 0; }
+        .deal-slideout-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #E2E8F0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            background: #FAFBFC;
+            flex-shrink: 0;
+        }
+        .deal-slideout-header .ds-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid #E2E8F0;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #64748B;
+            transition: all 0.15s;
+        }
+        .deal-slideout-header .ds-close:hover { background: #FEF2F2; color: #EF4444; border-color: #FCA5A5; }
+        .deal-slideout-tabs {
+            display: flex;
+            border-bottom: 1px solid #E2E8F0;
+            background: #FAFBFC;
+            flex-shrink: 0;
+        }
+        .deal-slideout-tabs button {
+            flex: 1;
+            padding: 10px 8px;
+            border: none;
+            background: transparent;
+            font-size: 12px;
+            font-weight: 500;
+            color: #64748B;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        .deal-slideout-tabs button.active {
+            color: #0D1E3D;
+            font-weight: 700;
+            border-bottom-color: #C9A84C;
+        }
+        .deal-slideout-tabs button:hover:not(.active) { color: #0D1E3D; background: #F1F5F9; }
+        .deal-slideout-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .deal-slideout-body::-webkit-scrollbar { width: 6px; }
+        .deal-slideout-body::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+
+        /* Timeline items */
+        .timeline-item {
+            display: flex;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #F1F5F9;
+            font-size: 13px;
+        }
+        .timeline-item:last-child { border-bottom: none; }
+        .timeline-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        .timeline-content { flex: 1; }
+        .timeline-content .tl-desc { color: #334155; line-height: 1.4; }
+        .timeline-content .tl-time { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+
+        /* Health score badge */
+        .health-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .health-good { background: #F0FDF4; color: #15803D; }
+        .health-warn { background: #FFFBEB; color: #B45309; }
+        .health-bad { background: #FEF2F2; color: #DC2626; }
     </style>
 </head>
 <body>
@@ -1294,6 +1610,10 @@
                 <div class="table-container">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Deal Pipeline</div>
+                        <div class="view-toggle" id="pipelineViewToggle">
+                            <button class="active-view" onclick="setPipelineView('table')" id="viewToggleTable">☰ Table</button>
+                            <button onclick="setPipelineView('board')" id="viewToggleBoard">▦ Board</button>
+                        </div>
                         <div id="dealTabs" style="display:flex;gap:0;border:1px solid #ccc;border-radius:6px;overflow:visible;font-size:13px;flex-wrap:wrap;">
                             <button class="deal-tab" data-tab="prospects" onclick="switchDealTab('prospects')" style="padding:7px 16px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Prospects <span id="dealCountProspects" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
                             <button class="deal-tab active" data-tab="active" onclick="switchDealTab('active')" style="padding:7px 16px;border:none;border-left:1px solid #ccc;cursor:pointer;font-size:13px;font-weight:600;background:var(--navy);color:white;transition:all .2s;">Active <span id="dealCountActive" style="background:rgba(255,255,255,0.3);padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
@@ -1378,6 +1698,7 @@
                                 <th style="min-width:130px; display:none;" class="sourced-by-col">Sourced By</th>
                                 <th style="min-width:140px;">Status</th>
                                 <th style="min-width:60px;" title="Document completeness percentage">Docs</th>
+                                <th style="min-width:50px;" title="Deal health score">Health</th>
                                 <th title="Days since deal was created or status last changed">Age</th>
                                 <th>Date</th>
                                 <th>Actions</th>
@@ -1385,12 +1706,47 @@
                         </thead>
                         <tbody id="dealsBody">
                             <tr>
-                                <td colspan="13" class="empty-state">Loading...</td>
+                                <td colspan="14" class="empty-state">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
                     </div>
                     </div><!-- close dealsContentArea -->
+
+                    <!-- Kanban Board View (hidden by default) -->
+                    <div id="kanbanBoardContainer" style="display:none; padding: 12px 8px;">
+                        <div class="kanban-board" id="kanbanBoard"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deal Slide-Out Panel -->
+            <div class="deal-slideout-overlay" id="dealSlideoutOverlay" onclick="closeDealSlideout()"></div>
+            <div class="deal-slideout" id="dealSlideout">
+                <div class="deal-slideout-header">
+                    <div>
+                        <div style="font-size:16px;font-weight:800;color:#0D1E3D;" id="dsCompany">—</div>
+                        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+                            <span style="font-size:12px;color:#64748B;" id="dsDealNum">—</span>
+                            <span id="dsStatusBadge"></span>
+                            <span id="dsHealthBadge"></span>
+                        </div>
+                        <div style="font-size:18px;font-weight:800;color:#0D1E3D;margin-top:6px;" id="dsAmount">—</div>
+                    </div>
+                    <button class="ds-close" onclick="closeDealSlideout()">✕</button>
+                </div>
+                <div class="deal-slideout-tabs" id="dsTabs">
+                    <button class="active" onclick="switchSlideoutTab('overview')">Overview</button>
+                    <button onclick="switchSlideoutTab('timeline')">Timeline</button>
+                    <button onclick="switchSlideoutTab('docs')">Docs</button>
+                    <button onclick="switchSlideoutTab('notes')">Notes</button>
+                    <button onclick="switchSlideoutTab('lenders')">Lenders</button>
+                </div>
+                <div class="deal-slideout-body" id="dsBody">
+                    <div style="text-align:center;padding:40px;color:#94A3B8;">Select a deal to view details</div>
+                </div>
+                <div style="padding:12px 20px;border-top:1px solid #E2E8F0;flex-shrink:0;display:flex;gap:8px;background:#FAFBFC;">
+                    <button class="btn btn-gold btn-sm" onclick="openFullDealFromSlideout()" style="flex:1;padding:8px;font-size:12px;font-weight:600;">Open Full Deal View</button>
                 </div>
             </div>
 
@@ -19850,7 +20206,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
 
         if (!data || data.length === 0) {
-            var colCount = isReferralPartner ? 7 : 13;
+            var colCount = isReferralPartner ? 7 : 14;
             tbody.innerHTML = '<tr><td colspan="' + colCount + '" class="empty-state">No deals found in this view.</td></tr>';
             return;
         }
@@ -20003,6 +20359,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         return '<span style="font-size:11px;font-weight:700;color:' + col + ';background:' + bg + ';padding:2px 6px;border-radius:4px;">' + pct + '%</span>';
                     })()}</td>
                     <td>${(function() {
+                        var h = calcDealHealth(deal);
+                        return getHealthBadgeHtml(h);
+                    })()}</td>
+                    <td>${(function() {
                         var daysInStage = '';
                         var refDate = deal.status_changed_at || deal.created_at;
                         if (refDate) {
@@ -20152,7 +20512,525 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 document.querySelectorAll('#dealsTable .sourced-by-col').forEach(function(el) { el.style.display = ''; });
             }
         }
+
+        // If Kanban view is active, refresh it too
+        if (_currentPipelineView === 'board') {
+            renderKanbanBoard();
+        }
     }
+
+    // ===================================================================
+    // Phase 1: Kanban Board, View Toggle, Slide-Out Panel, Deal Health
+    // ===================================================================
+
+    var _currentPipelineView = 'table';
+    var _slideoutDealId = null;
+    var _slideoutDeal = null;
+    var _slideoutTab = 'overview';
+
+    // 8-stage pipeline for Kanban columns
+    var kanbanStages = [
+        { key: 'Prospect',            label: 'Prospect',       color: '#3B82F6', bg: '#EFF6FF' },
+        { key: 'Application Sent',    label: 'App Sent',       color: '#F59E0B', bg: '#FFFBEB' },
+        { key: 'In Credit',           label: 'In Credit',      color: '#D97706', bg: '#FEF3C7' },
+        { key: 'Approved',            label: 'Approved',       color: '#10B981', bg: '#ECFDF5' },
+        { key: 'Docs out for signing',label: 'Docs Out',       color: '#8B5CF6', bg: '#EDE9FE' },
+        { key: 'In funding',          label: 'In Funding',     color: '#6366F1', bg: '#EEF2FF' },
+        { key: 'Funded',              label: 'Funded',         color: '#059669', bg: '#D1FAE5' },
+        { key: 'Declined',            label: 'Declined/Dead',  color: '#EF4444', bg: '#FEF2F2' }
+    ];
+
+    // Map every status to a Kanban column
+    var statusToKanbanStage = {
+        'Prospect': 'Prospect',
+        'Application Sent': 'Application Sent',
+        'Quote Requested': 'Application Sent',
+        'Quote sent': 'Application Sent',
+        'Info received': 'In Credit',
+        'In Credit': 'In Credit',
+        'Requires Approval': 'In Credit',
+        'Approved': 'Approved',
+        'Approval sent': 'Approved',
+        'Docs requested': 'Docs out for signing',
+        'Docs out for signing': 'Docs out for signing',
+        'In funding': 'In funding',
+        'Funded': 'Funded',
+        'Declined': 'Declined',
+        'Dead approval': 'Declined',
+        'Withdrawn': 'Declined'
+    };
+
+    // ----- Deal Health Score -----
+    function calcDealHealth(deal) {
+        // Returns { score: 0-100, level: 'good'|'warn'|'bad', reasons: [] }
+        var score = 100;
+        var reasons = [];
+
+        // Age factor — days since status changed
+        var refDate = deal.status_changed_at || deal.created_at;
+        var daysInStage = refDate ? Math.floor((new Date() - new Date(refDate)) / 86400000) : 0;
+        if (daysInStage > 14) { score -= 30; reasons.push('Stale: ' + daysInStage + ' days in stage'); }
+        else if (daysInStage > 7) { score -= 15; reasons.push(daysInStage + ' days in stage'); }
+
+        // Document completeness
+        var docPct = deal._docCompletePct;
+        if (docPct !== null && docPct !== undefined) {
+            if (docPct < 30) { score -= 25; reasons.push('Docs: only ' + docPct + '% complete'); }
+            else if (docPct < 60) { score -= 12; reasons.push('Docs: ' + docPct + '% complete'); }
+        }
+
+        // Unassigned
+        if (!deal.assigned_to) { score -= 15; reasons.push('Unassigned'); }
+
+        // No lender on active deal
+        var terminalStatuses = ['Funded','Declined','Dead approval','Withdrawn','Prospect'];
+        if (!deal.assigned_lender_id && !terminalStatuses.includes(deal.status)) {
+            score -= 10; reasons.push('No lender assigned');
+        }
+
+        // Missing amount
+        if (!deal.deal_amount || deal.deal_amount <= 0) { score -= 10; reasons.push('No deal amount'); }
+
+        score = Math.max(0, Math.min(100, score));
+        var level = score >= 70 ? 'good' : score >= 40 ? 'warn' : 'bad';
+        return { score: score, level: level, reasons: reasons };
+    }
+
+    function getHealthDot(level) {
+        var colors = { good: '#10B981', warn: '#F59E0B', bad: '#EF4444' };
+        return '<span class="kc-health" style="background:' + (colors[level] || '#94A3B8') + ';" title="' + level + '"></span>';
+    }
+
+    function getHealthBadgeHtml(health) {
+        var cls = health.level === 'good' ? 'health-good' : health.level === 'warn' ? 'health-warn' : 'health-bad';
+        return '<span class="health-badge ' + cls + '">' +
+            '<span style="width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block;"></span> ' +
+            health.score + '</span>';
+    }
+
+    // ----- View Toggle -----
+    function setPipelineView(view) {
+        _currentPipelineView = view;
+        var tableBtn = document.getElementById('viewToggleTable');
+        var boardBtn = document.getElementById('viewToggleBoard');
+        var tableArea = document.getElementById('dealsContentArea');
+        var boardArea = document.getElementById('kanbanBoardContainer');
+        var tabsArea = document.getElementById('dealTabs');
+
+        if (view === 'board') {
+            tableBtn.classList.remove('active-view');
+            boardBtn.classList.add('active-view');
+            tableArea.style.display = 'none';
+            boardArea.style.display = 'block';
+            if (tabsArea) tabsArea.style.display = 'none';
+            renderKanbanBoard();
+        } else {
+            boardBtn.classList.remove('active-view');
+            tableBtn.classList.add('active-view');
+            tableArea.style.display = '';
+            boardArea.style.display = 'none';
+            if (tabsArea) tabsArea.style.display = 'flex';
+        }
+    }
+
+    // ----- Kanban Board Rendering -----
+    function renderKanbanBoard() {
+        var board = document.getElementById('kanbanBoard');
+        if (!board) return;
+
+        // Apply same filters as table (except tab)
+        var deals = (allDeals || []).filter(function(d) { return !d.is_archived; });
+
+        // Apply search filter
+        var search = (document.getElementById('dealSearch') || {}).value;
+        if (search) {
+            search = search.toLowerCase();
+            deals = deals.filter(function(d) {
+                return (d.company_name || '').toLowerCase().includes(search) ||
+                       (d.deal_number || '').toLowerCase().includes(search) ||
+                       (d.product_type || '').toLowerCase().includes(search);
+            });
+        }
+
+        // Apply product filter
+        var prodFilter = (document.getElementById('dealProductFilter') || {}).value;
+        if (prodFilter) deals = deals.filter(function(d) { return d.product_type === prodFilter; });
+
+        // Apply assigned filter
+        var assignedFilter = (document.getElementById('dealAssignedFilter') || {}).value;
+        if (assignedFilter === '__mine__') deals = deals.filter(function(d) { return d.assigned_to === currentUserId; });
+        else if (assignedFilter) deals = deals.filter(function(d) { return d.assigned_to === assignedFilter; });
+
+        // Group deals by kanban stage
+        var stageBuckets = {};
+        kanbanStages.forEach(function(s) { stageBuckets[s.key] = []; });
+
+        deals.forEach(function(d) {
+            var stage = statusToKanbanStage[d.status] || 'Prospect';
+            if (stageBuckets[stage]) stageBuckets[stage].push(d);
+        });
+
+        // Render columns
+        var html = '';
+        kanbanStages.forEach(function(stage) {
+            var bucket = stageBuckets[stage.key] || [];
+            var totalValue = bucket.reduce(function(sum, d) { return sum + (d.deal_amount || 0); }, 0);
+
+            html += '<div class="kanban-column" data-stage="' + stage.key + '"' +
+                    ' ondragover="kanbanDragOver(event, this)" ondragleave="kanbanDragLeave(this)" ondrop="kanbanDrop(event, this)">' +
+                '<div class="kanban-column-header" style="background:' + stage.bg + ';">' +
+                    '<span class="col-title" style="color:' + stage.color + ';">' + stage.label + '</span>' +
+                    '<span class="col-count" style="color:' + stage.color + ';">' + bucket.length + '</span>' +
+                '</div>' +
+                '<div class="kanban-column-body">';
+
+            bucket.forEach(function(deal) {
+                var health = calcDealHealth(deal);
+                var docPct = deal._docCompletePct || 0;
+                var docColor = docPct === 100 ? '#10B981' : docPct >= 60 ? '#F59E0B' : '#EF4444';
+                var assignedName = deal._assignedToName || '<span style="color:#F59E0B;">Unassigned</span>';
+                var daysInStage = '';
+                var ref = deal.status_changed_at || deal.created_at;
+                if (ref) {
+                    var d = Math.floor((new Date() - new Date(ref)) / 86400000);
+                    daysInStage = d + 'd';
+                }
+
+                html += '<div class="kanban-card" draggable="true" data-deal-id="' + deal.id + '"' +
+                    ' ondragstart="kanbanDragStart(event, this)" ondragend="kanbanDragEnd(this)"' +
+                    ' onclick="openDealSlideout(\'' + deal.id + '\')">' +
+                    getHealthDot(health.level) +
+                    '<div class="kc-company">' + (deal.company_name || 'N/A') + '</div>' +
+                    '<div class="kc-amount">' + formatCurrency(deal.deal_amount || 0) + '</div>' +
+                    '<div class="kc-meta">' +
+                        '<span class="kc-tag" style="background:' + stage.bg + ';color:' + stage.color + ';">' + (deal.product_type || '—') + '</span>' +
+                        (daysInStage ? '<span>' + daysInStage + '</span>' : '') +
+                    '</div>' +
+                    '<div class="kc-footer">' +
+                        '<div class="kc-docs-bar" title="Docs: ' + docPct + '%"><div class="fill" style="width:' + docPct + '%;background:' + docColor + ';"></div></div>' +
+                        '<span style="font-size:10px;color:#64748B;white-space:nowrap;">' + assignedName + '</span>' +
+                    '</div>' +
+                '</div>';
+            });
+
+            html += '<div class="kanban-drop-zone">Drop here to move</div>';
+            html += '</div>'; // close column body
+            html += '<div class="kanban-column-total">' + formatCurrency(totalValue) + '</div>';
+            html += '</div>'; // close column
+        });
+
+        board.innerHTML = html;
+    }
+
+    // ----- Kanban Drag & Drop -----
+    var _kanbanDragDealId = null;
+
+    function kanbanDragStart(event, card) {
+        _kanbanDragDealId = card.dataset.dealId;
+        card.classList.add('dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', card.dataset.dealId);
+    }
+
+    function kanbanDragEnd(card) {
+        card.classList.remove('dragging');
+        _kanbanDragDealId = null;
+        document.querySelectorAll('.kanban-column').forEach(function(col) {
+            col.classList.remove('drag-over');
+        });
+    }
+
+    function kanbanDragOver(event, column) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        column.classList.add('drag-over');
+    }
+
+    function kanbanDragLeave(column) {
+        column.classList.remove('drag-over');
+    }
+
+    async function kanbanDrop(event, column) {
+        event.preventDefault();
+        column.classList.remove('drag-over');
+        var dealId = event.dataTransfer.getData('text/plain') || _kanbanDragDealId;
+        var newStage = column.dataset.stage;
+        if (!dealId || !newStage) return;
+
+        // Only admins can drag
+        if (!['super_admin', 'admin'].includes(currentUserRole)) {
+            showNotification('Only admins can move deals between stages', 'error');
+            return;
+        }
+
+        // Find the best status for this stage
+        var newStatus = newStage; // direct map for most stages
+        // Update in DB
+        try {
+            var { error } = await db.from('deals').update({
+                status: newStatus,
+                status_changed_at: new Date().toISOString()
+            }).eq('id', dealId);
+            if (error) throw error;
+
+            // Update local cache
+            var deal = allDeals.find(function(d) { return d.id === dealId; });
+            if (deal) {
+                deal.status = newStatus;
+                deal.status_changed_at = new Date().toISOString();
+            }
+
+            logDealActivity(dealId, 'status_change', 'Moved to ' + newStatus + ' via Kanban board', { old_status: deal ? deal.status : null, new_status: newStatus, source: 'kanban' });
+            showNotification('Deal moved to ' + newStatus, 'success');
+            renderKanbanBoard();
+        } catch (e) {
+            console.error('Kanban drop error:', e);
+            showNotification('Failed to move deal: ' + e.message, 'error');
+        }
+    }
+
+    // ----- Slide-Out Panel -----
+    async function openDealSlideout(dealId) {
+        _slideoutDealId = dealId;
+        _slideoutTab = 'overview';
+
+        // Show panel
+        document.getElementById('dealSlideoutOverlay').classList.add('open');
+        document.getElementById('dealSlideout').classList.add('open');
+        document.getElementById('dsBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">Loading...</div>';
+
+        try {
+            // Fetch deal data
+            var { data: deal, error } = await db
+                .from('deals')
+                .select('*, applications(application_id, full_name, email), lenders(name)')
+                .eq('id', dealId)
+                .single();
+            if (error) throw error;
+            _slideoutDeal = deal;
+
+            // Fetch documents
+            var { data: docs } = await db.from('documents').select('*').eq('deal_id', dealId).order('uploaded_at', { ascending: false });
+            _slideoutDeal._docs = docs || [];
+
+            // Fetch activity log
+            var { data: activities } = await db.from('deal_activity_log').select('*').eq('deal_id', dealId).order('performed_at', { ascending: false }).limit(50);
+            _slideoutDeal._activities = activities || [];
+
+            // Fetch lender submissions
+            var { data: subs } = await db.from('lender_submissions').select('*, lenders(name)').eq('deal_id', dealId).order('submitted_at', { ascending: false });
+            _slideoutDeal._lenderSubs = subs || [];
+
+            // Set header
+            document.getElementById('dsCompany').textContent = deal.company_name || 'Unknown';
+            document.getElementById('dsDealNum').textContent = deal.deal_number || '';
+            document.getElementById('dsAmount').textContent = formatCurrency(deal.deal_amount || 0) + ' ' + (deal.currency || 'USD');
+            document.getElementById('dsStatusBadge').innerHTML = getStatusBadge(deal.status);
+
+            // Health
+            var localDeal = allDeals.find(function(d) { return d.id === dealId; });
+            if (localDeal) {
+                var health = calcDealHealth(localDeal);
+                document.getElementById('dsHealthBadge').innerHTML = getHealthBadgeHtml(health);
+            }
+
+            // Set active tab
+            renderSlideoutTab('overview');
+
+        } catch (e) {
+            console.error('Slideout load error:', e);
+            document.getElementById('dsBody').innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">Error loading deal: ' + e.message + '</div>';
+        }
+    }
+
+    function closeDealSlideout() {
+        document.getElementById('dealSlideoutOverlay').classList.remove('open');
+        document.getElementById('dealSlideout').classList.remove('open');
+        _slideoutDealId = null;
+        _slideoutDeal = null;
+    }
+
+    function openFullDealFromSlideout() {
+        if (_slideoutDealId) {
+            closeDealSlideout();
+            viewDeal(_slideoutDealId);
+        }
+    }
+
+    function switchSlideoutTab(tab) {
+        _slideoutTab = tab;
+        document.querySelectorAll('#dsTabs button').forEach(function(btn) {
+            btn.classList.toggle('active', btn.textContent.toLowerCase().trim() === tab);
+        });
+        renderSlideoutTab(tab);
+    }
+
+    function renderSlideoutTab(tab) {
+        var body = document.getElementById('dsBody');
+        var deal = _slideoutDeal;
+        if (!deal) return;
+
+        if (tab === 'overview') {
+            var health = calcDealHealth(deal);
+            var notes = [];
+            try { notes = deal.notes ? JSON.parse(deal.notes) : []; } catch(e) {}
+            notes = Array.isArray(notes) ? notes : [];
+
+            body.innerHTML =
+                '<div style="margin-bottom:20px;">' +
+                    '<div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Deal Health</div>' +
+                    getHealthBadgeHtml(health) +
+                    (health.reasons.length ? '<div style="margin-top:6px;font-size:12px;color:#64748B;">' + health.reasons.join(' · ') + '</div>' : '') +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">' +
+                    slideoutField('Product', deal.product_type || '—') +
+                    slideoutField('Source', deal.source || '—') +
+                    slideoutField('Status', deal.status || '—') +
+                    slideoutField('Lender', (deal.lenders ? deal.lenders.name : '') || '—') +
+                    slideoutField('Assigned', deal._assignedToName || (allDeals.find(function(d){return d.id===deal.id;}) || {})._assignedToName || '—') +
+                    slideoutField('Submitted', deal.date_submitted ? new Date(deal.date_submitted).toLocaleDateString() : '—') +
+                    slideoutField('Client', (deal.applications ? deal.applications.full_name : '') || '—') +
+                    slideoutField('Email', (deal.applications ? deal.applications.email : '') || '—') +
+                '</div>' +
+                '<div style="margin-bottom:16px;">' +
+                    '<div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Doc Completeness</div>' +
+                    buildSlideoutDocBar(deal) +
+                '</div>' +
+                '<div>' +
+                    '<div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Latest Notes (' + notes.length + ')</div>' +
+                    (notes.length === 0 ? '<div style="font-size:12px;color:#94A3B8;">No notes yet</div>' :
+                    notes.slice(0, 3).map(function(n) {
+                        return '<div style="font-size:12px;color:#334155;padding:6px 0;border-bottom:1px solid #F1F5F9;">' +
+                            '<strong>' + (n.user || 'Unknown') + '</strong>: ' + (n.text || '').substring(0, 120) +
+                            '<div style="font-size:10px;color:#94A3B8;margin-top:2px;">' + (n.timestamp ? new Date(n.timestamp).toLocaleString() : '') + '</div>' +
+                        '</div>';
+                    }).join('')) +
+                '</div>';
+
+        } else if (tab === 'timeline') {
+            var activities = deal._activities || [];
+            if (activities.length === 0) {
+                body.innerHTML = '<div style="text-align:center;padding:30px;color:#94A3B8;font-size:13px;">No activity recorded yet.<br><span style="font-size:11px;">Activity logging was added in Phase 0 — new events will appear here.</span></div>';
+                return;
+            }
+            body.innerHTML = activities.map(function(a) {
+                var icon = '📋';
+                var iconBg = '#F1F5F9';
+                if (a.event_type === 'status_change') { icon = '🔄'; iconBg = '#EFF6FF'; }
+                else if (a.event_type === 'note_added') { icon = '💬'; iconBg = '#FFFBEB'; }
+                else if (a.event_type === 'document_upload') { icon = '📎'; iconBg = '#F0FDF4'; }
+                else if (a.event_type === 'lender_update') { icon = '🏦'; iconBg = '#EDE9FE'; }
+
+                return '<div class="timeline-item">' +
+                    '<div class="timeline-icon" style="background:' + iconBg + ';">' + icon + '</div>' +
+                    '<div class="timeline-content">' +
+                        '<div class="tl-desc">' + (a.description || a.event_type) + '</div>' +
+                        '<div class="tl-time">' + (a.performed_by_name || '') + ' · ' + (a.performed_at ? timeAgo(new Date(a.performed_at)) : '') + '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+        } else if (tab === 'docs') {
+            var docs = deal._docs || [];
+            var completeness = getDocCompleteness(deal.product_type, docs);
+            body.innerHTML =
+                '<div style="margin-bottom:16px;">' + buildSlideoutDocBar(deal) + '</div>' +
+                buildDocChecklistHtml(deal.product_type, docs, deal.id) +
+                (docs.length > 0 ?
+                '<div style="margin-top:16px;"><div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;margin-bottom:8px;">All Uploaded Files (' + docs.length + ')</div>' +
+                docs.map(function(doc) {
+                    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F1F5F9;">' +
+                        '<span style="font-size:14px;">📄</span>' +
+                        '<div style="flex:1;min-width:0;">' +
+                            '<div style="font-size:12px;font-weight:600;color:#0D1E3D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (doc.file_name || 'Unknown') + '</div>' +
+                            '<div style="font-size:10px;color:#94A3B8;">' + (doc.document_type || 'other') + ' · ' + (doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : '') + '</div>' +
+                        '</div>' +
+                    '</div>';
+                }).join('') + '</div>' : '');
+
+        } else if (tab === 'notes') {
+            var notes = [];
+            try { notes = deal.notes ? JSON.parse(deal.notes) : []; } catch(e) {}
+            notes = Array.isArray(notes) ? notes : [];
+            if (typeof normalizeNotes === 'function') notes = normalizeNotes(notes);
+
+            body.innerHTML =
+                (notes.length === 0 ? '<div style="text-align:center;padding:30px;color:#94A3B8;">No notes on this deal</div>' :
+                notes.map(function(n) {
+                    var isAdmin = n.user && (n.user.includes('Admin') || n.user.includes('admin'));
+                    var bg = isAdmin ? '#F8FAFC' : '#FFFBEB';
+                    var border = isAdmin ? '#E2E8F0' : '#FDE68A';
+                    return '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:8px;padding:10px 12px;margin-bottom:8px;">' +
+                        '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">' +
+                            '<strong style="font-size:12px;color:#0D1E3D;">' + (n.user || 'Unknown') + '</strong>' +
+                            '<span style="font-size:10px;color:#94A3B8;">' + (n.timestamp ? new Date(n.timestamp).toLocaleString() : '') + '</span>' +
+                        '</div>' +
+                        '<div style="font-size:13px;color:#334155;line-height:1.5;">' + (n.text || '') + '</div>' +
+                        (n.visible_to_agent ? '<div style="margin-top:4px;"><span style="font-size:10px;background:#DBEAFE;color:#1E40AF;padding:2px 6px;border-radius:3px;">Visible to Agent</span></div>' : '') +
+                    '</div>';
+                }).join(''));
+
+        } else if (tab === 'lenders') {
+            var subs = deal._lenderSubs || [];
+            if (subs.length === 0) {
+                body.innerHTML = '<div style="text-align:center;padding:30px;color:#94A3B8;">No lender submissions yet</div>';
+                return;
+            }
+            body.innerHTML = subs.map(function(s) {
+                var statusColor = s.status === 'Approved' ? '#10B981' : s.status === 'Declined' ? '#EF4444' : '#F59E0B';
+                var statusBg = s.status === 'Approved' ? '#F0FDF4' : s.status === 'Declined' ? '#FEF2F2' : '#FFFBEB';
+                return '<div style="background:white;border:1px solid #E2E8F0;border-radius:10px;padding:12px;margin-bottom:8px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+                        '<strong style="font-size:13px;color:#0D1E3D;">' + (s.lenders ? s.lenders.name : 'Unknown Lender') + '</strong>' +
+                        '<span style="padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + statusBg + ';color:' + statusColor + ';">' + (s.status || 'Pending') + '</span>' +
+                    '</div>' +
+                    (s.approval_amount ? '<div style="font-size:12px;color:#334155;">Amount: <strong>' + formatCurrency(s.approval_amount) + '</strong></div>' : '') +
+                    (s.approval_rate ? '<div style="font-size:12px;color:#334155;">Rate: ' + s.approval_rate + '%</div>' : '') +
+                    (s.terms_offered ? '<div style="font-size:12px;color:#334155;">Terms: ' + s.terms_offered + '</div>' : '') +
+                    (s.decline_reason ? '<div style="font-size:12px;color:#EF4444;margin-top:4px;">Reason: ' + s.decline_reason + '</div>' : '') +
+                    (s.conditions ? '<div style="font-size:12px;color:#B45309;margin-top:4px;background:#FFFBEB;padding:4px 8px;border-radius:4px;">Conditions: ' + s.conditions + '</div>' : '') +
+                    '<div style="font-size:10px;color:#94A3B8;margin-top:6px;">Submitted: ' + (s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : '—') +
+                        (s.decision_date ? ' · Decision: ' + new Date(s.decision_date).toLocaleDateString() : '') + '</div>' +
+                '</div>';
+            }).join('');
+        }
+    }
+
+    function slideoutField(label, value) {
+        return '<div style="background:#F8FAFC;border-radius:8px;padding:10px 12px;">' +
+            '<div style="font-size:10px;color:#94A3B8;font-weight:600;text-transform:uppercase;margin-bottom:2px;">' + label + '</div>' +
+            '<div style="font-size:13px;color:#0D1E3D;font-weight:600;">' + value + '</div>' +
+        '</div>';
+    }
+
+    function buildSlideoutDocBar(deal) {
+        var localDeal = allDeals.find(function(d) { return d.id === deal.id; }) || deal;
+        var pct = localDeal._docCompletePct || 0;
+        var col = pct === 100 ? '#10B981' : pct >= 60 ? '#F59E0B' : '#EF4444';
+        return '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<div style="flex:1;height:8px;background:#E2E8F0;border-radius:4px;overflow:hidden;">' +
+                '<div style="height:100%;width:' + pct + '%;background:' + col + ';border-radius:4px;transition:width 0.3s;"></div>' +
+            '</div>' +
+            '<span style="font-size:12px;font-weight:700;color:' + col + ';">' + pct + '%</span>' +
+        '</div>';
+    }
+
+    function timeAgo(date) {
+        var seconds = Math.floor((new Date() - date) / 1000);
+        if (seconds < 60) return 'just now';
+        var minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return minutes + 'm ago';
+        var hours = Math.floor(minutes / 60);
+        if (hours < 24) return hours + 'h ago';
+        var days = Math.floor(hours / 24);
+        if (days < 30) return days + 'd ago';
+        return date.toLocaleDateString();
+    }
+
+    // ----- Refresh Kanban when filters change -----
+    var _origFilterDeals = filterDeals;
+    // We'll patch filterDeals to also refresh kanban if active
+    // (done inline below since filterDeals is already defined)
 
     async function toggleArchiveDeal(dealId, archive) {
         var action = archive ? 'archive' : 'restore';
