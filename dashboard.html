@@ -5995,7 +5995,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix14';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix15';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -10960,13 +10960,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         try {
             if (!isAdmin) {
                 var sevenDaysAgoClientAgent = Date.now() - 7 * 86400000;
-                // Get client IDs linked to this agent (or sub-agents) via deals
+                // Get client IDs linked to this agent via deals OR directly assigned
                 var clientAgentIdsForNotif = _notifAgentIds || [currentUserId];
-                var { data: agentDealsForClients } = await db.from('deals').select('client_id').in('source_agent_id', clientAgentIdsForNotif).not('client_id', 'is', null);
-                if (agentDealsForClients && agentDealsForClients.length > 0) {
-                    var agentClientIdSet = {};
-                    agentDealsForClients.forEach(function(d) { agentClientIdSet[d.client_id] = true; });
-                    var uniqueClientIds = Object.keys(agentClientIdSet);
+                var agentClientIdSet = {};
+                // 1. Clients linked via deals
+                try {
+                    var { data: agentDealsForClients } = await db.from('deals').select('client_id').in('source_agent_id', clientAgentIdsForNotif).not('client_id', 'is', null);
+                    (agentDealsForClients || []).forEach(function(d) { agentClientIdSet[d.client_id] = true; });
+                } catch(e) { console.warn('Notif: deal-linked clients lookup failed:', e); }
+                // 2. Clients directly assigned via source_agent_id
+                try {
+                    var { data: directNotifClients } = await db.from('clients').select('id').in('source_agent_id', clientAgentIdsForNotif);
+                    (directNotifClients || []).forEach(function(c) { agentClientIdSet[c.id] = true; });
+                } catch(e) { console.warn('Notif: direct client assignment lookup failed:', e); }
+                var uniqueClientIds = Object.keys(agentClientIdSet);
+                if (uniqueClientIds.length > 0) {
                     // Fetch clients with admin_notes
                     var { data: agentClients } = await db.from('clients').select('id, company_name, admin_notes').in('id', uniqueClientIds).not('admin_notes', 'is', null);
                     if (agentClients) {
@@ -40840,7 +40848,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 cachedClientContacts = ccData || [];
             } catch(e) { console.warn('Client contacts fetch failed:', e); cachedClientContacts = []; }
 
-            // For agents: only show clients linked to their deals (ISO Partners include sub-agent deals)
+            // For agents: show clients assigned to them (source_agent_id) OR linked via their deals
             let agentClientIds = null;
             if (!isAdmin && currentUserId) {
                 var clientAgentIds = [currentUserId];
@@ -40852,10 +40860,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         }
                     } catch(e) { console.warn('Sub-agent lookup for clients failed:', e); }
                 }
+                agentClientIds = new Set();
+                // 1. Clients linked via deals
                 try {
                     const { data: agentDeals } = await db.from('deals').select('client_id').in('source_agent_id', clientAgentIds).not('client_id', 'is', null);
-                    agentClientIds = new Set((agentDeals || []).map(d => d.client_id));
-                } catch(e) { console.warn('Agent deals lookup failed:', e); agentClientIds = new Set(); }
+                    (agentDeals || []).forEach(function(d) { agentClientIds.add(d.client_id); });
+                } catch(e) { console.warn('Agent deals lookup failed:', e); }
+                // 2. Clients directly assigned via source_agent_id on the client record
+                try {
+                    const { data: directClients } = await db.from('clients').select('id').in('source_agent_id', clientAgentIds);
+                    (directClients || []).forEach(function(c) { agentClientIds.add(c.id); });
+                } catch(e) { console.warn('Direct client assignment lookup failed:', e); }
             }
 
             // CRITICAL: Fetch all clients
