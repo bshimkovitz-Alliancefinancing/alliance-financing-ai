@@ -6004,7 +6004,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix9';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix10';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -17060,7 +17060,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             return;
         }
 
-        // Only show agents NOT fully onboarded (no first deal or not active)
         var stages = [
             { key: 'invite_sent', label: 'Invite Sent', icon: '📨', color: '#94A3B8' },
             { key: 'accepted', label: 'Accepted', icon: '✅', color: '#F59E0B' },
@@ -17068,79 +17067,121 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             { key: 'first_deal', label: 'First Deal', icon: '🎯', color: '#10B981' }
         ];
 
-        var html = '';
-        var needsAttention = 0;
+        // Separate agents into in-progress vs completed
+        var inProgress = [];
+        var completed = [];
 
         for (var i = 0; i < subAgents.length; i++) {
             var sa = subAgents[i];
+            var currentStage = 0;
+            if (sa.invite_sent_at) currentStage = 1;
+            if (sa.invite_accepted_at) currentStage = 2;
+            if (sa.onboarding_status === 'active') currentStage = 3;
+            sa._onboardStage = currentStage;
 
-            // Determine current stage
-            var currentStage = 0; // not started
-            if (sa.invite_sent_at) currentStage = 1; // invite sent
-            if (sa.invite_accepted_at) currentStage = 2; // accepted
-            if (sa.onboarding_status === 'active') currentStage = 3; // profile set up
-
-            // Skip fully onboarded agents (active + has deals — we'll check via DOM later)
-            // For now, show all agents that haven't completed all 4 stages
-            if (currentStage < 3) needsAttention++;
-
-            // Agent card
-            html += '<div style="display:flex;align-items:center;gap:16px;padding:14px 16px;border:1px solid #E2E8F0;border-radius:10px;margin-bottom:10px;background:white;">';
-
-            // Agent name & status
-            html += '<div style="min-width:160px;">';
-            html += '<div style="font-size:13px;font-weight:700;color:var(--navy);">' + (sa.full_name || 'Unknown') + '</div>';
-            html += '<div style="font-size:11px;color:#94A3B8;margin-top:2px;">' + (sa.email || '') + '</div>';
-            html += '</div>';
-
-            // Stage progression
-            html += '<div style="flex:1;display:flex;align-items:center;gap:4px;">';
-            for (var s = 0; s < stages.length; s++) {
-                var stage = stages[s];
-                var isComplete = (s + 1) <= currentStage;
-                var isCurrent = (s + 1) === currentStage;
-
-                // Stage dot
-                html += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;">';
-                html += '<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;' +
-                    (isComplete ? 'background:' + stage.color + '15;border:2px solid ' + stage.color + ';' : 'background:#F3F4F6;border:2px solid #E5E7EB;opacity:0.5;') +
-                    (isCurrent ? 'box-shadow:0 0 0 3px ' + stage.color + '30;' : '') + '">' + stage.icon + '</div>';
-                html += '<div style="font-size:9px;font-weight:600;color:' + (isComplete ? stage.color : '#CBD5E1') + ';margin-top:4px;text-align:center;white-space:nowrap;">' + stage.label + '</div>';
-                html += '</div>';
-
-                // Connector line
-                if (s < stages.length - 1) {
-                    var lineColor = (s + 1) < currentStage ? stages[s + 1].color : '#E5E7EB';
-                    html += '<div style="flex:0 0 auto;width:40px;height:2px;background:' + lineColor + ';margin:0 -2px;margin-bottom:16px;"></div>';
-                }
+            if (currentStage >= 3) {
+                completed.push(sa);
+            } else {
+                inProgress.push(sa);
             }
-            html += '</div>';
+        }
 
-            // Days since last action
-            var daysSinceAction = '';
-            var lastDate = sa.invite_accepted_at || sa.invite_sent_at || sa.created_at;
-            if (lastDate) {
-                var daysAgo = Math.floor((new Date() - new Date(lastDate)) / (1000 * 60 * 60 * 24));
-                if (daysAgo > 7 && currentStage < 3) {
-                    daysSinceAction = '<span style="background:#FEE2E2;color:#DC2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;">⚠️ ' + daysAgo + 'd stalled</span>';
-                } else if (daysAgo > 3 && currentStage < 3) {
-                    daysSinceAction = '<span style="background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;">' + daysAgo + 'd ago</span>';
-                } else if (currentStage >= 3) {
-                    daysSinceAction = '<span style="background:#D1FAE5;color:#065F46;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;">✓ Active</span>';
-                } else {
-                    daysSinceAction = '<span style="color:#94A3B8;font-size:10px;">' + daysAgo + 'd ago</span>';
-                }
+        // Sort in-progress: most stalled first
+        inProgress.sort(function(a, b) {
+            return (a._onboardStage || 0) - (b._onboardStage || 0);
+        });
+
+        var html = '';
+
+        // Render in-progress agents
+        if (inProgress.length === 0) {
+            html += '<div style="text-align:center;padding:24px 16px;color:#10B981;font-size:14px;font-weight:600;">';
+            html += '<span style="font-size:24px;">✅</span><br>All partners are onboarded!';
+            html += '</div>';
+        } else {
+            for (var i = 0; i < inProgress.length; i++) {
+                html += _renderOnboardingCard(inProgress[i], stages);
             }
-            html += '<div style="min-width:80px;text-align:right;">' + daysSinceAction + '</div>';
+        }
 
-            html += '</div>';
+        // Show completed count with toggle (collapsed by default)
+        if (completed.length > 0) {
+            html += '<div style="margin-top:8px;border-top:1px solid #E2E8F0;padding-top:10px;">';
+            html += '<button onclick="var el=document.getElementById(\'onboardingCompleted\');var icon=document.getElementById(\'onboardingCompletedIcon\');if(el.style.display===\'none\'){el.style.display=\'block\';icon.textContent=\'▼\';}else{el.style.display=\'none\';icon.textContent=\'▶\';}" style="background:none;border:none;cursor:pointer;font-size:12px;color:#64748B;font-weight:600;display:flex;align-items:center;gap:6px;padding:4px 0;">';
+            html += '<span id="onboardingCompletedIcon">▶</span> ' + completed.length + ' fully onboarded <span style="color:#10B981;">✓</span>';
+            html += '</button>';
+            html += '<div id="onboardingCompleted" style="display:none;margin-top:8px;">';
+            for (var j = 0; j < completed.length; j++) {
+                html += _renderOnboardingCard(completed[j], stages);
+            }
+            html += '</div></div>';
         }
 
         body.innerHTML = html;
-        section.style.display = 'block';
+        section.style.display = inProgress.length > 0 || completed.length > 0 ? 'block' : 'none';
 
         var countEl = document.getElementById('onboardingCount');
-        if (countEl) countEl.textContent = subAgents.length + ' agents · ' + needsAttention + ' need attention';
+        if (countEl) {
+            if (inProgress.length > 0) {
+                countEl.textContent = inProgress.length + ' in progress · ' + completed.length + ' completed';
+            } else {
+                countEl.textContent = subAgents.length + ' partners · all onboarded';
+            }
+        }
+    }
+
+    function _renderOnboardingCard(sa, stages) {
+        var currentStage = sa._onboardStage || 0;
+        var html = '';
+
+        html += '<div style="display:flex;align-items:center;gap:16px;padding:14px 16px;border:1px solid #E2E8F0;border-radius:10px;margin-bottom:10px;background:white;">';
+
+        // Agent name & email
+        html += '<div style="min-width:160px;">';
+        html += '<div style="font-size:13px;font-weight:700;color:var(--navy);">' + (sa.full_name || 'Unknown') + '</div>';
+        html += '<div style="font-size:11px;color:#94A3B8;margin-top:2px;">' + (sa.email || '') + '</div>';
+        html += '</div>';
+
+        // Stage progression
+        html += '<div style="flex:1;display:flex;align-items:center;gap:4px;">';
+        for (var s = 0; s < stages.length; s++) {
+            var stage = stages[s];
+            var isComplete = (s + 1) <= currentStage;
+            var isCurrent = (s + 1) === currentStage;
+
+            html += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;">';
+            html += '<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;' +
+                (isComplete ? 'background:' + stage.color + '15;border:2px solid ' + stage.color + ';' : 'background:#F3F4F6;border:2px solid #E5E7EB;opacity:0.5;') +
+                (isCurrent ? 'box-shadow:0 0 0 3px ' + stage.color + '30;' : '') + '">' + stage.icon + '</div>';
+            html += '<div style="font-size:9px;font-weight:600;color:' + (isComplete ? stage.color : '#CBD5E1') + ';margin-top:4px;text-align:center;white-space:nowrap;">' + stage.label + '</div>';
+            html += '</div>';
+
+            if (s < stages.length - 1) {
+                var lineColor = (s + 1) < currentStage ? stages[s + 1].color : '#E5E7EB';
+                html += '<div style="flex:0 0 auto;width:40px;height:2px;background:' + lineColor + ';margin:0 -2px;margin-bottom:16px;"></div>';
+            }
+        }
+        html += '</div>';
+
+        // Days since last action
+        var daysSinceAction = '';
+        var lastDate = sa.invite_accepted_at || sa.invite_sent_at || sa.created_at;
+        if (lastDate) {
+            var daysAgo = Math.floor((new Date() - new Date(lastDate)) / (1000 * 60 * 60 * 24));
+            if (daysAgo > 7 && currentStage < 3) {
+                daysSinceAction = '<span style="background:#FEE2E2;color:#DC2626;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;">⚠ ' + daysAgo + 'd stalled</span>';
+            } else if (daysAgo > 3 && currentStage < 3) {
+                daysSinceAction = '<span style="background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;">' + daysAgo + 'd ago</span>';
+            } else if (currentStage >= 3) {
+                daysSinceAction = '<span style="background:#D1FAE5;color:#065F46;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;">✓ Active</span>';
+            } else {
+                daysSinceAction = '<span style="color:#94A3B8;font-size:10px;">' + daysAgo + 'd ago</span>';
+            }
+        }
+        html += '<div style="min-width:80px;text-align:right;">' + daysSinceAction + '</div>';
+
+        html += '</div>';
+        return html;
     }
 
     // ============================================
