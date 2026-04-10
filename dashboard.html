@@ -1587,23 +1587,23 @@
             <div id="deals" class="page-section">
                 <div id="dealStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:20px;">
                     <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                        <div style="font-size:24px;font-weight:800;color:#0D1E3D;" id="dealStatTotalValue">$0</div>
+                        <div style="font-size:24px;font-weight:800;color:#0D1E3D;" id="pipStatTotalValue">$0</div>
                         <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Pipeline Value</div>
                     </div>
                     <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                        <div style="font-size:24px;font-weight:800;color:#0D1E3D;" id="dealStatAvgSize">$0</div>
+                        <div style="font-size:24px;font-weight:800;color:#0D1E3D;" id="pipStatAvgSize">$0</div>
                         <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Avg Deal Size</div>
                     </div>
                     <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                        <div style="font-size:24px;font-weight:800;color:#10B981;" id="dealStatFundedCount">0</div>
+                        <div style="font-size:24px;font-weight:800;color:#10B981;" id="pipStatFundedCount">0</div>
                         <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Funded This Month</div>
                     </div>
                     <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                        <div style="font-size:24px;font-weight:800;color:#F59E0B;" id="dealStatInCredit">0</div>
+                        <div style="font-size:24px;font-weight:800;color:#F59E0B;" id="pipStatInCredit">0</div>
                         <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">In Credit</div>
                     </div>
                     <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                        <div style="font-size:24px;font-weight:800;color:#EF4444;" id="dealStatStale">0</div>
+                        <div style="font-size:24px;font-weight:800;color:#EF4444;" id="pipStatStale">0</div>
                         <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Stale (7+ days)</div>
                     </div>
                 </div>
@@ -20417,17 +20417,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 return ref && new Date(ref) < sevenDaysAgo;
             }).length;
 
+            var valText = totalValue >= 1000000 ? '$' + (totalValue / 1000000).toFixed(1) + 'M' : '$' + Math.round(totalValue).toLocaleString();
+            var avgText = avgSize >= 1000000 ? '$' + (avgSize / 1000000).toFixed(1) + 'M' : '$' + Math.round(avgSize).toLocaleString();
+
+            // Update Command Center stats (dealStat*) AND Deal Pipeline stats (pipStat*)
             var el;
-            el = document.getElementById('dealStatTotalValue');
-            if (el) el.textContent = totalValue >= 1000000 ? '$' + (totalValue / 1000000).toFixed(1) + 'M' : '$' + Math.round(totalValue).toLocaleString();
-            el = document.getElementById('dealStatAvgSize');
-            if (el) el.textContent = avgSize >= 1000000 ? '$' + (avgSize / 1000000).toFixed(1) + 'M' : '$' + Math.round(avgSize).toLocaleString();
-            el = document.getElementById('dealStatFundedCount');
-            if (el) el.textContent = fundedThisMonth;
-            el = document.getElementById('dealStatInCredit');
-            if (el) el.textContent = inCredit;
-            el = document.getElementById('dealStatStale');
-            if (el) el.textContent = stale;
+            el = document.getElementById('dealStatTotalValue'); if (el) el.textContent = valText;
+            el = document.getElementById('pipStatTotalValue');  if (el) el.textContent = valText;
+            el = document.getElementById('dealStatAvgSize');    if (el) el.textContent = avgText;
+            el = document.getElementById('pipStatAvgSize');     if (el) el.textContent = avgText;
+            el = document.getElementById('dealStatFundedCount'); if (el) el.textContent = fundedThisMonth;
+            el = document.getElementById('pipStatFundedCount');  if (el) el.textContent = fundedThisMonth;
+            el = document.getElementById('dealStatInCredit');   if (el) el.textContent = inCredit;
+            el = document.getElementById('pipStatInCredit');    if (el) el.textContent = inCredit;
+            el = document.getElementById('dealStatStale');      if (el) el.textContent = stale;
+            el = document.getElementById('pipStatStale');       if (el) el.textContent = stale;
         } catch(e) { console.warn('updateDealStats error:', e); }
     }
 
@@ -20644,6 +20648,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             tableArea.style.display = '';
             boardArea.style.display = 'none';
             if (tabsArea) tabsArea.style.display = 'flex';
+            // Refresh table data when switching back to table view
+            filterDeals();
         }
     }
 
