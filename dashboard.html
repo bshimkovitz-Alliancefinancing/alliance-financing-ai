@@ -5995,7 +5995,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix15';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix16';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -6495,12 +6495,12 @@ if (location.hostname === 'alliancefinancing.ai') {
             if (vpTabs) vpTabs.style.display = 'none';
         }
 
-        // Agents (non-admin): hide client management buttons
+        // Agents (non-admin): hide Import CSV but keep + New Client
         if (!['super_admin', 'admin'].includes(currentUserRole)) {
             var allBtns = document.querySelectorAll('button');
             allBtns.forEach(function(btn) {
                 var txt = btn.textContent.trim();
-                if (txt === '+ New Client' || txt === 'Import CSV') btn.style.display = 'none';
+                if (txt === 'Import CSV') btn.style.display = 'none';
             });
         }
     }
@@ -41033,6 +41033,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         updateAddClientProvinceState();
         // Populate agent and vendor dropdowns
         populateAddClientSourceDropdowns();
+        // For agents: auto-select themselves as source agent
+        if (!['super_admin', 'admin'].includes(currentUserRole) && currentUserId) {
+            var srcAgentEl = document.getElementById('addClientSourceAgent');
+            if (srcAgentEl) {
+                srcAgentEl.value = currentUserId;
+                srcAgentEl.disabled = true;
+                srcAgentEl.style.background = '#f8fafc';
+                onAddClientAgentChange();
+            }
+        }
         document.getElementById('addClientModal').classList.add('active');
     }
 
@@ -41722,44 +41732,220 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </div>
                 `;
             } else {
-                // AGENT VIEW — read-only basic info, sensitive fields hidden
-                const statusStyle = (client.status || 'Active') === 'Active' ? 'background:#DCFCE7;color:#166534;' : (client.status || 'Active') === 'Prospect' ? 'background:#DBEAFE;color:#1E40AF;' : 'background:#FEE2E2;color:#991B1B;';
+                // AGENT/ISO CRM VIEW — full editable client management
+                // Rebuild contacts HTML with edit/delete for agents
+                const agentContactsHtml = (contacts && contacts.length > 0)
+                    ? contacts.map(c => {
+                        const contactStatus = c.status || 'Active';
+                        const statusColor = (c.status === 'Left Company') ? 'var(--danger)' : (c.status === 'Inactive') ? 'var(--warning)' : 'var(--success)';
+                        return `
+                        <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--border-gray); ${contactStatus === 'Left Company' ? 'opacity: 0.65;' : ''}">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span style="font-weight: 600; color: var(--navy);">${c.full_name || 'N/A'}</span>
+                                        <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ${statusColor}; color: white;">${contactStatus}</span>
+                                    </div>
+                                    <div style="font-size: 13px; color: var(--text-light); margin-top: 4px;">
+                                        ${c.title ? '<div style="font-weight:500;color:#475569;">Title: ' + c.title + '</div>' : ''}
+                                        ${c.role_title ? '<div>Role: ' + c.role_title + '</div>' : ''}
+                                        ${c.email ? '<div>Email: <a href="mailto:' + c.email + '">' + c.email + '</a></div>' : ''}
+                                        ${c.cell_phone ? '<div>Cell: ' + c.cell_phone + '</div>' : (c.phone ? '<div>Phone: ' + c.phone + '</div>' : '')}
+                                        ${c.office_phone ? '<div>Office: ' + c.office_phone + '</div>' : ''}
+                                        ${c.whatsapp ? '<div>WhatsApp: ' + c.whatsapp + '</div>' : ''}
+                                        ${c.linkedin ? '<div>LinkedIn: <a href="' + (c.linkedin.startsWith('http') ? c.linkedin : 'https://' + c.linkedin) + '" target="_blank" style="color:#0A66C2;">' + c.linkedin.replace(/^https?:\/\//, '').substring(0, 40) + '</a></div>' : ''}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 4px;">
+                                    <button onclick="openEditContactForm('${c.id}', '${clientId}')" style="padding: 3px 8px; font-size: 11px; background: var(--navy); color: white; border: none; border-radius: 4px; cursor: pointer;">Edit</button>
+                                    <button onclick="deleteClientContact('${c.id}', '${clientId}')" style="padding: 3px 8px; font-size: 11px; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    `}).join('')
+                    : '<p style="color: var(--text-light); font-size: 14px;">No contacts yet. Add your first contact below.</p>';
+
                 modalBody.innerHTML = `
-                <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#1E40AF;">
-                    <strong>Read-only view</strong> — Contact your admin to update client details.
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Company Name</label>
+                        <input type="text" id="clientDetailName" value="${(client.company_name || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.company_name || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'company_name', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Legal Name</label>
+                        <input type="text" id="clientDetailLegalName" value="${(client.legal_name || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.legal_name || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'legal_name', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
                 </div>
                 <div class="modal-row">
-                    ${roField('Company Name', (client.company_name || '').replace(/</g, '&lt;'))}
-                    ${roField('Legal Name', (client.legal_name || '').replace(/</g, '&lt;'))}
-                </div>
-                <div class="modal-row">
-                    ${roField('Industry', client.industry || '')}
-                    ${roField('Business Type', client.business_type || '')}
-                </div>
-                <div class="modal-row">
-                    ${roField('Country', client.country || '')}
-                    ${roField('Province / State', client.province_state || '')}
+                    <div class="modal-field">
+                        <label>Industry</label>
+                        <select onchange="updateClientField('${clientId}', 'industry', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                            <option value="">Select Industry</option>
+                            <option value="Agriculture" ${(client.industry || '') === 'Agriculture' ? 'selected' : ''}>Agriculture</option>
+                            <option value="Automotive" ${(client.industry || '') === 'Automotive' ? 'selected' : ''}>Automotive</option>
+                            <option value="Construction" ${(client.industry || '') === 'Construction' ? 'selected' : ''}>Construction</option>
+                            <option value="Education" ${(client.industry || '') === 'Education' ? 'selected' : ''}>Education</option>
+                            <option value="Energy" ${(client.industry || '') === 'Energy' ? 'selected' : ''}>Energy</option>
+                            <option value="Entertainment" ${(client.industry || '') === 'Entertainment' ? 'selected' : ''}>Entertainment</option>
+                            <option value="Finance" ${(client.industry || '') === 'Finance' ? 'selected' : ''}>Finance</option>
+                            <option value="Franchisor" ${(client.industry || '') === 'Franchisor' ? 'selected' : ''}>Franchisor</option>
+                            <option value="Healthcare" ${(client.industry || '') === 'Healthcare' ? 'selected' : ''}>Healthcare</option>
+                            <option value="Hospitality" ${(client.industry || '') === 'Hospitality' ? 'selected' : ''}>Hospitality</option>
+                            <option value="Logistics" ${(client.industry || '') === 'Logistics' ? 'selected' : ''}>Logistics</option>
+                            <option value="Manufacturing" ${(client.industry || '') === 'Manufacturing' ? 'selected' : ''}>Manufacturing</option>
+                            <option value="Professional Services" ${(client.industry || '') === 'Professional Services' ? 'selected' : ''}>Professional Services</option>
+                            <option value="Real Estate" ${(client.industry || '') === 'Real Estate' ? 'selected' : ''}>Real Estate</option>
+                            <option value="Restaurant" ${(client.industry || '') === 'Restaurant' ? 'selected' : ''}>Restaurant</option>
+                            <option value="Retail" ${(client.industry || '') === 'Retail' ? 'selected' : ''}>Retail</option>
+                            <option value="Technology" ${(client.industry || '') === 'Technology' ? 'selected' : ''}>Technology</option>
+                            <option value="Transportation" ${(client.industry || '') === 'Transportation' ? 'selected' : ''}>Transportation</option>
+                            <option value="Other" ${(client.industry || '') === 'Other' ? 'selected' : ''}>Other</option>
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>Business Type</label>
+                        <select onchange="updateClientField('${clientId}', 'business_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                            <option value="">Select Type</option>
+                            <option value="Sole Proprietor" ${(client.business_type || '') === 'Sole Proprietor' ? 'selected' : ''}>Sole Proprietor</option>
+                            <option value="Partnership" ${(client.business_type || '') === 'Partnership' ? 'selected' : ''}>Partnership</option>
+                            <option value="Corporation" ${(client.business_type || '') === 'Corporation' ? 'selected' : ''}>Corporation</option>
+                            <option value="LLC" ${(client.business_type || '') === 'LLC' ? 'selected' : ''}>LLC</option>
+                            <option value="Non-Profit" ${(client.business_type || '') === 'Non-Profit' ? 'selected' : ''}>Non-Profit</option>
+                            <option value="Other" ${(client.business_type || '') === 'Other' ? 'selected' : ''}>Other</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Status</label>
-                        <div style="padding:6px 10px;"><span style="padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;${statusStyle}">${client.status || 'Active'}</span></div>
+                        <select onchange="updateClientStatus('${clientId}', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                            <option value="Active" ${(client.status || 'Active') === 'Active' ? 'selected' : ''}>Active</option>
+                            <option value="Inactive" ${(client.status || 'Active') === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                            <option value="Prospect" ${(client.status || 'Active') === 'Prospect' ? 'selected' : ''}>Prospect</option>
+                        </select>
                     </div>
-                    ${roField('Phone', client.phone || '')}
+                    <div class="modal-field">
+                        <label>Phone</label>
+                        <input type="text" id="clientDetailPhone" value="${(client.phone || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.phone || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'phone', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
                 </div>
                 <div class="modal-row">
-                    ${roField('Website', client.website ? '<a href="' + (client.website.startsWith('http') ? '' : 'https://') + client.website + '" target="_blank">' + (client.website || '').replace(/</g, '&lt;') + '</a>' : '')}
-                    ${roField('Years in Business', client.years_in_business || '')}
+                    <div class="modal-field">
+                        <label>Website</label>
+                        <input type="text" id="clientDetailWebsite" value="${(client.website || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.website || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'website', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field"></div>
+                </div>
+
+                <h3 style="color: var(--navy); font-size: 14px; margin: 20px 0 10px 0; padding-bottom: 6px; border-bottom: 1px solid #E2E8F0;">Address</h3>
+                <div class="modal-row">
+                    <div class="modal-field" style="flex:1;">
+                        <label>Street Address</label>
+                        <input type="text" value="${(client.address_line1 || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientField('${clientId}', 'address_line1', this.value)"
+                            placeholder="123 Main Street"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
                 </div>
                 <div class="modal-row">
-                    ${roField('Source Agent', client.source_agent_id ? (cachedAgents.find(a => a.id === client.source_agent_id) || {}).full_name || 'N/A' : '')}
-                    ${roField('Source ISO / Vendor', client.source_iso_id ? ((cachedAgents.find(a => a.id === client.source_iso_id) || {}).full_name || 'N/A') + ' (ISO)' : client.source_vendor_id ? (cachedVendors.find(v => v.id === client.source_vendor_id) || {}).name || 'N/A' : '')}
+                    <div class="modal-field" style="flex:1;">
+                        <label>Street Address 2</label>
+                        <input type="text" value="${(client.address_line2 || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientField('${clientId}', 'address_line2', this.value)"
+                            placeholder="Suite, Unit, Floor (optional)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>City</label>
+                        <input type="text" value="${(client.city || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientField('${clientId}', 'city', this.value)"
+                            placeholder="Toronto"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Province / State</label>
+                        <div id="clientDetailProvinceStateContainer">
+                            ${getProvinceStateDropdownHtml(clientId, client.country, client.province_state)}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Postal / Zip Code</label>
+                        <input type="text" value="${(client.postal_code || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientField('${clientId}', 'postal_code', this.value)"
+                            placeholder="M5V 1A1"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Country</label>
+                        <select id="clientDetailCountry" onchange="onClientCountryChange('${clientId}', this)" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:100%;">
+                            <option value="">Select Country</option>
+                            <option value="Canada" ${(client.country || '') === 'Canada' ? 'selected' : ''}>Canada</option>
+                            <option value="United States" ${(client.country || '') === 'United States' ? 'selected' : ''}>United States</option>
+                            <option value="United Kingdom" ${(client.country || '') === 'United Kingdom' ? 'selected' : ''}>United Kingdom</option>
+                            <option value="Australia" ${(client.country || '') === 'Australia' ? 'selected' : ''}>Australia</option>
+                            <option value="Mexico" ${(client.country || '') === 'Mexico' ? 'selected' : ''}>Mexico</option>
+                            <option value="Other" ${(client.country && !['Canada','United States','United Kingdom','Australia','Mexico'].includes(client.country)) ? 'selected' : ''}>Other</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h3 style="color: var(--navy); font-size: 14px; margin: 20px 0 10px 0; padding-bottom: 6px; border-bottom: 1px solid #E2E8F0;">Business Details</h3>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Years in Business</label>
+                        <input type="number" id="clientDetailYears" value="${client.years_in_business || ''}"
+                            data-original="${client.years_in_business || ''}"
+                            onblur="updateClientTrackedField('${clientId}', 'years_in_business', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Annual Revenue</label>
+                        <input type="text" id="clientDetailRevenue" value="${(client.annual_revenue || '').replace(/"/g, '&quot;')}"
+                            data-original="${(client.annual_revenue || '').replace(/"/g, '&quot;')}"
+                            onblur="updateClientTrackedField('${clientId}', 'annual_revenue', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Employee Count</label>
+                        <input type="number" id="clientDetailEmployees" value="${client.employee_count || ''}"
+                            data-original="${client.employee_count || ''}"
+                            onblur="updateClientTrackedField('${clientId}', 'employee_count', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div class="modal-field">
+                        <label>Credit Score</label>
+                        <input type="number" id="clientDetailCreditScore" value="${client.credit_score || ''}"
+                            data-original="${client.credit_score || ''}"
+                            onblur="updateClientTrackedField('${clientId}', 'credit_score', this)"
+                            style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
                 </div>
 
                 <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
-                    <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--navy);">Contact Persons</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--navy);">Contact Persons</h3>
+                        <button onclick="openAddClientContactForm('${clientId}')" style="padding: 4px 12px; background: var(--gold); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">+ Add Contact</button>
+                    </div>
                     <div style="margin-bottom: 12px;">
-                        ${contactsHtml}
+                        ${agentContactsHtml}
                     </div>
                 </div>
 
@@ -41771,16 +41957,67 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--navy);">Communications</h3>
-                        <button onclick="toggleClientCompose('${clientId}', 'agent_note')" style="padding: 4px 12px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">+ Add Note</button>
+                        <div style="display: flex; gap: 6px;">
+                            <button onclick="toggleClientCompose('${clientId}', 'agent_note')" style="padding: 4px 12px; background: var(--navy); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">+ Note</button>
+                            <button onclick="toggleClientCompose('${clientId}', 'agent_email')" style="padding: 4px 12px; background: var(--gold); color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">✉ Send Email</button>
+                        </div>
                     </div>
 
                     <div id="clientComposeForm_${clientId}" style="display:none; background:#F8FAFC; padding:14px; border-radius:8px; margin-bottom:14px; border:1px solid #E2E8F0;">
-                        <div style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:8px;">Note for Admin</div>
-                        <textarea id="clientComposeBody_${clientId}" placeholder="Type your message for admin..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
-                        <input type="hidden" id="clientComposeType_${clientId}" value="agent_note">
-                        <div style="display:flex;gap:6px;justify-content:flex-end;">
-                            <button onclick="document.getElementById('clientComposeForm_${clientId}').style.display='none'" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Cancel</button>
-                            <button onclick="submitClientCommunication('${clientId}')" style="padding:6px 12px;background:var(--gold);color:white;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Send Note</button>
+                        <div id="clientComposeHeader_${clientId}" style="font-weight:600;font-size:13px;color:var(--navy);margin-bottom:10px;">New Note</div>
+                        <div style="margin-bottom:8px;">
+                            <select id="clientComposeCategory_${clientId}" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                                <option value="General">General</option>
+                                <option value="Commission">Commission</option>
+                                <option value="Compliance">Compliance</option>
+                                <option value="Onboarding">Onboarding</option>
+                                <option value="Follow-up">Follow-up</option>
+                            </select>
+                        </div>
+
+                        <div id="clientEmailFields_${clientId}" style="display:none; margin-bottom:10px;">
+                            <div style="margin-bottom:8px;">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">To (Client Email)</label>
+                                <select id="clientEmailTo_${clientId}" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                                    <option value="">Select recipient</option>
+                                    ${(contacts || []).filter(c => c.email).map(c => '<option value="' + c.email + '">' + (c.full_name || '') + ' &lt;' + c.email + '&gt;</option>').join('')}
+                                </select>
+                            </div>
+                            <div style="margin-bottom:8px;">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">CC (external emails, comma-separated)</label>
+                                <input type="text" id="clientEmailCc_${clientId}" placeholder="e.g. john@example.com, jane@company.com" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                            </div>
+                            <div style="margin-bottom:8px;">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Subject</label>
+                                <input type="text" id="clientEmailSubject_${clientId}" placeholder="Email subject" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                            </div>
+                        </div>
+
+                        <textarea id="clientComposeBody_${clientId}" placeholder="Type your message..." rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
+
+                        <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+                            <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:4px;font-size:11px;color:#475569;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#E2E8F0'" onmouseout="this.style.background='#F1F5F9'">
+                                📎 Attach File
+                                <input type="file" id="clientComposeFile_${clientId}" style="display:none;" onchange="handleClientFileSelect(this, '${clientId}')">
+                            </label>
+                            <span id="clientComposeFileName_${clientId}" style="font-size:11px;color:#64748B;"></span>
+                        </div>
+
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                                <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;">
+                                    <input type="checkbox" id="clientComposePin_${clientId}"> 📌 Pin
+                                </label>
+                                <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer;">
+                                    <input type="checkbox" id="clientComposeFollowup_${clientId}" onchange="document.getElementById('clientComposeFollowupDate_${clientId}').style.display=this.checked?'inline-block':'none';document.getElementById('clientComposeFollowupReason_${clientId}').style.display=this.checked?'inline-block':'none'"> Follow-up
+                                </label>
+                                <input type="date" id="clientComposeFollowupDate_${clientId}" style="display:none;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+                                <input type="text" id="clientComposeFollowupReason_${clientId}" placeholder="Reason for follow-up..." style="display:none;padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:180px;">
+                            </div>
+                            <div style="display:flex;gap:6px;">
+                                <button onclick="document.getElementById('clientComposeForm_${clientId}').style.display='none'" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Cancel</button>
+                                <button id="clientComposeSend_${clientId}" onclick="submitClientCommunication('${clientId}')" style="padding:6px 12px;background:var(--gold);color:white;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Send Note</button>
+                            </div>
                         </div>
                     </div>
 
@@ -42151,7 +42388,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         form.style.display = 'block';
         if (body) body.value = '';
 
-        if (type === 'email') {
+        if (type === 'email' || type === 'agent_email') {
             if (emailFields) emailFields.style.display = 'block';
             if (header) header.textContent = 'Send Email to Client';
             if (sendBtn) sendBtn.textContent = 'Send Email';
@@ -42161,8 +42398,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (subjectInput && !subjectInput.value && titleEl) subjectInput.value = 'Re: ' + titleEl.textContent;
         } else if (type === 'agent_note') {
             if (emailFields) emailFields.style.display = 'none';
-            if (header) header.textContent = 'Note for Admin';
-            if (sendBtn) sendBtn.textContent = 'Send Note';
+            if (header) header.textContent = 'Add Note';
+            if (sendBtn) sendBtn.textContent = 'Add Note';
         } else {
             if (emailFields) emailFields.style.display = 'none';
             if (header) header.textContent = 'Internal Note';
@@ -42187,9 +42424,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var now = new Date();
             var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             var userEmail = document.getElementById('userEmailDisplay').textContent;
-            var isAgent = type === 'agent_note';
+            var isAgent = type === 'agent_note' || type === 'agent_email';
             var visibleCheckbox = document.getElementById('clientComposeVisible_' + clientId);
             var visibleToAgent = isAgent ? true : (visibleCheckbox ? visibleCheckbox.checked : false);
+            // Treat agent_email as email for sending purposes
+            if (type === 'agent_email') type = 'email';
 
             var categorySelect = document.getElementById('clientComposeCategory_' + clientId);
             var pinCheck = document.getElementById('clientComposePin_' + clientId);
