@@ -2522,17 +2522,8 @@
                 </div>
 
                 <!-- Agent Onboarding Pipeline -->
-                <div id="onboardingPipelineSection" class="table-container" style="margin-bottom:24px;display:none;">
-                    <div class="table-header">
-                        <div class="table-title">Onboarding Pipeline</div>
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <span id="onboardingCount" style="font-size:12px;color:var(--text-light);"></span>
-                        </div>
-                    </div>
-                    <div id="onboardingPipelineBody" style="padding:16px;">
-                        <div style="text-align:center;color:var(--text-light);font-size:13px;padding:20px;">Loading onboarding data...</div>
-                    </div>
-                </div>
+                <!-- Onboarding Pipeline removed — onboarding status now shown in partner table rows -->
+                <div id="onboardingPipelineSection" style="display:none;"><div id="onboardingPipelineBody"></div><span id="onboardingCount"></span></div>
 
                 <!-- Prospect Outreach / Recruitment Pipeline -->
                 <div class="table-container" style="margin-bottom: 24px;">
@@ -6004,7 +5995,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix10';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix11';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -9731,9 +9722,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Try loading from prospect_outreach first
             var query = db.from('prospect_outreach').select('*').order('created_at', { ascending: false }).limit(50);
 
-            // Super admins see all, agents see only their own
+            // Super admins see all; ISO Partners see their own + sub-agents; basic agents see own only
             if (!['super_admin', 'admin'].includes(currentUserRole)) {
-                query = query.eq('sent_by_id', currentUserId);
+                if (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker') {
+                    // ISO Partners / Mortgage Brokers: include sub-agent outreach
+                    var outreachAgentIds = [currentUserId];
+                    try {
+                        var { data: subAgentsForOutreach } = await db.from('users').select('id').eq('parent_agent_id', currentUserId).eq('role', 'agent');
+                        if (subAgentsForOutreach && subAgentsForOutreach.length > 0) {
+                            outreachAgentIds = outreachAgentIds.concat(subAgentsForOutreach.map(function(s) { return s.id; }));
+                        }
+                    } catch(e) { console.warn('Sub-agent outreach lookup failed:', e); }
+                    query = query.in('sent_by_id', outreachAgentIds);
+                } else {
+                    query = query.eq('sent_by_id', currentUserId);
+                }
             }
 
             var { data, error } = await query;
