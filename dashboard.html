@@ -1610,9 +1610,9 @@
                 <div class="table-container">
                     <div class="table-header" style="flex-wrap: wrap; gap: 12px;">
                         <div class="table-title">Deal Pipeline</div>
-                        <div class="view-toggle" id="pipelineViewToggle">
-                            <button class="active-view" onclick="setPipelineView('table')" id="viewToggleTable">☰ Table</button>
-                            <button onclick="setPipelineView('board')" id="viewToggleBoard">▦ Board</button>
+                        <div class="view-toggle" id="pipelineViewToggle" style="display:inline-flex !important; border:2px solid #C9A84C !important; visibility:visible !important;">
+                            <button class="active-view" onclick="setPipelineView('table')" id="viewToggleTable" style="visibility:visible !important;">☰ Table</button>
+                            <button onclick="setPipelineView('board')" id="viewToggleBoard" style="visibility:visible !important;">▦ Board</button>
                         </div>
                         <div id="dealTabs" style="display:flex;gap:0;border:1px solid #ccc;border-radius:6px;overflow:visible;font-size:13px;flex-wrap:wrap;">
                             <button class="deal-tab" data-tab="prospects" onclick="switchDealTab('prospects')" style="padding:7px 16px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:#f8fafc;color:#333;transition:all .2s;">Prospects <span id="dealCountProspects" style="background:#e2e8f0;padding:1px 7px;border-radius:10px;font-size:11px;margin-left:4px;"></span></button>
@@ -6077,8 +6077,20 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-04-v101';
-    console.log('Dashboard version:', DASHBOARD_VERSION);
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix2';
+    console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
+
+    // Phase 1 diagnostic — runs after DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        var toggle = document.getElementById('pipelineViewToggle');
+        var tabs = document.getElementById('dealTabs');
+        var statsBar = document.getElementById('dealStatsBar');
+        console.log('[Phase 1 Check] viewToggle:', toggle ? 'FOUND' : 'MISSING');
+        console.log('[Phase 1 Check] dealTabs:', tabs ? 'FOUND' : 'MISSING');
+        console.log('[Phase 1 Check] dealStatsBar:', statsBar ? 'FOUND' : 'MISSING');
+        if (toggle) console.log('[Phase 1 Check] viewToggle visible:', toggle.offsetHeight > 0, 'height:', toggle.offsetHeight);
+        if (tabs) console.log('[Phase 1 Check] dealTabs visible:', tabs.offsetHeight > 0, 'height:', tabs.offsetHeight);
+    });
 
     // DOM Repair: Move vendorTools and vendorResources into content-area
     // (They end up outside due to accumulated unclosed divs in earlier sections)
@@ -18405,7 +18417,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (pageName === 'dashboard' && !['super_admin', 'admin'].includes(currentUserRole) && currentAgentType) {
             title = 'Command Center';
         }
-        document.getElementById('pageTitle').textContent = title;
+        document.getElementById('pageTitle').innerHTML = title + ' <span style="font-size:10px;background:#C9A84C;color:#0D1E3D;padding:2px 8px;border-radius:4px;font-weight:700;vertical-align:middle;margin-left:8px;">v2.1</span>';
         currentPage = pageName;
 
         // Load page data
@@ -20924,6 +20936,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     // ----- Slide-Out Panel -----
     async function openDealSlideout(dealId) {
+        if (!dealId || dealId === 'null' || dealId === 'undefined') {
+            console.warn('openDealSlideout called with invalid dealId:', dealId);
+            showToast('Cannot open deal — invalid ID', 'error');
+            return;
+        }
         _slideoutDealId = dealId;
         _slideoutTab = 'overview';
 
@@ -20984,9 +21001,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     function openFullDealFromSlideout() {
-        if (_slideoutDealId) {
+        if (_slideoutDealId && _slideoutDealId !== 'null' && _slideoutDealId !== 'undefined') {
+            var id = _slideoutDealId;
             closeDealSlideout();
-            viewDeal(_slideoutDealId);
+            viewDeal(id);
+        } else {
+            showToast('Cannot open deal — no valid deal ID', 'error');
         }
     }
 
@@ -26303,6 +26323,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // ============================================
 
     async function viewDeal(dealId) {
+        if (!dealId || dealId === 'null' || dealId === 'undefined') {
+            console.warn('viewDeal called with invalid dealId:', dealId);
+            showToast('Cannot load deal — invalid ID', 'error');
+            return;
+        }
         try {
             // Fetch deal with joined data
             const { data: deal, error } = await db
@@ -43755,8 +43780,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 } catch(e) {}
                 // Reload dismissed notifications now that currentUserId is set (auto-login path)
                 try { _dismissedNotifications = JSON.parse(localStorage.getItem('dismissed_notifications_' + currentUserId) || '{}'); } catch(e) { _dismissedNotifications = {}; }
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('appContainer').style.display = 'flex';
                 document.getElementById('userEmailDisplay').textContent = email;
                 var roleLabel = displayRole;
                 if (displayRole === 'agent' && currentAgentType) {
@@ -43764,21 +43787,31 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
                 document.getElementById('currentUser').textContent = displayName + ' (' + roleLabel + ')';
                 applyRoleAccess();
-                // Route vendor users to vendor portal (but not admin users)
+
+                // Load all data BEFORE showing app (auto-login path — same fix as manual login)
                 if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !['super_admin', 'admin'].includes(currentUserRole)) {
+                    // Vendor users — load vendor portal data first
                     showPage('vendorPortal');
-                    loadPageData('vendorPortal');
+                    await loadPageData('vendorPortal').catch(function(e) { console.warn('Vendor portal load:', e); });
                 } else if ((currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker' || currentAgentType === 'referring_agent') && !['super_admin', 'admin'].includes(currentUserRole)) {
-                    // Route ISO partners, mortgage brokers, and referral partners to Command Center
+                    // ISO partners, mortgage brokers, referral partners — load Command Center data first
                     showPage('dashboard');
-                    loadPageData('dashboard');
-                    loadOutreachHistory().catch(function(e) { console.warn('Background outreach load:', e); });
-                } else {
                     await Promise.all([
-                        loadDashboard(),
+                        loadPageData('dashboard').catch(function(e) { console.warn('Dashboard load:', e); }),
+                        loadOutreachHistory().catch(function(e) { console.warn('Background outreach load:', e); })
+                    ]);
+                } else {
+                    // Admin users — load dashboard data first
+                    await Promise.all([
+                        loadDashboard().catch(function(e) { console.error('loadDashboard error:', e); }),
+                        loadNotifications().catch(function(e) { console.error('loadNotifications error:', e); }),
                         loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
                     ]);
                 }
+
+                // NOW show the app (data is loaded, no $0 flash)
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('appContainer').style.display = 'flex';
                 // Initialize mobile quick actions bar (agents/ISOs on mobile)
                 initMobileQuickActions();
                 return;
