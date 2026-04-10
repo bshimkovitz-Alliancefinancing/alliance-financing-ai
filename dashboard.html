@@ -5995,7 +5995,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix13';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix14';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -10955,6 +10955,55 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
         } catch(e) { console.warn('Notifications: deal notes for agent load error', e); }
+
+        // 11b. Client notes from admin visible to agent (visible_to_agent: true)
+        try {
+            if (!isAdmin) {
+                var sevenDaysAgoClientAgent = Date.now() - 7 * 86400000;
+                // Get client IDs linked to this agent (or sub-agents) via deals
+                var clientAgentIdsForNotif = _notifAgentIds || [currentUserId];
+                var { data: agentDealsForClients } = await db.from('deals').select('client_id').in('source_agent_id', clientAgentIdsForNotif).not('client_id', 'is', null);
+                if (agentDealsForClients && agentDealsForClients.length > 0) {
+                    var agentClientIdSet = {};
+                    agentDealsForClients.forEach(function(d) { agentClientIdSet[d.client_id] = true; });
+                    var uniqueClientIds = Object.keys(agentClientIdSet);
+                    // Fetch clients with admin_notes
+                    var { data: agentClients } = await db.from('clients').select('id, company_name, admin_notes').in('id', uniqueClientIds).not('admin_notes', 'is', null);
+                    if (agentClients) {
+                        var _seenAgentClientNotes = {};
+                        agentClients.forEach(function(c) {
+                            var cNotes = [];
+                            try { cNotes = c.admin_notes ? JSON.parse(c.admin_notes) : []; } catch(e) {}
+                            cNotes.forEach(function(n) {
+                                if (!n.visible_to_agent) return;
+                                // Only show notes FROM admin (has alliancefinancing.com email)
+                                var isAdminAuthor = n.author && (n.author.includes('alliancefinancing.com') || n.author.includes('alliance'));
+                                if (!isAdminAuthor) return;
+                                var noteDate = n.date ? new Date(n.date) : null;
+                                if (!noteDate || noteDate.getTime() < sevenDaysAgoClientAgent) return;
+                                // Deduplicate identical client notes
+                                var dedupeKey = (n.author || '') + '_' + c.id + '_' + (n.text || '').substring(0, 50) + '_' + (n.date || '');
+                                if (_seenAgentClientNotes[dedupeKey]) return;
+                                _seenAgentClientNotes[dedupeKey] = true;
+                                notifications.push({
+                                    type: 'client_note',
+                                    category: 'info',
+                                    icon: '👤',
+                                    iconBg: '#E0F2FE',
+                                    iconColor: '#0369A1',
+                                    title: 'New note on client ' + (c.company_name || 'a client'),
+                                    detail: n.text ? n.text.substring(0, 80) + (n.text.length > 80 ? '...' : '') : 'View details',
+                                    time: noteDate,
+                                    action: "viewClient('" + c.id + "')",
+                                    actionLabel: 'View Client',
+                                    priority: 2
+                                });
+                            });
+                        });
+                    }
+                }
+            }
+        } catch(e) { console.warn('Notifications: client notes for agent load error', e); }
 
         // 12. Document uploads by applicants (detected from deal notes with "uploaded" system notes)
         try {
