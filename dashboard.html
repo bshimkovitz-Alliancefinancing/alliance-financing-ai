@@ -5999,7 +5999,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix17';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix19';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -25603,11 +25603,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Fetch all org deals
             var allDeals = [];
-            var { data: agentDeals } = await db.from('deals').select('id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, is_archived').in('source_agent_id', agentIds);
+            var { data: agentDeals } = await db.from('deals').select('id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, agent_fee_amount, is_archived').in('source_agent_id', agentIds);
             if (agentDeals) allDeals = allDeals.concat(agentDeals);
 
             if (vendorIds.length > 0) {
-                var { data: vDeals } = await db.from('deals').select('id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, is_archived').in('source_vendor_id', vendorIds);
+                var { data: vDeals } = await db.from('deals').select('id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, agent_fee_amount, is_archived').in('source_vendor_id', vendorIds);
                 if (vDeals) {
                     var existingIds = new Set(allDeals.map(d => d.id));
                     vDeals.forEach(d => { if (!existingIds.has(d.id)) allDeals.push(d); });
@@ -25619,7 +25619,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var declined = allDeals.filter(d => d.status === 'Declined' || d.status === 'Dead approval');
             var totalValue = allDeals.reduce((s, d) => s + (parseFloat(d.deal_amount) || 0), 0);
             var fundedValue = funded.reduce((s, d) => s + (parseFloat(d.deal_amount) || 0), 0);
-            var commissionValue = funded.reduce((s, d) => s + (parseFloat(d.alliance_fee) || 0), 0);
+            var commissionValue = funded.reduce((s, d) => s + (parseFloat(d.agent_fee_amount) || 0), 0);
             var conversionRate = allDeals.length > 0 ? Math.round((funded.length / allDeals.length) * 100) : 0;
 
             // Monthly breakdown (last 6 months)
@@ -27244,7 +27244,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 </div>
 
                 <!-- Section 5: Fee Details & Commission Split -->
-                <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">Fee Details & Commission Split</h3>
+                <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">${isAgentView ? 'Commission' : 'Fee Details & Commission Split'}</h3>
 
                 <div class="modal-row">
                     <div class="modal-field full">
@@ -27253,41 +27253,41 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     </div>
                 </div>
 
-                <div style="background: #F8FAFC; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                ${!isAgentView ? `<div style="background: #F8FAFC; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                     <div class="modal-row">
                         <div class="modal-field">
                             <label>Alliance Fee %</label>
-                            ${isAgentView ? roField(deal.alliance_fee_pct ? deal.alliance_fee_pct + '%' : '') : `<input type="number" step="0.01" id="feeAlliancePct" value="${deal.alliance_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'alliance_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                            <input type="number" step="0.01" id="feeAlliancePct" value="${deal.alliance_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'alliance_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                         </div>
                         <div class="modal-field">
                             <label>Alliance Gross Fee</label>
                             <div id="feeAllianceGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">$0.00</div>
                         </div>
                     </div>
-                </div>
+                </div>` : ''}
 
                 <div style="background: #FEF3E2; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                     <div class="modal-row">
-                        <div class="modal-field">
+                        ${!isAgentView ? `<div class="modal-field">
                             <label>Agent Split %</label>
-                            ${isAgentView ? roField(deal.agent_fee_pct ? deal.agent_fee_pct + '%' : '') : `<input type="number" step="0.01" id="feeAgentPct" value="${deal.agent_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
-                        </div>
-                        <div class="modal-field">
-                            <label>Agent Gross Fee</label>
-                            <div id="feeAgentGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">$0.00</div>
+                            <input type="number" step="0.01" id="feeAgentPct" value="${deal.agent_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                        </div>` : ''}
+                        <div class="modal-field" ${isAgentView ? 'style="flex:1;"' : ''}>
+                            <label>${isAgentView ? 'Your Commission' : 'Agent Gross Fee'}</label>
+                            <div id="feeAgentGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">${isAgentView && deal.agent_fee_amount ? formatCurrency(deal.agent_fee_amount) : '$0.00'}</div>
                         </div>
                     </div>
                 </div>
 
                 ${deal.sub_agent_id || !isAgentView ? `<div style="background: #E8F5E9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                     <div class="modal-row">
-                        <div class="modal-field">
+                        ${!isAgentView ? `<div class="modal-field">
                             <label>Referral Partner %</label>
-                            ${isAgentView ? roField(deal.sub_agent_fee_pct ? deal.sub_agent_fee_pct + '%' : '') : `<input type="number" step="0.01" id="feeSubAgentPct" value="${deal.sub_agent_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'sub_agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
-                        </div>
-                        <div class="modal-field">
-                            <label>Referral Partner Gross Fee</label>
-                            <div id="feeSubAgentGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">$0.00</div>
+                            <input type="number" step="0.01" id="feeSubAgentPct" value="${deal.sub_agent_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'sub_agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                        </div>` : ''}
+                        <div class="modal-field" ${isAgentView ? 'style="flex:1;"' : ''}>
+                            <label>${isAgentView ? 'Referral Partner Commission' : 'Referral Partner Gross Fee'}</label>
+                            <div id="feeSubAgentGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">${isAgentView && deal.sub_agent_fee_amount ? formatCurrency(deal.sub_agent_fee_amount) : '$0.00'}</div>
                         </div>
                     </div>
                 </div>` : ''}
