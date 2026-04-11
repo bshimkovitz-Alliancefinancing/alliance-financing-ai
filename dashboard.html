@@ -5999,7 +5999,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix22';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix23';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -18477,7 +18477,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Load this agent's deals for pipeline stats
             var { data: myDeals, error: dealsErr } = await db.from('deals')
-                .select('id, deal_number, company_name, deal_amount, status, is_archived, alliance_fee')
+                .select('id, deal_number, company_name, deal_amount, amount_funded, status, is_archived, alliance_fee, alliance_fee_pct, agent_fee_pct, agent_fee_amount')
                 .eq('source_agent_id', currentUserId);
             var deals = myDeals || [];
 
@@ -18488,7 +18488,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     if (subAgents && subAgents.length > 0) {
                         var subIds = subAgents.map(function(s) { return s.id; });
                         var { data: subDeals } = await db.from('deals')
-                            .select('id, deal_number, company_name, deal_amount, status, is_archived, alliance_fee')
+                            .select('id, deal_number, company_name, deal_amount, amount_funded, status, is_archived, alliance_fee, alliance_fee_pct, agent_fee_pct, agent_fee_amount')
                             .in('source_agent_id', subIds);
                         if (subDeals) deals = deals.concat(subDeals);
                     }
@@ -18501,7 +18501,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var fundedDeals = deals.filter(function(d) { return d.status === 'Funded' && !d.is_archived; });
             var pipelineValue = activeDeals.reduce(function(sum, d) { return sum + (parseFloat(d.deal_amount) || 0); }, 0);
             var fundedValue = fundedDeals.reduce(function(sum, d) { return sum + (parseFloat(d.deal_amount) || 0); }, 0);
-            var projectedFees = fundedDeals.reduce(function(sum, d) { return sum + (parseFloat(d.alliance_fee) || 0); }, 0);
+            var projectedFees = fundedDeals.reduce(function(sum, d) {
+                var agentFee = parseFloat(d.agent_fee_amount) || 0;
+                if (agentFee > 0) return sum + agentFee;
+                // Fallback: calculate from percentages
+                var amt = parseFloat(d.amount_funded) || parseFloat(d.deal_amount) || 0;
+                var aPct = parseFloat(d.alliance_fee_pct) || 0;
+                var agPct = parseFloat(d.agent_fee_pct) || 0;
+                if (amt > 0 && aPct > 0 && agPct > 0) {
+                    agentFee = amt * aPct / 100 * agPct / 100;
+                }
+                return sum + agentFee;
+            }, 0);
 
             // Load vendor programs count
             var { data: myVendors } = await db.from('vendors').select('id, status')
@@ -25601,13 +25612,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var { data: myVendors } = await db.from('vendors').select('id, name').in('source_agent_id', agentIds);
             var vendorIds = myVendors ? myVendors.map(v => v.id) : [];
 
-            // Fetch all org deals
+            // Fetch all org deals — try with fee fields, fallback to basic if columns missing
             var allDeals = [];
-            var { data: agentDeals } = await db.from('deals').select('id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, alliance_fee_pct, agent_fee_pct, agent_fee_amount, alliance_gross_fee, is_archived').in('source_agent_id', agentIds);
+            var _statsDealSelect = 'id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, alliance_fee_pct, agent_fee_pct, agent_fee_amount, alliance_gross_fee, is_archived';
+            var { data: agentDeals, error: _statsErr } = await db.from('deals').select(_statsDealSelect).in('source_agent_id', agentIds);
+            if (_statsErr) {
+                console.warn('[Stats] Full select failed:', _statsErr.message, '— using basic select');
+                _statsDealSelect = 'id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, is_archived';
+                var { data: agentDeals } = await db.from('deals').select(_statsDealSelect).in('source_agent_id', agentIds);
+            }
             if (agentDeals) allDeals = allDeals.concat(agentDeals);
+            console.log('[Stats] Loaded', allDeals.length, 'deals. Sample:', allDeals[0]);
 
             if (vendorIds.length > 0) {
-                var { data: vDeals } = await db.from('deals').select('id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, alliance_fee_pct, agent_fee_pct, agent_fee_amount, alliance_gross_fee, is_archived').in('source_vendor_id', vendorIds);
+                var { data: vDeals } = await db.from('deals').select(_statsDealSelect).in('source_vendor_id', vendorIds);
                 if (vDeals) {
                     var existingIds = new Set(allDeals.map(d => d.id));
                     vDeals.forEach(d => { if (!existingIds.has(d.id)) allDeals.push(d); });
@@ -25619,6 +25637,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var declined = allDeals.filter(d => d.status === 'Declined' || d.status === 'Dead approval');
             var totalValue = allDeals.reduce((s, d) => s + (parseFloat(d.deal_amount) || 0), 0);
             var fundedValue = funded.reduce((s, d) => s + (parseFloat(d.deal_amount) || 0), 0);
+            console.log('[Stats] Funded deals:', funded.length, funded.map(function(d) { return { id: d.id, agent_fee_amount: d.agent_fee_amount, alliance_fee_pct: d.alliance_fee_pct, agent_fee_pct: d.agent_fee_pct, amount_funded: d.amount_funded, deal_amount: d.deal_amount, alliance_fee: d.alliance_fee }; }));
             var commissionValue = funded.reduce(function(s, d) {
                 // Use pre-calculated agent_fee_amount if available
                 var agentFee = parseFloat(d.agent_fee_amount) || 0;
@@ -25631,6 +25650,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     var allianceGross = amtFunded * alliancePct / 100;
                     agentFee = allianceGross * agentPct / 100;
                 }
+                console.log('[Stats] Deal commission calc:', d.id, 'agentFee:', agentFee, 'amt:', amtFunded, 'aPct:', alliancePct, 'agPct:', agentPct);
                 return s + agentFee;
             }, 0);
             var conversionRate = allDeals.length > 0 ? Math.round((funded.length / allDeals.length) * 100) : 0;
