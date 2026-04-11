@@ -5999,7 +5999,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix19';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix20';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -27249,7 +27249,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <div class="modal-row">
                     <div class="modal-field full">
                         <label>Amount Funded</label>
-                        ${isAgentView ? roField(deal.amount_funded ? formatCurrency(deal.amount_funded) : '') : `<input type="number" id="feeAmountFunded" value="${deal.amount_funded || ''}" onblur="updateDealField('${dealId}', 'amount_funded', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        ${isAgentView ? roField(deal.amount_funded ? formatCurrency(deal.amount_funded) : '') : `<input type="number" id="feeAmountFunded" value="${deal.amount_funded || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'amount_funded', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                     </div>
                 </div>
 
@@ -27257,7 +27257,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <div class="modal-row">
                         <div class="modal-field">
                             <label>Alliance Fee %</label>
-                            <input type="number" step="0.01" id="feeAlliancePct" value="${deal.alliance_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'alliance_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            <input type="number" step="0.01" id="feeAlliancePct" value="${deal.alliance_fee_pct || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'alliance_fee_pct', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                         </div>
                         <div class="modal-field">
                             <label>Alliance Gross Fee</label>
@@ -27270,7 +27270,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <div class="modal-row">
                         ${!isAgentView ? `<div class="modal-field">
                             <label>Agent Split %</label>
-                            <input type="number" step="0.01" id="feeAgentPct" value="${deal.agent_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            <input type="number" step="0.01" id="feeAgentPct" value="${deal.agent_fee_pct || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                         </div>` : ''}
                         <div class="modal-field" ${isAgentView ? 'style="flex:1;"' : ''}>
                             <label>${isAgentView ? 'Your Commission' : 'Agent Gross Fee'}</label>
@@ -27283,7 +27283,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <div class="modal-row">
                         ${!isAgentView ? `<div class="modal-field">
                             <label>Referral Partner %</label>
-                            <input type="number" step="0.01" id="feeSubAgentPct" value="${deal.sub_agent_fee_pct || ''}" oninput="recalcAndSaveFees('${dealId}')" onblur="updateDealField('${dealId}', 'sub_agent_fee_pct', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
+                            <input type="number" step="0.01" id="feeSubAgentPct" value="${deal.sub_agent_fee_pct || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'sub_agent_fee_pct', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
                         </div>` : ''}
                         <div class="modal-field" ${isAgentView ? 'style="flex:1;"' : ''}>
                             <label>${isAgentView ? 'Referral Partner Commission' : 'Referral Partner Gross Fee'}</label>
@@ -27414,6 +27414,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var _dealModal = document.getElementById('dealModal');
             _dealModal.style.display = '';
             _dealModal.classList.add('active');
+
+            // Initialize fee calculation display from saved values
+            if (!isAgentView) {
+                setTimeout(function() { recalcFeesDisplay(); }, 100);
+            }
 
             // If coming from "Send to Lender" button, scroll down to Credit Submissions
             if (window._scrollToSendToLender) {
@@ -27614,31 +27619,36 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (facSection) facSection.style.display = productType === 'Factoring' ? 'block' : 'none';
     }
 
-    async function recalcAndSaveFees(dealId) {
-        const amountFunded = parseFloat(document.getElementById('feeAmountFunded')?.value) || 0;
-        const alliancePct = parseFloat(document.getElementById('feeAlliancePct')?.value) || 0;
-        const agentPct = parseFloat(document.getElementById('feeAgentPct')?.value) || 0;
-        const subAgentPct = parseFloat(document.getElementById('feeSubAgentPct')?.value) || 0;
+    function recalcFeesDisplay() {
+        var el = function(id) { return document.getElementById(id); };
+        var amountFunded = parseFloat(el('feeAmountFunded')?.value) || 0;
+        var alliancePct = parseFloat(el('feeAlliancePct')?.value) || 0;
+        var agentPct = parseFloat(el('feeAgentPct')?.value) || 0;
+        var subAgentPct = parseFloat(el('feeSubAgentPct')?.value) || 0;
 
-        const allianceGross = amountFunded * alliancePct / 100;
-        const agentGross = allianceGross * agentPct / 100;
-        const subAgentGross = agentGross * subAgentPct / 100;
-        const allianceNet = allianceGross - agentGross;
+        var allianceGross = amountFunded * alliancePct / 100;
+        var agentGross = allianceGross * agentPct / 100;
+        var subAgentGross = agentGross * subAgentPct / 100;
+        var allianceNet = allianceGross - agentGross;
 
-        // Update display
-        const el = (id) => document.getElementById(id);
         if (el('feeAllianceGross')) el('feeAllianceGross').textContent = formatCurrency(allianceGross);
         if (el('feeAgentGross')) el('feeAgentGross').textContent = formatCurrency(agentGross);
         if (el('feeSubAgentGross')) el('feeSubAgentGross').textContent = formatCurrency(subAgentGross);
         if (el('feeAllianceNet')) el('feeAllianceNet').textContent = formatCurrency(allianceNet);
 
+        return { allianceGross: allianceGross, agentGross: agentGross, subAgentGross: subAgentGross, allianceNet: allianceNet };
+    }
+
+    async function recalcAndSaveFees(dealId) {
+        var fees = recalcFeesDisplay();
+
         // Save the calculated amounts
         try {
             await db.from('deals').update({
-                alliance_gross_fee: allianceGross,
-                agent_fee_amount: agentGross,
-                sub_agent_fee_amount: subAgentGross,
-                alliance_net_fee: allianceNet
+                alliance_gross_fee: fees.allianceGross,
+                agent_fee_amount: fees.agentGross,
+                sub_agent_fee_amount: fees.subAgentGross,
+                alliance_net_fee: fees.allianceNet
             }).eq('id', dealId);
         } catch (err) {
             console.error('Error saving fees:', err);
