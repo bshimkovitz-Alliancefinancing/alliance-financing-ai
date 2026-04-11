@@ -5999,7 +5999,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix21';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix22';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -25603,11 +25603,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Fetch all org deals
             var allDeals = [];
-            var { data: agentDeals } = await db.from('deals').select('id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, agent_fee_amount, is_archived').in('source_agent_id', agentIds);
+            var { data: agentDeals } = await db.from('deals').select('id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, alliance_fee_pct, agent_fee_pct, agent_fee_amount, alliance_gross_fee, is_archived').in('source_agent_id', agentIds);
             if (agentDeals) allDeals = allDeals.concat(agentDeals);
 
             if (vendorIds.length > 0) {
-                var { data: vDeals } = await db.from('deals').select('id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, agent_fee_amount, is_archived').in('source_vendor_id', vendorIds);
+                var { data: vDeals } = await db.from('deals').select('id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, alliance_fee_pct, agent_fee_pct, agent_fee_amount, alliance_gross_fee, is_archived').in('source_vendor_id', vendorIds);
                 if (vDeals) {
                     var existingIds = new Set(allDeals.map(d => d.id));
                     vDeals.forEach(d => { if (!existingIds.has(d.id)) allDeals.push(d); });
@@ -25619,7 +25619,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var declined = allDeals.filter(d => d.status === 'Declined' || d.status === 'Dead approval');
             var totalValue = allDeals.reduce((s, d) => s + (parseFloat(d.deal_amount) || 0), 0);
             var fundedValue = funded.reduce((s, d) => s + (parseFloat(d.deal_amount) || 0), 0);
-            var commissionValue = funded.reduce((s, d) => s + (parseFloat(d.agent_fee_amount) || 0), 0);
+            var commissionValue = funded.reduce(function(s, d) {
+                // Use pre-calculated agent_fee_amount if available
+                var agentFee = parseFloat(d.agent_fee_amount) || 0;
+                if (agentFee > 0) return s + agentFee;
+                // Fallback: calculate from percentages
+                var amtFunded = parseFloat(d.amount_funded) || parseFloat(d.deal_amount) || 0;
+                var alliancePct = parseFloat(d.alliance_fee_pct) || 0;
+                var agentPct = parseFloat(d.agent_fee_pct) || 0;
+                if (amtFunded > 0 && alliancePct > 0 && agentPct > 0) {
+                    var allianceGross = amtFunded * alliancePct / 100;
+                    agentFee = allianceGross * agentPct / 100;
+                }
+                return s + agentFee;
+            }, 0);
             var conversionRate = allDeals.length > 0 ? Math.round((funded.length / allDeals.length) * 100) : 0;
 
             // Monthly breakdown (last 6 months)
@@ -27641,17 +27654,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     async function recalcAndSaveFees(dealId) {
         var fees = recalcFeesDisplay();
+        console.log('[Fee Save] dealId:', dealId, 'agentGross:', fees.agentGross, 'allianceGross:', fees.allianceGross);
 
-        // Save the calculated amounts
+        // Save the calculated amounts — try full update first, fallback if columns missing
         try {
-            await db.from('deals').update({
+            var { error } = await db.from('deals').update({
                 alliance_gross_fee: fees.allianceGross,
                 agent_fee_amount: fees.agentGross,
                 sub_agent_fee_amount: fees.subAgentGross,
                 alliance_net_fee: fees.allianceNet
             }).eq('id', dealId);
+            if (error) {
+                console.warn('[Fee Save] Full update failed:', error.message, '— trying minimal update');
+                // Fallback: try saving just alliance_fee (which may be the only available column)
+                var { error: err2 } = await db.from('deals').update({
+                    alliance_fee: fees.allianceGross
+                }).eq('id', dealId);
+                if (err2) console.error('[Fee Save] Minimal update also failed:', err2.message);
+                else console.log('[Fee Save] Saved alliance_fee only');
+            } else {
+                console.log('[Fee Save] All fee fields saved successfully');
+            }
         } catch (err) {
-            console.error('Error saving fees:', err);
+            console.error('[Fee Save] Exception:', err);
         }
     }
 
