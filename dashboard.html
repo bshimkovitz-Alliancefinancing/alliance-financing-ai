@@ -5999,7 +5999,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-10-phase1-fix23';
+    const DASHBOARD_VERSION = '2026-04-10-phase1-fix24';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -25612,17 +25612,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var { data: myVendors } = await db.from('vendors').select('id, name').in('source_agent_id', agentIds);
             var vendorIds = myVendors ? myVendors.map(v => v.id) : [];
 
-            // Fetch all org deals — try with fee fields, fallback to basic if columns missing
+            // Fetch all org deals with fee fields (matching Command Center query that works)
             var allDeals = [];
-            var _statsDealSelect = 'id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, alliance_fee_pct, agent_fee_pct, agent_fee_amount, alliance_gross_fee, is_archived';
+            var _statsDealSelect = 'id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, alliance_fee_pct, agent_fee_pct, agent_fee_amount, is_archived';
             var { data: agentDeals, error: _statsErr } = await db.from('deals').select(_statsDealSelect).in('source_agent_id', agentIds);
             if (_statsErr) {
-                console.warn('[Stats] Full select failed:', _statsErr.message, '— using basic select');
-                _statsDealSelect = 'id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, is_archived';
-                var { data: agentDeals } = await db.from('deals').select(_statsDealSelect).in('source_agent_id', agentIds);
+                console.warn('[Stats] Select failed:', _statsErr.message);
+                // Try without agent_fee_amount
+                _statsDealSelect = 'id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, alliance_fee_pct, agent_fee_pct, is_archived';
+                var r2 = await db.from('deals').select(_statsDealSelect).in('source_agent_id', agentIds);
+                agentDeals = r2.data;
+                if (r2.error) {
+                    console.warn('[Stats] Second try failed:', r2.error.message);
+                    _statsDealSelect = 'id, deal_amount, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee, is_archived';
+                    var r3 = await db.from('deals').select(_statsDealSelect).in('source_agent_id', agentIds);
+                    agentDeals = r3.data;
+                }
             }
             if (agentDeals) allDeals = allDeals.concat(agentDeals);
-            console.log('[Stats] Loaded', allDeals.length, 'deals. Sample:', allDeals[0]);
+            console.log('[Stats] Loaded', allDeals.length, 'deals. Sample:', JSON.stringify(allDeals[0]));
 
             if (vendorIds.length > 0) {
                 var { data: vDeals } = await db.from('deals').select(_statsDealSelect).in('source_vendor_id', vendorIds);
