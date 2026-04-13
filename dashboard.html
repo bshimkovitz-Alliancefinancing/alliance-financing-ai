@@ -25,8 +25,11 @@
         }
 
         /* Notification card hover & dismiss */
-        .notif-card { transition: background 0.15s, box-shadow 0.15s; }
+        .notif-card { transition: background 0.15s, box-shadow 0.15s, opacity 0.35s ease, transform 0.35s ease; }
         .notif-card:hover { background: #F8FAFC !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .notif-card.notif-action { background: #FFFDF7 !important; }
+        .notif-card.notif-action:hover { background: #FFF9EC !important; }
+        .notif-card.notif-dismissing { opacity: 0; transform: translateX(40px); pointer-events: none; }
         .notif-card .notif-dismiss { transition: all 0.15s; }
         .notif-card .notif-dismiss:hover { color: #10B981 !important; border-color: #10B981 !important; background: #ECFDF5 !important; }
 
@@ -10199,6 +10202,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var n = filtered[index];
         if (!n) return;
 
+        // Animate the card out before removing
+        var card = document.querySelector('.notif-card[data-notif-index="' + index + '"]');
+        if (card) {
+            // Turn checkmark green immediately
+            var btn = card.querySelector('.notif-dismiss');
+            if (btn) { btn.style.color = '#10B981'; btn.style.borderColor = '#10B981'; btn.style.background = '#ECFDF5'; }
+            card.classList.add('notif-dismissing');
+        }
+
         var key = getDismissKey(n);
         _dismissedNotifications[key] = Date.now();
         // Clean up old dismissals (older than 30 days)
@@ -10213,9 +10225,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             dismissVendorReminder(n.dismissData.vendorId, n.dismissData.noteIndex);
         }
 
-        // Re-render
-        renderNotifications(_cachedNotifications);
-        updateNotificationsBadge(_cachedNotifications);
+        // Re-render after animation completes
+        setTimeout(function() {
+            renderNotifications(_cachedNotifications);
+            updateNotificationsBadge(_cachedNotifications);
+        }, 350);
     }
 
     async function dismissVendorReminder(vendorId, noteIndex) {
@@ -11136,9 +11150,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 timeStr = 'Recent';
             }
 
-            var borderColor = n.category === 'action' ? '#F59E0B' : '#E2E8F0';
-            html += '<div class="notif-card" style="background:white;border-radius:10px;border:1px solid ' + borderColor + ';' +
-                (n.category === 'action' ? 'border-left:4px solid #F59E0B;' : '') +
+            var isAction = n.category === 'action';
+            var borderColor = isAction ? '#F59E0B' : '#E2E8F0';
+            var cardClasses = 'notif-card' + (isAction ? ' notif-action' : '');
+            html += '<div class="' + cardClasses + '" data-notif-index="' + i + '" style="border-radius:10px;border:1px solid ' + borderColor + ';' +
+                (isAction ? 'border-left:4px solid #F59E0B;' : '') +
                 'padding:14px 18px;display:flex;align-items:center;gap:14px;position:relative;">';
 
             // Icon
@@ -33488,14 +33504,60 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // ============================================
+    // Email Thread Tracking — CRM Reply Routing
+    // ============================================
+    // Every outbound email gets a unique thread ID so replies
+    // route back into the CRM via an inbound webhook.
+    // Reply-to: reply+{threadId}@replies.alliancefinancing.ai
+
+    function generateEmailThreadId(entityType, entityId) {
+        // Generate a short random hash for uniqueness
+        var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        var hash = '';
+        for (var i = 0; i < 8; i++) hash += chars.charAt(Math.floor(Math.random() * chars.length));
+        var ts = Date.now().toString(36);
+        return (entityType || 'gen') + '_' + (entityId || '0') + '_' + ts + hash;
+    }
+
+    async function storeEmailThread(threadId, opts) {
+        // Store thread metadata so the inbound webhook can route replies
+        try {
+            await db.from('email_threads').insert({
+                thread_id: threadId,
+                entity_type: opts.entityType || null,
+                entity_id: opts.entityId || null,
+                deal_id: opts.dealId || null,
+                recipient_email: opts.to || null,
+                sender_email: opts.senderEmail || currentUserEmail || null,
+                sender_name: opts.senderName || currentUserName || null,
+                subject: opts.subject || null,
+                created_at: new Date().toISOString()
+            });
+        } catch (err) {
+            console.warn('Could not store email thread (table may not exist yet):', err.message);
+            // Non-blocking — emails still send even if thread tracking fails
+        }
+    }
+
+    // ============================================
     // Send Email via Supabase Edge Function
     // ============================================
 
-    async function sendEmailViaResend(to, subject, htmlBody, textBody, replyTo, cc, fromAddress) {
+    async function sendEmailViaResend(to, subject, htmlBody, textBody, replyTo, cc, fromAddress, threadOpts) {
         try {
-            // Build reply-to address: use agent's email so replies go to their inbox
-            // Falls back to info@ for admin-sent emails
+            // Build reply-to: use thread-specific address if entity context provided,
+            // otherwise fall back to agent email or info@
             var effectiveReplyTo = replyTo || null;
+            var threadId = null;
+
+            // If threadOpts provided, create a tracked reply-to address
+            if (threadOpts && (threadOpts.entityType || threadOpts.dealId)) {
+                threadId = generateEmailThreadId(threadOpts.entityType, threadOpts.entityId || threadOpts.dealId);
+                effectiveReplyTo = 'reply+' + threadId + '@replies.alliancefinancing.ai';
+                // Store thread for inbound routing (non-blocking)
+                storeEmailThread(threadId, Object.assign({ to: to, subject: subject, senderEmail: effectiveReplyTo }, threadOpts));
+            }
+
             if (!effectiveReplyTo && agentProfile && agentProfile.email) {
                 effectiveReplyTo = agentProfile.email;
             }
@@ -33520,6 +33582,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 text: textBody || '',
                 reply_to: effectiveReplyTo
             };
+            if (threadId) payload.thread_id = threadId;
             if (ccArray.length > 0) payload.cc = ccArray;
             if (fromAddress) payload.from = fromAddress;
 
@@ -36939,8 +37002,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var category = n.category || '';
             var isPinned = n.pinned === true;
 
+            var isInboundReply = n.is_inbound_reply === true || n.type === 'email_reply';
+
             var bgColor, borderColor, icon, badge;
-            if (isEmail) {
+            if (isInboundReply) {
+                bgColor = '#EFF6FF'; borderColor = '#3B82F6'; icon = '📩';
+                badge = '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Inbound Reply</span>';
+                if (n.email_from_name || n.email_from) {
+                    badge += '<span style="background:#EFF6FF;color:#3B82F6;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:4px;">from ' + (n.email_from_name || n.email_from) + '</span>';
+                }
+            } else if (isEmail) {
                 bgColor = '#FFFBEB'; borderColor = '#F59E0B'; icon = '✉';
                 badge = '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Email</span>';
             } else if (isAudit) {
@@ -38807,7 +38878,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                     <button class="btn btn-secondary btn-sm" onclick="cancelEditVendorContact('${c.id}')" style="padding: 4px 12px; font-size: 12px;">Cancel</button>
                                 </div>
                             </div>
-                            <div style="display: flex; gap: 4px; margin-left: 8px; flex-shrink: 0;">
+                            <div style="display: flex; gap: 4px; margin-left: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 340px;">
                                 <select onchange="updateVendorContactStatus('${c.id}', '${vendorId}', this.value)" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 11px; cursor: pointer;">
                                     ${'Active,Inactive,Left Company'.split(',').map(s => `<option value="${s}" ${contactStatus === s ? 'selected' : ''}>${s}</option>`).join('')}
                                 </select>
