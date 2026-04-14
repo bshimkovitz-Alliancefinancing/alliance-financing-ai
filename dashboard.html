@@ -26334,13 +26334,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Fetch deals — use same query that works in Command Center
             var allDeals = [];
             var { data: agentDeals } = await db.from('deals')
-                .select('id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee_pct, agent_fee_pct, agent_fee_amount, is_archived')
+                .select('id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, status_changed_at, alliance_fee_pct, agent_fee_pct, agent_fee_amount, is_archived')
                 .in('source_agent_id', agentIds);
             if (agentDeals) allDeals = allDeals.concat(agentDeals);
 
             if (vendorIds.length > 0) {
                 var { data: vDeals } = await db.from('deals')
-                    .select('id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, alliance_fee_pct, agent_fee_pct, agent_fee_amount, is_archived')
+                    .select('id, deal_amount, amount_funded, status, source_agent_id, source_vendor_id, date_submitted, status_changed_at, alliance_fee_pct, agent_fee_pct, agent_fee_amount, is_archived')
                     .in('source_vendor_id', vendorIds);
                 if (vDeals) {
                     var existingIds = {};
@@ -26371,16 +26371,26 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var conversionRate = allDeals.length > 0 ? Math.round((funded.length / allDeals.length) * 100) : 0;
 
             // Monthly breakdown (last 6 months)
+            // Submitted count uses date_submitted; Funded count + Commission use status_changed_at (the date funding was booked)
             var monthlyData = [];
             for (var i = 5; i >= 0; i--) {
                 var dt = new Date();
                 dt.setMonth(dt.getMonth() - i);
                 var monthKey = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
                 var monthLabel = dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                var monthDeals = allDeals.filter(function(deal) {
+
+                // Deals SUBMITTED this month
+                var monthSubmitted = allDeals.filter(function(deal) {
                     return deal.date_submitted && deal.date_submitted.startsWith(monthKey);
                 });
-                var monthFunded = monthDeals.filter(function(md) { return md.status === 'Funded'; });
+
+                // Deals FUNDED this month (by the date the status changed to Funded, not when submitted)
+                var monthFunded = allDeals.filter(function(deal) {
+                    if (deal.status !== 'Funded') return false;
+                    var fundedDate = deal.status_changed_at || deal.date_submitted;
+                    return fundedDate && fundedDate.startsWith(monthKey);
+                });
+
                 var monthCommission = monthFunded.reduce(function(s, d) {
                     var fee = parseFloat(d.agent_fee_amount) || 0;
                     if (fee > 0) return s + fee;
@@ -26390,11 +26400,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     if (amt > 0 && ap > 0 && agp > 0) fee = amt * ap / 100 * agp / 100;
                     return s + fee;
                 }, 0);
+
+                // Deal value uses submitted deals (pipeline value that came in this month)
                 monthlyData.push({
                     label: monthLabel,
-                    total: monthDeals.length,
+                    total: monthSubmitted.length,
                     funded: monthFunded.length,
-                    value: monthDeals.reduce(function(s, md) { return s + (parseFloat(md.deal_amount) || 0); }, 0),
+                    value: monthSubmitted.reduce(function(s, md) { return s + (parseFloat(md.deal_amount) || 0); }, 0),
                     commission: monthCommission
                 });
             }
