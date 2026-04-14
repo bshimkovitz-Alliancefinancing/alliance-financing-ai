@@ -6251,9 +6251,6 @@ if (location.hostname === 'alliancefinancing.ai') {
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('appContainer').style.display = 'flex';
 
-            // Load deals AFTER app is visible (populates Command Center stats + Deal Pipeline)
-            loadDeals().catch(function(e) { console.error('loadDeals error:', e); });
-
             // Route vendor users to vendor portal (but not admin users)
             if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !['super_admin', 'admin'].includes(currentUserRole)) {
                 showPage('vendorPortal');
@@ -19237,15 +19234,38 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
 
                 // Calculate pipeline value (active deals — exclude archived)
-                let dealsQuery = db.from('deals').select('deal_amount, currency, status, is_archived');
+                let dealsQuery = db.from('deals').select('deal_amount, currency, status, is_archived, status_changed_at, created_at, origination_date');
                 const { data: deals, error: dealsError } = await dealsQuery;
 
                 if (!dealsError && deals) {
                     const activeDealStatuses = ['Prospect', 'Application Sent', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding'];
-                    const activeDealValue = deals
-                        .filter(d => activeDealStatuses.includes(d.status) && !d.is_archived)
-                        .reduce((sum, d) => sum + (d.deal_amount || 0), 0);
+                    const activeDeals = deals.filter(d => activeDealStatuses.includes(d.status) && !d.is_archived);
+                    const activeDealValue = activeDeals.reduce((sum, d) => sum + (d.deal_amount || 0), 0);
                     document.getElementById('pipelineValue').textContent = formatCurrency(activeDealValue);
+
+                    // Also populate Command Center inline stats (so they work on first load)
+                    var avgSize = activeDeals.length > 0 ? activeDealValue / activeDeals.length : 0;
+                    var now = new Date();
+                    var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                    var fundedThisMonth = deals.filter(function(d) {
+                        return !d.is_archived && d.status === 'Funded' && d.origination_date && new Date(d.origination_date) >= monthStart;
+                    }).length;
+                    var inCredit = deals.filter(function(d) { return !d.is_archived && d.status === 'In Credit'; }).length;
+                    var sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    var stale = activeDeals.filter(function(d) {
+                        var ref = d.status_changed_at || d.created_at;
+                        return ref && new Date(ref) < sevenDaysAgo;
+                    }).length;
+
+                    var valText = activeDealValue >= 1000000 ? '$' + (activeDealValue / 1000000).toFixed(1) + 'M' : '$' + Math.round(activeDealValue).toLocaleString();
+                    var avgText = avgSize >= 1000000 ? '$' + (avgSize / 1000000).toFixed(1) + 'M' : '$' + Math.round(avgSize).toLocaleString();
+
+                    var el;
+                    el = document.getElementById('dealStatTotalValue'); if (el) el.textContent = valText;
+                    el = document.getElementById('dealStatAvgSize');    if (el) el.textContent = avgText;
+                    el = document.getElementById('dealStatFundedCount'); if (el) el.textContent = fundedThisMonth;
+                    el = document.getElementById('dealStatInCredit');   if (el) el.textContent = inCredit;
+                    el = document.getElementById('dealStatStale');      if (el) el.textContent = stale;
                 }
 
                 // Set lender count
