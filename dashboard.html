@@ -1930,6 +1930,45 @@
                     </table>
                     </div>
                 </div>
+
+                <!-- Partner Applications Section (Admin Only) -->
+                <div id="partnerApplicationsSection" class="table-container" style="margin-top:24px;display:none;">
+                    <div class="table-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="table-title">Partner Applications</div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <select id="partnerAppTierFilter" onchange="loadPartnerApplications()" style="padding:6px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;color:#475569;background:#F8FAFC;">
+                                <option value="">All Tiers</option>
+                                <option value="high_priority">High Priority</option>
+                                <option value="standard">Standard</option>
+                                <option value="low_priority">Low Priority</option>
+                                <option value="needs_review">Needs Review</option>
+                                <option value="unscored">Not Yet Scored</option>
+                            </select>
+                            <button onclick="loadPartnerApplications()" style="padding:6px 14px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;color:#475569;cursor:pointer;">Refresh</button>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="border-collapse:separate;border-spacing:0;width:100%;">
+                            <thead>
+                                <tr style="background:#F8FAFC;">
+                                    <th style="padding:11px 16px;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.6px;text-align:left;border-bottom:1px solid #E8ECF1;">ID</th>
+                                    <th style="padding:11px 16px;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.6px;text-align:left;border-bottom:1px solid #E8ECF1;">Applicant</th>
+                                    <th style="padding:11px 16px;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.6px;text-align:left;border-bottom:1px solid #E8ECF1;">Company</th>
+                                    <th style="padding:11px 16px;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.6px;text-align:left;border-bottom:1px solid #E8ECF1;">Type</th>
+                                    <th style="padding:11px 16px;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.6px;text-align:center;border-bottom:1px solid #E8ECF1;">AI Score</th>
+                                    <th style="padding:11px 16px;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.6px;text-align:left;border-bottom:1px solid #E8ECF1;">Tier</th>
+                                    <th style="padding:11px 16px;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.6px;text-align:left;border-bottom:1px solid #E8ECF1;">Channel</th>
+                                    <th style="padding:11px 16px;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.6px;text-align:left;border-bottom:1px solid #E8ECF1;">Applied</th>
+                                    <th style="padding:11px 16px;font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.6px;text-align:right;border-bottom:1px solid #E8ECF1;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="partnerApplicationsBody">
+                                <tr><td colspan="9" class="empty-state">Loading partner applications...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
 
             <!-- Lenders Page -->
@@ -21115,6 +21154,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     getHealthBadgeHtml(health) +
                     (health.reasons.length ? '<div style="margin-top:6px;font-size:12px;color:#64748B;">' + health.reasons.join(' · ') + '</div>' : '') +
                 '</div>' +
+                buildAiRedFlagCard(deal) +
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">' +
                     slideoutField('Product', deal.product_type || '—') +
                     slideoutField('Source', deal.source || '—') +
@@ -21250,6 +21290,193 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         '</div>';
     }
 
+    function buildAiRedFlagCard(deal) {
+        var rf = deal.ai_red_flags;
+
+        // If not scanned yet, show a "Run AI Check" prompt
+        if (!rf) {
+            return '<div style="margin-bottom:16px;padding:14px;background:#F8FAFC;border:1px dashed #E2E8F0;border-radius:8px;display:flex;align-items:center;justify-content:space-between;">' +
+                '<div style="font-size:12px;color:#94A3B8;"><span style="font-size:14px;margin-right:4px;">🤖</span> AI risk scan not yet run</div>' +
+                '<button onclick="runDealRedFlagScan(\'' + deal.id + '\', this)" style="padding:5px 14px;background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">Run AI Check</button>' +
+            '</div>';
+        }
+
+        var riskColors = {
+            high: { bg: '#FEF2F2', border: '#EF4444', text: '#991B1B', label: 'HIGH RISK', icon: '🔴' },
+            medium: { bg: '#FFFBEB', border: '#F59E0B', text: '#92400E', label: 'MEDIUM RISK', icon: '🟡' },
+            low: { bg: '#F0FDF4', border: '#22C55E', text: '#166534', label: 'LOW RISK', icon: '🟢' },
+            clean: { bg: '#F0FDF4', border: '#22C55E', text: '#166534', label: 'CLEAN', icon: '✅' }
+        };
+        var rc = riskColors[rf.overall_risk] || riskColors.medium;
+
+        var html = '<div style="margin-bottom:16px;background:' + rc.bg + ';border:1px solid ' + rc.border + ';border-radius:8px;padding:14px;overflow:hidden;">';
+
+        // Header row
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+        html += '<div style="display:flex;align-items:center;gap:6px;">';
+        html += '<span style="font-size:14px;">' + rc.icon + '</span>';
+        html += '<span style="font-size:11px;font-weight:700;color:' + rc.text + ';text-transform:uppercase;letter-spacing:0.5px;">AI Risk Scan: ' + rc.label + '</span>';
+        html += '<span style="font-size:10px;color:#94A3B8;font-weight:500;margin-left:4px;">Readiness: ' + (rf.readiness_score || 0) + '/100</span>';
+        html += '</div>';
+        html += '<button onclick="runDealRedFlagScan(\'' + deal.id + '\', this)" style="padding:3px 10px;background:white;color:#475569;border:1px solid #E2E8F0;border-radius:4px;font-size:10px;cursor:pointer;">Re-scan</button>';
+        html += '</div>';
+
+        // Summary
+        if (rf.summary) {
+            html += '<div style="font-size:12px;color:' + rc.text + ';margin-bottom:8px;">' + rf.summary + '</div>';
+        }
+
+        // Flags (show up to 3 in compact view)
+        if (rf.flags && rf.flags.length > 0) {
+            var shown = rf.flags.slice(0, 3);
+            shown.forEach(function(f) {
+                var sevIcon = f.severity === 'critical' ? '🔴' : f.severity === 'warning' ? '🟡' : 'ℹ️';
+                html += '<div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:4px;font-size:11px;">';
+                html += '<span>' + sevIcon + '</span>';
+                html += '<div><strong style="color:#1E293B;">' + f.title + '</strong>';
+                if (f.recommendation) html += ' — <span style="color:#475569;">' + f.recommendation + '</span>';
+                html += '</div></div>';
+            });
+            if (rf.flags.length > 3) {
+                html += '<div style="font-size:10px;color:#94A3B8;margin-top:4px;">+ ' + (rf.flags.length - 3) + ' more flag' + (rf.flags.length - 3 > 1 ? 's' : '') + ' — click "View Full Report" below</div>';
+            }
+        }
+
+        // Missing items (compact)
+        if (rf.missing_items && rf.missing_items.length > 0) {
+            html += '<div style="margin-top:6px;font-size:11px;color:#92400E;"><strong>Missing:</strong> ' + rf.missing_items.join(', ') + '</div>';
+        }
+
+        // View full report link
+        html += '<div style="margin-top:8px;text-align:right;">';
+        html += '<button onclick="showFullRedFlagReport(\'' + deal.id + '\')" style="background:none;border:none;color:' + rc.text + ';font-size:11px;font-weight:600;cursor:pointer;text-decoration:underline;">View Full Report</button>';
+        html += '</div>';
+
+        html += '</div>';
+        return html;
+    }
+
+    function showFullRedFlagReport(dealId) {
+        var deal = _slideoutDeal || allDeals.find(function(d) { return d.id === dealId; });
+        if (!deal || !deal.ai_red_flags) return;
+        var rf = deal.ai_red_flags;
+
+        var riskColors = {
+            high: { bg: '#FEF2F2', text: '#991B1B', label: 'HIGH RISK', icon: '🔴' },
+            medium: { bg: '#FFFBEB', text: '#92400E', label: 'MEDIUM RISK', icon: '🟡' },
+            low: { bg: '#F0FDF4', text: '#166534', label: 'LOW RISK', icon: '🟢' },
+            clean: { bg: '#F0FDF4', text: '#166534', label: 'CLEAN', icon: '✅' }
+        };
+        var rc = riskColors[rf.overall_risk] || riskColors.medium;
+
+        var html = '<div style="max-width:650px;margin:0 auto;">';
+
+        // Risk header
+        html += '<div style="background:' + rc.bg + ';border-radius:8px;padding:16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div><span style="font-size:20px;margin-right:6px;">' + rc.icon + '</span><strong style="font-size:16px;color:' + rc.text + ';">' + rc.label + '</strong></div>';
+        html += '<div style="text-align:right;"><div style="font-size:28px;font-weight:800;color:' + rc.text + ';">' + (rf.readiness_score || 0) + '</div><div style="font-size:10px;color:' + rc.text + ';">Readiness Score</div></div>';
+        html += '</div>';
+
+        // Summary
+        html += '<div style="font-size:14px;color:#1E293B;margin-bottom:16px;padding:10px 14px;background:#F8FAFC;border-radius:6px;">' + (rf.summary || '') + '</div>';
+
+        // Flags
+        if (rf.flags && rf.flags.length > 0) {
+            html += '<div style="margin-bottom:16px;">';
+            html += '<div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Flags (' + rf.flags.length + ')</div>';
+
+            rf.flags.forEach(function(f) {
+                var sevColors = {
+                    critical: { bg: '#FEF2F2', border: '#FECACA', icon: '🔴', label: 'CRITICAL' },
+                    warning: { bg: '#FFFBEB', border: '#FDE68A', icon: '🟡', label: 'WARNING' },
+                    info: { bg: '#F8FAFC', border: '#E2E8F0', icon: 'ℹ️', label: 'INFO' }
+                };
+                var sc = sevColors[f.severity] || sevColors.info;
+
+                html += '<div style="background:' + sc.bg + ';border:1px solid ' + sc.border + ';border-radius:6px;padding:10px 12px;margin-bottom:8px;">';
+                html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">';
+                html += '<span>' + sc.icon + '</span>';
+                html += '<span style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;">' + sc.label + '</span>';
+                html += '<span style="font-size:10px;color:#94A3B8;background:#F1F5F9;padding:1px 6px;border-radius:3px;">' + (f.category || '').replace(/_/g, ' ') + '</span>';
+                html += '</div>';
+                html += '<div style="font-size:13px;font-weight:600;color:#1E293B;margin-bottom:2px;">' + f.title + '</div>';
+                html += '<div style="font-size:12px;color:#475569;margin-bottom:4px;">' + f.detail + '</div>';
+                if (f.recommendation) {
+                    html += '<div style="font-size:11px;color:#1E40AF;background:#EFF6FF;padding:4px 8px;border-radius:4px;display:inline-block;">→ ' + f.recommendation + '</div>';
+                }
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+
+        // Strengths
+        if (rf.strengths && rf.strengths.length > 0) {
+            html += '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Strengths</div>';
+            html += '<ul style="margin:0;padding-left:18px;color:#1E293B;font-size:12px;">';
+            rf.strengths.forEach(function(s) { html += '<li style="margin-bottom:3px;">' + s + '</li>'; });
+            html += '</ul></div>';
+        }
+
+        // Missing items
+        if (rf.missing_items && rf.missing_items.length > 0) {
+            html += '<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;color:#DC2626;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Missing Items</div>';
+            html += '<ul style="margin:0;padding-left:18px;color:#991B1B;font-size:12px;">';
+            rf.missing_items.forEach(function(m) { html += '<li style="margin-bottom:3px;">' + m + '</li>'; });
+            html += '</ul></div>';
+        }
+
+        // Recommended actions
+        if (rf.recommended_actions && rf.recommended_actions.length > 0) {
+            html += '<div style="margin-bottom:16px;padding:12px 14px;background:#EFF6FF;border-left:3px solid #3B82F6;border-radius:0 6px 6px 0;">';
+            html += '<div style="font-size:11px;font-weight:700;color:#1E40AF;text-transform:uppercase;margin-bottom:6px;">Recommended Next Steps</div>';
+            html += '<ol style="margin:0;padding-left:18px;color:#1E293B;font-size:12px;">';
+            rf.recommended_actions.forEach(function(a) { html += '<li style="margin-bottom:4px;">' + a + '</li>'; });
+            html += '</ol></div>';
+        }
+
+        // Reasoning (collapsible)
+        if (rf.raw_reasoning) {
+            html += '<details style="margin-top:8px;"><summary style="font-size:11px;color:#94A3B8;cursor:pointer;">View AI reasoning</summary>';
+            html += '<div style="margin-top:4px;padding:8px;background:#F8FAFC;border-radius:4px;font-size:11px;color:#64748B;white-space:pre-wrap;">' + (rf.raw_reasoning || '').replace(/</g, '&lt;') + '</div>';
+            html += '</details>';
+        }
+
+        // Footer
+        if (rf.scanned_at || rf.model) {
+            html += '<div style="margin-top:8px;font-size:10px;color:#94A3B8;">';
+            if (rf.model) html += 'Model: ' + rf.model;
+            if (rf.scanned_at) html += ' · Scanned: ' + new Date(rf.scanned_at).toLocaleString();
+            html += '</div>';
+        }
+
+        html += '</div>';
+        showGenericModal('AI Risk Report — ' + (deal.company_name || dealId), html);
+    }
+
+    function runDealRedFlagScan(dealId, btn) {
+        if (btn) { btn.disabled = true; btn.textContent = 'Scanning...'; }
+        fetch((db.supabaseUrl || '').replace(/\/+$/, '') + '/functions/v1/detect-deal-red-flags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (db.supabaseKey || '') },
+            body: JSON.stringify({ deal_id: dealId, force: true })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showNotification('AI Scan: ' + (data.company_name || '') + ' — ' + (data.overall_risk || '').toUpperCase() + ' (' + (data.flag_count || 0) + ' flags, readiness ' + (data.readiness_score || 0) + '/100)', 'success');
+                // Refresh the slideout to show updated data
+                if (_slideoutDealId === dealId) { openDealSlideout(dealId); }
+            } else {
+                showNotification('Scan failed: ' + (data.error || 'Unknown error'), 'error');
+                if (btn) { btn.disabled = false; btn.textContent = 'Run AI Check'; }
+            }
+        })
+        .catch(function(err) {
+            showNotification('Scan error: ' + err.message, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = 'Run AI Check'; }
+        });
+    }
+
     function buildSlideoutDocBar(deal) {
         var localDeal = allDeals.find(function(d) { return d.id === deal.id; }) || deal;
         var pct = localDeal._docCompletePct || 0;
@@ -21273,14 +21500,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var noteBtn = document.getElementById('dsCommNoteBtn');
         var emailBtn = document.getElementById('dsCommEmailBtn');
         var emailFields = document.getElementById('dsCommEmailFields');
+        var aiDraftBtn = document.getElementById('dsCommAiDraftBtn');
         if (mode === 'email') {
             noteBtn.style.background = '#F1F5F9'; noteBtn.style.color = '#64748B'; noteBtn.style.fontWeight = '500';
             emailBtn.style.background = 'var(--navy)'; emailBtn.style.color = 'white'; emailBtn.style.fontWeight = '600';
             emailFields.style.display = 'block';
+            if (aiDraftBtn) aiDraftBtn.style.display = 'inline-block';
         } else {
             emailBtn.style.background = '#F1F5F9'; emailBtn.style.color = '#64748B'; emailBtn.style.fontWeight = '500';
             noteBtn.style.background = 'var(--navy)'; noteBtn.style.color = 'white'; noteBtn.style.fontWeight = '600';
             emailFields.style.display = 'none';
+            if (aiDraftBtn) aiDraftBtn.style.display = 'none';
         }
     }
 
@@ -21329,6 +21559,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<input type="text" id="dsCommFollowupReason" placeholder="Follow-up reason..." style="flex:1;padding:5px 8px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;">' +
             '</div>' +
             '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">' +
+                (isAdmin ? '<button onclick="aiDraftDealEmail(\'' + deal.id + '\')" id="dsCommAiDraftBtn" style="padding:7px 16px;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;display:none;">✨ AI Draft</button>' : '') +
                 '<button onclick="sendDealComm()" id="dsCommSendBtn" style="padding:7px 16px;background:var(--gold);color:var(--navy);border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Add Note</button>' +
             '</div>' +
         '</div>';
@@ -21347,6 +21578,177 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     function dsCommClearFile() {
         document.getElementById('dsCommFile').value = '';
         document.getElementById('dsCommFileName').textContent = '';
+    }
+
+    // ============================================
+    // AI Follow-Up Email Drafting (Insertion Point #5)
+    // ============================================
+
+    async function aiDraftDealEmail(dealId) {
+        var btn = document.getElementById('dsCommAiDraftBtn');
+        if (!btn) return;
+        var origText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ Drafting...';
+
+        try {
+            // Determine context from the category dropdown
+            var category = (document.getElementById('dsCommCategory') || {}).value || 'General';
+            var contextMap = {
+                'Lender Update': 'lender_submission_follow',
+                'Document Request': 'document_request',
+                'Status Update': 'deal_status_update',
+                'Follow-up': 'general_follow_up',
+                'Escalation': 'urgent',
+                'General': 'general_follow_up'
+            };
+            var contextType = contextMap[category] || 'general_follow_up';
+
+            // Get recipient info from email fields
+            var recipientEmail = (document.getElementById('dsCommTo') || {}).value || '';
+            var additionalContext = (document.getElementById('dsCommMessage') || {}).value || '';
+
+            var response = await fetch(
+                (db.supabaseUrl || '').replace(/\/+$/, '') + '/functions/v1/draft-follow-up',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (db.supabaseKey || '')
+                    },
+                    body: JSON.stringify({
+                        entity_type: 'deal',
+                        entity_id: dealId,
+                        context_type: contextType,
+                        recipient_email: recipientEmail,
+                        sender_name: currentUserName || 'Alliance Financing Group',
+                        additional_context: additionalContext
+                    })
+                }
+            );
+
+            var result = await response.json();
+            if (!result.success || !result.draft) {
+                throw new Error(result.error || 'Draft generation failed');
+            }
+
+            var draft = result.draft;
+
+            // Populate the compose form with the draft
+            var subjectField = document.getElementById('dsCommSubject');
+            var messageField = document.getElementById('dsCommMessage');
+            if (subjectField) subjectField.value = draft.subject;
+            if (messageField) messageField.value = draft.body_plain;
+
+            // Show admin notes if any
+            if (draft.notes_for_admin) {
+                showNotification('💡 AI note: ' + draft.notes_for_admin, 'info');
+            }
+
+            showNotification('AI draft ready — review and edit before sending', 'success');
+
+        } catch (err) {
+            console.error('AI draft error:', err);
+            showNotification('AI draft failed: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = origText;
+        }
+    }
+
+    // AI draft for application follow-ups (replaces/augments generic template)
+    async function aiDraftFollowUp(appId, email, name, appType, btn) {
+        if (!btn) return;
+        var origText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ Drafting...';
+
+        try {
+            var response = await fetch(
+                (db.supabaseUrl || '').replace(/\/+$/, '') + '/functions/v1/draft-follow-up',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (db.supabaseKey || '')
+                    },
+                    body: JSON.stringify({
+                        entity_type: 'application',
+                        entity_id: appId,
+                        context_type: 'application_reminder',
+                        recipient_name: name || '',
+                        recipient_email: email || '',
+                        sender_name: currentUserName || 'Alliance Financing Group'
+                    })
+                }
+            );
+
+            var result = await response.json();
+            if (!result.success || !result.draft) {
+                throw new Error(result.error || 'Draft generation failed');
+            }
+
+            var draft = result.draft;
+
+            // Show preview modal for review before sending
+            showGenericModal('✨ AI Draft — Follow-up to ' + (name || email),
+                '<div style="padding:4px 0;">' +
+                    '<div style="margin-bottom:12px;">' +
+                        '<label style="font-size:11px;font-weight:600;color:#64748B;">Subject</label>' +
+                        '<input type="text" id="aiDraftSubject" value="' + (draft.subject || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;box-sizing:border-box;margin-top:4px;">' +
+                    '</div>' +
+                    '<div style="margin-bottom:12px;">' +
+                        '<label style="font-size:11px;font-weight:600;color:#64748B;">Email Body <span style="font-weight:400;">(edit as needed)</span></label>' +
+                        '<textarea id="aiDraftBody" rows="8" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;margin-top:4px;line-height:1.6;">' + (draft.body_plain || '') + '</textarea>' +
+                    '</div>' +
+                    (draft.notes_for_admin ? '<div style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#6D28D9;">💡 <strong>AI Note:</strong> ' + draft.notes_for_admin + '</div>' : '') +
+                    '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+                        '<button onclick="closeGenericModal()" style="padding:8px 16px;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>' +
+                        '<button onclick="sendAiDraftFollowUp(\'' + appId + '\', \'' + (email || '').replace(/'/g, "\\'") + '\')" style="padding:8px 16px;background:var(--gold);color:var(--navy);border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">📧 Send Follow-Up</button>' +
+                    '</div>' +
+                '</div>'
+            );
+
+        } catch (err) {
+            console.error('AI draft follow-up error:', err);
+            showNotification('AI draft failed: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = origText;
+        }
+    }
+
+    async function sendAiDraftFollowUp(appId, email) {
+        var subject = (document.getElementById('aiDraftSubject') || {}).value || 'Follow Up — Alliance Financing';
+        var bodyText = (document.getElementById('aiDraftBody') || {}).value || '';
+        if (!bodyText.trim()) { showNotification('Email body is empty', 'error'); return; }
+
+        try {
+            var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px 0;">' +
+                '<div style="padding:0 25px;">' +
+                bodyText.split('\n').map(function(line) {
+                    return '<p style="font-size:15px;color:#333;line-height:1.7;margin:0 0 10px 0;">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
+                }).join('') +
+                '</div><div style="padding:12px 25px;text-align:center;font-size:11px;color:#999;border-top:1px solid #f0f0f0;margin-top:10px;">Alliance Financing Group | alliancefinancing.ai</div></div>';
+
+            await sendEmailViaResend(email, subject, htmlBody);
+
+            // Update follow-up tracking
+            var { data: appData } = await db.from('applications_sent').select('follow_up_count').eq('id', appId).single();
+            var newCount = (appData?.follow_up_count || 0) + 1;
+            await db.from('applications_sent').update({
+                follow_up_count: newCount,
+                follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+                status: 'Follow-Up Needed'
+            }).eq('id', appId);
+
+            closeGenericModal();
+            showNotification('AI-drafted follow-up sent to ' + email, 'success');
+            loadApplicationsSent();
+        } catch (err) {
+            console.error('Send AI draft follow-up error:', err);
+            showNotification('Failed to send: ' + err.message, 'error');
+        }
     }
 
     async function sendDealComm() {
@@ -22484,6 +22886,283 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 _dashActive: !!(a.invite_accepted_at || a.onboarding_status === 'active')
             });
             _adminAgentEnrichedData.push(enriched);
+        });
+    }
+
+    // ── Generic Modal ──────────────────────────────────────
+    function showGenericModal(title, bodyHtml) {
+        var existing = document.getElementById('genericModalOverlay');
+        if (existing) existing.remove();
+
+        var overlay = document.createElement('div');
+        overlay.id = 'genericModalOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9998;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s;';
+        overlay.onclick = function(e) { if (e.target === overlay) closeGenericModal(); };
+
+        var modal = document.createElement('div');
+        modal.style.cssText = 'background:#FFFFFF;border-radius:12px;max-width:750px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideIn 0.3s ease-out;';
+
+        modal.innerHTML = '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;">' +
+            '<div style="font-size:16px;font-weight:700;color:#1E293B;">' + (title || '') + '</div>' +
+            '<button onclick="closeGenericModal()" style="background:none;border:none;font-size:20px;color:#94A3B8;cursor:pointer;padding:4px;">&times;</button>' +
+            '</div><div style="padding:20px;">' + bodyHtml + '</div>';
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+    }
+
+    function closeGenericModal() {
+        var overlay = document.getElementById('genericModalOverlay');
+        if (overlay) overlay.remove();
+    }
+
+    // ── Partner Applications (AI-Scored) ──────────────────
+    var _partnerAppsData = [];
+
+    async function loadPartnerApplications() {
+        var section = document.getElementById('partnerApplicationsSection');
+        if (!section) return;
+        // Only show for admin
+        if (!['super_admin', 'admin'].includes(currentUserRole)) { section.style.display = 'none'; return; }
+        section.style.display = 'block';
+
+        try {
+            var { data, error } = await db
+                .from('partner_applications')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            _partnerAppsData = data || [];
+            renderPartnerApplications();
+        } catch (err) {
+            console.error('Failed to load partner applications:', err);
+            var tbody = document.getElementById('partnerApplicationsBody');
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Failed to load partner applications.</td></tr>';
+        }
+    }
+
+    function renderPartnerApplications() {
+        var tbody = document.getElementById('partnerApplicationsBody');
+        if (!tbody) return;
+
+        var tierFilter = (document.getElementById('partnerAppTierFilter') || {}).value || '';
+        var filtered = _partnerAppsData;
+
+        if (tierFilter === 'unscored') {
+            filtered = filtered.filter(function(a) { return !a.ai_score; });
+        } else if (tierFilter) {
+            filtered = filtered.filter(function(a) { return a.ai_score && a.ai_score.recommended_tier === tierFilter; });
+        }
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No partner applications' + (tierFilter ? ' matching this filter' : '') + '.</td></tr>';
+            return;
+        }
+
+        var tierColors = {
+            high_priority: { bg: '#DCFCE7', color: '#166534', label: 'High Priority' },
+            standard: { bg: '#DBEAFE', color: '#1E40AF', label: 'Standard' },
+            low_priority: { bg: '#FEF3C7', color: '#92400E', label: 'Low Priority' },
+            needs_review: { bg: '#FEE2E2', color: '#991B1B', label: 'Needs Review' }
+        };
+
+        tbody.innerHTML = filtered.map(function(app) {
+            var score = app.ai_score;
+            var scoreHtml, tierHtml, channelHtml;
+
+            if (score) {
+                // Score circle with color gradient
+                var scoreColor = score.overall_score >= 75 ? '#22C55E' : score.overall_score >= 50 ? '#3B82F6' : score.overall_score >= 25 ? '#F59E0B' : '#EF4444';
+                scoreHtml = '<div style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:' + scoreColor + '15;border:2px solid ' + scoreColor + ';font-weight:700;font-size:14px;color:' + scoreColor + ';">' + score.overall_score + '</div>';
+
+                var tc = tierColors[score.recommended_tier] || tierColors.needs_review;
+                tierHtml = '<span style="background:' + tc.bg + ';color:' + tc.color + ';padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;">' + tc.label + '</span>';
+                if (score.risk_flags && score.risk_flags.length > 0) {
+                    tierHtml += '<br><span style="font-size:10px;color:#DC2626;margin-top:2px;display:inline-block;">' + score.risk_flags.length + ' flag' + (score.risk_flags.length > 1 ? 's' : '') + '</span>';
+                }
+
+                channelHtml = '<span style="font-size:12px;color:#475569;">' + (score.recommended_channel || '—') + '</span>';
+            } else {
+                scoreHtml = '<span style="color:#94A3B8;font-size:11px;">—</span>';
+                tierHtml = '<span style="background:#F1F5F9;color:#94A3B8;padding:3px 10px;border-radius:4px;font-size:11px;">Unscored</span>';
+                channelHtml = '<span style="color:#94A3B8;font-size:11px;">—</span>';
+            }
+
+            var dateStr = app.created_at ? new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+            return '<tr style="cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'transparent\'" onclick="showPartnerAppDetail(\'' + (app.id || '') + '\')">' +
+                '<td style="padding:10px 16px;font-size:12px;color:#64748B;border-bottom:1px solid #F1F5F9;font-weight:600;">' + (app.application_id || '—') + '</td>' +
+                '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;"><div style="font-size:13px;font-weight:600;color:#1E293B;">' + (app.first_name || '') + ' ' + (app.last_name || '') + '</div><div style="font-size:11px;color:#64748B;">' + (app.email || '') + '</div></td>' +
+                '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;font-size:13px;color:#334155;">' + (app.company_name || '—') + '</td>' +
+                '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;font-size:12px;color:#475569;">' + (app.partner_type || '—') + '</td>' +
+                '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;text-align:center;">' + scoreHtml + '</td>' +
+                '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;">' + tierHtml + '</td>' +
+                '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;">' + channelHtml + '</td>' +
+                '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;font-size:12px;color:#64748B;">' + dateStr + '</td>' +
+                '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;text-align:right;">' +
+                    '<button onclick="event.stopPropagation();showPartnerAppDetail(\'' + (app.id || '') + '\')" style="padding:4px 12px;background:#EFF6FF;color:#2563EB;border:1px solid #BFDBFE;border-radius:4px;font-size:11px;font-weight:500;cursor:pointer;margin-right:4px;">View</button>' +
+                    (!score ? '<button onclick="event.stopPropagation();rescorePartnerApp(\'' + (app.id || '') + '\', this)" style="padding:4px 12px;background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;border-radius:4px;font-size:11px;font-weight:500;cursor:pointer;">Score</button>' : '') +
+                '</td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    function showPartnerAppDetail(appId) {
+        var app = _partnerAppsData.find(function(a) { return a.id === appId; });
+        if (!app) return;
+        var score = app.ai_score;
+
+        var html = '<div style="max-width:700px;margin:0 auto;">';
+
+        // Header
+        html += '<div style="background:linear-gradient(135deg,#0D1E3D,#1A3A5C);border-radius:12px;padding:24px;margin-bottom:20px;color:white;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+        html += '<div><div style="font-size:11px;color:#C9A84C;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">' + (app.application_id || 'Partner Application') + '</div>';
+        html += '<div style="font-size:22px;font-weight:700;">' + (app.first_name || '') + ' ' + (app.last_name || '') + '</div>';
+        html += '<div style="font-size:14px;opacity:0.8;margin-top:2px;">' + (app.company_name || '') + '</div></div>';
+        if (score) {
+            var scoreColor = score.overall_score >= 75 ? '#22C55E' : score.overall_score >= 50 ? '#3B82F6' : score.overall_score >= 25 ? '#F59E0B' : '#EF4444';
+            html += '<div style="text-align:center;"><div style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,0.1);border:3px solid ' + scoreColor + ';display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:' + scoreColor + ';">' + score.overall_score + '</div>';
+            html += '<div style="font-size:10px;color:rgba(255,255,255,0.6);margin-top:4px;">AI Score</div></div>';
+        }
+        html += '</div></div>';
+
+        // Contact info
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">';
+        html += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Email</div><div style="font-size:13px;color:#1E293B;">' + (app.email || '—') + '</div></div>';
+        html += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Phone</div><div style="font-size:13px;color:#1E293B;">' + (app.phone || '—') + '</div></div>';
+        html += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Partner Type</div><div style="font-size:13px;color:#1E293B;">' + (app.partner_type || '—') + '</div></div>';
+        html += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Province</div><div style="font-size:13px;color:#1E293B;">' + (app.province || '—') + '</div></div>';
+        html += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Years in Business</div><div style="font-size:13px;color:#1E293B;">' + (app.years_in_business || '—') + '</div></div>';
+        html += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Monthly Referrals</div><div style="font-size:13px;color:#1E293B;">' + (app.monthly_referrals || '—') + '</div></div>';
+        html += '</div>';
+
+        // Products of interest
+        var products = app.products_of_interest;
+        if (products && products.length > 0) {
+            html += '<div style="margin-bottom:16px;"><div style="font-size:11px;color:#94A3B8;text-transform:uppercase;font-weight:600;margin-bottom:6px;">Products of Interest</div>';
+            html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+            (Array.isArray(products) ? products : [products]).forEach(function(p) {
+                html += '<span style="background:#EFF6FF;color:#1E40AF;padding:4px 10px;border-radius:4px;font-size:12px;font-weight:500;">' + p + '</span>';
+            });
+            html += '</div></div>';
+        }
+
+        // Business description
+        if (app.business_description) {
+            html += '<div style="margin-bottom:16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;"><div style="font-size:11px;color:#94A3B8;text-transform:uppercase;font-weight:600;margin-bottom:4px;">Business Description</div>';
+            html += '<div style="font-size:13px;color:#1E293B;white-space:pre-wrap;">' + app.business_description.replace(/</g, '&lt;') + '</div></div>';
+        }
+
+        // AI Score Card
+        if (score) {
+            html += '<div style="background:#FFFFFF;border:2px solid #E2E8F0;border-radius:12px;padding:20px;margin-bottom:16px;">';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;"><span style="font-size:18px;">🤖</span><div style="font-size:15px;font-weight:700;color:#1E293B;">AI Assessment</div></div>';
+
+            // Summary
+            html += '<div style="font-size:14px;color:#1E293B;margin-bottom:16px;padding:10px 14px;background:#F8FAFC;border-radius:6px;">' + (score.summary || '') + '</div>';
+
+            // Score bars
+            var bars = [
+                { label: 'Quality', value: score.quality_score, color: '#3B82F6' },
+                { label: 'Fit', value: score.fit_score, color: '#22C55E' },
+                { label: 'Volume Potential', value: score.volume_potential, color: '#F59E0B' }
+            ];
+            bars.forEach(function(b) {
+                html += '<div style="margin-bottom:10px;">';
+                html += '<div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:#475569;">' + b.label + '</span><span style="font-size:12px;font-weight:700;color:' + b.color + ';">' + b.value + '/100</span></div>';
+                html += '<div style="height:8px;background:#F1F5F9;border-radius:4px;overflow:hidden;"><div style="height:100%;width:' + b.value + '%;background:' + b.color + ';border-radius:4px;transition:width 0.5s;"></div></div>';
+                html += '</div>';
+            });
+
+            // Recommended channel + tier
+            var tierColors = { high_priority: { bg: '#DCFCE7', color: '#166534', label: 'High Priority' }, standard: { bg: '#DBEAFE', color: '#1E40AF', label: 'Standard' }, low_priority: { bg: '#FEF3C7', color: '#92400E', label: 'Low Priority' }, needs_review: { bg: '#FEE2E2', color: '#991B1B', label: 'Needs Review' } };
+            var tc = tierColors[score.recommended_tier] || tierColors.needs_review;
+            html += '<div style="display:flex;gap:12px;margin:16px 0 12px;">';
+            html += '<div style="flex:1;padding:10px 14px;background:#F8FAFC;border-radius:6px;"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;font-weight:600;">Recommended Channel</div><div style="font-size:14px;font-weight:600;color:#1E293B;margin-top:2px;">' + (score.recommended_channel || '—') + '</div></div>';
+            html += '<div style="flex:1;padding:10px 14px;background:' + tc.bg + ';border-radius:6px;"><div style="font-size:10px;color:' + tc.color + ';text-transform:uppercase;font-weight:600;">Priority Tier</div><div style="font-size:14px;font-weight:600;color:' + tc.color + ';margin-top:2px;">' + tc.label + '</div></div>';
+            html += '</div>';
+
+            // Strengths
+            if (score.strengths && score.strengths.length > 0) {
+                html += '<div style="margin-bottom:10px;"><div style="font-size:11px;color:#166534;text-transform:uppercase;font-weight:600;margin-bottom:4px;">Strengths</div>';
+                html += '<ul style="margin:0;padding-left:18px;color:#1E293B;font-size:13px;">';
+                score.strengths.forEach(function(s) { html += '<li style="margin-bottom:3px;">' + s + '</li>'; });
+                html += '</ul></div>';
+            }
+
+            // Risk flags
+            if (score.risk_flags && score.risk_flags.length > 0) {
+                html += '<div style="margin-bottom:10px;"><div style="font-size:11px;color:#DC2626;text-transform:uppercase;font-weight:600;margin-bottom:4px;">Risk Flags</div>';
+                html += '<ul style="margin:0;padding-left:18px;color:#991B1B;font-size:13px;">';
+                score.risk_flags.forEach(function(f) { html += '<li style="margin-bottom:3px;">' + f + '</li>'; });
+                html += '</ul></div>';
+            }
+
+            // Onboarding notes
+            if (score.onboarding_notes) {
+                html += '<div style="padding:10px 14px;background:#EFF6FF;border-left:3px solid #3B82F6;border-radius:0 6px 6px 0;margin-bottom:10px;">';
+                html += '<div style="font-size:11px;font-weight:600;color:#1E40AF;margin-bottom:2px;">ONBOARDING NOTES</div>';
+                html += '<div style="font-size:13px;color:#1E293B;">' + score.onboarding_notes + '</div></div>';
+            }
+
+            // Reasoning (collapsible)
+            if (score.raw_reasoning) {
+                html += '<details style="margin-top:8px;"><summary style="font-size:11px;color:#94A3B8;cursor:pointer;">View AI reasoning</summary>';
+                html += '<div style="margin-top:4px;padding:8px;background:#F8FAFC;border-radius:4px;font-size:11px;color:#64748B;white-space:pre-wrap;">' + (score.raw_reasoning || '').replace(/</g, '&lt;') + '</div>';
+                html += '</details>';
+            }
+
+            // Model + timestamp
+            html += '<div style="margin-top:8px;font-size:10px;color:#94A3B8;">';
+            if (score.model) html += 'Model: ' + score.model;
+            if (score.scored_at) html += ' · Scored: ' + new Date(score.scored_at).toLocaleString();
+            html += '</div>';
+
+            html += '</div>';
+        } else {
+            // No score yet — show score button
+            html += '<div style="text-align:center;padding:30px;background:#F8FAFC;border:2px dashed #E2E8F0;border-radius:12px;margin-bottom:16px;">';
+            html += '<div style="font-size:15px;color:#94A3B8;margin-bottom:12px;">This application has not been AI-scored yet.</div>';
+            html += '<button onclick="rescorePartnerApp(\'' + appId + '\', this)" style="padding:10px 24px;background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Score with AI</button>';
+            html += '</div>';
+        }
+
+        // Action buttons
+        html += '<div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">';
+        if (score) {
+            html += '<button onclick="rescorePartnerApp(\'' + appId + '\', this)" style="padding:8px 20px;background:#F1F5F9;color:#475569;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;cursor:pointer;">Re-score</button>';
+        }
+        html += '<button onclick="closeGenericModal()" style="padding:8px 20px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Close</button>';
+        html += '</div>';
+
+        html += '</div>';
+
+        showGenericModal('Partner Application — ' + (app.company_name || app.application_id || 'Detail'), html);
+    }
+
+    function rescorePartnerApp(appId, btn) {
+        if (btn) { btn.disabled = true; btn.textContent = 'Scoring...'; }
+        var fnUrl = (db.supabaseUrl || '').replace(/\/+$/, '') + '/functions/v1/score-partner-application';
+        fetch(fnUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (db.supabaseKey || '') },
+            body: JSON.stringify({ record_id: appId, force: true })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showNotification('Scored: ' + (data.company_name || '') + ' — ' + data.overall_score + '/100 (' + (data.recommended_tier || '').replace(/_/g, ' ') + ')', 'success');
+                loadPartnerApplications(); // Refresh the table
+            } else {
+                showNotification('Scoring failed: ' + (data.error || 'Unknown error'), 'error');
+            }
+            if (btn) { btn.disabled = false; btn.textContent = 'Score'; }
+        })
+        .catch(function(err) {
+            showNotification('Scoring error: ' + err.message, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = 'Score'; }
         });
     }
 
@@ -26397,6 +27076,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 return;
             case 'agents':
                 await loadAgents();
+                loadPartnerApplications();
                 break;
             case 'lenders':
                 await loadLenders();
@@ -27098,7 +27778,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <div class="modal-row">
                         <div class="modal-field">
                             <label>Total Equipment Cost</label>
-                            ${isAgentView ? roField(deal.total_equipment_cost ? formatCurrency(deal.total_equipment_cost) : '') : `<input type="number" step="0.01" value="${deal.total_equipment_cost || ''}" onblur="updateDealField('${dealId}', 'total_equipment_cost', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                            ${isAgentView ? roField(deal.total_equipment_cost ? formatCurrency(deal.total_equipment_cost, 2) : '') : `<input type="number" step="0.01" id="leaseEquipCost" value="${deal.total_equipment_cost || ''}" oninput="recalcNetAmountFinanced()" onblur="updateDealField('${dealId}', 'total_equipment_cost', this.value ? parseFloat(this.value) : null); recalcNetAmountFinanced('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                         </div>
                         <div class="modal-field">
                             <label>Rate Factor</label>
@@ -27112,34 +27792,43 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         </div>
                         <div class="modal-field">
                             <label>Monthly Payment (Total)</label>
-                            ${isAgentView ? roField(deal.monthly_payment_total ? formatCurrency(deal.monthly_payment_total) : '') : `<input type="number" step="0.01" value="${deal.monthly_payment_total || ''}" onblur="updateDealField('${dealId}', 'monthly_payment_total', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                            ${isAgentView ? roField(deal.monthly_payment_total ? formatCurrency(deal.monthly_payment_total, 2) : '') : `<input type="number" step="0.01" value="${deal.monthly_payment_total || ''}" onblur="updateDealField('${dealId}', 'monthly_payment_total', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                         </div>
                     </div>
                     <div class="modal-row">
                         <div class="modal-field">
                             <label>Yield to Lender</label>
-                            ${isAgentView ? roField(deal.yield_to_lender || '') : `<input type="number" step="0.01" value="${deal.yield_to_lender || ''}" onblur="updateDealField('${dealId}', 'yield_to_lender', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                            ${isAgentView ? roField(deal.yield_to_lender ? deal.yield_to_lender + '%' : '') : `<input type="number" step="0.01" value="${deal.yield_to_lender || ''}" onblur="updateDealField('${dealId}', 'yield_to_lender', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                         </div>
                         <div class="modal-field">
-                            <label>Broker Fee (NET)</label>
-                            ${isAgentView ? roField(deal.broker_fee_net ? formatCurrency(deal.broker_fee_net) : '') : `<input type="number" step="0.01" value="${deal.broker_fee_net || ''}" onblur="updateDealField('${dealId}', 'broker_fee_net', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                            <label>Alliance Fee (Net)</label>
+                            ${isAgentView ? roField(deal.broker_fee_net ? formatCurrency(deal.broker_fee_net, 2) : '') : `<input type="number" step="0.01" id="leaseBrokerFee" value="${deal.broker_fee_net || ''}" oninput="recalcNetAmountFinanced()" onblur="updateDealField('${dealId}', 'broker_fee_net', this.value ? parseFloat(this.value) : null); recalcNetAmountFinanced('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                         </div>
                     </div>
                     <div class="modal-row">
+                        <div class="modal-field">
+                            <label>Doc / Admin Fee</label>
+                            ${isAgentView ? roField(deal.doc_admin_fee ? formatCurrency(deal.doc_admin_fee, 2) : '') : `<input type="number" step="0.01" id="leaseDocFee" value="${deal.doc_admin_fee || ''}" oninput="recalcNetAmountFinanced()" onblur="updateDealField('${dealId}', 'doc_admin_fee', this.value ? parseFloat(this.value) : null); recalcNetAmountFinanced('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
                         <div class="modal-field">
                             <label>Down Payment (Total)</label>
-                            ${isAgentView ? roField(deal.down_payment_total ? formatCurrency(deal.down_payment_total) : '') : `<input type="number" step="0.01" value="${deal.down_payment_total || ''}" onblur="updateDealField('${dealId}', 'down_payment_total', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
-                        </div>
-                        <div class="modal-field">
-                            <label>Net Amount Financed</label>
-                            ${isAgentView ? roField(deal.net_amount_financed ? formatCurrency(deal.net_amount_financed) : '') : `<input type="number" step="0.01" value="${deal.net_amount_financed || ''}" onblur="updateDealField('${dealId}', 'net_amount_financed', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                            ${isAgentView ? roField(deal.down_payment_total ? formatCurrency(deal.down_payment_total, 2) : '') : `<input type="number" step="0.01" id="leaseDownPayment" value="${deal.down_payment_total || ''}" oninput="recalcNetAmountFinanced()" onblur="updateDealField('${dealId}', 'down_payment_total', this.value ? parseFloat(this.value) : null); recalcNetAmountFinanced('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
                         </div>
                     </div>
                     <div class="modal-row">
                         <div class="modal-field">
-                            <label>Future Value (FV)</label>
-                            ${isAgentView ? roField(deal.future_value ? formatCurrency(deal.future_value) : '') : `<input type="number" step="0.01" value="${deal.future_value || ''}" onblur="updateDealField('${dealId}', 'future_value', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                            <label>Net Amount Financed</label>
+                            <div style="position:relative;">
+                                ${isAgentView ? roField(deal.net_amount_financed ? formatCurrency(deal.net_amount_financed, 2) : '') : `<input type="number" step="0.01" id="leaseNetFinanced" value="${deal.net_amount_financed || ''}" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; background: #F8FAFC; color: var(--navy); font-weight: 600;" readonly title="Auto-calculated: Equipment Cost - Down Payment + Alliance Fee + Doc Fee">`}
+                            </div>
+                            <span style="font-size:10px; color:#94A3B8; margin-top:2px; display:block;">= Equipment Cost - Down Payment + Alliance Fee + Doc Fee</span>
                         </div>
+                        <div class="modal-field">
+                            <label>Future Value (FV)</label>
+                            ${isAgentView ? roField(deal.future_value ? formatCurrency(deal.future_value, 2) : '') : `<input type="number" step="0.01" value="${deal.future_value || ''}" onblur="updateDealField('${dealId}', 'future_value', this.value ? parseFloat(this.value) : null)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
+                        </div>
+                    </div>
+                    <div class="modal-row">
                         <div class="modal-field">
                             <label>Buyout Type</label>
                             ${isAgentView ? roField(deal.buyout_type || '') : `<select onchange="updateDealField('${dealId}', 'buyout_type', this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
@@ -27151,6 +27840,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 <option value="Other" ${'Other' === deal.buyout_type ? 'selected' : ''}>Other</option>
                             </select>`}
                         </div>
+                        <div class="modal-field"></div>
                     </div>
                 </div>
 
@@ -27364,61 +28054,67 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <!-- Section 5: Fee Details & Commission Split -->
                 <h3 style="color: var(--navy); font-size: 16px; margin: 25px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--gold);">${isAgentView ? 'Commission' : 'Fee Details & Commission Split'}</h3>
 
-                <div class="modal-row">
-                    <div class="modal-field full">
-                        <label>Amount Funded</label>
-                        ${isAgentView ? roField(deal.amount_funded ? formatCurrency(deal.amount_funded) : '') : `<input type="number" id="feeAmountFunded" value="${deal.amount_funded || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'amount_funded', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">`}
-                    </div>
-                </div>
-
-                ${!isAgentView ? `<div style="background: #F8FAFC; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <div class="modal-row">
-                        <div class="modal-field">
-                            <label>Alliance Fee %</label>
-                            <input type="number" step="0.01" id="feeAlliancePct" value="${deal.alliance_fee_pct || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'alliance_fee_pct', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                        </div>
-                        <div class="modal-field">
-                            <label>Alliance Gross Fee</label>
-                            <div id="feeAllianceGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">$0.00</div>
-                        </div>
-                    </div>
-                </div>` : ''}
-
-                <div style="background: #FEF3E2; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <div class="modal-row">
-                        ${!isAgentView ? `<div class="modal-field">
-                            <label>Agent Split %</label>
-                            <input type="number" step="0.01" id="feeAgentPct" value="${deal.agent_fee_pct || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                        </div>` : ''}
-                        <div class="modal-field" ${isAgentView ? 'style="flex:1;"' : ''}>
-                            <label>${isAgentView ? 'Your Commission' : 'Agent Gross Fee'}</label>
-                            <div id="feeAgentGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">${isAgentView && deal.agent_fee_amount ? formatCurrency(deal.agent_fee_amount) : '$0.00'}</div>
+                <!-- Amount Funded -->
+                <div style="background: linear-gradient(135deg, #0D1E3D 0%, #1a2e5a 100%); padding: 16px 20px; border-radius: 10px 10px 0 0; margin-bottom: 0;">
+                    <div class="modal-row" style="margin:0;">
+                        <div class="modal-field full" style="margin:0;">
+                            <label style="color: #C9A84C; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Amount Funded</label>
+                            ${isAgentView ? `<div style="padding: 8px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(201,168,76,0.3); border-radius: 6px; font-size: 16px; font-weight: 700; color: white;">${deal.amount_funded ? formatCurrency(deal.amount_funded, 2) : '—'}</div>` : `<input type="number" step="0.01" id="feeAmountFunded" value="${deal.amount_funded || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'amount_funded', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 8px 12px; border: 1px solid rgba(201,168,76,0.3); border-radius: 6px; font-size: 16px; font-weight: 700; width: 100%; background: rgba(255,255,255,0.1); color: white;" placeholder="0.00">`}
                         </div>
                     </div>
                 </div>
 
-                ${deal.sub_agent_id || !isAgentView ? `<div style="background: #E8F5E9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <div class="modal-row">
-                        ${!isAgentView ? `<div class="modal-field">
-                            <label>Referral Partner %</label>
-                            <input type="number" step="0.01" id="feeSubAgentPct" value="${deal.sub_agent_fee_pct || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'sub_agent_fee_pct', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%;">
-                        </div>` : ''}
-                        <div class="modal-field" ${isAgentView ? 'style="flex:1;"' : ''}>
-                            <label>${isAgentView ? 'Referral Partner Commission' : 'Referral Partner Gross Fee'}</label>
-                            <div id="feeSubAgentGross" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">${isAgentView && deal.sub_agent_fee_amount ? formatCurrency(deal.sub_agent_fee_amount) : '$0.00'}</div>
-                        </div>
-                    </div>
-                </div>` : ''}
+                <!-- Fee Breakdown Grid -->
+                <div style="border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 10px 10px; overflow: hidden; margin-bottom: 20px;">
 
-                ${!isAgentView ? `<div style="background: #F5E6FF; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <div class="modal-row">
-                        <div class="modal-field">
-                            <label>Alliance Net Fee</label>
-                            <div id="feeAllianceNet" style="padding: 6px 10px; background: white; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 14px; font-weight: 600; color: var(--navy);">$0.00</div>
+                    ${!isAgentView ? `<!-- Alliance Fee Row -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #E2E8F0;">
+                        <div style="padding: 14px 20px; background: #F8FAFC;">
+                            <label style="font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px;">Alliance Fee %</label>
+                            <input type="number" step="0.01" id="feeAlliancePct" value="${deal.alliance_fee_pct || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'alliance_fee_pct', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 14px; width: 100%; background: white;" placeholder="0.00">
                         </div>
-                        <div class="modal-field"></div>
+                        <div style="padding: 14px 20px; background: #F8FAFC; display: flex; flex-direction: column; justify-content: center;">
+                            <label style="font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px;">Alliance Gross Fee</label>
+                            <div id="feeAllianceGross" style="padding: 6px 10px; background: white; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 14px; font-weight: 700; color: var(--navy);">$0.00</div>
+                        </div>
+                    </div>` : ''}
+
+                    <!-- Agent Split Row -->
+                    <div style="display: grid; grid-template-columns: ${isAgentView ? '1fr' : '1fr 1fr'}; border-bottom: 1px solid #E2E8F0;">
+                        ${!isAgentView ? `<div style="padding: 14px 20px; background: #FFFBEB;">
+                            <label style="font-size: 11px; font-weight: 600; color: #92400E; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px;">Agent Split %</label>
+                            <input type="number" step="0.01" id="feeAgentPct" value="${deal.agent_fee_pct || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'agent_fee_pct', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #FDE68A; border-radius: 6px; font-size: 14px; width: 100%; background: white;" placeholder="0.00">
+                        </div>` : ''}
+                        <div style="padding: 14px 20px; background: #FFFBEB; display: flex; flex-direction: column; justify-content: center;">
+                            <label style="font-size: 11px; font-weight: 600; color: #92400E; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px;">${isAgentView ? 'Your Commission' : 'Agent Gross Fee'}</label>
+                            <div id="feeAgentGross" style="padding: 6px 10px; background: white; border: 1px solid #FDE68A; border-radius: 6px; font-size: 14px; font-weight: 700; color: var(--navy);">${isAgentView && deal.agent_fee_amount ? formatCurrency(deal.agent_fee_amount, 2) : '$0.00'}</div>
+                        </div>
                     </div>
-                </div>` : ''}
+
+                    ${deal.sub_agent_id || !isAgentView ? `<!-- Referral Partner Row -->
+                    <div style="display: grid; grid-template-columns: ${isAgentView ? '1fr' : '1fr 1fr'}; border-bottom: 1px solid #E2E8F0;">
+                        ${!isAgentView ? `<div style="padding: 14px 20px; background: #ECFDF5;">
+                            <label style="font-size: 11px; font-weight: 600; color: #065F46; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px;">Referral Partner %</label>
+                            <input type="number" step="0.01" id="feeSubAgentPct" value="${deal.sub_agent_fee_pct || ''}" oninput="recalcFeesDisplay()" onblur="updateDealField('${dealId}', 'sub_agent_fee_pct', this.value ? parseFloat(this.value) : null); recalcAndSaveFees('${dealId}')" style="padding: 6px 10px; border: 1px solid #A7F3D0; border-radius: 6px; font-size: 14px; width: 100%; background: white;" placeholder="0.00">
+                        </div>` : ''}
+                        <div style="padding: 14px 20px; background: #ECFDF5; display: flex; flex-direction: column; justify-content: center;">
+                            <label style="font-size: 11px; font-weight: 600; color: #065F46; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px;">${isAgentView ? 'Referral Partner Commission' : 'Referral Partner Gross Fee'}</label>
+                            <div id="feeSubAgentGross" style="padding: 6px 10px; background: white; border: 1px solid #A7F3D0; border-radius: 6px; font-size: 14px; font-weight: 700; color: var(--navy);">${isAgentView && deal.sub_agent_fee_amount ? formatCurrency(deal.sub_agent_fee_amount, 2) : '$0.00'}</div>
+                        </div>
+                    </div>` : ''}
+
+                    ${!isAgentView ? `<!-- Alliance Net Fee (Summary) -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; background: linear-gradient(135deg, #F5F3FF, #EDE9FE);">
+                        <div style="padding: 16px 20px; display: flex; align-items: center;">
+                            <span style="font-size: 12px; font-weight: 700; color: #6D28D9; text-transform: uppercase; letter-spacing: 0.5px;">Alliance Net Fee</span>
+                            <span style="font-size: 10px; color: #8B5CF6; margin-left: 8px;">(Gross - Agent - Referral)</span>
+                        </div>
+                        <div style="padding: 16px 20px;">
+                            <div id="feeAllianceNet" style="padding: 8px 12px; background: white; border: 2px solid #C4B5FD; border-radius: 6px; font-size: 16px; font-weight: 800; color: var(--navy); text-align: right;">$0.00</div>
+                        </div>
+                    </div>` : ''}
+
+                </div>
 
                 </div><!-- end admin-only sections 3-5 -->
 
@@ -27621,6 +28317,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 console.warn('Deal status notification failed (non-critical):', notifyErr);
             }
 
+            // AI Layer: Fire-and-forget red-flag scan when deal enters credit review
+            if (newStatus === 'In Credit') {
+                fetch((db.supabaseUrl || '').replace(/\/+$/, '') + '/functions/v1/detect-deal-red-flags', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (db.supabaseKey || '')
+                    },
+                    body: JSON.stringify({ deal_id: dealId })
+                }).catch(function(err) {
+                    console.warn('AI red-flag scan failed (non-blocking):', err.message);
+                });
+            }
+
             // Refresh the deals table and dashboard stats
             await loadDeals();
             await loadDashboard();
@@ -27749,12 +28459,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var subAgentGross = agentGross * subAgentPct / 100;
         var allianceNet = allianceGross - agentGross;
 
-        if (el('feeAllianceGross')) el('feeAllianceGross').textContent = formatCurrency(allianceGross);
-        if (el('feeAgentGross')) el('feeAgentGross').textContent = formatCurrency(agentGross);
-        if (el('feeSubAgentGross')) el('feeSubAgentGross').textContent = formatCurrency(subAgentGross);
-        if (el('feeAllianceNet')) el('feeAllianceNet').textContent = formatCurrency(allianceNet);
+        if (el('feeAllianceGross')) el('feeAllianceGross').textContent = formatCurrency(allianceGross, 2);
+        if (el('feeAgentGross')) el('feeAgentGross').textContent = formatCurrency(agentGross, 2);
+        if (el('feeSubAgentGross')) el('feeSubAgentGross').textContent = formatCurrency(subAgentGross, 2);
+        if (el('feeAllianceNet')) el('feeAllianceNet').textContent = formatCurrency(allianceNet, 2);
 
         return { allianceGross: allianceGross, agentGross: agentGross, subAgentGross: subAgentGross, allianceNet: allianceNet };
+    }
+
+    function recalcNetAmountFinanced(dealId) {
+        var el = function(id) { return document.getElementById(id); };
+        var equipCost = parseFloat(el('leaseEquipCost')?.value) || 0;
+        var downPayment = parseFloat(el('leaseDownPayment')?.value) || 0;
+        var brokerFee = parseFloat(el('leaseBrokerFee')?.value) || 0;
+        var docFee = parseFloat(el('leaseDocFee')?.value) || 0;
+        var netFinanced = equipCost - downPayment + brokerFee + docFee;
+        var netField = el('leaseNetFinanced');
+        if (netField) { netField.value = netFinanced > 0 ? netFinanced.toFixed(2) : ''; }
+        if (dealId) { updateDealField(dealId, 'net_amount_financed', netFinanced > 0 ? netFinanced : null); }
     }
 
     async function recalcAndSaveFees(dealId) {
@@ -32818,6 +33540,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var appRaw = item.raw;
                 if (item.isOverdue) {
                     actionHtml += '<button onclick="sendFollowUpEmail(\'' + appRaw.id + '\', \'' + (appRaw.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.application_type || '').replace(/'/g, "\\'") + '\')" style="padding:6px 14px;background:#F59E0B;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">Follow Up</button> ';
+                    actionHtml += '<button onclick="aiDraftFollowUp(\'' + appRaw.id + '\', \'' + (appRaw.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.application_type || '').replace(/'/g, "\\'") + '\', this)" style="padding:6px 14px;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">✨ AI Draft</button> ';
                 }
                 actionHtml += '<select onchange="updateAppSentStatus(\'' + appRaw.id + '\', this.value);setTimeout(loadReferralPipeline,500);" style="padding:5px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;cursor:pointer;">' +
                     '<option value="Sent"' + (appRaw.status === 'Sent' ? ' selected' : '') + '>Sent</option>' +
@@ -37003,9 +37726,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var isPinned = n.pinned === true;
 
             var isInboundReply = n.is_inbound_reply === true || n.type === 'email_reply';
+            var isAiDecision = n.type === 'ai_lender_decision' || n.is_ai_generated === true;
 
             var bgColor, borderColor, icon, badge;
-            if (isInboundReply) {
+            if (isAiDecision && n.ai_decision) {
+                // ── AI-Parsed Lender Decision ──
+                var decMap = {
+                    approved:    { bg: '#F0FDF4', border: '#22C55E', label: 'APPROVED',   lColor: '#166534', lBg: '#DCFCE7' },
+                    declined:    { bg: '#FEF2F2', border: '#EF4444', label: 'DECLINED',   lColor: '#991B1B', lBg: '#FEE2E2' },
+                    counter_offer: { bg: '#FFFBEB', border: '#F59E0B', label: 'COUNTER-OFFER', lColor: '#92400E', lBg: '#FEF3C7' },
+                    more_info_requested: { bg: '#EFF6FF', border: '#3B82F6', label: 'MORE INFO NEEDED', lColor: '#1E40AF', lBg: '#DBEAFE' },
+                    unclear:     { bg: '#F8FAFC', border: '#94A3B8', label: 'NEEDS REVIEW', lColor: '#475569', lBg: '#F1F5F9' }
+                };
+                var dec = n.ai_decision;
+                var dm = decMap[dec.decision] || decMap.unclear;
+                bgColor = dm.bg; borderColor = dm.border; icon = '🤖';
+                badge = '<span style="background:' + dm.lBg + ';color:' + dm.lColor + ';padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;margin-left:6px;">' + dm.label + '</span>' +
+                    '<span style="background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:3px;font-size:10px;margin-left:4px;">AI · ' + Math.round((dec.confidence || 0) * 100) + '% confidence</span>';
+                if (n.requires_admin_confirmation) {
+                    badge += '<span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:4px;">⚠ Needs Confirmation</span>';
+                }
+            } else if (isInboundReply) {
                 bgColor = '#EFF6FF'; borderColor = '#3B82F6'; icon = '📩';
                 badge = '<span style="background:#DBEAFE;color:#1E40AF;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:6px;">Inbound Reply</span>';
                 if (n.email_from_name || n.email_from) {
@@ -37069,9 +37810,213 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '</div>' +
                 emailMeta +
                 attachmentHtml +
-                '<div style="font-size:14px;color:var(--text-dark);white-space:pre-wrap;">' + (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+                // ── AI Decision Expanded Detail ──
+                (function() {
+                    if (!isAiDecision || !n.ai_decision) return '';
+                    var dec = n.ai_decision;
+                    var html = '<div class="ai-decision-detail" style="margin:8px 0 6px 0;padding:10px 12px;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;">';
+
+                    // Summary row
+                    html += '<div style="font-weight:600;color:#1E293B;margin-bottom:8px;font-size:13px;">' + (dec.summary || '') + '</div>';
+
+                    // Extracted terms (if any exist)
+                    var terms = dec.extracted_terms || {};
+                    var termParts = [];
+                    if (terms.loan_amount) termParts.push('<span style="color:#475569;">Amount:</span> <strong>' + terms.loan_amount + '</strong>');
+                    if (terms.rate) termParts.push('<span style="color:#475569;">Rate:</span> <strong>' + terms.rate + '</strong>');
+                    if (terms.term) termParts.push('<span style="color:#475569;">Term:</span> <strong>' + terms.term + '</strong>');
+                    if (terms.advance_rate) termParts.push('<span style="color:#475569;">Advance:</span> <strong>' + terms.advance_rate + '</strong>');
+                    if (terms.security) termParts.push('<span style="color:#475569;">Security:</span> <strong>' + terms.security + '</strong>');
+                    if (terms.fees) termParts.push('<span style="color:#475569;">Fees:</span> <strong>' + terms.fees + '</strong>');
+                    if (termParts.length > 0) {
+                        html += '<div style="display:flex;flex-wrap:wrap;gap:8px 16px;padding:8px 10px;background:#F8FAFC;border-radius:4px;margin-bottom:8px;">';
+                        termParts.forEach(function(t) { html += '<div>' + t + '</div>'; });
+                        html += '</div>';
+                    }
+
+                    // Conditions (if any)
+                    if (terms.conditions && terms.conditions.length > 0) {
+                        html += '<div style="margin-bottom:8px;"><span style="font-weight:600;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Conditions:</span>';
+                        html += '<ul style="margin:4px 0 0 16px;padding:0;color:#1E293B;">';
+                        terms.conditions.forEach(function(c) { html += '<li style="margin-bottom:2px;">' + c + '</li>'; });
+                        html += '</ul></div>';
+                    }
+
+                    // Questions asked by lender
+                    if (dec.questions_asked && dec.questions_asked.length > 0) {
+                        html += '<div style="margin-bottom:8px;"><span style="font-weight:600;color:#1E40AF;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Lender Questions:</span>';
+                        html += '<ol style="margin:4px 0 0 16px;padding:0;color:#1E293B;">';
+                        dec.questions_asked.forEach(function(q) { html += '<li style="margin-bottom:3px;">' + q + '</li>'; });
+                        html += '</ol></div>';
+                    }
+
+                    // Recommended next action
+                    if (dec.next_action) {
+                        html += '<div style="padding:6px 10px;background:#EFF6FF;border-left:3px solid #3B82F6;border-radius:0 4px 4px 0;margin-bottom:8px;">';
+                        html += '<span style="font-weight:600;color:#1E40AF;font-size:11px;">RECOMMENDED ACTION:</span> ';
+                        html += '<span style="color:#1E293B;">' + dec.next_action + '</span></div>';
+                    }
+
+                    // Admin action buttons
+                    html += '<div style="display:flex;gap:8px;margin-top:6px;">';
+                    if (n.requires_admin_confirmation) {
+                        html += '<button onclick="confirmAiDecision(this)" data-decision="' + (dec.decision || '') + '" data-note-index="' + (n._noteIndex || '') + '" style="padding:5px 14px;background:#22C55E;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background=\'#16A34A\'" onmouseout="this.style.background=\'#22C55E\'">Confirm Decision</button>';
+                        html += '<button onclick="overrideAiDecision(this)" data-note-index="' + (n._noteIndex || '') + '" style="padding:5px 14px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background=\'#E2E8F0\'" onmouseout="this.style.background=\'#F1F5F9\'">Override</button>';
+                    }
+                    html += '<button onclick="reparseAiDecision(this)" data-thread-id="' + (n.thread_id || '') + '" data-reply-id="' + (n.reply_id || '') + '" style="padding:5px 14px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background=\'#E2E8F0\'" onmouseout="this.style.background=\'#F1F5F9\'">Re-parse</button>';
+                    html += '</div>';
+
+                    // Collapsible reasoning (for debugging)
+                    if (dec.raw_reasoning) {
+                        html += '<details style="margin-top:8px;"><summary style="font-size:11px;color:#94A3B8;cursor:pointer;">View AI reasoning</summary>';
+                        html += '<div style="margin-top:4px;padding:8px;background:#F8FAFC;border-radius:4px;font-size:11px;color:#64748B;white-space:pre-wrap;">' + (dec.raw_reasoning || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                        html += '</details>';
+                    }
+
+                    // Model & timestamp footer
+                    if (dec.parsed_at || dec.model) {
+                        html += '<div style="margin-top:6px;font-size:10px;color:#94A3B8;">';
+                        if (dec.model) html += 'Model: ' + dec.model;
+                        if (dec.parsed_at) html += ' · Parsed: ' + new Date(dec.parsed_at).toLocaleString();
+                        html += '</div>';
+                    }
+
+                    html += '</div>';
+                    return html;
+                })() +
+                '<div style="font-size:14px;color:var(--text-dark);white-space:pre-wrap;">' + (isAiDecision && n.ai_decision ? '' : (n.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</div>' +
                 '</div>';
         }).join('');
+    }
+
+    // ── AI Decision Admin Actions ──────────────────────────
+    // These handlers work with the AI-parsed lender decision notes.
+
+    function confirmAiDecision(btn) {
+        var decision = btn.getAttribute('data-decision') || '';
+        if (!confirm('Confirm this AI-parsed decision as "' + decision.toUpperCase().replace(/_/g, ' ') + '"?\n\nThis will mark the decision as admin-confirmed.')) return;
+
+        // Update the note's visual state
+        var detailDiv = btn.closest('.ai-decision-detail');
+        if (detailDiv) {
+            var parentNote = detailDiv.parentElement;
+            if (parentNote) {
+                // Add confirmed badge
+                var header = parentNote.querySelector('div:first-child');
+                if (header) {
+                    var confirmBadge = document.createElement('span');
+                    confirmBadge.style.cssText = 'background:#DCFCE7;color:#166534;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:4px;';
+                    confirmBadge.textContent = '✓ Confirmed';
+                    // Remove the "Needs Confirmation" badge
+                    var badges = header.querySelectorAll('span');
+                    badges.forEach(function(s) { if (s.textContent.indexOf('Needs Confirmation') > -1) s.remove(); });
+                    header.appendChild(confirmBadge);
+                }
+            }
+        }
+
+        // Disable the confirm + override buttons
+        btn.disabled = true;
+        btn.textContent = '✓ Confirmed';
+        btn.style.background = '#86EFAC';
+        btn.style.cursor = 'default';
+        var overrideBtn = btn.parentElement.querySelector('[onclick*="overrideAiDecision"]');
+        if (overrideBtn) { overrideBtn.disabled = true; overrideBtn.style.opacity = '0.5'; }
+
+        // In a full implementation, this would call Supabase to update the note's
+        // requires_admin_confirmation flag. For now it updates the UI state.
+        showNotification('Decision confirmed as ' + decision.replace(/_/g, ' ').toUpperCase(), 'success');
+    }
+
+    function overrideAiDecision(btn) {
+        var options = ['approved', 'declined', 'counter_offer', 'more_info_requested', 'unclear'];
+        var choice = prompt(
+            'Override AI decision. Enter the correct decision:\n\n' +
+            '1 = Approved\n2 = Declined\n3 = Counter-Offer\n4 = More Info Requested\n5 = Unclear\n\n' +
+            'Enter number (1-5):'
+        );
+        if (!choice) return;
+        var idx = parseInt(choice) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= options.length) {
+            showNotification('Invalid selection. Please enter 1-5.', 'error');
+            return;
+        }
+        var newDecision = options[idx];
+
+        // Update the badge in the UI
+        var detailDiv = btn.closest('.ai-decision-detail');
+        if (detailDiv) {
+            var parentNote = detailDiv.parentElement;
+            if (parentNote) {
+                var header = parentNote.querySelector('div:first-child');
+                if (header) {
+                    // Remove old badges and add override badge
+                    var badges = header.querySelectorAll('span');
+                    badges.forEach(function(s) { if (s.textContent.indexOf('Needs Confirmation') > -1) s.remove(); });
+                    var overrideBadge = document.createElement('span');
+                    overrideBadge.style.cssText = 'background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:4px;';
+                    overrideBadge.textContent = '✏ Overridden → ' + newDecision.replace(/_/g, ' ').toUpperCase();
+                    header.appendChild(overrideBadge);
+                }
+            }
+        }
+
+        // Disable buttons
+        btn.disabled = true; btn.style.opacity = '0.5';
+        var confirmBtn = btn.parentElement.querySelector('[onclick*="confirmAiDecision"]');
+        if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '0.5'; }
+
+        showNotification('Decision overridden to ' + newDecision.replace(/_/g, ' ').toUpperCase(), 'success');
+    }
+
+    function reparseAiDecision(btn) {
+        var threadId = btn.getAttribute('data-thread-id') || '';
+        var replyId = btn.getAttribute('data-reply-id') || '';
+
+        if (!threadId && !replyId) {
+            showNotification('Cannot re-parse: no thread or reply ID available.', 'error');
+            return;
+        }
+        if (!confirm('Re-run AI parsing on this lender reply?\n\nThis will call Claude to re-analyze the email and may produce a different result.')) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Parsing...';
+        btn.style.background = '#DBEAFE';
+
+        // Call the extract-lender-decision edge function
+        var payload = {};
+        if (replyId) payload.reply_id = replyId;
+        else if (threadId) payload.thread_id = threadId;
+
+        var fnUrl = (window.SUPABASE_URL || '').replace(/\/+$/, '') + '/functions/v1/extract-lender-decision';
+        fetch(fnUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + (window.SUPABASE_ANON_KEY || '')
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(function(resp) { return resp.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showNotification('Re-parsed: ' + (data.decision || '').replace(/_/g, ' ').toUpperCase() + ' (' + Math.round((data.confidence || 0) * 100) + '% confidence)', 'success');
+                btn.textContent = '✓ Re-parsed';
+                btn.style.background = '#DCFCE7';
+                // Ideally refresh the notes panel here — for now admin can close/reopen the modal
+            } else {
+                showNotification('Re-parse failed: ' + (data.error || 'Unknown error'), 'error');
+                btn.textContent = 'Re-parse';
+                btn.disabled = false;
+                btn.style.background = '#F1F5F9';
+            }
+        })
+        .catch(function(err) {
+            showNotification('Re-parse error: ' + err.message, 'error');
+            btn.textContent = 'Re-parse';
+            btn.disabled = false;
+            btn.style.background = '#F1F5F9';
+        });
     }
 
     var _entityComposeType = {};
@@ -38051,8 +38996,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 html += '</div>';
             });
 
+            // AI Recommend button — sends top 10 candidates to Claude for narrative analysis
+            var topIds = matches.slice(0, 10).map(function(m) { return m.lender.id; });
+            html += '<div style="margin-top:12px;text-align:center;padding-top:12px;border-top:1px solid #E2E8F0;">';
+            html += '<button onclick="getAiLenderRecommendation(\'' + dealId + '\', ' + JSON.stringify(topIds) + ', this)" style="padding:8px 20px;background:linear-gradient(135deg,#C9A84C,#B8943F);color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">🤖 Get AI Analysis & Strategy</button>';
+            html += '<div style="font-size:10px;color:#94A3B8;margin-top:4px;">Claude will analyze top ' + Math.min(10, matches.length) + ' matches and recommend a syndication strategy</div>';
+            html += '</div>';
+
             html += '</div>';
             resultsPanel.innerHTML = html;
+
+            // If AI recommendations already exist, show them below
+            if (deal.ai_lender_matches) {
+                renderAiLenderRecommendations(dealId, deal.ai_lender_matches, resultsPanel);
+            }
 
         } catch (err) {
             console.error('Lender matching error:', err);
@@ -38075,6 +39032,112 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (err) {
             alert('Error assigning lender: ' + err.message);
         }
+    }
+
+    // ── AI Lender Recommendations ──────────────────────────
+
+    function getAiLenderRecommendation(dealId, candidateIds, btn) {
+        if (btn) { btn.disabled = true; btn.textContent = '🤖 Analyzing...'; }
+        fetch((db.supabaseUrl || '').replace(/\/+$/, '') + '/functions/v1/suggest-lender-matches', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (db.supabaseKey || '') },
+            body: JSON.stringify({ deal_id: dealId, candidate_lender_ids: candidateIds, force: true })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showNotification('AI recommends ' + (data.recommendation_count || 0) + ' lenders. Top: ' + (data.top_lender || 'N/A'), 'success');
+                // Refresh the deal to get updated ai_lender_matches
+                if (btn) { btn.textContent = '✓ Done'; btn.style.background = '#22C55E'; }
+                // Re-run the lender match to show AI results below
+                findMatchingLenders(dealId);
+            } else {
+                showNotification('AI analysis failed: ' + (data.error || 'Unknown'), 'error');
+                if (btn) { btn.disabled = false; btn.textContent = '🤖 Get AI Analysis & Strategy'; }
+            }
+        })
+        .catch(function(err) {
+            showNotification('AI error: ' + err.message, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = '🤖 Get AI Analysis & Strategy'; }
+        });
+    }
+
+    function renderAiLenderRecommendations(dealId, report, container) {
+        if (!report || !report.recommendations || report.recommendations.length === 0) return;
+
+        var html = '<div style="margin-top:16px;background:linear-gradient(135deg,#FDF4E7,#FEF3C7);border-radius:10px;padding:16px;border:1px solid #C9A84C;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+        html += '<strong style="color:#92400E;font-size:15px;">🎯 AI Syndication Strategy</strong>';
+        html += '<span style="font-size:10px;color:#94A3B8;">' + (report.generated_at ? new Date(report.generated_at).toLocaleString() : '') + '</span>';
+        html += '</div>';
+
+        // Strategy notes
+        if (report.strategy_notes) {
+            html += '<div style="padding:10px 12px;background:white;border-radius:6px;border-left:3px solid #C9A84C;margin-bottom:12px;font-size:13px;color:#1E293B;">';
+            html += '<strong style="color:#92400E;font-size:11px;text-transform:uppercase;">Strategy:</strong> ' + report.strategy_notes;
+            html += '</div>';
+        }
+
+        // Deal positioning
+        if (report.deal_positioning) {
+            html += '<div style="padding:10px 12px;background:white;border-radius:6px;border-left:3px solid #3B82F6;margin-bottom:12px;font-size:13px;color:#1E293B;">';
+            html += '<strong style="color:#1E40AF;font-size:11px;text-transform:uppercase;">Positioning:</strong> ' + report.deal_positioning;
+            html += '</div>';
+        }
+
+        // Ranked recommendations
+        report.recommendations.forEach(function(rec) {
+            var fitColor = rec.fit_score >= 80 ? '#22C55E' : rec.fit_score >= 60 ? '#F59E0B' : rec.fit_score >= 40 ? '#F97316' : '#EF4444';
+
+            html += '<div style="background:white;border:1px solid #E2E8F0;border-radius:8px;padding:12px 14px;margin-bottom:8px;' + (rec.rank === 1 ? 'border-color:#C9A84C;border-width:2px;' : '') + '">';
+
+            // Header
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+            html += '<div>';
+            html += '<span style="background:#0D1E3D;color:#C9A84C;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin-right:6px;">#' + rec.rank + '</span>';
+            html += '<strong style="font-size:14px;color:#0D1E3D;">' + rec.lender_name + '</strong>';
+            html += '</div>';
+            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<div style="width:60px;height:6px;background:#E2E8F0;border-radius:3px;overflow:hidden;"><div style="width:' + rec.fit_score + '%;height:100%;background:' + fitColor + ';border-radius:3px;"></div></div>';
+            html += '<strong style="color:' + fitColor + ';font-size:13px;">' + rec.fit_score + '%</strong>';
+            html += '</div></div>';
+
+            // Reasoning
+            html += '<div style="font-size:12px;color:#334155;margin-bottom:6px;">' + rec.reasoning + '</div>';
+
+            // Approach strategy
+            if (rec.approach_strategy) {
+                html += '<div style="font-size:11px;color:#1E40AF;background:#EFF6FF;padding:4px 8px;border-radius:4px;display:inline-block;margin-bottom:4px;">→ ' + rec.approach_strategy + '</div>';
+            }
+
+            // Concerns
+            if (rec.potential_concerns && rec.potential_concerns.length > 0) {
+                html += '<div style="font-size:11px;color:#92400E;margin-top:4px;">';
+                rec.potential_concerns.forEach(function(c) { html += '<span style="margin-right:8px;">⚠ ' + c + '</span>'; });
+                html += '</div>';
+            }
+
+            // Assign button
+            html += '<div style="margin-top:6px;text-align:right;">';
+            html += '<button onclick="assignLenderFromMatch(\'' + dealId + '\', \'' + rec.lender_id + '\', \'' + rec.lender_name.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:#0D1E3D;color:white;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">Assign</button>';
+            html += '</div>';
+
+            html += '</div>';
+        });
+
+        // Collapsible reasoning
+        if (report.raw_reasoning) {
+            html += '<details style="margin-top:6px;"><summary style="font-size:11px;color:#94A3B8;cursor:pointer;">View AI reasoning</summary>';
+            html += '<div style="margin-top:4px;padding:8px;background:white;border-radius:4px;font-size:11px;color:#64748B;white-space:pre-wrap;">' + (report.raw_reasoning || '').replace(/</g, '&lt;') + '</div>';
+            html += '</details>';
+        }
+
+        html += '</div>';
+
+        // Append to container
+        var aiDiv = document.createElement('div');
+        aiDiv.innerHTML = html;
+        container.appendChild(aiDiv);
     }
 
     // ============================================
@@ -44021,12 +45084,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Legacy bell icon, polling checks, nav badges, and localStorage-based notifications have been removed.
     // ===== END LEGACY NOTIFICATION SYSTEM =====
 
-    function formatCurrency(value) {
+    function formatCurrency(value, decimals) {
+        var d = typeof decimals === 'number' ? decimals : 0;
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
+            minimumFractionDigits: d,
+            maximumFractionDigits: d
         }).format(value);
     }
 
