@@ -6244,13 +6244,15 @@ if (location.hostname === 'alliancefinancing.ai') {
             await Promise.all([
                 loadDashboard().catch(function(e) { console.error('loadDashboard error:', e); }),
                 loadNotifications().catch(function(e) { console.error('loadNotifications error:', e); }),
-                loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); }),
-                loadDeals().catch(function(e) { console.error('loadDeals error:', e); })
+                loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); })
             ]);
 
             // NOW show the app (data is loaded, no more $0 flash)
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('appContainer').style.display = 'flex';
+
+            // Load deals AFTER app is visible (populates Command Center stats + Deal Pipeline)
+            loadDeals().catch(function(e) { console.error('loadDeals error:', e); });
 
             // Route vendor users to vendor portal (but not admin users)
             if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !['super_admin', 'admin'].includes(currentUserRole)) {
