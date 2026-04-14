@@ -20968,6 +20968,28 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     if (hasUnread) unreadHtml = '<span style="display:inline-block;width:8px;height:8px;background:#dc3545;border-radius:50%;margin-left:4px;" title="New update"></span>';
                 } catch(e) {}
 
+                // Show commission on late-stage deals
+                var commissionHtml = '';
+                var lateStages = ['Approved', 'Approval sent', 'Docs requested', 'Docs out for signing', 'In funding', 'Funded'];
+                if (lateStages.includes(deal.status)) {
+                    var commAmt = parseFloat(deal.agent_fee_amount) || 0;
+                    if (commAmt > 0) {
+                        commissionHtml = '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:6px 8px;margin-top:6px;display:flex;justify-content:space-between;align-items:center;">' +
+                            '<span style="font-size:10px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.3px;">Your Commission</span>' +
+                            '<span style="font-size:13px;font-weight:700;color:#92400E;">' + formatCurrency(commAmt, 2) + '</span>' +
+                        '</div>';
+                    } else if (deal.agent_fee_pct && deal.amount_funded) {
+                        // Calculate from percentages if agent_fee_amount not yet saved
+                        var estComm = (parseFloat(deal.amount_funded) || 0) * (parseFloat(deal.alliance_fee_pct) || 0) / 100 * (parseFloat(deal.agent_fee_pct) || 0) / 100;
+                        if (estComm > 0) {
+                            commissionHtml = '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:6px 8px;margin-top:6px;display:flex;justify-content:space-between;align-items:center;">' +
+                                '<span style="font-size:10px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.3px;">Est. Commission</span>' +
+                                '<span style="font-size:13px;font-weight:700;color:#92400E;">' + formatCurrency(estComm, 2) + '</span>' +
+                            '</div>';
+                        }
+                    }
+                }
+
                 html += '<div class="kanban-card" style="cursor:pointer;" onclick="openDealSlideout(\'' + deal.id + '\')">' +
                     getHealthDot(health.level) +
                     '<div class="kc-company">' + (deal.company_name || 'N/A') + unreadHtml + '</div>' +
@@ -20978,6 +21000,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         '<div class="kc-docs-bar" style="flex:1;" title="Docs: ' + docPct + '%"><div class="fill" style="width:' + docPct + '%;background:' + docColor + ';"></div></div>' +
                         '<span style="font-size:10px;font-weight:700;color:' + docColor + ';">' + docPct + '%</span>' +
                     '</div>' +
+                    commissionHtml +
                     missingDocsHtml +
                 '</div>';
             });
@@ -28309,6 +28332,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         await notifyReferringAgent(deal, 'in_credit');
                     } else if (newStatus === 'Approved') {
                         await notifyReferringAgent(deal, 'approved');
+                    } else if (newStatus === 'In funding') {
+                        await notifyReferringAgent(deal, 'in_funding');
                     } else if (newStatus === 'Funded') {
                         await notifyReferringAgent(deal, 'funded');
                     }
@@ -36245,13 +36270,37 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     `;
                     break;
 
+                case 'in_funding':
+                    subject = clientName + '\'s deal is now In Funding!';
+                    var commissionNote = '';
+                    if (application.agent_fee_amount) {
+                        commissionNote = '<tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#FFFBEB;width:140px;">Your Commission</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:700;color:#92400E;">' + formatCurrency(application.agent_fee_amount, 2) + '</td></tr>';
+                    }
+                    bodyContent = `
+                        <p>Great news, ${agent.full_name || 'Partner'}!</p>
+                        <p>Your client <strong>${clientName}</strong>'s deal ${appId ? '(' + appId + ')' : ''} has moved to <strong>In Funding</strong>. The lender is processing the final funding steps.</p>
+                        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+                            <tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;width:140px;">Deal Amount</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">${amount}</td></tr>
+                            ${commissionNote}
+                        </table>
+                        <p>You can track the status and your commission details in your <strong>Alliance Dashboard</strong>.</p>
+                    `;
+                    break;
+
                 case 'funded':
                     subject = 'Congratulations! ' + clientName + '\'s deal has been Funded!';
+                    var fundedCommNote = '';
+                    if (application.agent_fee_amount) {
+                        fundedCommNote = '<tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#FFFBEB;width:140px;">Your Commission</td><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:700;color:#065F46;">' + formatCurrency(application.agent_fee_amount, 2) + '</td></tr>';
+                    }
                     bodyContent = `
                         <p>Great news, ${agent.full_name || 'Partner'}!</p>
                         <p>Your client <strong>${clientName}</strong>'s deal ${appId ? '(' + appId + ')' : ''} has been <strong>successfully funded</strong>!</p>
-                        <p><strong>Funded Amount:</strong> ${amount}</p>
-                        <p>Commission details will be available in your dashboard shortly. Thank you for this referral!</p>
+                        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+                            <tr><td style="padding:8px 12px;border:1px solid #E5E7EB;font-weight:600;background:#F9FAFB;width:140px;">Funded Amount</td><td style="padding:8px 12px;border:1px solid #E5E7EB;">${amount}</td></tr>
+                            ${fundedCommNote}
+                        </table>
+                        <p>${application.agent_fee_amount ? 'Your commission is shown above and is also visible in your dashboard.' : 'Commission details will be available in your dashboard shortly.'} Thank you for this referral!</p>
                     `;
                     break;
 
