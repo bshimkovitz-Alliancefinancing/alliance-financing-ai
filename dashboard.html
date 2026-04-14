@@ -24,11 +24,9 @@
             --info: #3B82F6;
         }
 
-        /* Notification card hover & dismiss */
-        .notif-card { background: white; transition: box-shadow 0.15s, opacity 0.35s ease, transform 0.35s ease; }
-        .notif-card:hover { background: #F1F5F9 !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        /* Notification card hover & dismiss — hover handled by JS onmouseenter/onmouseleave */
+        .notif-card { background: white; transition: opacity 0.35s ease, transform 0.35s ease; }
         .notif-card.notif-action { background: #FFFDF7 !important; }
-        .notif-card.notif-action:hover { background: #FFF9EC !important; }
         .notif-card.notif-dismissing { opacity: 0; transform: translateX(40px); pointer-events: none; }
         .notif-card .notif-dismiss { transition: all 0.15s; }
         .notif-card .notif-dismiss:hover { color: #10B981 !important; border-color: #10B981 !important; background: #ECFDF5 !important; }
@@ -11191,8 +11189,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             var isAction = n.category === 'action';
             var borderColor = isAction ? '#F59E0B' : '#E2E8F0';
+            var hoverBg = isAction ? '#FFF9EC' : '#F1F5F9';
+            var baseBg = isAction ? '#FFFDF7' : 'white';
             var cardClasses = 'notif-card' + (isAction ? ' notif-action' : '');
-            html += '<div class="' + cardClasses + '" data-notif-index="' + i + '" style="border-radius:10px;border:1px solid ' + borderColor + ';' +
+            html += '<div class="' + cardClasses + '" data-notif-index="' + i + '"' +
+                ' onmouseenter="this.style.background=\'' + hoverBg + '\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'"' +
+                ' onmouseleave="this.style.background=\'' + baseBg + '\';this.style.boxShadow=\'none\'"' +
+                ' style="border-radius:10px;border:1px solid ' + borderColor + ';' +
                 (isAction ? 'border-left:4px solid #F59E0B;' : '') +
                 'padding:14px 18px;display:flex;align-items:center;gap:14px;position:relative;">';
 
