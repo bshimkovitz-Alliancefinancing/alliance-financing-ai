@@ -1279,6 +1279,10 @@
                 <span class="nav-icon">👤</span>
                 <span>Team</span>
             </div>
+            <div class="nav-item" id="agreementsNav" onclick="showPage('agreements-library')" style="display: none;">
+                <span class="nav-icon">📋</span>
+                <span>Agreements</span>
+            </div>
             <div class="nav-item" id="vendorToolsNav" onclick="showPage('vendorTools')" style="display: none;">
                 <span class="nav-icon">🛠</span>
                 <span>Info & Quoting Tools</span>
@@ -6022,6 +6026,194 @@
 </div>
 
 
+<!-- ============================================================
+     AGREEMENTS LIBRARY SECTION
+     ============================================================ -->
+<div id="agreements-library" class="page-section" style="display:none;">
+
+    <!-- Header -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <div>
+            <h2 style="margin:0; color:#1a1a2e; font-size:22px;">Agreements Library</h2>
+            <p style="margin:4px 0 0; color:#888; font-size:13px;">Manage document templates and send agreements for signature</p>
+        </div>
+        <button onclick="openTemplateEditor()"
+                style="background:#C9A84C; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer; font-size:14px;">
+            + New Template
+        </button>
+    </div>
+
+    <!-- Filter Bar -->
+    <div style="display:flex; gap:12px; margin-bottom:20px; align-items:center;">
+        <input type="text" id="templateSearch" placeholder="Search templates..."
+               oninput="filterTemplates()"
+               style="flex:1; padding:10px 14px; border:1px solid #ddd; border-radius:8px; font-size:14px; max-width:300px;">
+        <select id="templateTypeFilter" onchange="filterTemplates()"
+                style="padding:10px 14px; border:1px solid #ddd; border-radius:8px; font-size:14px; background:#fff;">
+            <option value="all">All Types</option>
+            <option value="nda">NDA / Confidentiality</option>
+            <option value="engagement_letter">Engagement Letter</option>
+            <option value="broker_fee">Broker Fee Agreement</option>
+            <option value="vendor_agreement">Vendor Agreement</option>
+            <option value="custom">Custom</option>
+        </select>
+    </div>
+
+    <!-- Template Cards Grid -->
+    <div id="templatesGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
+    </div>
+
+    <!-- Empty State -->
+    <div id="templatesEmpty" style="display:none; text-align:center; padding:60px 20px; color:#888;">
+        <div style="font-size:48px; margin-bottom:16px;">📋</div>
+        <h3 style="margin:0 0 8px; color:#555;">No Templates Yet</h3>
+        <p style="margin:0 0 20px;">Create your first agreement template to get started.</p>
+        <button onclick="openTemplateEditor()"
+                style="background:#C9A84C; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer;">
+            + New Template
+        </button>
+    </div>
+</div>
+
+<!-- ============================================================
+     TEMPLATE EDITOR MODAL
+     ============================================================ -->
+<div id="templateEditorModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:10000; overflow-y:auto;">
+    <div style="max-width:900px; margin:40px auto; background:#fff; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid #eee;">
+            <h3 id="templateEditorTitle" style="margin:0; color:#1a1a2e; font-size:18px;">New Agreement Template</h3>
+            <button onclick="closeTemplateEditor()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#888;">&times;</button>
+        </div>
+        <div style="padding:24px;">
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-weight:600; margin-bottom:6px; color:#333; font-size:13px;">Template Name</label>
+                <input type="text" id="templateName" placeholder="e.g., Confidentiality Agreement"
+                       style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-weight:600; margin-bottom:6px; color:#333; font-size:13px;">Type</label>
+                <select id="templateType" style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:8px; font-size:14px; background:#fff;">
+                    <option value="nda">NDA / Confidentiality Agreement</option>
+                    <option value="engagement_letter">Engagement Letter</option>
+                    <option value="broker_fee">Broker Fee Agreement</option>
+                    <option value="vendor_agreement">Vendor Agreement</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </div>
+            <div style="background:#f0f4ff; border:1px solid #d0d8f0; border-radius:8px; padding:14px; margin-bottom:16px;">
+                <p style="margin:0; font-size:13px; color:#555;">
+                    <strong>Placeholders:</strong> Use <code style="background:#e8e8e8; padding:2px 6px; border-radius:3px;">{{placeholder_name}}</code> tokens in your template HTML.
+                    These will be auto-populated from deal/client/agent data when sending.
+                </p>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-weight:600; margin-bottom:6px; color:#333; font-size:13px;">Template HTML</label>
+                <textarea id="templateHtml" rows="20"
+                          style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:13px; font-family:monospace; box-sizing:border-box; resize:vertical;"
+                          placeholder="Paste or write the agreement HTML here. Use {{placeholders}} for auto-populated fields."></textarea>
+            </div>
+            <div style="margin-bottom:16px;">
+                <button onclick="toggleTemplatePreview()"
+                        style="background:#f5f5f5; border:1px solid #ddd; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;">
+                    Toggle Preview
+                </button>
+            </div>
+            <div id="templatePreview" style="display:none; border:1px solid #ddd; border-radius:8px; padding:24px; max-height:400px; overflow-y:auto; background:#fafafa;">
+            </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:12px; padding:16px 24px; border-top:1px solid #eee;">
+            <button onclick="closeTemplateEditor()"
+                    style="background:#f5f5f5; border:1px solid #ddd; padding:10px 20px; border-radius:8px; cursor:pointer; font-size:14px;">
+                Cancel
+            </button>
+            <button onclick="saveTemplate()"
+                    style="background:#C9A84C; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer; font-size:14px;">
+                Save Template
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     SEND AGREEMENT MODAL
+     ============================================================ -->
+<div id="sendAgreementModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:10001; overflow-y:auto;">
+    <div style="max-width:800px; margin:40px auto; background:#fff; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid #eee;">
+            <h3 id="sendAgreementTitle" style="margin:0; color:#1a1a2e; font-size:18px;">Send Agreement for Signature</h3>
+            <button onclick="closeSendAgreement()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#888;">&times;</button>
+        </div>
+        <div style="display:flex; padding:16px 24px; background:#f9f9f9; border-bottom:1px solid #eee;">
+            <div id="sendStep1Indicator" style="flex:1; text-align:center; font-size:13px; font-weight:600; color:#C9A84C;">1. Select Template</div>
+            <div id="sendStep2Indicator" style="flex:1; text-align:center; font-size:13px; font-weight:600; color:#ccc;">2. Recipient & Fields</div>
+            <div id="sendStep3Indicator" style="flex:1; text-align:center; font-size:13px; font-weight:600; color:#ccc;">3. Preview & Send</div>
+        </div>
+        <div id="sendStep1" style="padding:24px;">
+            <label style="display:block; font-weight:600; margin-bottom:8px; color:#333;">Select Agreement</label>
+            <select id="sendTemplateSelect" onchange="onSendTemplateSelected()"
+                    style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:8px; font-size:14px; background:#fff;">
+                <option value="">-- Choose a template --</option>
+            </select>
+            <div id="sendTemplateDescription" style="margin-top:12px; color:#666; font-size:13px;"></div>
+            <div style="text-align:right; margin-top:20px;">
+                <button onclick="sendStepNext(2)" id="sendStep1Next" disabled
+                        style="background:#C9A84C; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer; opacity:0.5;">
+                    Next &rarr;
+                </button>
+            </div>
+        </div>
+        <div id="sendStep2" style="display:none; padding:24px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+                <div>
+                    <label style="display:block; font-weight:600; margin-bottom:6px; color:#333; font-size:13px;">Recipient Name</label>
+                    <input type="text" id="sendRecipientName" placeholder="e.g., David Farris"
+                           style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="display:block; font-weight:600; margin-bottom:6px; color:#333; font-size:13px;">Recipient Email</label>
+                    <input type="text" id="sendRecipientEmail" placeholder="e.g., david@farcanintl.com"
+                           style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box;">
+                </div>
+            </div>
+            <div id="sendPlaceholderFields" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            </div>
+            <div style="margin-top:20px; padding-top:16px; border-top:1px solid #eee;">
+                <label style="display:block; font-weight:600; margin-bottom:6px; color:#333; font-size:13px;">Link to (optional)</label>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                    <select id="sendLinkDeal" style="padding:10px; border:1px solid #ddd; border-radius:8px; font-size:13px; background:#fff;">
+                        <option value="">-- Deal --</option>
+                    </select>
+                    <select id="sendLinkClient" style="padding:10px; border:1px solid #ddd; border-radius:8px; font-size:13px; background:#fff;">
+                        <option value="">-- Client --</option>
+                    </select>
+                    <select id="sendLinkAgent" style="padding:10px; border:1px solid #ddd; border-radius:8px; font-size:13px; background:#fff;">
+                        <option value="">-- Agent --</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:20px;">
+                <button onclick="sendStepNext(1)" style="background:#f5f5f5; border:1px solid #ddd; padding:10px 20px; border-radius:8px; cursor:pointer;">&larr; Back</button>
+                <button onclick="sendStepNext(3)" style="background:#C9A84C; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer;">Next &rarr; Preview</button>
+            </div>
+        </div>
+        <div id="sendStep3" style="display:none; padding:24px;">
+            <div style="background:#f0f8f0; border:1px solid #c0e0c0; border-radius:8px; padding:12px 16px; margin-bottom:16px;">
+                <strong style="color:#2e7d32;">Ready to send</strong>
+                <span id="sendPreviewRecipient" style="color:#555;"></span>
+            </div>
+            <div id="sendPreviewDocument" style="border:1px solid #ddd; border-radius:8px; padding:24px; max-height:500px; overflow-y:auto; background:#fff; font-size:14px; line-height:1.6;">
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:20px;">
+                <button onclick="sendStepNext(2)" style="background:#f5f5f5; border:1px solid #ddd; padding:10px 20px; border-radius:8px; cursor:pointer;">&larr; Back</button>
+                <button onclick="sendAgreementForSignature()" id="sendFinalButton"
+                        style="background:#2e7d32; color:#fff; border:none; padding:12px 28px; border-radius:8px; font-weight:600; cursor:pointer; font-size:15px;">
+                    &#9993; Send for Signature
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- WWW Canonical Enforcer — keep Supabase session on one origin -->
 <script>
 if (location.hostname === 'alliancefinancing.ai') {
@@ -6498,6 +6690,12 @@ if (location.hostname === 'alliancefinancing.ai') {
         var vendorResourcesNav = document.getElementById('vendorResourcesNav');
         if (vendorResourcesNav) {
             vendorResourcesNav.style.display = isAdmin ? 'flex' : 'none';
+        }
+
+        // Show Agreements Library for admins only
+        var agreementsNav = document.getElementById('agreementsNav');
+        if (agreementsNav) {
+            agreementsNav.style.display = isAdmin ? 'flex' : 'none';
         }
 
         // Hide lender column from agents in pipeline table
@@ -18519,6 +18717,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var _sg = document.querySelector('#statsReports > .stats-grid');
             if (_sg) _sg.style.display = 'none';
         }
+
+        // Load Agreements Library when selected
+        if (pageName === 'agreements-library') { loadAgreementsLibrary(); }
 
         // Load page data
         loadPageData(pageName);
@@ -45549,6 +45750,354 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
         });
     }
+
+    // ============================================================
+    // AGREEMENTS LIBRARY — JavaScript Functions
+    // ============================================================
+
+    let allTemplatesAL = [];
+    let editingTemplateIdAL = null;
+    let sendSelectedTemplateAL = null;
+
+    async function loadAgreementsLibrary() {
+        try {
+            const { data, error } = await supabase
+                .from('document_templates')
+                .select('*')
+                .order('template_name');
+            if (error) throw error;
+            allTemplatesAL = data || [];
+            renderTemplateCards(allTemplatesAL);
+        } catch (err) {
+            console.error('Error loading templates:', err);
+        }
+    }
+
+    function renderTemplateCards(templates) {
+        const grid = document.getElementById('templatesGrid');
+        const empty = document.getElementById('templatesEmpty');
+        if (!templates || templates.length === 0) {
+            grid.style.display = 'none';
+            empty.style.display = 'block';
+            return;
+        }
+        grid.style.display = 'grid';
+        empty.style.display = 'none';
+        const typeLabels = {
+            nda: { label: 'NDA', color: '#2E5090' },
+            engagement_letter: { label: 'Engagement Letter', color: '#7B2D8E' },
+            broker_fee: { label: 'Broker Fee', color: '#C9A84C' },
+            vendor_agreement: { label: 'Vendor Agreement', color: '#2e7d32' },
+            custom: { label: 'Custom', color: '#666' }
+        };
+        grid.innerHTML = templates.map(t => {
+            const type = typeLabels[t.template_type] || typeLabels.custom;
+            const placeholderCount = (t.placeholders || []).length;
+            const updated = new Date(t.updated_at).toLocaleDateString('en-CA');
+            return '<div style="border:1px solid #e0e0e0; border-radius:12px; padding:20px; background:#fff; transition:box-shadow 0.2s; cursor:default;" ' +
+                'onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" onmouseout="this.style.boxShadow=\'none\'">' +
+                '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">' +
+                '<span style="background:' + type.color + '; color:#fff; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">' + type.label + '</span>' +
+                '<span style="color:#aaa; font-size:11px;">' + (t.is_active ? '&#10003; Active' : 'Inactive') + '</span></div>' +
+                '<h4 style="margin:0 0 8px; color:#1a1a2e; font-size:16px;">' + escapeHtmlAL(t.template_name) + '</h4>' +
+                '<p style="margin:0 0 16px; color:#888; font-size:12px;">' + placeholderCount + ' placeholder' + (placeholderCount !== 1 ? 's' : '') + ' &middot; Updated ' + updated + '</p>' +
+                '<div style="display:flex; gap:8px;">' +
+                '<button onclick="openSendAgreement(\'' + t.id + '\')" style="flex:1; background:#2e7d32; color:#fff; border:none; padding:8px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;">Send &#9993;</button>' +
+                '<button onclick="openTemplateEditor(\'' + t.id + '\')" style="background:#f5f5f5; border:1px solid #ddd; padding:8px 12px; border-radius:6px; font-size:13px; cursor:pointer;">Edit</button>' +
+                '<button onclick="toggleTemplateActive(\'' + t.id + '\', ' + !t.is_active + ')" style="background:#f5f5f5; border:1px solid #ddd; padding:8px 12px; border-radius:6px; font-size:13px; cursor:pointer;">' + (t.is_active ? 'Pause' : 'Activate') + '</button>' +
+                '</div></div>';
+        }).join('');
+    }
+
+    function filterTemplates() {
+        const search = (document.getElementById('templateSearch').value || '').toLowerCase();
+        const typeFilter = document.getElementById('templateTypeFilter').value;
+        let filtered = allTemplatesAL.filter(t => {
+            const matchesSearch = !search || t.template_name.toLowerCase().includes(search);
+            const matchesType = typeFilter === 'all' || t.template_type === typeFilter;
+            return matchesSearch && matchesType;
+        });
+        renderTemplateCards(filtered);
+    }
+
+    function escapeHtmlAL(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function openTemplateEditor(templateId) {
+        editingTemplateIdAL = templateId || null;
+        const modal = document.getElementById('templateEditorModal');
+        const title = document.getElementById('templateEditorTitle');
+        if (templateId) {
+            const t = allTemplatesAL.find(x => x.id === templateId);
+            if (!t) return;
+            title.textContent = 'Edit Template: ' + t.template_name;
+            document.getElementById('templateName').value = t.template_name;
+            document.getElementById('templateType').value = t.template_type;
+            document.getElementById('templateHtml').value = t.template_html;
+        } else {
+            title.textContent = 'New Agreement Template';
+            document.getElementById('templateName').value = '';
+            document.getElementById('templateType').value = 'nda';
+            document.getElementById('templateHtml').value = '';
+        }
+        document.getElementById('templatePreview').style.display = 'none';
+        modal.style.display = 'block';
+    }
+
+    function closeTemplateEditor() {
+        document.getElementById('templateEditorModal').style.display = 'none';
+        editingTemplateIdAL = null;
+    }
+
+    function toggleTemplatePreview() {
+        const preview = document.getElementById('templatePreview');
+        const html = document.getElementById('templateHtml').value;
+        if (preview.style.display === 'none') {
+            preview.innerHTML = html;
+            preview.style.display = 'block';
+        } else {
+            preview.style.display = 'none';
+        }
+    }
+
+    async function saveTemplate() {
+        const name = document.getElementById('templateName').value.trim();
+        const type = document.getElementById('templateType').value;
+        const html = document.getElementById('templateHtml').value.trim();
+        if (!name || !html) {
+            alert('Please provide a template name and HTML content.');
+            return;
+        }
+        const placeholderRegex = /\{\{(\w+)\}\}/g;
+        const foundPlaceholders = [];
+        const seen = new Set();
+        let match;
+        while ((match = placeholderRegex.exec(html)) !== null) {
+            if (!seen.has(match[1])) {
+                seen.add(match[1]);
+                foundPlaceholders.push({
+                    key: match[1],
+                    label: match[1].replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                    source_field: match[1],
+                    default_value: ''
+                });
+            }
+        }
+        try {
+            const record = {
+                template_name: name,
+                template_type: type,
+                template_html: html,
+                placeholders: foundPlaceholders
+            };
+            let result;
+            if (editingTemplateIdAL) {
+                result = await supabase.from('document_templates').update(record).eq('id', editingTemplateIdAL);
+            } else {
+                result = await supabase.from('document_templates').insert(record);
+            }
+            if (result.error) throw result.error;
+            closeTemplateEditor();
+            await loadAgreementsLibrary();
+            showToast(editingTemplateIdAL ? 'Template updated' : 'Template created', 'success');
+        } catch (err) {
+            console.error('Error saving template:', err);
+            alert('Error saving template: ' + err.message);
+        }
+    }
+
+    async function toggleTemplateActive(templateId, newState) {
+        try {
+            const { error } = await supabase.from('document_templates').update({ is_active: newState }).eq('id', templateId);
+            if (error) throw error;
+            await loadAgreementsLibrary();
+            showToast(newState ? 'Template activated' : 'Template deactivated', 'success');
+        } catch (err) {
+            console.error('Error toggling template:', err);
+        }
+    }
+
+    async function openSendAgreement(templateId) {
+        sendSelectedTemplateAL = templateId ? allTemplatesAL.find(x => x.id === templateId) : null;
+        const select = document.getElementById('sendTemplateSelect');
+        const activeTemplates = allTemplatesAL.filter(t => t.is_active);
+        select.innerHTML = '<option value="">-- Choose a template --</option>' +
+            activeTemplates.map(t => '<option value="' + t.id + '"' + (t.id === templateId ? ' selected' : '') + '>' + escapeHtmlAL(t.template_name) + '</option>').join('');
+        await populateLinkDropdowns();
+        if (sendSelectedTemplateAL) {
+            onSendTemplateSelected();
+        }
+        sendStepNext(1);
+        document.getElementById('sendAgreementModal').style.display = 'block';
+    }
+
+    function closeSendAgreement() {
+        document.getElementById('sendAgreementModal').style.display = 'none';
+        sendSelectedTemplateAL = null;
+    }
+
+    function onSendTemplateSelected() {
+        const select = document.getElementById('sendTemplateSelect');
+        const id = select.value;
+        const btn = document.getElementById('sendStep1Next');
+        if (id) {
+            sendSelectedTemplateAL = allTemplatesAL.find(t => t.id === id);
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            document.getElementById('sendTemplateDescription').textContent =
+                'Type: ' + sendSelectedTemplateAL.template_type + ' | ' + (sendSelectedTemplateAL.placeholders || []).length + ' fields to populate';
+        } else {
+            sendSelectedTemplateAL = null;
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            document.getElementById('sendTemplateDescription').textContent = '';
+        }
+    }
+
+    function sendStepNext(step) {
+        document.getElementById('sendStep1').style.display = 'none';
+        document.getElementById('sendStep2').style.display = 'none';
+        document.getElementById('sendStep3').style.display = 'none';
+        ['sendStep1Indicator', 'sendStep2Indicator', 'sendStep3Indicator'].forEach(function(id, i) {
+            document.getElementById(id).style.color = (i + 1) <= step ? '#C9A84C' : '#ccc';
+        });
+        if (step === 2 && sendSelectedTemplateAL) {
+            var container = document.getElementById('sendPlaceholderFields');
+            var placeholders = sendSelectedTemplateAL.placeholders || [];
+            container.innerHTML = placeholders.map(function(p) {
+                return '<div><label style="display:block; font-weight:600; margin-bottom:6px; color:#333; font-size:13px;">' + escapeHtmlAL(p.label) + '</label>' +
+                    '<input type="text" id="ph_' + p.key + '" value="' + escapeHtmlAL(p.default_value || '') + '" placeholder="' + escapeHtmlAL(p.label) + '" ' +
+                    'style="width:100%; padding:10px 14px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box;"></div>';
+            }).join('');
+        }
+        if (step === 3 && sendSelectedTemplateAL) {
+            var html = sendSelectedTemplateAL.template_html;
+            var placeholders = sendSelectedTemplateAL.placeholders || [];
+            placeholders.forEach(function(p) {
+                var input = document.getElementById('ph_' + p.key);
+                var value = input ? input.value : (p.default_value || '');
+                html = html.replace(new RegExp('\\{\\{' + p.key + '\\}\\}', 'g'), escapeHtmlAL(value));
+            });
+            var today = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+            html = html.replace(/\{\{date\}\}/g, today);
+            document.getElementById('sendPreviewDocument').innerHTML = html;
+            var recipientName = document.getElementById('sendRecipientName').value;
+            var recipientEmail = document.getElementById('sendRecipientEmail').value;
+            document.getElementById('sendPreviewRecipient').textContent =
+                ' — Sending to ' + recipientName + ' (' + recipientEmail + ')';
+        }
+        document.getElementById('sendStep' + step).style.display = 'block';
+    }
+
+    async function populateLinkDropdowns() {
+        try {
+            var { data: deals } = await supabase.from('deals').select('id, company_name, deal_name').order('created_at', { ascending: false }).limit(50);
+            var dealSelect = document.getElementById('sendLinkDeal');
+            dealSelect.innerHTML = '<option value="">-- Deal --</option>' +
+                (deals || []).map(function(d) { return '<option value="' + d.id + '">' + escapeHtmlAL(d.deal_name || d.company_name || 'Unnamed') + '</option>'; }).join('');
+            var { data: clients } = await supabase.from('clients').select('id, company_name, contact_name').order('company_name').limit(50);
+            var clientSelect = document.getElementById('sendLinkClient');
+            clientSelect.innerHTML = '<option value="">-- Client --</option>' +
+                (clients || []).map(function(c) { return '<option value="' + c.id + '">' + escapeHtmlAL(c.company_name || c.contact_name || 'Unnamed') + '</option>'; }).join('');
+            var { data: agents } = await supabase.from('users').select('id, full_name, company').eq('status', 'active').order('full_name').limit(50);
+            var agentSelect = document.getElementById('sendLinkAgent');
+            agentSelect.innerHTML = '<option value="">-- Agent --</option>' +
+                (agents || []).map(function(a) { return '<option value="' + a.id + '">' + escapeHtmlAL(a.full_name || '') + (a.company ? ' (' + escapeHtmlAL(a.company) + ')' : '') + '</option>'; }).join('');
+        } catch (err) {
+            console.error('Error loading link dropdowns:', err);
+        }
+    }
+
+    async function sendAgreementForSignature() {
+        if (!sendSelectedTemplateAL) return;
+        var recipientName = document.getElementById('sendRecipientName').value.trim();
+        var recipientEmail = document.getElementById('sendRecipientEmail').value.trim();
+        if (!recipientName || !recipientEmail) {
+            alert('Please provide recipient name and email.');
+            sendStepNext(2);
+            return;
+        }
+        var btn = document.getElementById('sendFinalButton');
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        try {
+            var populatedHtml = sendSelectedTemplateAL.template_html;
+            var placeholders = sendSelectedTemplateAL.placeholders || [];
+            placeholders.forEach(function(p) {
+                var input = document.getElementById('ph_' + p.key);
+                var value = input ? input.value : (p.default_value || '');
+                populatedHtml = populatedHtml.replace(new RegExp('\\{\\{' + p.key + '\\}\\}', 'g'), value);
+            });
+            var today = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+            populatedHtml = populatedHtml.replace(/\{\{date\}\}/g, today);
+            var dealId = document.getElementById('sendLinkDeal').value || null;
+            var clientId = document.getElementById('sendLinkClient').value || null;
+            var agentId = document.getElementById('sendLinkAgent').value || null;
+            var { data: signingDoc, error } = await supabase
+                .from('signing_documents')
+                .insert({
+                    template_id: sendSelectedTemplateAL.id,
+                    deal_id: dealId,
+                    client_id: clientId,
+                    agent_id: agentId,
+                    populated_html: populatedHtml,
+                    status: 'sent',
+                    sent_to_name: recipientName,
+                    sent_to_email: recipientEmail,
+                    sent_at: new Date().toISOString(),
+                    created_by: currentUser.id
+                })
+                .select()
+                .single();
+            if (error) throw error;
+            var signingUrl = 'https://www.alliancefinancing.ai/sign?token=' + signingDoc.signing_token;
+            var emailHtml = '<div style="font-family:Arial,sans-serif; max-width:600px; margin:0 auto;">' +
+                '<div style="background:#1a1a2e; padding:24px; text-align:center;"><h2 style="color:#C9A84C; margin:0;">Alliance Financing Group</h2></div>' +
+                '<div style="padding:32px 24px;">' +
+                '<p>Dear ' + escapeHtmlAL(recipientName) + ',</p>' +
+                '<p>Alliance Financing Group has sent you a <strong>' + escapeHtmlAL(sendSelectedTemplateAL.template_name) + '</strong> for your review and signature.</p>' +
+                '<p>Please click the button below to review the document and provide your electronic signature:</p>' +
+                '<div style="text-align:center; margin:32px 0;"><a href="' + signingUrl + '" style="background:#C9A84C; color:#fff; padding:14px 32px; border-radius:8px; text-decoration:none; font-weight:600; font-size:16px; display:inline-block;">Review &amp; Sign Document &rarr;</a></div>' +
+                '<p style="color:#888; font-size:13px;">This link will expire in 7 days. If you have any questions, please reply to this email or contact us at info@alliancefinancing.com.</p>' +
+                '</div>' +
+                '<div style="background:#f5f5f5; padding:16px 24px; text-align:center; font-size:12px; color:#999;">Alliance Financing Group Ltd. &middot; 95 Royal Crest Court, Unit 3, Markham, ON L3R 9X5<br>Alliance is a commercial finance brokerage, not a direct lender.</div></div>';
+            var { error: emailError } = await supabase.functions.invoke('send-email', {
+                body: {
+                    to: recipientEmail,
+                    subject: 'Alliance Financing Group — ' + sendSelectedTemplateAL.template_name + ' for Signature',
+                    html: emailHtml,
+                    from: 'Alliance Financing Group <info@alliancefinancing.com>'
+                }
+            });
+            if (emailError) {
+                console.warn('Edge function send-email not available, using direct Resend:', emailError);
+            }
+            if (dealId) {
+                var { data: deal } = await supabase.from('deals').select('admin_notes').eq('id', dealId).single();
+                var notes = deal && deal.admin_notes ? deal.admin_notes : [];
+                notes.push({
+                    type: 'document_signing',
+                    action: sendSelectedTemplateAL.template_name + ' sent to ' + recipientName + ' (' + recipientEmail + ') for signature',
+                    date: new Date().toISOString(),
+                    user: currentUser.full_name || 'Admin'
+                });
+                await supabase.from('deals').update({ admin_notes: notes }).eq('id', dealId);
+            }
+            closeSendAgreement();
+            showToast(sendSelectedTemplateAL.template_name + ' sent to ' + recipientName + ' for signature', 'success');
+        } catch (err) {
+            console.error('Error sending agreement:', err);
+            alert('Error sending agreement: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '\u2709 Send for Signature';
+        }
+    }
+
 </script>
 
 <!-- Mobile Quick Actions Bar (visible on mobile for agents/ISOs) -->
