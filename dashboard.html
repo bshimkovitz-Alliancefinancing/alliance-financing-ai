@@ -5498,6 +5498,10 @@
                         <input type="text" id="sendAppClientName" placeholder="Client name (optional)" oninput="updateSendAppEmailPreview()" style="flex: 1; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 14px;">
                     </div>
                     <div style="margin-bottom: 10px;">
+                        <label style="display: block; font-size: 12px; color: var(--text-light); margin-bottom: 4px;">CC (optional — comma-separated emails):</label>
+                        <input type="text" id="sendAppCcEmails" placeholder="e.g. agent@company.com, manager@company.com" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-gray); border-radius: 4px; font-size: 13px;">
+                    </div>
+                    <div style="margin-bottom: 10px;">
                         <label style="display: block; font-size: 12px; color: var(--text-light); margin-bottom: 4px;">Personal message (optional — replaces the default template below):</label>
                         <textarea id="sendAppPersonalMsg" placeholder="Leave blank to use the default template, or type a custom message to replace it..." oninput="updateSendAppEmailPreview()" rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--border-gray);border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
                     </div>
@@ -30855,6 +30859,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         });
         document.getElementById('sendAppClientEmail').value = '';
         document.getElementById('sendAppClientName').value = '';
+        document.getElementById('sendAppCcEmails').value = '';
         // Reset "on behalf of" selection
         var onBehalfSelect = document.getElementById('sendOnBehalfAgent');
         if (onBehalfSelect) onBehalfSelect.value = '';
@@ -31177,6 +31182,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var statusDiv = document.getElementById('sendAppEmailStatus');
         var btn = document.getElementById('sendAppEmailBtn');
 
+        // Parse CC emails
+        var ccRaw = (document.getElementById('sendAppCcEmails').value || '').trim();
+        var ccArray = ccRaw ? ccRaw.split(',').map(function(e) { return e.trim(); }).filter(function(e) { return e && e.includes('@'); }) : [];
+
         if (!email) { alert('Please enter the client\'s email address.'); return; }
         if (!selectedSendAppType) { alert('Please select an application type first.'); return; }
 
@@ -31343,7 +31352,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         statusDiv.style.display = 'none';
 
         try {
-            var emailResult = await sendEmailViaResend(email, subject, htmlBody);
+            var emailResult = await sendEmailViaResend(email, subject, htmlBody, null, null, ccArray.length ? ccArray : null);
             // Log to applications_sent tracking table
             // If admin is sending on behalf of an agent, track under agent's name
             var onBehalfAgent = getOnBehalfAgent();
@@ -31415,7 +31424,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Fallback to mailto
             var subjectEnc = encodeURIComponent(subject);
             var bodyText = 'Hi ' + clientName + ',\n\n' + (personalMsg ? personalMsg + '\n\n' : '') + 'Please complete our ' + typeName + ' application:\n\n' + tokenizedLink + '\n\nBest regards,\n' + senderName + '\nAlliance Financing Group Ltd.\n1-877-660-3660 ext. 222';
-            window.open('mailto:' + email + '?subject=' + subjectEnc + '&body=' + encodeURIComponent(bodyText));
+            var mailtoUrl = 'mailto:' + email + '?subject=' + subjectEnc + '&body=' + encodeURIComponent(bodyText);
+            if (ccArray.length) mailtoUrl += '&cc=' + encodeURIComponent(ccArray.join(','));
+            window.open(mailtoUrl);
         }
     }
 
