@@ -6233,7 +6233,7 @@ if (location.hostname === 'alliancefinancing.ai') {
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
-    const DASHBOARD_VERSION = '2026-04-11-phase1-fix29';
+    const + 'DASHBOARD_VERSION = '2026-04-11-phase1-fix29';
     console.log('%c Dashboard v' + DASHBOARD_VERSION + ' — Phase 1 Active ', 'background:#C9A84C;color:#0D1E3D;font-size:14px;font-weight:bold;padding:4px 8px;border-radius:4px;');
 
     // Phase 1 diagnostic — runs after DOM is ready
@@ -10681,9 +10681,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 });
             }
             if (apps) {
+                            // Deduplicate: only show one follow-up notification per applicant+type combo (most recent)
+                                            var _seenFollowUps = {};
+                                                            // Sort by sent_at descending so we keep the most recent
+                                                                            apps.sort(function(a, b) { return new Date(b.sent_at || 0) - new Date(a.sent_at || 0); });
                 apps.forEach(function(a) {
                     // Overdue follow-ups
                     if (a.follow_up_date && new Date(a.follow_up_date) < new Date() && ['Sent', 'Follow-Up Needed'].includes(a.status)) {
+                                                var dedupeKey = (a.applicant_name || '').toLowerCase().trim() + '|' + (a.applicant_email || '').toLowerCase().trim() + '|' + (a.application_type || '');
+                                                                        if (_seenFollowUps[dedupeKey]) return; // skip duplicate
+                                                                                                _seenFollowUps[dedupeKey] = true;
                         notifications.push({
                             type: 'applications',
                             category: 'action',
@@ -11388,13 +11395,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             var isAction = n.category === 'action';
-            var borderColor = isAction ? '#F59E0B' : '#E2E8F0';
-            var hoverBg = isAction ? '#FFF9EC' : '#F1F5F9';
-            var baseBg = isAction ? '#FFFDF7' : 'white';
+            var borderColor = isAction ? '#E2E8F0' : '#E2E8F0';
+            var hoverBg = isAction ? '#F8FAFC' : '#F1F5F9';
+            var baseBg = 'white';
             var cardClasses = 'notif-card' + (isAction ? ' notif-action' : '');
             html += '<div class="' + cardClasses + '" data-notif-index="' + i + '"' +
-                ' onmouseenter="this.style.background=\'' + hoverBg + '\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'"' +
-                ' onmouseleave="this.style.background=\'' + baseBg + '\';this.style.boxShadow=\'none\'"' +
+                ' onmouseenter="this.style.background=\'' + hoverBg + '\'"' +
+                ' onmouseleave="this.style.background=\'' + baseBg + '\'"' +
                 ' style="border-radius:10px;border:1px solid ' + borderColor + ';' +
                 (isAction ? 'border-left:4px solid #F59E0B;' : '') +
                 'padding:14px 18px;display:flex;align-items:center;gap:14px;position:relative;">';
@@ -34164,6 +34171,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 query = query.eq('sent_by', currentUserName);
             }
             var { data, error } = await query;
+
+                        // Deduplicate by applicant name+email+type — count unique applications, not raw records
+                                    var _seenBannerKeys = {};
+                                                var uniqueCount = 0;
+                                                            for (var j = 0; j < data.length; j++) {
+                                                                            var bk = (data[j].applicant_name || '').toLowerCase().trim() + '|' + (data[j].applicant_email || '').toLowerCase().trim() + '|' + (data[j].application_type || '');
+                                                                                            if (!_seenBannerKeys[bk]) { _seenBannerKeys[bk] = true; uniqueCount++; }
+                                                                                                        }
+                                                                                                                    if (uniqueCount === 0) return;
             if (error || !data || data.length === 0) return;
 
             // Auto-update status to Follow-Up Needed for overdue Sent items
@@ -34181,7 +34197,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             banner.style.cssText = 'background:linear-gradient(135deg,#FFF7ED,#FFFBEB);border:1px solid #F59E0B;border-radius:8px;padding:14px 20px;margin:0 20px 16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;';
             banner.innerHTML = '<div style="display:flex;align-items:center;gap:10px;">' +
                 '<span style="font-size:20px;">⏰</span>' +
-                '<div><strong style="color:#92400E;">' + data.length + ' Application' + (data.length > 1 ? 's' : '') + ' Need Follow-Up</strong>' +
+                '<div><strong style="color:#92400E;">' + uniqueCount + ' Application' + (uniqueCount > 1 ? 's' : '') + ' Need Follow-Up</strong>' +
                 '<div style="font-size:12px;color:#B45309;margin-top:2px;">These applications were sent 3+ days ago with no response.</div></div></div>' +
                 '<button onclick="filterPipeline(\'needs_action\');document.getElementById(\'referralPipelineSection\').scrollIntoView({behavior:\'smooth\',block:\'start\'});" style="background:#F59E0B;color:white;border:none;padding:8px 16px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">View & Follow Up</button>' +
                 '<button onclick="this.parentElement.remove();" style="background:none;border:none;color:#B45309;font-size:18px;cursor:pointer;padding:0 4px;">✕</button>';
