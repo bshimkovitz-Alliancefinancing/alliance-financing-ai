@@ -6878,6 +6878,12 @@ if (location.hostname === 'alliancefinancing.ai') {
             el.style.display = isAdmin ? '' : 'none';
         });
 
+        // Show At-A-Glance widget for admin (data loaded async, but visibility set here)
+        var glanceWidget = document.getElementById('adminAtAGlance');
+        if (glanceWidget) {
+            glanceWidget.style.display = isAdmin ? '' : 'none';
+        }
+
         // Show/hide "Send on Behalf of" dropdown in send application modal
         var onBehalfSection = document.getElementById('sendOnBehalfSection');
         if (onBehalfSection) {
@@ -34301,59 +34307,40 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // ============================================
 
     async function loadAdminAtAGlance() {
-        var glanceEl = document.getElementById('adminAtAGlance');
-        if (!glanceEl) return;
-        if (!['super_admin', 'admin'].includes(currentUserRole)) {
-            glanceEl.style.display = 'none';
-            return;
-        }
-        glanceEl.style.display = '';
+        if (!['super_admin', 'admin'].includes(currentUserRole)) return;
+
+        // Each query is independent — catch individually so one failure doesn't block the rest
+        try {
+            var r = await db.from('applications_sent').select('id', { count: 'exact', head: true }).in('status', ['Sent', 'Opened', 'Follow-Up Needed']);
+            document.getElementById('glanceAppsOut').textContent = r.count || 0;
+        } catch(e) { console.warn('Glance: apps out error', e); }
 
         try {
-            // 1. Apps out (active sent applications: Sent, Opened, Follow-Up Needed)
-            var { count: appsOut } = await db.from('applications_sent')
-                .select('id', { count: 'exact', head: true })
-                .in('status', ['Sent', 'Opened', 'Follow-Up Needed']);
-            document.getElementById('glanceAppsOut').textContent = appsOut || 0;
+            var r = await db.from('deals').select('id', { count: 'exact', head: true }).eq('status', 'Docs out for signing');
+            document.getElementById('glanceDocsOut').textContent = r.count || 0;
+        } catch(e) { console.warn('Glance: docs out error', e); }
 
-            // 2. Docs out for signing (deals)
-            var { count: docsOut } = await db.from('deals')
-                .select('id', { count: 'exact', head: true })
-                .eq('status', 'Docs out for signing');
-            document.getElementById('glanceDocsOut').textContent = docsOut || 0;
+        try {
+            var r = await db.from('applications_sent').select('id', { count: 'exact', head: true }).in('status', ['Sent', 'Follow-Up Needed']).lt('follow_up_date', new Date().toISOString());
+            var el = document.getElementById('glanceOverdue');
+            el.textContent = r.count || 0;
+            el.style.color = (r.count > 0) ? '#EF4444' : '#F59E0B';
+        } catch(e) { console.warn('Glance: overdue error', e); }
 
-            // 3. Overdue follow-ups (applications past follow_up_date, still active)
-            var { count: overdue } = await db.from('applications_sent')
-                .select('id', { count: 'exact', head: true })
-                .in('status', ['Sent', 'Follow-Up Needed'])
-                .lt('follow_up_date', new Date().toISOString());
-            document.getElementById('glanceOverdue').textContent = overdue || 0;
-            // Highlight overdue if > 0
-            var overdueEl = document.getElementById('glanceOverdue');
-            if (overdue > 0) overdueEl.style.color = '#EF4444';
-            else overdueEl.style.color = '#F59E0B';
+        try {
+            var r = await db.from('deals').select('id', { count: 'exact', head: true }).eq('status', 'In Credit');
+            document.getElementById('glanceInCredit').textContent = r.count || 0;
+        } catch(e) { console.warn('Glance: in credit error', e); }
 
-            // 4. In Credit (deals)
-            var { count: inCredit } = await db.from('deals')
-                .select('id', { count: 'exact', head: true })
-                .eq('status', 'In Credit');
-            document.getElementById('glanceInCredit').textContent = inCredit || 0;
+        try {
+            var r = await db.from('applications_sent').select('id', { count: 'exact', head: true }).eq('status', 'Returned');
+            document.getElementById('glanceReturned').textContent = r.count || 0;
+        } catch(e) { console.warn('Glance: returned error', e); }
 
-            // 5. Apps returned (ready for intake)
-            var { count: returned } = await db.from('applications_sent')
-                .select('id', { count: 'exact', head: true })
-                .eq('status', 'Returned');
-            document.getElementById('glanceReturned').textContent = returned || 0;
-
-            // 6. Pending agents
-            var { count: pendingAgents } = await db.from('partner_applications')
-                .select('id', { count: 'exact', head: true })
-                .in('status', ['pending', 'invited']);
-            document.getElementById('glancePendingAgents').textContent = pendingAgents || 0;
-
-        } catch(e) {
-            console.warn('Admin At-A-Glance load error:', e);
-        }
+        try {
+            var r = await db.from('partner_applications').select('id', { count: 'exact', head: true }).in('status', ['pending', 'invited']);
+            document.getElementById('glancePendingAgents').textContent = r.count || 0;
+        } catch(e) { console.warn('Glance: pending agents error', e); }
     }
 
     // ============================================
