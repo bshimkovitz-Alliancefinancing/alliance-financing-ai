@@ -25423,13 +25423,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (!contact.email) { alert('This contact has no email address. Please add one first via Manage.'); return; }
 
             // Check if a user already exists for this email
-            var { data: existingUser } = await db.from('users').select('id').eq('email', contact.email).single();
+            var { data: existingUser } = await db.from('users').select('id, role, agent_type').eq('email', contact.email).single();
 
             var userId;
             var newToken = crypto.randomUUID();
             var tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
             if (existingUser) {
+                // SAFETY: Never overwrite admin/super_admin accounts
+                if (['super_admin', 'admin'].includes(existingUser.role)) {
+                    alert('Cannot send vendor invite to ' + contact.email + ' — this email belongs to an admin account. Please use a different email for this vendor contact.');
+                    return;
+                }
                 // User exists but wasn't linked — update and link
                 userId = existingUser.id;
                 await db.from('users').update({

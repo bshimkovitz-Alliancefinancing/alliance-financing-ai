@@ -214,11 +214,33 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner"></span>Activating...';
 
-            var { data: authData, error: authError } = await db.auth.signUp({
+            // Try signUp first; if user already exists in auth, update their password instead
+            var authData, authError;
+            var signUpResult = await db.auth.signUp({
                 email: userData.email,
                 password: password
             });
-            if (authError) throw authError;
+            authData = signUpResult.data;
+            authError = signUpResult.error;
+
+            if (authError) {
+                // User already exists in Supabase Auth — try signing in with a password update
+                // This handles cases where an admin pre-created the auth user or a re-invite
+                if (authError.message && (authError.message.toLowerCase().includes('already') || authError.message.toLowerCase().includes('database error') || authError.message.toLowerCase().includes('duplicate'))) {
+                    // Use admin updateUser via edge function, or try signIn to verify
+                    // For now, sign in to confirm the email exists, then we just link the records
+                    var { data: signInData, error: signInError } = await db.auth.signInWithPassword({
+                        email: userData.email,
+                        password: password
+                    });
+                    if (signInError) {
+                        throw new Error('This email is already registered with a different password. If you already have an account, please sign in at the login page instead.');
+                    }
+                    authData = signInData;
+                } else {
+                    throw authError;
+                }
+            }
 
             // Build complete terms acceptance record
             var termsRecord = {
