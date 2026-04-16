@@ -285,6 +285,26 @@
             }
             await db.from('users').update(updates).eq('id', userData.id);
 
+            // Notify admin that a new account was activated (non-blocking)
+            (async function() {
+                try {
+                    var activateNotif = {
+                        to: 'info@alliancefinancing.com',
+                        subject: 'Account Activated — ' + (userData.full_name || userData.email),
+                        html: '<div style="font-family:Arial,sans-serif;max-width:500px;">' +
+                            '<div style="background:#0D1E3D;padding:12px 16px;border-radius:8px 8px 0 0;">' +
+                            '<p style="color:#C9A84C;font-weight:700;margin:0;font-size:14px;">New Account Activation</p></div>' +
+                            '<div style="padding:16px;background:white;border:1px solid #E2E8F0;border-radius:0 0 8px 8px;font-size:13px;color:#334155;">' +
+                            '<p><strong>' + (userData.full_name || 'Unknown') + '</strong> (' + userData.email + ') has activated their account.</p>' +
+                            '<p>Role: <strong>' + (userData.agent_type || 'agent') + '</strong></p>' +
+                            '<p>Terms accepted at: ' + new Date().toLocaleString() + '</p>' +
+                            '<p style="font-size:12px;color:#64748B;">This is an automated notification from Alliance Financing Group.</p>' +
+                            '</div></div>'
+                    };
+                    await db.functions.invoke('send-email', { body: activateNotif });
+                } catch(e) { console.warn('Activation notification failed:', e); }
+            })();
+
             document.getElementById('passwordView').classList.add('hidden');
             document.getElementById('successView').classList.remove('hidden');
 
