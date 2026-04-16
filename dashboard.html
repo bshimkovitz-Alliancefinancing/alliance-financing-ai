@@ -795,17 +795,6 @@
                 grid-template-columns: 1fr;
             }
 
-            /* Eligibility checker responsive */
-            #eligStep3 .elig-option-btn,
-            #eligStep4 .elig-option-btn {
-                padding: 10px 6px !important;
-                font-size: 12px !important;
-            }
-            #eligStep3 > div:last-child,
-            #eligStep4 > div:last-child {
-                grid-template-columns: 1fr 1fr !important;
-            }
-
             /* Rate card responsive */
             #vendorTools table th,
             #vendorTools table td {
@@ -1570,7 +1559,9 @@
                         <span style="color:#93C5FD;">&#8594;</span>
                         <span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:600;background:#D1FAE5;color:#065F46;">Approved</span>
                         <span style="color:#93C5FD;">&#8594;</span>
-                        <span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:600;background:#ECFDF5;color:#047857;">Docs & Signing</span>
+                        <span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:600;background:#ECFDF5;color:#047857;">Docs Out for Signing</span>
+                        <span style="color:#93C5FD;">&#8594;</span>
+                        <span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:600;background:#A7F3D0;color:#065F46;">Docs Returned & PO Issued</span>
                         <span style="color:#93C5FD;">&#8594;</span>
                         <span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:600;background:#10B981;color:white;">Funded</span>
                     </div>
@@ -1667,8 +1658,8 @@
                                 <option value="__mine__">My Deals</option>
                             </select>
                             <select id="dealSourcedByFilter" onchange="filterDeals()" style="display:none; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                                <option value="">All Deals</option>
-                                <option value="__mine__">My Deals</option>
+                                <option value="">All Team Deals</option>
+                                <option value="__mine__">My Submissions</option>
                             </select>
                         </div>
                         <div style="display: flex; gap: 8px; padding: 0 20px 12px;">
@@ -3842,6 +3833,11 @@
             </div>
             <div id="calcPaymentDetails" style="font-size:12px;opacity:0.6;text-align:center;margin-top:12px;"></div>
             <p style="font-size:11px;opacity:0.4;margin:12px 0 0;text-align:center;">* Estimate only. Actual rates subject to final credit approval, equipment type, and lender terms. Payments shown before applicable taxes.</p>
+            <!-- Send Application with Quote -->
+            <div id="calcSendAppRow" style="display:none;margin-top:16px;text-align:center;">
+                <button onclick="sendApplicationWithQuote()" style="background:#C9A84C;color:#0D1E3D;padding:12px 28px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(201,168,76,0.3);" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(201,168,76,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(201,168,76,0.3)'">Send Lease Application with Quote</button>
+                <div style="font-size:11px;opacity:0.5;margin-top:6px;">Email a lease application to your client with this payment estimate attached</div>
+            </div>
         </div>
         <div style="margin-top:16px;text-align:center;">
             <button onclick="openSpecialBidModal()" style="background:transparent;border:1px solid rgba(201,168,76,0.4);color:#C9A84C;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background='transparent'">Need an operating lease or custom pricing? Request a Special Bid Quote →</button>
@@ -3922,101 +3918,6 @@
         </div>
         <p style="font-size:13px;color:#7C3AED;margin:0 0 12px;line-height:1.5;">Custom operating lease pricing per asset type with flexible structures — including promotional rates, deferred payment programs, and vendor-subsidized financing. Built in partnership with equipment manufacturers.</p>
         <p style="font-size:12px;color:#8B5CF6;margin:0;">In the meantime, request an operating lease quote through the <strong>Request Quote</strong> page and Alliance will revert with custom pricing based on the asset and residual value.</p>
-    </div>
-
-    <!-- Am I Eligible? Checker -->
-    <div style="background:linear-gradient(135deg,#1a2e5a,#0D1E3D);border-radius:12px;padding:28px;margin-bottom:24px;color:white;">
-        <h3 style="margin:0 0 4px;font-size:18px;color:#C9A84C;">Am I Eligible? — Quick Client Checker</h3>
-        <p style="margin:0 0 20px;font-size:13px;opacity:0.8;">Answer 4 quick questions to see which programs your client qualifies for</p>
-
-        <div id="eligibilityChecker">
-            <!-- Step 1 -->
-            <div id="eligStep1" class="elig-step">
-                <div style="font-size:14px;font-weight:600;margin-bottom:12px;">1. How long has the business been operating?</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-                    <button onclick="eligSelect(1,'startup')" id="elig1_startup" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        <div style="font-size:20px;margin-bottom:4px;">🌱</div>Startup<div style="font-size:11px;opacity:0.7;font-weight:400;">Under 2 years</div>
-                    </button>
-                    <button onclick="eligSelect(1,'established')" id="elig1_established" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        <div style="font-size:20px;margin-bottom:4px;">🏢</div>Established<div style="font-size:11px;opacity:0.7;font-weight:400;">2–5 years</div>
-                    </button>
-                    <button onclick="eligSelect(1,'mature')" id="elig1_mature" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        <div style="font-size:20px;margin-bottom:4px;">🏛️</div>Mature<div style="font-size:11px;opacity:0.7;font-weight:400;">5+ years</div>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Step 2 -->
-            <div id="eligStep2" class="elig-step" style="display:none;">
-                <div style="font-size:14px;font-weight:600;margin-bottom:12px;">2. Approximate annual revenue?</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-                    <button onclick="eligSelect(2,'low')" id="elig2_low" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        <div style="font-size:20px;margin-bottom:4px;">📉</div>Under $250K
-                    </button>
-                    <button onclick="eligSelect(2,'mid')" id="elig2_mid" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        <div style="font-size:20px;margin-bottom:4px;">📊</div>$250K – $1M
-                    </button>
-                    <button onclick="eligSelect(2,'high')" id="elig2_high" class="elig-option-btn" style="padding:14px 12px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        <div style="font-size:20px;margin-bottom:4px;">📈</div>$1M+
-                    </button>
-                </div>
-            </div>
-
-            <!-- Step 3 -->
-            <div id="eligStep3" class="elig-step" style="display:none;">
-                <div style="font-size:14px;font-weight:600;margin-bottom:12px;">3. Owner's estimated credit score?</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
-                    <button onclick="eligSelect(3,'excellent')" id="elig3_excellent" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        <div style="font-size:16px;margin-bottom:4px;">🟢</div>720+
-                    </button>
-                    <button onclick="eligSelect(3,'good')" id="elig3_good" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        <div style="font-size:16px;margin-bottom:4px;">🟡</div>650–719
-                    </button>
-                    <button onclick="eligSelect(3,'fair')" id="elig3_fair" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        <div style="font-size:16px;margin-bottom:4px;">🟠</div>580–649
-                    </button>
-                    <button onclick="eligSelect(3,'poor')" id="elig3_poor" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        <div style="font-size:16px;margin-bottom:4px;">🔴</div>Below 580
-                    </button>
-                </div>
-            </div>
-
-            <!-- Step 4 -->
-            <div id="eligStep4" class="elig-step" style="display:none;">
-                <div style="font-size:14px;font-weight:600;margin-bottom:12px;">4. Equipment amount needed?</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
-                    <button onclick="eligSelect(4,'small')" id="elig4_small" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        Under $75K
-                    </button>
-                    <button onclick="eligSelect(4,'medium')" id="elig4_medium" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        $75K – $250K
-                    </button>
-                    <button onclick="eligSelect(4,'large')" id="elig4_large" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        $250K – $500K
-                    </button>
-                    <button onclick="eligSelect(4,'xlarge')" id="elig4_xlarge" class="elig-option-btn" style="padding:14px 10px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:8px;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;">
-                        $500K+
-                    </button>
-                </div>
-            </div>
-
-            <!-- Progress Bar -->
-            <div style="margin-top:16px;display:flex;align-items:center;gap:8px;">
-                <div style="flex:1;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden;">
-                    <div id="eligProgress" style="width:0%;height:100%;background:#C9A84C;border-radius:2px;transition:width 0.3s;"></div>
-                </div>
-                <span id="eligProgressText" style="font-size:11px;opacity:0.6;">0 of 4</span>
-            </div>
-        </div>
-
-        <!-- Results -->
-        <div id="eligResults" style="display:none;margin-top:20px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <div style="font-size:16px;font-weight:700;color:#C9A84C;">Results for Your Client</div>
-                <button onclick="resetEligibility()" style="padding:6px 14px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:6px;color:white;cursor:pointer;font-size:12px;">Start Over</button>
-            </div>
-            <div id="eligResultsList"></div>
-        </div>
     </div>
 
     <!-- Leasing Programs & Promotions Grid -->
@@ -20482,11 +20383,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (addDealBtnVendor) addDealBtnVendor.style.display = 'none';
                 // Simplify search and hide admin-only filters
                 var searchElVendor = document.getElementById('dealSearch');
-                if (searchElVendor) searchElVendor.placeholder = 'Search company, product, status...';
+                if (searchElVendor) { searchElVendor.placeholder = 'Search company, agent, status...'; searchElVendor.style.flex = '1'; searchElVendor.style.minWidth = '200px'; }
                 var prodFilterVendor = document.getElementById('dealProductFilter');
                 if (prodFilterVendor) prodFilterVendor.style.display = 'none';
                 var srcFilterVendor = document.getElementById('dealSourceFilter');
                 if (srcFilterVendor) srcFilterVendor.style.display = 'none';
+                // Keep Status and SourcedBy inline with search
+                var statusFilterVendor = document.getElementById('dealStatusFilter');
+                if (statusFilterVendor) { statusFilterVendor.style.minWidth = '140px'; statusFilterVendor.style.maxWidth = '200px'; }
                 // For vendor_program, show Sourced By with their salespeople
                 if (currentAgentType === 'vendor_program' && sourcedByFilterEl) {
                     // This gets populated later from vendor_contacts
@@ -20684,13 +20588,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         'Quote Requested': 'Lease quote being prepared by Alliance',
         'Quote sent': 'Lease quote sent — awaiting client decision',
         'Info received': 'Documents received — under initial review',
-        'In Credit': 'Submitted to lender for credit decision',
+        'In Credit': 'Application submitted to lender for credit decision',
         'Approved': 'Approved by lender — congratulations!',
         'Approval sent': 'Approval terms sent to client for review',
         'Docs requested': 'Lender requesting final documentation',
-        'Docs out for signing': 'Contracts sent for signatures',
-        'In funding': 'Deal is being funded — almost done!',
-        'Funded': 'Deal funded and complete',
+        'Docs out for signing': 'Contracts sent out for signatures',
+        'Docs returned': 'Signed docs returned — PO being issued',
+        'In funding': 'PO issued — deal is being funded',
+        'Funded': 'Deal funded and complete — equipment can ship',
         'Declined': 'Lender declined — Alliance may try other lenders',
         'Dead approval': 'Approval expired or client did not proceed',
         'Withdrawn': 'Deal withdrawn by client or agent'
@@ -25900,9 +25805,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var errorDiv = document.getElementById('calcError');
 
         if (errorDiv) errorDiv.style.display = 'none';
+        var calcSendAppEl = document.getElementById('calcSendAppRow');
 
         if (!cost || cost < 2500) {
             resultDiv.style.display = 'none';
+            if (calcSendAppEl) calcSendAppEl.style.display = 'none';
             if (errorDiv && cost > 0) {
                 errorDiv.textContent = 'Minimum equipment cost is $2,500.';
                 errorDiv.style.display = 'block';
@@ -25912,6 +25819,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         if (cost > 350000) {
             resultDiv.style.display = 'none';
+            if (calcSendAppEl) calcSendAppEl.style.display = 'none';
             if (errorDiv) {
                 errorDiv.textContent = 'For equipment over $350,000, please request a Special Bid Quote for custom pricing.';
                 errorDiv.style.display = 'block';
@@ -25921,6 +25829,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         if (downPayment >= cost) {
             resultDiv.style.display = 'none';
+            if (calcSendAppEl) calcSendAppEl.style.display = 'none';
             if (errorDiv) {
                 errorDiv.textContent = 'Down payment must be less than the equipment cost.';
                 errorDiv.style.display = 'block';
@@ -25947,6 +25856,70 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (downPayment > 0) details += ' | Down: ' + fmt(downPayment);
         details += '<br><span style="font-size:11px;opacity:0.5;">$10 Purchase Option at End of Term</span>';
         document.getElementById('calcPaymentDetails').innerHTML = details;
+
+        // Show "Send Application with Quote" button
+        var calcSendRow = document.getElementById('calcSendAppRow');
+        if (calcSendRow) calcSendRow.style.display = 'block';
+    }
+
+    // ========== Send Application with Quote ==========
+    function sendApplicationWithQuote() {
+        // Gather calculator values
+        var cost = document.getElementById('calcEquipCost').value;
+        var term = document.getElementById('calcTerm').value;
+        var condition = document.getElementById('calcCondition').value;
+        var downPayment = document.getElementById('calcDownPayment').value || '0';
+        var monthlyEl = document.getElementById('calcPaymentAmount');
+        var monthlyPayment = monthlyEl ? monthlyEl.textContent : '';
+
+        // Open the Send Application modal (resets everything)
+        openSendApplicationModal();
+
+        // Auto-select Equipment Leasing
+        setTimeout(function() {
+            selectSendAppType('leasing');
+
+            // Switch to manual quote entry and pre-fill from calculator
+            setTimeout(function() {
+                toggleQuoteMethod('manual');
+
+                var sym = calcCurrency === 'CAD' ? 'C$' : 'US$';
+                var condLabel = condition.charAt(0).toUpperCase() + condition.slice(1);
+
+                // Pre-fill equipment details
+                var equipDesc = document.getElementById('quoteEquipDesc');
+                if (equipDesc) equipDesc.value = condLabel + ' Equipment';
+
+                var equipCost = document.getElementById('quoteEquipCost');
+                if (equipCost) equipCost.value = parseFloat(cost).toLocaleString();
+
+                var quoteCondition = document.getElementById('quoteCondition');
+                if (quoteCondition) {
+                    // Match the condition to the select options
+                    for (var i = 0; i < quoteCondition.options.length; i++) {
+                        if (quoteCondition.options[i].value.toLowerCase() === condition.toLowerCase()) {
+                            quoteCondition.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                // Build notes with payment estimate
+                var quoteNotes = document.getElementById('quoteNotes');
+                if (quoteNotes) {
+                    var noteLines = 'Payment Estimate from Alliance Financing Calculator:\n';
+                    noteLines += '• Monthly Payment: ' + monthlyPayment + ' + tax\n';
+                    noteLines += '• Term: ' + term + ' months\n';
+                    noteLines += '• Equipment Cost: ' + sym + parseFloat(cost).toLocaleString('en-US', { minimumFractionDigits: 2 }) + '\n';
+                    if (parseFloat(downPayment) > 0) {
+                        noteLines += '• Down Payment: ' + sym + parseFloat(downPayment).toLocaleString('en-US', { minimumFractionDigits: 2 }) + '\n';
+                    }
+                    noteLines += '• $10 Purchase Option at End of Term\n';
+                    noteLines += '• Estimate only — subject to credit approval and lender terms.';
+                    quoteNotes.value = noteLines;
+                }
+            }, 100);
+        }, 100);
     }
 
     // ========== Special Bid Request ==========
@@ -26076,138 +26049,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    // ========== Am I Eligible? Checker ==========
-    var eligAnswers = {};
+    // Eligibility checker removed — replaced with direct calculator-to-application flow
+    // (HTML + JS both removed to clean up page)
 
-    function eligSelect(step, value) {
-        eligAnswers[step] = value;
-        // Highlight selected button
-        document.querySelectorAll('#eligStep' + step + ' .elig-option-btn').forEach(function(btn) {
-            btn.style.background = 'rgba(255,255,255,0.1)';
-            btn.style.borderColor = 'rgba(255,255,255,0.2)';
-        });
-        var selectedBtn = document.getElementById('elig' + step + '_' + value);
-        if (selectedBtn) {
-            selectedBtn.style.background = 'rgba(201,168,76,0.3)';
-            selectedBtn.style.borderColor = '#C9A84C';
-        }
-        // Update progress
-        var answered = Object.keys(eligAnswers).length;
-        document.getElementById('eligProgress').style.width = (answered * 25) + '%';
-        document.getElementById('eligProgressText').textContent = answered + ' of 4';
-        // Show next step or results
-        if (step < 4) {
-            var nextStep = document.getElementById('eligStep' + (step + 1));
-            if (nextStep) {
-                nextStep.style.display = 'block';
-                nextStep.style.opacity = '0';
-                nextStep.style.transform = 'translateY(10px)';
-                setTimeout(function() {
-                    nextStep.style.transition = 'opacity 0.3s, transform 0.3s';
-                    nextStep.style.opacity = '1';
-                    nextStep.style.transform = 'translateY(0)';
-                }, 50);
-            }
-        }
-        if (answered === 4) {
-            setTimeout(showEligibilityResults, 400);
-        }
-    }
-
-    function showEligibilityResults() {
-        var biz = eligAnswers[1];    // startup, established, mature
-        var rev = eligAnswers[2];    // low, mid, high
-        var credit = eligAnswers[3]; // excellent, good, fair, poor
-        var amount = eligAnswers[4]; // small, medium, large, xlarge
-
-        var programs = [];
-
-        // Standard Lease — available to most
-        if (credit !== 'poor') {
-            var stdNote = '';
-            if (biz === 'startup' && rev === 'low') stdNote = 'May require additional documentation or guarantor';
-            else if (credit === 'fair') stdNote = 'Approval likely with financial statements';
-            else stdNote = 'Strong candidate — best rates available';
-            programs.push({ name: 'Standard Lease', icon: '📋', color: '#C9A84C', match: credit === 'excellent' ? 'Excellent Match' : credit === 'good' ? 'Good Match' : 'Possible', note: stdNote, terms: '$5,000 – $500,000 | 24–72 months' });
-        }
-
-        // Quick Approval Under $75K — only for small amounts
-        if ((amount === 'small') && credit !== 'poor') {
-            var qaNote = biz === 'startup' ? 'App-only — great for startups with limited docs' : 'Fast-track — same-day approval likely';
-            programs.push({ name: 'Quick Approval (Under $75K)', icon: '⚡', color: '#3B82F6', match: 'Excellent Match', note: qaNote, terms: 'Up to $75K | App-only | Same-day decisions' });
-        }
-
-        // $1 Buyout Lease — best for established+, good credit
-        if (credit !== 'poor' && credit !== 'fair') {
-            var buyNote = biz === 'startup' ? 'Available but higher rates for startups' : 'Ideal for long-term equipment ownership';
-            programs.push({ name: '$1 Buyout Lease', icon: '🔑', color: '#10B981', match: (biz !== 'startup' && (credit === 'excellent' || credit === 'good')) ? 'Excellent Match' : 'Good Match', note: buyNote, terms: 'Own equipment at end of term | Best for long-term assets' });
-        }
-
-        // FMV Lease — available broadly, great for tech/short lifecycle
-        if (credit !== 'poor') {
-            programs.push({ name: 'Fair Market Value (FMV) Lease', icon: '🔄', color: '#8B5CF6', match: 'Good Match', note: 'Lower payments with flexibility at end of term — upgrade, return, or purchase', terms: 'Lower monthly payments | Flexible end-of-term options' });
-        }
-
-        // 90-Day Deferred promo
-        if (amount !== 'xlarge' || (credit === 'excellent' && biz !== 'startup')) {
-            programs.push({ name: '90-Day Deferred Payment (Promo)', icon: '🔥', color: '#F59E0B', match: 'Available', note: 'No payments for first 90 days — great closer for budget-conscious clients. Q2 2026 promo.', terms: 'Available on new leases over $10,000' });
-        }
-
-        // Handle poor credit
-        if (credit === 'poor') {
-            programs.push({ name: 'Alternative Financing', icon: '🤝', color: '#EF4444', match: 'Contact Alliance', note: 'Below 580 credit — we may have options with additional collateral, higher down payment, or a co-signer. Call Alliance to discuss.', terms: 'Case-by-case basis | Additional requirements' });
-        }
-
-        // Build HTML
-        var html = '';
-        programs.forEach(function(p) {
-            var matchColor = p.match === 'Excellent Match' ? '#10B981' : p.match === 'Good Match' ? '#3B82F6' : p.match === 'Possible' ? '#F59E0B' : p.match === 'Available' ? '#8B5CF6' : '#EF4444';
-            html += '<div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:16px;margin-bottom:10px;border-left:4px solid ' + p.color + ';">';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-            html += '<div style="font-weight:700;font-size:14px;">' + p.icon + ' ' + p.name + '</div>';
-            html += '<span style="padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + matchColor + '20;color:' + matchColor + ';border:1px solid ' + matchColor + '40;">' + p.match + '</span>';
-            html += '</div>';
-            html += '<div style="font-size:12px;opacity:0.7;margin-bottom:6px;">' + p.terms + '</div>';
-            html += '<div style="font-size:12px;opacity:0.9;">' + p.note + '</div>';
-            html += '</div>';
-        });
-
-        // Summary tip at bottom
-        var tip = '';
-        if (credit === 'excellent' && biz !== 'startup') tip = 'This client is a strong candidate across all programs. Lead with the $1 Buyout or Standard Lease for best rates, and mention the 90-Day Deferral to close faster.';
-        else if (credit === 'good') tip = 'Good credit profile. Quick Approval is the fastest path for deals under $75K. For larger amounts, Standard Lease with full docs will get the best terms.';
-        else if (credit === 'fair') tip = 'Fair credit — focus on Standard Lease or FMV. Gather financial statements early to speed up approval. The 90-Day Deferral can help overcome budget objections.';
-        else if (credit === 'poor') tip = 'Below typical approval thresholds, but don\'t give up. Contact Alliance directly — we can sometimes work with additional collateral, larger down payments, or co-signers.';
-        else tip = 'Multiple programs available. Use the Payment Estimator above to show the client their monthly cost — leading with the payment is the best way to close.';
-
-        html += '<div style="margin-top:16px;padding:14px;background:rgba(201,168,76,0.15);border-radius:8px;border:1px solid rgba(201,168,76,0.3);">';
-        html += '<div style="font-weight:700;font-size:13px;color:#C9A84C;margin-bottom:4px;">💡 Sales Tip</div>';
-        html += '<div style="font-size:12px;opacity:0.9;">' + tip + '</div>';
-        html += '</div>';
-
-        document.getElementById('eligResultsList').innerHTML = html;
-        document.getElementById('eligResults').style.display = 'block';
-        document.getElementById('eligResults').style.opacity = '0';
-        setTimeout(function() {
-            document.getElementById('eligResults').style.transition = 'opacity 0.4s';
-            document.getElementById('eligResults').style.opacity = '1';
-        }, 50);
-    }
-
-    function resetEligibility() {
-        eligAnswers = {};
-        document.getElementById('eligResults').style.display = 'none';
-        document.getElementById('eligProgress').style.width = '0%';
-        document.getElementById('eligProgressText').textContent = '0 of 4';
-        for (var s = 2; s <= 4; s++) {
-            var step = document.getElementById('eligStep' + s);
-            if (step) step.style.display = 'none';
-        }
-        document.querySelectorAll('.elig-option-btn').forEach(function(btn) {
-            btn.style.background = 'rgba(255,255,255,0.1)';
-            btn.style.borderColor = 'rgba(255,255,255,0.2)';
-        });
-    }
+    function _removed_elig() { /* stub */ }
+    function resetEligibility() { /* stub */ }
+    function eligSelect() { /* stub */ }
+    function showEligibilityResults() { /* stub */ }
+    // END stubs
 
     function openAddSalespersonModal() {
         document.getElementById('aspName').value = '';
@@ -46159,19 +46008,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         return `<span class="badge ${badgeClass}">${status}</span>`;
     }
 
-    function getStatusBadge(status) {
-        let badgeClass = 'badge-info';
-        if (['Funded', 'Approved'].includes(status)) {
-            badgeClass = 'badge-success';
-        } else if (['Prospect', 'Quote Requested', 'Quote sent', 'Info received', 'In Credit', 'Approval sent', 'Requires Approval'].includes(status)) {
-            badgeClass = 'badge-warning';
-        } else if (['Declined', 'Dead approval'].includes(status)) {
-            badgeClass = 'badge-danger';
-        } else if (['Archived'].includes(status)) {
-            badgeClass = 'badge-secondary';
-        }
-        return `<span class="badge ${badgeClass}">${status || 'Unknown'}</span>`;
-    }
+    // Duplicate getStatusBadge removed — using the primary one defined earlier
 
     // Toast notification helper
     function showNotification(message, type) {
