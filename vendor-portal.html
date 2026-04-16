@@ -263,7 +263,6 @@
                                 <label>Preferred Term</label>
                                 <select id="vdTerm">
                                     <option value="">Select Term</option>
-                                    <option value="12">12 Months</option>
                                     <option value="24">24 Months</option>
                                     <option value="36">36 Months</option>
                                     <option value="48">48 Months</option>
@@ -271,6 +270,17 @@
                                 </select>
                             </div>
                         </div>
+                        <!-- Financial Documents Advisory for Deals -->
+                        <div id="vdFinancialsAdvisory" style="display:none;margin:16px 0;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1px solid #93C5FD;border-radius:10px;padding:16px 20px;">
+                            <div style="display:flex;align-items:flex-start;gap:12px;">
+                                <span style="font-size:20px;flex-shrink:0;">📄</span>
+                                <div>
+                                    <div style="font-weight:700;color:#1E40AF;font-size:14px;margin-bottom:4px;">Expedite Credit Approval — Financials Recommended</div>
+                                    <p style="font-size:13px;color:#1E3A8A;margin:0;line-height:1.5;">For transactions over $100,000, providing the last two years of financial statements can significantly expedite the credit decision. Not required, but highly recommended. Upload via the Credit Application page or email to info@alliancefinancing.com.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label>Additional Notes</label>
                             <textarea id="vdNotes" rows="3" placeholder="Any additional details about the equipment or customer..."></textarea>
@@ -551,7 +561,6 @@
                                 <label>Preferred Term</label>
                                 <select id="caTerm">
                                     <option value="">Select Term</option>
-                                    <option value="12">12 Months</option>
                                     <option value="24">24 Months</option>
                                     <option value="36">36 Months</option>
                                     <option value="48">48 Months</option>
@@ -560,9 +569,21 @@
                             </div>
                         </div>
 
-                        <div style="font-weight:700;color:var(--navy);font-size:15px;margin:20px 0 12px;border-top:1px solid #E2E8F0;padding-top:16px;">Equipment Quote (Optional)</div>
+                        <!-- Financial Documents Advisory -->
+                        <div id="caFinancialsAdvisory" style="display:none;margin:20px 0 16px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1px solid #93C5FD;border-radius:10px;padding:16px 20px;">
+                            <div style="display:flex;align-items:flex-start;gap:12px;">
+                                <span style="font-size:20px;flex-shrink:0;">📄</span>
+                                <div>
+                                    <div style="font-weight:700;color:#1E40AF;font-size:14px;margin-bottom:4px;">Expedite Credit Approval — Financials Recommended</div>
+                                    <p style="font-size:13px;color:#1E3A8A;margin:0 0 8px;line-height:1.5;">For transactions over $100,000, providing the last two years of financial statements can significantly expedite the credit decision. This is not required but highly recommended.</p>
+                                    <p style="font-size:12px;color:#3B82F6;margin:0;">Accepted: Annual financial statements, T2 corporate tax returns, or CPA-reviewed financials (PDF preferred)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="font-weight:700;color:var(--navy);font-size:15px;margin:20px 0 12px;border-top:1px solid #E2E8F0;padding-top:16px;">Supporting Documents</div>
                         <div class="form-group">
-                            <label>Attach Equipment Quote</label>
+                            <label>Attach Equipment Quote (Optional)</label>
                             <div style="border:2px dashed #E2E8F0;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;" onclick="document.getElementById('caQuoteFile').click()" id="caDropZone">
                                 <div style="font-size:28px;margin-bottom:8px;">📎</div>
                                 <div style="font-size:14px;color:#64748B;">Click to upload equipment quote</div>
@@ -570,6 +591,17 @@
                                 <div id="caFileInfo" style="display:none;margin-top:10px;padding:8px 12px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;font-size:13px;color:#166534;"></div>
                             </div>
                             <input type="file" id="caQuoteFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" style="display:none;" onchange="handleQuoteFileSelect(this)">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Attach Financial Statements (Optional — recommended for $100K+)</label>
+                            <div style="border:2px dashed #E2E8F0;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;" onclick="document.getElementById('caFinancialsFile').click()" id="caFinDropZone">
+                                <div style="font-size:28px;margin-bottom:8px;">📊</div>
+                                <div style="font-size:14px;color:#64748B;">Click to upload last 2 years financials</div>
+                                <div style="font-size:12px;color:#94A3B8;margin-top:4px;">PDF, DOC, DOCX, XLS, XLSX (Max 25MB)</div>
+                                <div id="caFinFileInfo" style="display:none;margin-top:10px;padding:8px 12px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;font-size:13px;color:#166534;"></div>
+                            </div>
+                            <input type="file" id="caFinancialsFile" accept=".pdf,.doc,.docx,.xls,.xlsx" style="display:none;" onchange="handleFinancialsFileSelect(this)" multiple>
                         </div>
 
                         <div class="form-group">
@@ -1281,6 +1313,8 @@ ${vendorUser.company_name || 'Alliance Financing Group'}`);
     }
 
     // ===== Credit Application Functions =====
+    var caFinancialsFiles = [];
+
     function handleQuoteFileSelect(input) {
         const fileInfo = document.getElementById('caFileInfo');
         const dropZone = document.getElementById('caDropZone');
@@ -1301,6 +1335,55 @@ ${vendorUser.company_name || 'Alliance Financing Group'}`);
             dropZone.style.borderColor = '#E2E8F0';
         }
     }
+
+    function handleFinancialsFileSelect(input) {
+        const fileInfo = document.getElementById('caFinFileInfo');
+        const dropZone = document.getElementById('caFinDropZone');
+        if (input.files && input.files.length > 0) {
+            var totalSize = 0;
+            var names = [];
+            caFinancialsFiles = [];
+            for (var i = 0; i < input.files.length; i++) {
+                totalSize += input.files[i].size;
+                names.push(input.files[i].name);
+                caFinancialsFiles.push(input.files[i]);
+            }
+            if (totalSize > 25 * 1024 * 1024) {
+                alert('Total file size exceeds 25MB limit.');
+                input.value = '';
+                caFinancialsFiles = [];
+                return;
+            }
+            fileInfo.textContent = '📊 ' + names.join(', ') + ' (' + (totalSize / 1024).toFixed(1) + ' KB)';
+            fileInfo.style.display = 'block';
+            dropZone.style.borderColor = 'var(--gold)';
+        } else {
+            caFinancialsFiles = [];
+            fileInfo.style.display = 'none';
+            dropZone.style.borderColor = '#E2E8F0';
+        }
+    }
+
+    // Show/hide financials advisory based on amount ($100K+ threshold)
+    function checkFinancialsAdvisory(amountFieldId, advisoryId) {
+        var amount = parseFloat(document.getElementById(amountFieldId)?.value) || 0;
+        var advisory = document.getElementById(advisoryId);
+        if (advisory) {
+            advisory.style.display = amount >= 100000 ? 'block' : 'none';
+        }
+    }
+
+    // Wire up amount fields to show financials advisory
+    document.addEventListener('DOMContentLoaded', function() {
+        var caAmountEl = document.getElementById('caAmount');
+        if (caAmountEl) {
+            caAmountEl.addEventListener('input', function() { checkFinancialsAdvisory('caAmount', 'caFinancialsAdvisory'); });
+        }
+        var vdAmountEl = document.getElementById('vdAmount');
+        if (vdAmountEl) {
+            vdAmountEl.addEventListener('input', function() { checkFinancialsAdvisory('vdAmount', 'vdFinancialsAdvisory'); });
+        }
+    });
 
     async function submitCreditApplication(event) {
         event.preventDefault();
