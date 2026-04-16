@@ -1446,13 +1446,9 @@
                     <div id="pipelineStatsRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0;background:white;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;"></div>
                     <div style="background:white;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
                         <div id="pipelineFilterTabs" style="display:flex;gap:0;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;font-size:12px;">
-                            <button class="pl-tab active" data-filter="all" onclick="filterPipeline('all')" style="padding:7px 14px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:var(--navy);color:white;">All</button>
-                            <button class="pl-tab" data-filter="outbound" onclick="filterPipeline('outbound')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Sent Out</button>
-                            <button class="pl-tab" data-filter="inbound" onclick="filterPipeline('inbound')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Client Applied</button>
-                            <button class="pl-tab" data-filter="in_progress" onclick="filterPipeline('in_progress')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">In Progress</button>
-                            <button class="pl-tab" data-filter="needs_action" onclick="filterPipeline('needs_action')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Needs Action</button>
-                            <button class="pl-tab" data-filter="funded" onclick="filterPipeline('funded')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Funded</button>
-                            <button class="pl-tab" data-filter="archived" onclick="filterPipeline('archived')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Archived</button>
+                            <button class="pl-tab active" data-filter="all" onclick="filterRefPipeline('all')" style="padding:7px 14px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:var(--navy);color:white;">All Pending</button>
+                            <button class="pl-tab" data-filter="outbound" onclick="filterRefPipeline('outbound')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Sent</button>
+                            <button class="pl-tab" data-filter="needs_action" onclick="filterRefPipeline('needs_action')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Needs Follow-Up</button>
                         </div>
                         <select id="appSentAgentFilter" onchange="loadReferralPipeline()" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;display:none;">
                             <option value="">All Agents</option>
@@ -6940,6 +6936,18 @@ if (location.hostname === 'alliancefinancing.ai') {
             // ── Hide rate card on calculator page (admin-only) ──
             var rateCardSection = document.getElementById('rateCardSection');
             if (rateCardSection) rateCardSection.style.display = 'none';
+
+            // ── Rebrand Referral Pipeline header for referring agents ──
+            var pipelineSection = document.getElementById('referralPipelineSection');
+            if (pipelineSection) {
+                var plH2 = pipelineSection.querySelector('h2');
+                if (plH2) plH2.textContent = 'Sent Applications';
+                var plP = pipelineSection.querySelector('p');
+                if (plP) plP.textContent = 'Applications waiting for client response. Once returned, they move to your Deal Pipeline.';
+                // Hide the "Send Application" button in the pipeline header (redundant with action card)
+                var plSendBtn = pipelineSection.querySelector('button[onclick*="openSendApplicationModalWithRef"]');
+                if (plSendBtn) plSendBtn.style.display = 'none';
+            }
         }
 
         // Agents (non-admin): hide Import CSV but keep + New Client
@@ -6950,6 +6958,28 @@ if (location.hostname === 'alliancefinancing.ai') {
                 if (txt === 'Import CSV') btn.style.display = 'none';
             });
         }
+    }
+
+    // ============================================
+    // Referring Agent: Pipeline Filter (Command Center)
+    // ============================================
+
+    function filterRefPipeline(filter) {
+        _pipelineFilter = filter;
+        // Update tab styling
+        var tabs = document.querySelectorAll('#pipelineFilterTabs .pl-tab');
+        tabs.forEach(function(tab) {
+            if (tab.getAttribute('data-filter') === filter) {
+                tab.style.background = 'var(--navy)';
+                tab.style.color = 'white';
+                tab.style.fontWeight = '600';
+            } else {
+                tab.style.background = '#f8fafc';
+                tab.style.color = '#333';
+                tab.style.fontWeight = '500';
+            }
+        });
+        renderPipelineRows(filter);
     }
 
     // ============================================
@@ -20728,7 +20758,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Clean up Deal Pipeline UI for Vendor users — focus on deal tracking
             var vendorGuide = document.getElementById('vendorDealGuide');
             if (vendorGuide) {
-                vendorGuide.style.display = ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !isAdminForFilter) ? 'block' : 'none';
+                vendorGuide.style.display = ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson' || currentAgentType === 'referring_agent') && !isAdminForFilter) ? 'block' : 'none';
             }
             if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !isAdminForFilter) {
                 // Hide AF#/AFG# columns — vendors don't need internal file numbers
@@ -34817,44 +34847,80 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var statsRow = document.getElementById('pipelineStatsRow');
             if (statsRow) {
                 var activeItems = combined.filter(function(c) { return !c.isArchived; });
-                var totalSent = activeItems.filter(function(c) { return c.source === 'outbound' || c.source === 'linked'; }).length;
-                var totalApplied = activeItems.filter(function(c) { return c.source === 'inbound' || c.source === 'linked' || c.isReturned; }).length;
-                var totalInProgress = activeItems.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing', 'received'].includes(c.stage); }).length;
-                var totalNeedsAction = activeItems.filter(function(c) { return c.needsAction; }).length;
-                var totalFunded = activeItems.filter(function(c) { return c.stage === 'funded'; }).length;
-                var totalValue = activeItems.reduce(function(sum, c) { return sum + (c.amount || 0); }, 0);
+                var isRefAgent = currentAgentType === 'referring_agent' && !['super_admin', 'admin'].includes(currentUserRole);
+                var filterFn = isRefAgent ? 'filterRefPipeline' : 'filterPipeline';
 
-                statsRow.innerHTML =
-                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'all\')">' +
-                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Total Referrals</div>' +
-                        '<div style="font-size:24px;font-weight:700;color:#0D1E3D;margin:4px 0;">' + activeItems.length + '</div>' +
-                        '<div style="font-size:12px;color:#64748B;">' + (totalValue > 0 ? formatCurrency(totalValue) + ' volume' : 'All referrals') + '</div>' +
-                    '</div>' +
-                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'outbound\')">' +
-                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#3B82F6;font-weight:600;">Sent Out</div>' +
-                        '<div style="font-size:24px;font-weight:700;color:#3B82F6;margin:4px 0;">' + totalSent + '</div>' +
-                        '<div style="font-size:12px;color:#64748B;">Applications sent</div>' +
-                    '</div>' +
-                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'inbound\')">' +
-                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#8B5CF6;font-weight:600;">Client Applied</div>' +
-                        '<div style="font-size:24px;font-weight:700;color:#8B5CF6;margin:4px 0;">' + totalApplied + '</div>' +
-                        '<div style="font-size:12px;color:#64748B;">Submitted apps</div>' +
-                    '</div>' +
-                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'in_progress\')">' +
-                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#F59E0B;font-weight:600;">In Progress</div>' +
-                        '<div style="font-size:24px;font-weight:700;color:#F59E0B;margin:4px 0;">' + totalInProgress + '</div>' +
-                        '<div style="font-size:12px;color:#64748B;">Active pipeline</div>' +
-                    '</div>' +
-                    (totalNeedsAction > 0 ? '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;background:#FFF7ED;" onclick="filterPipeline(\'needs_action\')">' +
-                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#DC2626;font-weight:600;">Needs Action</div>' +
-                        '<div style="font-size:24px;font-weight:700;color:#DC2626;margin:4px 0;">' + totalNeedsAction + '</div>' +
-                        '<div style="font-size:12px;color:#64748B;">Overdue / follow-up</div>' +
-                    '</div>' : '') +
-                    '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;cursor:pointer;" onclick="filterPipeline(\'funded\')">' +
-                        '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#10B981;font-weight:600;">Funded</div>' +
-                        '<div style="font-size:24px;font-weight:700;color:#10B981;margin:4px 0;">' + totalFunded + '</div>' +
-                        '<div style="font-size:12px;color:#64748B;">Booked deals</div>' +
-                    '</div>';
+                if (isRefAgent) {
+                    // Referring agents: simplified stats for PENDING outbound only
+                    var pendingOutbound = activeItems.filter(function(c) {
+                        return c.source === 'outbound' && !c.isReturned && !c.isCompleted && c.stageLabel !== 'Returned' && c.stage !== 'funded';
+                    });
+                    var pendingSent = pendingOutbound.filter(function(c) { return ['Sent', 'Opened', 'Delivered', 'Clicked'].includes(c.stageLabel); }).length;
+                    var pendingFollowUp = pendingOutbound.filter(function(c) { return c.needsAction || c.isOverdue; }).length;
+                    var totalReturned = activeItems.filter(function(c) { return c.isReturned || c.stageLabel === 'Returned'; }).length;
+
+                    statsRow.innerHTML =
+                        '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterRefPipeline(\'all\')">' +
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Pending Applications</div>' +
+                            '<div style="font-size:24px;font-weight:700;color:#0D1E3D;margin:4px 0;">' + pendingOutbound.length + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Awaiting client response</div>' +
+                        '</div>' +
+                        '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="filterRefPipeline(\'outbound\')">' +
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#3B82F6;font-weight:600;">Sent</div>' +
+                            '<div style="font-size:24px;font-weight:700;color:#3B82F6;margin:4px 0;">' + pendingSent + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Waiting for client</div>' +
+                        '</div>' +
+                        (pendingFollowUp > 0 ? '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;background:#FFF7ED;" onclick="filterRefPipeline(\'needs_action\')">' +
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#DC2626;font-weight:600;">Needs Follow-Up</div>' +
+                            '<div style="font-size:24px;font-weight:700;color:#DC2626;margin:4px 0;">' + pendingFollowUp + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Overdue — send a reminder</div>' +
+                        '</div>' : '') +
+                        '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;cursor:pointer;" onclick="showPage(\'deals\')">' +
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#10B981;font-weight:600;">Moved to Deals</div>' +
+                            '<div style="font-size:24px;font-weight:700;color:#10B981;margin:4px 0;">' + totalReturned + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">View in Deal Pipeline →</div>' +
+                        '</div>';
+                } else {
+                    // Admin / other agents: full stats
+                    var totalSent = activeItems.filter(function(c) { return c.source === 'outbound' || c.source === 'linked'; }).length;
+                    var totalApplied = activeItems.filter(function(c) { return c.source === 'inbound' || c.source === 'linked' || c.isReturned; }).length;
+                    var totalInProgress = activeItems.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing', 'received'].includes(c.stage); }).length;
+                    var totalNeedsAction = activeItems.filter(function(c) { return c.needsAction; }).length;
+                    var totalFunded = activeItems.filter(function(c) { return c.stage === 'funded'; }).length;
+                    var totalValue = activeItems.reduce(function(sum, c) { return sum + (c.amount || 0); }, 0);
+
+                    statsRow.innerHTML =
+                        '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="' + filterFn + '(\'all\')">' +
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;font-weight:600;">Total Referrals</div>' +
+                            '<div style="font-size:24px;font-weight:700;color:#0D1E3D;margin:4px 0;">' + activeItems.length + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">' + (totalValue > 0 ? formatCurrency(totalValue) + ' volume' : 'All referrals') + '</div>' +
+                        '</div>' +
+                        '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="' + filterFn + '(\'outbound\')">' +
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#3B82F6;font-weight:600;">Sent Out</div>' +
+                            '<div style="font-size:24px;font-weight:700;color:#3B82F6;margin:4px 0;">' + totalSent + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Applications sent</div>' +
+                        '</div>' +
+                        '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="' + filterFn + '(\'inbound\')">' +
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#8B5CF6;font-weight:600;">Client Applied</div>' +
+                            '<div style="font-size:24px;font-weight:700;color:#8B5CF6;margin:4px 0;">' + totalApplied + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Submitted apps</div>' +
+                        '</div>' +
+                        '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;" onclick="' + filterFn + '(\'in_progress\')">' +
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#F59E0B;font-weight:600;">In Progress</div>' +
+                            '<div style="font-size:24px;font-weight:700;color:#F59E0B;margin:4px 0;">' + totalInProgress + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Active pipeline</div>' +
+                        '</div>' +
+                        (totalNeedsAction > 0 ? '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;cursor:pointer;background:#FFF7ED;" onclick="' + filterFn + '(\'needs_action\')">' +
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#DC2626;font-weight:600;">Needs Action</div>' +
+                            '<div style="font-size:24px;font-weight:700;color:#DC2626;margin:4px 0;">' + totalNeedsAction + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Overdue / follow-up</div>' +
+                        '</div>' : '') +
+                        '<div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;cursor:pointer;" onclick="' + filterFn + '(\'funded\')">' +
+                            '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#10B981;font-weight:600;">Funded</div>' +
+                            '<div style="font-size:24px;font-weight:700;color:#10B981;margin:4px 0;">' + totalFunded + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Booked deals</div>' +
+                        '</div>';
+                }
             }
 
             // Render with current filter
@@ -34873,19 +34939,34 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var tbody = document.getElementById('pipelineBody');
         if (!tbody) return;
 
-        var filtered = _pipelineData;
+        var isRefAgent = currentAgentType === 'referring_agent' && !['super_admin', 'admin'].includes(currentUserRole);
+
+        // For referring agents: only show PENDING outbound applications.
+        // Returned/Completed/Funded items graduate to the Deal Pipeline page.
+        var baseData = _pipelineData;
+        if (isRefAgent) {
+            baseData = _pipelineData.filter(function(c) {
+                // Keep only outbound items that are still pending (not returned, not expired, not archived, not funded)
+                if (c.source !== 'outbound') return false;
+                if (c.isReturned || c.isCompleted || c.isArchived) return false;
+                if (c.stageLabel === 'Returned' || c.stage === 'funded') return false;
+                return true;
+            });
+        }
+
+        var filtered = baseData;
         if (filter === 'outbound') {
-            filtered = _pipelineData.filter(function(c) { return c.source === 'outbound'; });
+            filtered = baseData.filter(function(c) { return c.source === 'outbound'; });
         } else if (filter === 'inbound') {
-            filtered = _pipelineData.filter(function(c) { return c.source === 'inbound' || c.source === 'linked' || c.isReturned; });
+            filtered = baseData.filter(function(c) { return c.source === 'inbound' || c.source === 'linked' || c.isReturned; });
         } else if (filter === 'in_progress') {
-            filtered = _pipelineData.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing', 'received'].includes(c.stage); });
+            filtered = baseData.filter(function(c) { return !c.isCompleted && ['pipeline', 'credit', 'approved', 'reviewing', 'received'].includes(c.stage); });
         } else if (filter === 'needs_action') {
-            filtered = _pipelineData.filter(function(c) { return c.needsAction; });
+            filtered = baseData.filter(function(c) { return c.needsAction || c.isOverdue; });
         } else if (filter === 'funded') {
-            filtered = _pipelineData.filter(function(c) { return c.stage === 'funded'; });
+            filtered = baseData.filter(function(c) { return c.stage === 'funded'; });
         } else if (filter === 'archived') {
-            filtered = _pipelineData.filter(function(c) { return c.isArchived; });
+            filtered = baseData.filter(function(c) { return c.isArchived; });
         }
 
         // For non-archived filters, exclude archived items
@@ -34894,15 +34975,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
 
         if (filtered.length === 0) {
-            var msgs = {
-                'all': 'No referrals yet. Send your first application to get started!',
-                'outbound': 'No applications sent yet.',
-                'inbound': 'No clients have applied through your referral link yet.',
-                'in_progress': 'No referrals currently in the pipeline.',
-                'needs_action': 'Nothing needs your attention right now.',
-                'funded': 'No funded deals yet. Deals show here once they\'re booked!',
-                'archived': 'No archived items.'
-            };
+            var msgs;
+            if (isRefAgent) {
+                msgs = {
+                    'all': 'No pending applications. Use the Send Application card above to send one, or check <a href="#" onclick="showPage(\'deals\');return false;" style="color:#0EA5E9;text-decoration:underline;">Deal Pipeline</a> for returned deals.',
+                    'outbound': 'No applications waiting for client response.',
+                    'needs_action': 'All caught up — nothing needs a follow-up right now.'
+                };
+            } else {
+                msgs = {
+                    'all': 'No referrals yet. Send your first application to get started!',
+                    'outbound': 'No applications sent yet.',
+                    'inbound': 'No clients have applied through your referral link yet.',
+                    'in_progress': 'No referrals currently in the pipeline.',
+                    'needs_action': 'Nothing needs your attention right now.',
+                    'funded': 'No funded deals yet. Deals show here once they\'re booked!',
+                    'archived': 'No archived items.'
+                };
+            }
             tbody.innerHTML = '<tr><td colspan="8" class="empty-state">' + (msgs[filter] || 'No results.') + '</td></tr>';
             return;
         }
