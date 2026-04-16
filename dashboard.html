@@ -1554,6 +1554,27 @@
 
             <!-- Deal Pipeline Page (standalone) -->
             <div id="deals" class="page-section">
+                <!-- Vendor Deal Tracking Guide (hidden for admin, shown for vendors) -->
+                <div id="vendorDealGuide" style="display:none;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1px solid #93C5FD;border-radius:10px;padding:16px 20px;margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                        <div>
+                            <div style="font-weight:700;font-size:14px;color:#1E40AF;">Deal Tracking</div>
+                            <div style="font-size:12px;color:#3B82F6;">Hover over any status badge to see what it means. Your deals move through these stages:</div>
+                        </div>
+                        <button onclick="this.parentElement.parentElement.style.display='none'" style="background:none;border:none;color:#93C5FD;cursor:pointer;font-size:16px;padding:4px;">&#10005;</button>
+                    </div>
+                    <div style="display:flex;gap:4px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+                        <span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:600;background:#DBEAFE;color:#1E40AF;">Application</span>
+                        <span style="color:#93C5FD;">&#8594;</span>
+                        <span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:600;background:#FEF3C7;color:#92400E;">In Credit</span>
+                        <span style="color:#93C5FD;">&#8594;</span>
+                        <span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:600;background:#D1FAE5;color:#065F46;">Approved</span>
+                        <span style="color:#93C5FD;">&#8594;</span>
+                        <span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:600;background:#ECFDF5;color:#047857;">Docs & Signing</span>
+                        <span style="color:#93C5FD;">&#8594;</span>
+                        <span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:600;background:#10B981;color:white;">Funded</span>
+                    </div>
+                </div>
                 <div id="dealStatsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:20px;">
                     <div style="background:white;border-radius:12px;padding:16px;text-align:center;border:2px solid #E2E8F0;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
                         <div style="font-size:24px;font-weight:800;color:#0D1E3D;" id="pipStatTotalValue">$0</div>
@@ -3587,7 +3608,7 @@
                 </div>
 
                 <!-- Team Stats -->
-                <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:24px;" id="teamPageStats">
+                <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:16px;" id="teamPageStats">
                     <div class="stat-card">
                         <div class="stat-label">Total Members</div>
                         <div class="stat-value" id="teamStatTotal">0</div>
@@ -3597,7 +3618,7 @@
                         <div class="stat-value" id="teamStatActive" style="color:#10B981;">0</div>
                     </div>
                     <div class="stat-card" style="border-left:3px solid #F59E0B;">
-                        <div class="stat-label">Pending Invite</div>
+                        <div class="stat-label">Needs Onboarding</div>
                         <div class="stat-value" id="teamStatPending" style="color:#F59E0B;">0</div>
                     </div>
                     <div class="stat-card" style="border-left:3px solid #2563EB;">
@@ -3610,6 +3631,20 @@
                     </div>
                 </div>
 
+                <!-- Onboarding Alert Banner (shows when members need action) -->
+                <div id="teamOnboardingAlert" style="display:none;background:linear-gradient(135deg,#FEF3C7,#FDE68A);border:1px solid #F59E0B;border-radius:10px;padding:14px 20px;margin-bottom:20px;display:none;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:18px;">&#9888;&#65039;</span>
+                            <div>
+                                <div style="font-weight:700;font-size:14px;color:#92400E;" id="teamAlertTitle">Team members need onboarding</div>
+                                <div style="font-size:12px;color:#B45309;" id="teamAlertDesc">Send portal invites so they can start submitting deals.</div>
+                            </div>
+                        </div>
+                        <button onclick="inviteAllPending()" style="padding:8px 16px;background:#F59E0B;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;" id="teamInviteAllBtn">Invite All Pending</button>
+                    </div>
+                </div>
+
                 <!-- Team Members Table -->
                 <div class="table-container">
                     <div class="table-header">
@@ -3618,7 +3653,7 @@
                             <select id="teamStatusFilter" onchange="filterTeamMembers()" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
                                 <option value="all">All Members</option>
                                 <option value="active">Active</option>
-                                <option value="pending">Pending Invite</option>
+                                <option value="pending">Needs Onboarding</option>
                                 <option value="inactive">Inactive</option>
                             </select>
                         </div>
@@ -3809,14 +3844,15 @@
             <p style="font-size:11px;opacity:0.4;margin:12px 0 0;text-align:center;">* Estimate only. Actual rates subject to final credit approval, equipment type, and lender terms. Payments shown before applicable taxes.</p>
         </div>
         <div style="margin-top:16px;text-align:center;">
-            <button onclick="typeof showVendorPage === 'function' ? showVendorPage('quote') : null" style="background:transparent;border:1px solid rgba(201,168,76,0.4);color:#C9A84C;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Need an operating lease or custom pricing? Request a Special Bid Quote →</button>
+            <button onclick="openSpecialBidModal()" style="background:transparent;border:1px solid rgba(201,168,76,0.4);color:#C9A84C;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background='transparent'">Need an operating lease or custom pricing? Request a Special Bid Quote →</button>
         </div>
     </div>
 
-    <!-- Capital Lease Rate Card -->
-    <div style="background:white;border:1px solid var(--border-gray);border-radius:12px;padding:24px;margin-bottom:24px;">
+    <!-- Capital Lease Rate Card (Admin Only) -->
+    <div id="rateCardSection" style="background:white;border:1px solid var(--border-gray);border-radius:12px;padding:24px;margin-bottom:24px;display:none;">
         <h3 style="margin:0 0 4px;font-size:16px;color:var(--navy);display:flex;align-items:center;gap:8px;">
             <span style="font-size:20px;">📊</span> Capital Lease Rate Card — CR4 Tier 1
+            <span style="font-size:10px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:4px;font-weight:600;margin-left:8px;">INTERNAL ONLY</span>
         </h3>
         <p style="font-size:12px;color:var(--text-light);margin:0 0 16px;">Estimated annual rates by equipment cost bracket. Terms: 24–60 months. $10 purchase option. First payment in advance.</p>
         <div style="overflow-x:auto;">
@@ -4332,8 +4368,71 @@
                     <option value="Left Company">Left Company</option>
                 </select>
             </div>
+            <!-- Onboarding Status & Invite Actions -->
+            <div id="tmOnboardingSection" style="display:none;margin-bottom:16px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid #E2E8F0;">
+                <div style="font-weight:600;font-size:12px;color:var(--navy);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Portal Onboarding</div>
+                <div id="tmOnboardingBadge" style="margin-bottom:10px;"></div>
+                <div id="tmInviteActions"></div>
+            </div>
             <div id="tmSaveStatus" style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:13px;text-align:center;"></div>
             <button class="btn btn-gold" onclick="saveTeamMember()" style="width:100%;padding:12px;font-weight:600;font-size:14px;">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Special Bid Request Modal -->
+<div id="specialBidModal" class="modal" style="z-index: 1100;">
+    <div class="modal-content" style="max-width: 560px;">
+        <div class="modal-header">
+            <h2>Request Special Bid Quote</h2>
+            <button class="modal-close" onclick="closeSpecialBidModal()">&#10005;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <p style="font-size:13px;color:var(--text-light);margin:0 0 16px;">Submit details and Alliance will revert with custom lease pricing, including operating leases with residual values, promotional rates, or deferred payment structures.</p>
+            <div style="margin-bottom: 14px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Client / Company Name</label>
+                <input type="text" id="sbClientName" placeholder="e.g. Acme Construction Ltd." style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+            </div>
+            <div style="margin-bottom: 14px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Equipment Description</label>
+                <textarea id="sbEquipmentDesc" rows="2" placeholder="e.g. 2x Zoomlion ZTC250 Truck Cranes, new, $280K each" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;resize:vertical;"></textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                <div>
+                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Total Equipment Cost</label>
+                    <input type="text" id="sbAmount" placeholder="$150,000" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                </div>
+                <div>
+                    <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Preferred Term</label>
+                    <select id="sbTerm" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                        <option value="">Select term</option>
+                        <option value="24">24 Months</option>
+                        <option value="36">36 Months</option>
+                        <option value="48">48 Months</option>
+                        <option value="60">60 Months</option>
+                        <option value="custom">Custom / Flexible</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom: 14px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Lease Type Requested</label>
+                <select id="sbLeaseType" style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;">
+                    <option value="operating">Operating Lease (with residual)</option>
+                    <option value="capital">Capital Lease ($10 buyout)</option>
+                    <option value="promo">Promotional Rate / Deferred Payment</option>
+                    <option value="other">Other — describe below</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 14px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Additional Notes (optional)</label>
+                <textarea id="sbNotes" rows="2" placeholder="Any special requirements, vendor subsidies, or client preferences..." style="width:100%;padding:10px 12px;border:1px solid var(--border-gray);border-radius:6px;font-size:14px;resize:vertical;"></textarea>
+            </div>
+            <div style="margin-bottom: 14px;">
+                <label style="display:block;font-weight:600;color:var(--navy);margin-bottom:4px;font-size:13px;">Attach Equipment Quote (optional)</label>
+                <input type="file" id="sbFileUpload" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" style="font-size:13px;">
+            </div>
+            <div id="sbSubmitStatus" style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:13px;text-align:center;"></div>
+            <button class="btn btn-gold" onclick="submitSpecialBid()" id="sbSubmitBtn" style="width:100%;padding:12px;font-weight:600;font-size:14px;">Submit Request to Alliance</button>
         </div>
     </div>
 </div>
@@ -20365,6 +20464,36 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (srcFilterISO) srcFilterISO.style.display = 'none';
             }
 
+            // Clean up Deal Pipeline UI for Vendor users — focus on deal tracking
+            var vendorGuide = document.getElementById('vendorDealGuide');
+            if (vendorGuide) {
+                vendorGuide.style.display = ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !isAdminForFilter) ? 'block' : 'none';
+            }
+            if ((currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson') && !isAdminForFilter) {
+                // Hide AF#/AFG# columns — vendors don't need internal file numbers
+                document.querySelectorAll('#dealsTable th:nth-child(1), #dealsTable td:nth-child(1)').forEach(function(el) { el.style.display = 'none'; });
+                document.querySelectorAll('#dealsTable th:nth-child(2), #dealsTable td:nth-child(2)').forEach(function(el) { el.style.display = 'none'; });
+                // Hide lender column — vendors don't manage lender assignments
+                document.querySelectorAll('.lender-col').forEach(function(el) { el.style.display = 'none'; });
+                // Hide Export CSV and Add Application buttons
+                var exportBtnVendor = document.querySelector('#dealsContentArea button[onclick="exportDeals()"]');
+                if (exportBtnVendor) exportBtnVendor.style.display = 'none';
+                var addDealBtnVendor = document.getElementById('dealPipelineAddBtn');
+                if (addDealBtnVendor) addDealBtnVendor.style.display = 'none';
+                // Simplify search and hide admin-only filters
+                var searchElVendor = document.getElementById('dealSearch');
+                if (searchElVendor) searchElVendor.placeholder = 'Search company, product, status...';
+                var prodFilterVendor = document.getElementById('dealProductFilter');
+                if (prodFilterVendor) prodFilterVendor.style.display = 'none';
+                var srcFilterVendor = document.getElementById('dealSourceFilter');
+                if (srcFilterVendor) srcFilterVendor.style.display = 'none';
+                // For vendor_program, show Sourced By with their salespeople
+                if (currentAgentType === 'vendor_program' && sourcedByFilterEl) {
+                    // This gets populated later from vendor_contacts
+                    sourcedByFilterEl.style.display = '';
+                }
+            }
+
             // Show/hide Assigned To vs Sourced By columns based on role
             if (!isAdminForFilter) {
                 document.querySelectorAll('.assigned-col').forEach(function(el) { el.style.display = 'none'; });
@@ -20548,9 +20677,30 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         'Archived': { bg: '#F1F5F9', text: '#94A3B8', border: '#CBD5E1' }
     };
 
+    // Vendor-friendly status explanations
+    var vendorStatusExplain = {
+        'Prospect': 'New lead — not yet submitted for financing',
+        'Application Sent': 'Application sent to client for completion',
+        'Quote Requested': 'Lease quote being prepared by Alliance',
+        'Quote sent': 'Lease quote sent — awaiting client decision',
+        'Info received': 'Documents received — under initial review',
+        'In Credit': 'Submitted to lender for credit decision',
+        'Approved': 'Approved by lender — congratulations!',
+        'Approval sent': 'Approval terms sent to client for review',
+        'Docs requested': 'Lender requesting final documentation',
+        'Docs out for signing': 'Contracts sent for signatures',
+        'In funding': 'Deal is being funded — almost done!',
+        'Funded': 'Deal funded and complete',
+        'Declined': 'Lender declined — Alliance may try other lenders',
+        'Dead approval': 'Approval expired or client did not proceed',
+        'Withdrawn': 'Deal withdrawn by client or agent'
+    };
+
     function getStatusBadge(status) {
         var colors = dealStatusColors[status] || { bg: '#F1F5F9', text: '#475569', border: '#94A3B8' };
-        return '<span style="display:inline-block;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;background:' + colors.bg + ';color:' + colors.text + ';border:1px solid ' + colors.border + ';white-space:nowrap;">' + (status || 'N/A') + '</span>';
+        var isVendor = currentAgentType === 'vendor_program' || currentAgentType === 'vendor_salesperson';
+        var tooltip = (isVendor && vendorStatusExplain[status]) ? ' title="' + vendorStatusExplain[status] + '"' : '';
+        return '<span style="display:inline-block;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;background:' + colors.bg + ';color:' + colors.text + ';border:1px solid ' + colors.border + ';white-space:nowrap;cursor:' + (tooltip ? 'help' : 'default') + ';"' + tooltip + '>' + (status || 'N/A') + '</span>';
     }
 
     // Deal tab categories
@@ -25157,6 +25307,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             document.getElementById('teamStatDeals').textContent = totalDeals;
             document.getElementById('teamStatPipelineValue').textContent = formatCurrency(totalPipelineValue);
 
+            // Show/hide onboarding alert banner
+            var noAccountCount = _vendorTeamMembers.filter(function(m) { return m.onboardingStatus === 'no_account'; }).length;
+            var alertEl = document.getElementById('teamOnboardingAlert');
+            if (alertEl) {
+                if (totalPending > 0) {
+                    alertEl.style.display = 'block';
+                    var alertTitle = document.getElementById('teamAlertTitle');
+                    var alertDesc = document.getElementById('teamAlertDesc');
+                    var inviteAllBtn = document.getElementById('teamInviteAllBtn');
+                    if (noAccountCount > 0) {
+                        alertTitle.textContent = noAccountCount + ' team member' + (noAccountCount > 1 ? 's have' : ' has') + ' not been invited yet';
+                        alertDesc.textContent = 'Send portal invites so they can start submitting deals and tracking their pipeline.';
+                        inviteAllBtn.style.display = 'inline-block';
+                    } else {
+                        alertTitle.textContent = totalPending + ' team member' + (totalPending > 1 ? 's' : '') + ' still onboarding';
+                        alertDesc.textContent = 'Check for expired invites and resend as needed.';
+                        inviteAllBtn.style.display = 'none';
+                    }
+                } else {
+                    alertEl.style.display = 'none';
+                }
+            }
+
             // Render table
             renderVendorTeamTable(_vendorTeamMembers);
 
@@ -25166,39 +25339,90 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    function timeAgo(dateStr) {
+        if (!dateStr) return '';
+        var diff = Date.now() - new Date(dateStr).getTime();
+        var mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return mins + 'm ago';
+        var hours = Math.floor(mins / 60);
+        if (hours < 24) return hours + 'h ago';
+        var days = Math.floor(hours / 24);
+        if (days < 7) return days + 'd ago';
+        if (days < 30) return Math.floor(days / 7) + 'w ago';
+        return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
     function renderVendorTeamTable(members) {
         var tbody = document.getElementById('vendorTeamBody');
         if (!members || members.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-light);">No team members found. Click "+ Add Salesperson" to get started.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-light);">' +
+                '<div style="font-size:32px;margin-bottom:8px;">👥</div>' +
+                '<div style="font-weight:600;margin-bottom:4px;">No team members found</div>' +
+                '<div style="font-size:13px;">Click <strong>+ Add Salesperson</strong> to start building your team</div></td></tr>';
             return;
         }
 
         tbody.innerHTML = members.map(function(m) {
             var c = m.contact;
-            var roleLabel = c.is_admin ? '<span style="font-weight:600;color:var(--navy);">Admin</span>' : 'Salesperson';
             var nameDisplay = c.contact_name || 'N/A';
+            var roleTitle = c.role_title || (c.is_admin ? 'Admin' : 'Salesperson');
             if (c.is_admin) nameDisplay += ' <span style="font-size:10px;background:#EFF6FF;color:#1D4ED8;padding:2px 6px;border-radius:4px;font-weight:600;">ADMIN</span>';
 
-            var onboardingBadge = '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:' + m.onboardingColor + '15;color:' + m.onboardingColor + ';border:1px solid ' + m.onboardingColor + '30;">' +
-                '<span style="width:6px;height:6px;border-radius:50%;background:' + m.onboardingColor + ';"></span> ' + m.onboardingLabel + '</span>';
+            // Onboarding: show progress steps instead of just a badge
+            var onboardingHtml = '';
+            var steps = ['Added', 'Invited', 'Activated', 'First Deal'];
+            var currentStep = 0;
+            if (m.onboardingStatus === 'no_account') currentStep = 0;
+            else if (m.onboardingStatus === 'invited' || m.onboardingStatus === 'expired') currentStep = 1;
+            else if (m.onboardingStatus === 'activated') currentStep = 2;
+            else if (m.onboardingStatus === 'active') currentStep = 3;
 
-            var pipelineDisplay = m.pipelineValue > 0 ? formatCurrency(m.pipelineValue) : '<span style="color:#94A3B8;">—</span>';
-            var lastActivityDisplay = m.lastActivity ? formatDate(m.lastActivity) : '<span style="color:#94A3B8;">No activity</span>';
+            // Compact progress indicator
+            if (m.onboardingStatus === 'active') {
+                onboardingHtml = '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#10B98115;color:#10B981;border:1px solid #10B98130;"><span style="width:6px;height:6px;border-radius:50%;background:#10B981;"></span> Active</span>';
+            } else if (m.onboardingStatus === 'activated') {
+                onboardingHtml = '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#2563EB15;color:#2563EB;border:1px solid #2563EB30;"><span style="width:6px;height:6px;border-radius:50%;background:#2563EB;"></span> Activated</span>' +
+                    '<div style="font-size:10px;color:#94A3B8;margin-top:2px;">No deals yet</div>';
+            } else {
+                // Show mini progress bar for non-active members
+                var stepDots = steps.map(function(s, i) {
+                    var isComplete = i <= currentStep;
+                    var isCurrent = i === currentStep;
+                    var dotColor = isComplete ? (m.onboardingStatus === 'expired' && i === 1 ? '#EF4444' : '#10B981') : '#E2E8F0';
+                    return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
+                        '<div style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';' + (isCurrent ? 'box-shadow:0 0 0 3px ' + dotColor + '30;' : '') + '"></div>' +
+                        '<span style="font-size:9px;color:' + (isComplete ? '#334155' : '#94A3B8') + ';font-weight:' + (isCurrent ? '600' : '400') + ';">' + s + '</span></div>';
+                }).join('<div style="flex:1;height:2px;background:#E2E8F0;margin-top:4px;"></div>');
+                onboardingHtml = '<div style="display:flex;align-items:flex-start;gap:2px;min-width:160px;">' + stepDots + '</div>';
+                if (m.onboardingStatus === 'expired') {
+                    onboardingHtml += '<div style="font-size:10px;color:#EF4444;font-weight:600;margin-top:2px;">Invite expired</div>';
+                }
+            }
+
+            var pipelineDisplay = m.pipelineValue > 0 ? '<span style="color:var(--navy);font-weight:700;">' + formatCurrency(m.pipelineValue) + '</span>' : '<span style="color:#CBD5E1;">$0</span>';
+            var dealDisplay = m.dealCount > 0 ? '<span style="font-weight:700;color:var(--navy);">' + m.dealCount + '</span>' : '<span style="color:#CBD5E1;">0</span>';
+            var lastActivityDisplay = m.lastActivity ? '<span title="' + new Date(m.lastActivity).toLocaleString() + '">' + timeAgo(m.lastActivity) + '</span>' : '<span style="color:#CBD5E1;">None</span>';
 
             var actions = '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">';
             actions += '<button class="btn btn-secondary btn-sm" onclick="openTeamMemberModal(\'' + c.id + '\')" style="padding:4px 10px;font-size:11px;">Manage</button>';
-            if (m.onboardingStatus === 'expired' || m.onboardingStatus === 'invited') {
+            if (m.onboardingStatus === 'no_account') {
+                actions += '<button class="btn btn-sm" onclick="sendVendorInvite(\'' + c.id + '\')" style="padding:4px 10px;font-size:11px;background:#2563EB;color:white;border:none;border-radius:4px;cursor:pointer;">Send Invite</button>';
+            } else if (m.onboardingStatus === 'expired' || m.onboardingStatus === 'invited') {
                 actions += '<button class="btn btn-sm" onclick="resendVendorInvite(\'' + c.id + '\')" style="padding:4px 10px;font-size:11px;background:#F59E0B;color:white;border:none;border-radius:4px;cursor:pointer;">Re-invite</button>';
             }
             actions += '</div>';
 
-            return '<tr style="border-bottom:1px solid var(--border-gray);">' +
-                '<td style="padding:12px;">' + nameDisplay + '</td>' +
+            // Row highlight for members needing action
+            var rowBg = m.onboardingStatus === 'no_account' ? 'background:#FFFBEB;' : (m.onboardingStatus === 'expired' ? 'background:#FEF2F2;' : '');
+
+            return '<tr style="border-bottom:1px solid var(--border-gray);' + rowBg + '">' +
+                '<td style="padding:12px;"><div>' + nameDisplay + '</div><div style="font-size:11px;color:#94A3B8;">' + roleTitle + '</div></td>' +
                 '<td style="padding:12px;font-size:13px;">' + (c.email || 'N/A') + '</td>' +
-                '<td style="padding:12px;text-align:center;">' + onboardingBadge + '</td>' +
-                '<td style="padding:12px;text-align:center;font-weight:600;">' + m.dealCount + '</td>' +
-                '<td style="padding:12px;text-align:right;font-weight:600;">' + pipelineDisplay + '</td>' +
-                '<td style="padding:12px;text-align:center;font-size:12px;">' + lastActivityDisplay + '</td>' +
+                '<td style="padding:12px;">' + onboardingHtml + '</td>' +
+                '<td style="padding:12px;text-align:center;">' + dealDisplay + '</td>' +
+                '<td style="padding:12px;text-align:right;">' + pipelineDisplay + '</td>' +
+                '<td style="padding:12px;text-align:center;font-size:12px;color:#64748B;">' + lastActivityDisplay + '</td>' +
                 '<td style="padding:12px;text-align:center;">' + actions + '</td>' +
                 '</tr>';
         }).join('');
@@ -25215,6 +25439,30 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } else if (filter === 'inactive') {
             renderVendorTeamTable(_vendorTeamMembers.filter(m => m.contact.status === 'inactive' || m.contact.status === 'left_company'));
         }
+    }
+
+    async function inviteAllPending() {
+        var noAccountMembers = (_vendorTeamMembers || []).filter(function(m) { return m.onboardingStatus === 'no_account'; });
+        if (noAccountMembers.length === 0) { alert('No pending members to invite.'); return; }
+        if (!confirm('Send portal invites to ' + noAccountMembers.length + ' team member' + (noAccountMembers.length > 1 ? 's' : '') + '?')) return;
+
+        var btn = document.getElementById('teamInviteAllBtn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+
+        var sent = 0, failed = 0;
+        for (var i = 0; i < noAccountMembers.length; i++) {
+            try {
+                await sendVendorInvite(noAccountMembers[i].contact.id, true);
+                sent++;
+            } catch(e) {
+                failed++;
+                console.error('Failed to invite ' + noAccountMembers[i].contact.email + ':', e);
+            }
+        }
+
+        if (btn) { btn.disabled = false; btn.textContent = 'Invite All Pending'; }
+        alert('Invites sent: ' + sent + (failed > 0 ? ' (' + failed + ' failed)' : ''));
+        loadVendorTeamPage();
     }
 
     async function resendVendorInvite(contactId) {
@@ -25258,6 +25506,79 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (err) {
             console.error('Resend invite error:', err);
             alert('Error resending invite: ' + err.message);
+        }
+    }
+
+    // Send initial invite to a vendor contact who has no user account yet
+    async function sendVendorInvite(contactId, skipConfirm) {
+        if (!skipConfirm && !confirm('Send a portal invite to this team member? They will receive an email with an activation link.')) return;
+        try {
+            var { data: contact } = await db.from('vendor_contacts').select('*').eq('id', contactId).single();
+            if (!contact) { alert('Contact not found.'); return; }
+            if (!contact.email) { alert('This contact has no email address. Please add one first via Manage.'); return; }
+
+            // Check if a user already exists for this email
+            var { data: existingUser } = await db.from('users').select('id').eq('email', contact.email).single();
+
+            var userId;
+            var newToken = crypto.randomUUID();
+            var tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+            if (existingUser) {
+                // User exists but wasn't linked — update and link
+                userId = existingUser.id;
+                await db.from('users').update({
+                    invite_token: newToken,
+                    invite_token_expires_at: tokenExpires,
+                    invite_sent_at: new Date().toISOString(),
+                    onboarding_status: 'invited',
+                    agent_type: 'vendor_salesperson',
+                    role: 'agent'
+                }).eq('id', userId);
+            } else {
+                // Create new user record
+                var { data: newUser, error: createErr } = await db.from('users').insert({
+                    email: contact.email,
+                    full_name: contact.contact_name || '',
+                    phone: contact.phone || '',
+                    role: 'agent',
+                    agent_type: 'vendor_salesperson',
+                    invite_token: newToken,
+                    invite_token_expires_at: tokenExpires,
+                    invite_sent_at: new Date().toISOString(),
+                    onboarding_status: 'invited',
+                    status: 'Active'
+                }).select().single();
+
+                if (createErr) throw createErr;
+                userId = newUser.id;
+            }
+
+            // Link the vendor_contact to the user
+            await db.from('vendor_contacts').update({ user_id: userId }).eq('id', contactId);
+
+            // Send invite email
+            var activateUrl = window.location.origin + '/agent-activate.html?token=' + newToken;
+            var { data: vendorData } = await db.from('vendors').select('name').eq('id', contact.vendor_id).single();
+            var vendorName = vendorData ? vendorData.name : 'your vendor';
+
+            var emailHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:24px;text-align:center;border-radius:12px 12px 0 0;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                '<div style="padding:24px;background:white;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 12px 12px;">' +
+                '<p>Hi ' + (contact.contact_name || 'there') + ',</p>' +
+                '<p>You have been invited to join the <strong>' + vendorName + '</strong> vendor portal on Alliance Financing. This gives you access to submit financing applications, track deals, and use quoting tools.</p>' +
+                '<div style="text-align:center;margin:24px 0;">' +
+                '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:8px;font-weight:700;text-decoration:none;font-size:16px;">Activate Your Account</a></div>' +
+                '<p style="font-size:13px;color:#64748B;">This link expires in 7 days. If you have questions, contact info@alliancefinancing.com.</p></div></div>';
+
+            await sendEmailViaResend(contact.email, 'You\'re Invited to ' + vendorName + '\'s Financing Portal — Alliance Financing', emailHtml, '', 'info@alliancefinancing.com', null, 'info@alliancefinancing.com');
+
+            alert('Invite sent to ' + contact.email + '!');
+            loadVendorTeamPage();
+        } catch (err) {
+            console.error('Send invite error:', err);
+            alert('Error sending invite: ' + err.message);
         }
     }
 
@@ -25425,6 +25746,40 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             document.getElementById('tmRoleTitle').value = contact.role_title || '';
             document.getElementById('tmStatus').value = contact.status || 'Active';
             document.getElementById('tmSaveStatus').style.display = 'none';
+
+            // Populate onboarding section
+            var onboardSection = document.getElementById('tmOnboardingSection');
+            var badgeEl = document.getElementById('tmOnboardingBadge');
+            var actionsEl = document.getElementById('tmInviteActions');
+            onboardSection.style.display = 'block';
+
+            if (!contact.user_id) {
+                // No Account
+                badgeEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#94A3B815;color:#94A3B8;border:1px solid #94A3B830;"><span style="width:6px;height:6px;border-radius:50%;background:#94A3B8;"></span> No Account</span>' +
+                    '<span style="font-size:12px;color:var(--text-light);margin-left:8px;">This member has not been invited to the portal yet.</span>';
+                actionsEl.innerHTML = '<button class="btn btn-sm" onclick="closeTeamMemberModal();sendVendorInvite(\'' + contactId + '\')" style="padding:6px 14px;font-size:12px;background:#2563EB;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:6px;">Send Portal Invite</button>';
+            } else {
+                // Fetch user record for status
+                var { data: user } = await db.from('users').select('invite_accepted_at, invite_sent_at, invite_token_expires_at, last_sign_in_at, onboarding_status').eq('id', contact.user_id).single();
+                if (user && user.invite_accepted_at) {
+                    var lastLogin = user.last_sign_in_at ? 'Last login: ' + new Date(user.last_sign_in_at).toLocaleDateString() : '';
+                    badgeEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#10B98115;color:#10B981;border:1px solid #10B98130;"><span style="width:6px;height:6px;border-radius:50%;background:#10B981;"></span> Account Active</span>' +
+                        (lastLogin ? '<span style="font-size:11px;color:var(--text-light);margin-left:8px;">' + lastLogin + '</span>' : '');
+                    actionsEl.innerHTML = '';
+                } else if (user && user.invite_token_expires_at && new Date(user.invite_token_expires_at) < new Date()) {
+                    badgeEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#EF444415;color:#EF4444;border:1px solid #EF444430;"><span style="width:6px;height:6px;border-radius:50%;background:#EF4444;"></span> Invite Expired</span>' +
+                        '<span style="font-size:12px;color:var(--text-light);margin-left:8px;">Invite expired on ' + new Date(user.invite_token_expires_at).toLocaleDateString() + '</span>';
+                    actionsEl.innerHTML = '<button class="btn btn-sm" onclick="closeTeamMemberModal();resendVendorInvite(\'' + contactId + '\')" style="padding:6px 14px;font-size:12px;background:#F59E0B;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:6px;">Resend Invite</button>';
+                } else if (user && user.invite_sent_at) {
+                    badgeEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#F59E0B15;color:#F59E0B;border:1px solid #F59E0B30;"><span style="width:6px;height:6px;border-radius:50%;background:#F59E0B;"></span> Invite Sent</span>' +
+                        '<span style="font-size:12px;color:var(--text-light);margin-left:8px;">Sent ' + new Date(user.invite_sent_at).toLocaleDateString() + '</span>';
+                    actionsEl.innerHTML = '<button class="btn btn-sm" onclick="closeTeamMemberModal();resendVendorInvite(\'' + contactId + '\')" style="padding:6px 14px;font-size:12px;background:#F59E0B;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:6px;">Resend Invite</button>';
+                } else {
+                    badgeEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#F59E0B15;color:#F59E0B;border:1px solid #F59E0B30;"><span style="width:6px;height:6px;border-radius:50%;background:#F59E0B;"></span> Pending</span>';
+                    actionsEl.innerHTML = '<button class="btn btn-sm" onclick="closeTeamMemberModal();resendVendorInvite(\'' + contactId + '\')" style="padding:6px 14px;font-size:12px;background:#F59E0B;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:6px;">Send Invite</button>';
+                }
+            }
+
             document.getElementById('teamMemberModal').classList.add('active');
         } catch (err) {
             alert('Error loading team member: ' + err.message);
@@ -25592,6 +25947,133 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (downPayment > 0) details += ' | Down: ' + fmt(downPayment);
         details += '<br><span style="font-size:11px;opacity:0.5;">$10 Purchase Option at End of Term</span>';
         document.getElementById('calcPaymentDetails').innerHTML = details;
+    }
+
+    // ========== Special Bid Request ==========
+    function openSpecialBidModal() {
+        // Pre-fill amount from calculator if available
+        var calcCost = document.getElementById('calcEquipCost')?.value;
+        if (calcCost && parseFloat(calcCost) > 0) {
+            document.getElementById('sbAmount').value = '$' + parseFloat(calcCost).toLocaleString();
+        }
+        document.getElementById('specialBidModal').classList.add('active');
+    }
+
+    function closeSpecialBidModal() {
+        document.getElementById('specialBidModal').classList.remove('active');
+    }
+
+    async function submitSpecialBid() {
+        var clientName = document.getElementById('sbClientName').value.trim();
+        var equipDesc = document.getElementById('sbEquipmentDesc').value.trim();
+        var amount = document.getElementById('sbAmount').value.trim();
+        var term = document.getElementById('sbTerm').value;
+        var leaseType = document.getElementById('sbLeaseType').value;
+        var notes = document.getElementById('sbNotes').value.trim();
+        var statusEl = document.getElementById('sbSubmitStatus');
+        var submitBtn = document.getElementById('sbSubmitBtn');
+
+        if (!equipDesc || !amount) {
+            statusEl.style.display = 'block';
+            statusEl.style.background = '#FEF2F2';
+            statusEl.style.color = '#DC2626';
+            statusEl.textContent = 'Please enter at least the equipment description and cost.';
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+
+        try {
+            // Build the request record
+            var leaseTypeLabels = {
+                'operating': 'Operating Lease (with residual)',
+                'capital': 'Capital Lease ($10 buyout)',
+                'promo': 'Promotional Rate / Deferred Payment',
+                'other': 'Other'
+            };
+            var termLabel = term === 'custom' ? 'Custom / Flexible' : (term ? term + ' Months' : 'Not specified');
+
+            var requestBody = 'Special Bid Request from ' + (currentUserName || 'Unknown') + '\n\n' +
+                'Client: ' + (clientName || 'Not provided') + '\n' +
+                'Equipment: ' + equipDesc + '\n' +
+                'Amount: ' + amount + '\n' +
+                'Term: ' + termLabel + '\n' +
+                'Lease Type: ' + (leaseTypeLabels[leaseType] || leaseType) + '\n' +
+                (notes ? 'Notes: ' + notes + '\n' : '');
+
+            // Save to Supabase as a note/activity on the vendor record
+            var { data: vc } = await db.from('vendor_contacts').select('vendor_id, contact_name').eq('user_id', currentUserId).single();
+            var vendorId = vc ? vc.vendor_id : null;
+
+            // Insert as a special_bid_request record in deal_notes or a dedicated approach
+            // For now, send as an email to admin via the edge function
+            var emailPayload = {
+                to: 'info@alliancefinancing.com',
+                subject: 'Special Bid Request — ' + (clientName || equipDesc.substring(0, 40)),
+                html: '<div style="font-family:Arial,sans-serif;max-width:600px;">' +
+                    '<div style="background:#0D1E3D;padding:16px 24px;border-radius:12px 12px 0 0;">' +
+                    '<h2 style="color:#C9A84C;margin:0;font-size:18px;">Special Bid Quote Request</h2></div>' +
+                    '<div style="padding:20px;background:white;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 12px 12px;">' +
+                    '<table style="width:100%;font-size:14px;border-collapse:collapse;">' +
+                    '<tr><td style="padding:8px 0;font-weight:600;color:#0D1E3D;width:140px;">Requested By</td><td style="padding:8px 0;">' + (currentUserName || 'N/A') + ' (' + (currentUser?.email || '') + ')</td></tr>' +
+                    (vendorId ? '<tr><td style="padding:8px 0;font-weight:600;color:#0D1E3D;">Vendor</td><td style="padding:8px 0;">' + (vc?.contact_name || 'Vendor Contact') + '</td></tr>' : '') +
+                    '<tr><td style="padding:8px 0;font-weight:600;color:#0D1E3D;">Client</td><td style="padding:8px 0;">' + (clientName || 'Not provided') + '</td></tr>' +
+                    '<tr style="border-top:1px solid #E2E8F0;"><td style="padding:8px 0;font-weight:600;color:#0D1E3D;">Equipment</td><td style="padding:8px 0;">' + equipDesc + '</td></tr>' +
+                    '<tr><td style="padding:8px 0;font-weight:600;color:#0D1E3D;">Amount</td><td style="padding:8px 0;">' + amount + '</td></tr>' +
+                    '<tr><td style="padding:8px 0;font-weight:600;color:#0D1E3D;">Term</td><td style="padding:8px 0;">' + termLabel + '</td></tr>' +
+                    '<tr><td style="padding:8px 0;font-weight:600;color:#0D1E3D;">Lease Type</td><td style="padding:8px 0;">' + (leaseTypeLabels[leaseType] || leaseType) + '</td></tr>' +
+                    (notes ? '<tr style="border-top:1px solid #E2E8F0;"><td style="padding:8px 0;font-weight:600;color:#0D1E3D;">Notes</td><td style="padding:8px 0;">' + notes + '</td></tr>' : '') +
+                    '</table>' +
+                    '</div></div>'
+            };
+
+            // Send via Supabase edge function (send-email)
+            var { data: emailResult, error: emailErr } = await db.functions.invoke('send-email', { body: emailPayload });
+            if (emailErr) throw emailErr;
+
+            // Also store in applications_sent or a tracking table
+            await db.from('applications_sent').insert({
+                client_name: clientName || 'Special Bid Request',
+                client_email: currentUser?.email || '',
+                application_type: 'Special Bid',
+                sent_by: currentUserName || '',
+                referral_slug: null,
+                status: 'Sent',
+                sent_at: new Date().toISOString(),
+                notes: requestBody
+            }).catch(function(e) { console.warn('Could not log special bid to applications_sent:', e); });
+
+            statusEl.style.display = 'block';
+            statusEl.style.background = '#F0FDF4';
+            statusEl.style.color = '#059669';
+            statusEl.textContent = 'Request submitted! Alliance will respond with a custom quote.';
+            submitBtn.textContent = 'Submitted';
+
+            // Close after 2.5 seconds
+            setTimeout(function() {
+                closeSpecialBidModal();
+                // Reset form
+                document.getElementById('sbClientName').value = '';
+                document.getElementById('sbEquipmentDesc').value = '';
+                document.getElementById('sbAmount').value = '';
+                document.getElementById('sbTerm').value = '';
+                document.getElementById('sbLeaseType').value = 'operating';
+                document.getElementById('sbNotes').value = '';
+                statusEl.style.display = 'none';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Request to Alliance';
+            }, 2500);
+
+        } catch (err) {
+            console.error('Special bid submit error:', err);
+            statusEl.style.display = 'block';
+            statusEl.style.background = '#FEF2F2';
+            statusEl.style.color = '#DC2626';
+            statusEl.textContent = 'Error submitting request. Please email info@alliancefinancing.com directly.';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Request to Alliance';
+        }
     }
 
     // ========== Am I Eligible? Checker ==========
@@ -26371,9 +26853,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
+            // Show rate card only for Alliance admin users
+            var rateCardEl = document.getElementById('rateCardSection');
+            if (rateCardEl) {
+                rateCardEl.style.display = ['super_admin', 'admin'].includes(currentUserRole) ? 'block' : 'none';
+            }
+
         } catch (err) {
             console.error('Error in loadVendorTools:', err);
             // Static HTML fallback remains visible
+            // Still toggle rate card visibility
+            var rateCardEl = document.getElementById('rateCardSection');
+            if (rateCardEl) {
+                rateCardEl.style.display = ['super_admin', 'admin'].includes(currentUserRole) ? 'block' : 'none';
+            }
         }
     }
 
@@ -33480,6 +33973,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (data[ei].expires_at && !['Returned', 'Expired', 'Archived'].includes(data[ei].status) && new Date(data[ei].expires_at) < now) {
                     data[ei].status = 'Expired';
                     try { await db.from('applications_sent').update({ status: 'Expired' }).eq('id', data[ei].id); } catch(e) {}
+                }
+            }
+
+            // Auto-archive: archive 'Returned' records older than 30 days
+            var thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            for (var ai = 0; ai < data.length; ai++) {
+                if (data[ai].status === 'Returned' && data[ai].sent_at && new Date(data[ai].sent_at) < thirtyDaysAgo) {
+                    data[ai].status = 'Archived';
+                    try { await db.from('applications_sent').update({ status: 'Archived' }).eq('id', data[ai].id); } catch(e) {}
                 }
             }
 
