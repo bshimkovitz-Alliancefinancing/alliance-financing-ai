@@ -10641,6 +10641,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     if (changedAt.getTime() < sevenDaysAgo) return;
 
                     var statusIcons = {
+                        'New': { icon: '🔔', bg: '#EFF6FF', color: '#1E40AF', msg: 'was submitted' },
                         'In Credit': { icon: '📋', bg: '#FEF3C7', color: '#92400E', msg: 'is now in credit review' },
                         'Approved': { icon: '✅', bg: '#D1FAE5', color: '#065F46', msg: 'has been approved!' },
                         'Approval sent': { icon: '📧', bg: '#DBEAFE', color: '#1E40AF', msg: 'approval has been sent' },
@@ -40838,8 +40839,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Determine agent_type based on role
             const agentType = (roleName === 'Admin' || roleName === 'Owner') ? 'vendor_program' : 'vendor_salesperson';
 
-            // Generate invite token
+            // Generate invite token + 7-day expiry
             const inviteToken = crypto.randomUUID ? crypto.randomUUID() : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+            const tokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
             // Check if a users record already exists for this email
             const { data: existingUser } = await db.from('users').select('id').ilike('email', contactEmail).maybeSingle();
@@ -40849,6 +40851,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 // Update existing record with new invite token
                 const { error: updateError } = await db.from('users').update({
                     invite_token: inviteToken,
+                    invite_token_expires_at: tokenExpiresAt,
                     invite_sent_at: new Date().toISOString(),
                     onboarding_status: 'invited',
                     agent_type: agentType,
@@ -40869,6 +40872,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     agent_status: 'Invited',
                     onboarding_status: 'invited',
                     invite_token: inviteToken,
+                    invite_token_expires_at: tokenExpiresAt,
                     invite_sent_at: new Date().toISOString(),
                     commission_type: 'none',
                     program_details: { vendor_contact_id: contactId, vendor_id: vendorId, role: roleName },

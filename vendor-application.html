@@ -459,6 +459,18 @@
         var SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
         var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
         var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        var EMAIL_FUNCTION_URL = SUPABASE_URL + '/functions/v1/send-email';
+
+        // Lightweight email helper for admin notifications (non-blocking)
+        async function sendNotificationEmail(to, subject, htmlBody) {
+            try {
+                await fetch(EMAIL_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: to, subject: subject, html: htmlBody, text: '', reply_to: 'info@alliancefinancing.com', from: 'info@alliancefinancing.com' })
+                });
+            } catch (e) { console.warn('Notification email failed (non-blocking):', e); }
+        }
 
         var vendorId = null;
         var vendorData = null;
@@ -680,6 +692,32 @@
                     });
                     await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
                 } catch(e) {}
+
+                // Notify Alliance admin (non-blocking)
+                var appCompany = applicationData.company.legal_name || vendorData.name || 'Unknown';
+                var appContact = applicationData.primary_contact.name || 'Unknown';
+                var appEmail = applicationData.primary_contact.email || '';
+                var appEquip = applicationData.equipment.description || '';
+                var appVol = applicationData.equipment.monthly_sales_volume || 'N/A';
+                var appCountries = applicationData.equipment.countries || 'N/A';
+                sendNotificationEmail(
+                    'info@alliancefinancing.com',
+                    '🏢 Vendor Application Completed: ' + appCompany,
+                    '<div style="font-family:Arial,sans-serif;max-width:600px;">' +
+                    '<div style="background:#0D1E3D;padding:18px 24px;border-radius:8px 8px 0 0;">' +
+                    '<h2 style="color:#C9A84C;margin:0;font-size:18px;">Vendor Application Completed</h2></div>' +
+                    '<div style="padding:20px 24px;background:#fff;border:1px solid #E2E8F0;">' +
+                    '<p style="font-size:14px;color:#334155;margin:0 0 12px;">A vendor has completed their program application and is ready for review.</p>' +
+                    '<table style="width:100%;font-size:14px;color:#334155;border-collapse:collapse;">' +
+                    '<tr><td style="padding:6px 0;font-weight:600;width:160px;">Company</td><td>' + appCompany + '</td></tr>' +
+                    '<tr><td style="padding:6px 0;font-weight:600;">Primary Contact</td><td>' + appContact + (appEmail ? ' (' + appEmail + ')' : '') + '</td></tr>' +
+                    '<tr><td style="padding:6px 0;font-weight:600;">Equipment</td><td>' + appEquip + '</td></tr>' +
+                    '<tr><td style="padding:6px 0;font-weight:600;">Monthly Volume</td><td>' + appVol + '</td></tr>' +
+                    '<tr><td style="padding:6px 0;font-weight:600;">Countries</td><td>' + appCountries + '</td></tr>' +
+                    '</table></div>' +
+                    '<div style="padding:12px 24px;background:#F8FAFC;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;">' +
+                    '<p style="font-size:12px;color:#94A3B8;margin:0;">Open <a href="https://alliancefinancing.ai/dashboard" style="color:#C9A84C;">Admin Dashboard → Vendors</a> to review and approve.</p></div></div>'
+                );
 
                 document.getElementById('applicationForm').style.display = 'none';
                 document.getElementById('successScreen').style.display = 'block';

@@ -163,8 +163,8 @@
         <div id="successView" class="hidden" style="text-align:center;">
             <div style="font-size:48px;margin-bottom:1rem;">&#10003;</div>
             <h2>Account Activated!</h2>
-            <p class="subtitle">Your account is ready. You can now sign in to your Alliance Financing partner dashboard.</p>
-            <a href="agent-login.html" class="btn-primary" style="display:block;text-align:center;text-decoration:none;margin-top:1.5rem;">Sign In to Dashboard</a>
+            <p class="subtitle">Your account is ready. Redirecting you to your dashboard in <span id="redirectCountdown">5</span> seconds...</p>
+            <a id="successPortalLink" href="agent-login.html" class="btn-primary" style="display:block;text-align:center;text-decoration:none;margin-top:1.5rem;">Go to Dashboard Now</a>
         </div>
     </div>
     <div class="footer-links">
@@ -266,6 +266,21 @@
             document.getElementById('passwordView').classList.add('hidden');
             document.getElementById('successView').classList.remove('hidden');
 
+            // Smart redirect: vendor users → vendor-portal, all others → agent-login
+            var isVendor = userData.agent_type && (userData.agent_type === 'vendor_program' || userData.agent_type === 'vendor_salesperson');
+            var redirectUrl = isVendor ? 'vendor-portal.html' : 'agent-login.html';
+            var linkEl = document.getElementById('successPortalLink');
+            if (linkEl) { linkEl.href = redirectUrl; linkEl.textContent = isVendor ? 'Go to Vendor Portal' : 'Go to Dashboard'; }
+
+            // Auto-redirect countdown
+            var countdown = 5;
+            var countdownEl = document.getElementById('redirectCountdown');
+            var countdownInterval = setInterval(function() {
+                countdown--;
+                if (countdownEl) countdownEl.textContent = countdown;
+                if (countdown <= 0) { clearInterval(countdownInterval); window.location.href = redirectUrl; }
+            }, 1000);
+
         } catch (error) {
             console.error('Activation error:', error);
             errorEl.textContent = error.message || 'Activation failed. Please try again or contact support.';
@@ -289,12 +304,22 @@
         try {
             var { data: user, error } = await db
                 .from('users')
-                .select('id, full_name, email, onboarding_status, invite_token, invite_accepted_at')
+                .select('id, full_name, email, onboarding_status, invite_token, invite_accepted_at, invite_token_expires_at, agent_type')
                 .eq('invite_token', token)
                 .maybeSingle();
 
             if (error || !user) {
                 document.getElementById('loadingView').classList.add('hidden');
+                document.getElementById('invalidView').classList.remove('hidden');
+                document.getElementById('mainContainer').style.opacity = '1';
+                return;
+            }
+
+            // Check token expiry (7-day TTL)
+            if (user.invite_token_expires_at && new Date(user.invite_token_expires_at) < new Date()) {
+                document.getElementById('loadingView').classList.add('hidden');
+                document.getElementById('invalidTitle').textContent = 'Link Expired';
+                document.getElementById('invalidMessage').textContent = 'This invite link has expired. Please contact your vendor administrator or Alliance Financing Group at info@alliancefinancing.com to request a new invite.';
                 document.getElementById('invalidView').classList.remove('hidden');
                 document.getElementById('mainContainer').style.opacity = '1';
                 return;
