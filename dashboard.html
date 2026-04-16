@@ -46865,5 +46865,164 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 </div>
 
 <!--/email_off-->
+
+<!-- ============================================ -->
+<!-- ADMIN ROLE PREVIEW PANEL                     -->
+<!-- ============================================ -->
+<div id="rolePreviewPanel" style="display:none;position:fixed;bottom:20px;right:20px;z-index:9999;font-family:'Inter',sans-serif;">
+    <!-- Collapsed button -->
+    <button id="rolePreviewToggle" onclick="toggleRolePreviewPanel()" style="background:#C9A84C;color:#0D1E3D;border:none;border-radius:50px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;align-items:center;gap:8px;transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 24px rgba(0,0,0,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 20px rgba(0,0,0,0.3)'">
+        <span style="font-size:16px;">👁</span> Role Preview
+    </button>
+    <!-- Expanded panel -->
+    <div id="rolePreviewExpanded" style="display:none;background:#0D1E3D;border:2px solid #C9A84C;border-radius:16px;padding:20px;min-width:300px;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div style="color:#C9A84C;font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:16px;">👁</span> Role Preview
+            </div>
+            <button onclick="toggleRolePreviewPanel()" style="background:none;border:none;color:#94A3B8;cursor:pointer;font-size:18px;padding:0;line-height:1;">&times;</button>
+        </div>
+        <div id="rolePreviewActiveBar" style="display:none;background:#DC2626;color:white;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:12px;font-weight:600;text-align:center;">
+            Previewing: <span id="rolePreviewActiveLabel">—</span>
+            <button onclick="exitRolePreview()" style="background:white;color:#DC2626;border:none;border-radius:4px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px;">Exit Preview</button>
+        </div>
+        <div style="margin-bottom:12px;">
+            <label style="display:block;color:#94A3B8;font-size:11px;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Select Dashboard View</label>
+            <select id="rolePreviewSelect" style="width:100%;padding:10px 12px;background:#1E293B;color:white;border:1px solid #334155;border-radius:8px;font-size:14px;font-family:inherit;cursor:pointer;">
+                <option value="">— Choose a role —</option>
+                <optgroup label="Vendor Portal">
+                    <option value="vendor_program">Vendor Admin (full dashboard)</option>
+                    <option value="vendor_salesperson">Vendor Salesperson (own deals)</option>
+                </optgroup>
+                <optgroup label="Agent Portal">
+                    <option value="referring_agent">Referring Agent</option>
+                    <option value="super_agent">ISO Partner</option>
+                </optgroup>
+                <optgroup label="Mortgage Portal">
+                    <option value="mortgage_broker">Mortgage Broker Admin</option>
+                    <option value="mortgage_agent">Mortgage Agent</option>
+                </optgroup>
+            </select>
+        </div>
+        <button onclick="activateRolePreview()" style="width:100%;padding:10px;background:#C9A84C;color:#0D1E3D;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#D4B35D'" onmouseout="this.style.background='#C9A84C'">Preview This Role</button>
+        <p style="color:#64748B;font-size:10px;text-align:center;margin:10px 0 0;line-height:1.4;">Admin only — temporarily view the dashboard as this role. No data is changed. Click Exit Preview to return.</p>
+    </div>
+</div>
+
+<script>
+// ============================================
+// ROLE PREVIEW SYSTEM (Admin Only)
+// ============================================
+var _rolePreview = {
+    active: false,
+    realRole: null,
+    realAgentType: null
+};
+
+function initRolePreviewPanel() {
+    var panel = document.getElementById('rolePreviewPanel');
+    if (!panel) return;
+    // Only show for super_admin / admin
+    if (['super_admin', 'admin'].includes(currentUserRole)) {
+        panel.style.display = 'block';
+    } else {
+        panel.style.display = 'none';
+    }
+}
+
+function toggleRolePreviewPanel() {
+    var btn = document.getElementById('rolePreviewToggle');
+    var expanded = document.getElementById('rolePreviewExpanded');
+    if (expanded.style.display === 'none') {
+        expanded.style.display = 'block';
+        btn.style.display = 'none';
+    } else {
+        expanded.style.display = 'none';
+        btn.style.display = 'flex';
+    }
+}
+
+function activateRolePreview() {
+    var select = document.getElementById('rolePreviewSelect');
+    var selectedType = select.value;
+    if (!selectedType) { alert('Please select a role to preview.'); return; }
+
+    // Save real credentials
+    if (!_rolePreview.active) {
+        _rolePreview.realRole = currentUserRole;
+        _rolePreview.realAgentType = currentAgentType;
+    }
+    _rolePreview.active = true;
+
+    // Override role variables
+    currentUserRole = 'agent';
+    currentAgentType = selectedType;
+
+    // Update the active preview bar
+    var activeBar = document.getElementById('rolePreviewActiveBar');
+    var activeLabel = document.getElementById('rolePreviewActiveLabel');
+    var labels = {
+        vendor_program: 'Vendor Admin',
+        vendor_salesperson: 'Vendor Salesperson',
+        referring_agent: 'Referring Agent',
+        super_agent: 'ISO Partner',
+        mortgage_broker: 'Mortgage Broker Admin',
+        mortgage_agent: 'Mortgage Agent'
+    };
+    activeLabel.textContent = labels[selectedType] || selectedType;
+    activeBar.style.display = 'block';
+
+    // Re-apply role access (sidebar, nav, buttons)
+    applyRoleAccess();
+
+    // Navigate to the default landing page for this role
+    var landingPage = 'dashboard';
+    if (selectedType === 'vendor_program' || selectedType === 'vendor_salesperson') {
+        landingPage = 'dashboard'; // vendor command center
+    } else if (selectedType === 'mortgage_broker' || selectedType === 'mortgage_agent') {
+        landingPage = 'brokeragePortal';
+    }
+    showPage(landingPage);
+    loadPageData(landingPage);
+
+    // Update role label in header
+    var roleEl = document.getElementById('currentUser');
+    if (roleEl) {
+        _rolePreview.realHeaderText = _rolePreview.realHeaderText || roleEl.textContent;
+        roleEl.innerHTML = '<span style="color:#DC2626;font-weight:700;">👁 PREVIEW:</span> ' + (labels[selectedType] || selectedType);
+    }
+}
+
+function exitRolePreview() {
+    if (!_rolePreview.active) return;
+
+    // Restore real credentials
+    currentUserRole = _rolePreview.realRole;
+    currentAgentType = _rolePreview.realAgentType;
+    _rolePreview.active = false;
+
+    // Hide active bar
+    document.getElementById('rolePreviewActiveBar').style.display = 'none';
+    document.getElementById('rolePreviewSelect').value = '';
+
+    // Re-apply admin role access
+    applyRoleAccess();
+
+    // Navigate back to admin dashboard
+    showPage('dashboard');
+    loadPageData('dashboard');
+
+    // Restore header text
+    var roleEl = document.getElementById('currentUser');
+    if (roleEl && _rolePreview.realHeaderText) roleEl.textContent = _rolePreview.realHeaderText;
+}
+
+// Initialize when dashboard loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Delay slightly to ensure currentUserRole is set from auth
+    setTimeout(initRolePreviewPanel, 2000);
+});
+</script>
+
 </body>
 </html>
