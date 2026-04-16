@@ -3811,28 +3811,35 @@
             </div>
             <div>
                 <label style="display:block;font-size:12px;opacity:0.7;margin-bottom:4px;">Down Payment</label>
-                <input type="number" id="calcDownPayment" placeholder="0" min="0" step="500" style="width:100%;padding:10px 12px;border:none;border-radius:6px;font-size:14px;background:rgba(255,255,255,0.15);color:white;" oninput="calculatePayment()">
+                <input type="number" id="calcDownPayment" placeholder="Optional" min="0" step="500" style="width:100%;padding:10px 12px;border:none;border-radius:6px;font-size:14px;background:rgba(255,255,255,0.15);color:white;" oninput="calculatePayment()">
             </div>
             <button class="btn" onclick="calculatePayment()" style="background:#C9A84C;color:#0D1E3D;padding:10px 20px;border-radius:6px;font-weight:700;font-size:14px;white-space:nowrap;border:none;cursor:pointer;">Calculate</button>
         </div>
         <div id="calcError" style="display:none;margin-top:12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:10px 14px;font-size:13px;color:#FCA5A5;"></div>
         <div id="calcResult" style="display:none;margin-top:20px;background:rgba(255,255,255,0.1);border-radius:8px;padding:20px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;">
-                <div>
-                    <div style="font-size:12px;opacity:0.6;">Estimated Monthly Payment</div>
-                    <div id="calcPaymentAmount" style="font-size:32px;font-weight:700;color:#C9A84C;margin:4px 0;"></div>
-                </div>
-                <div>
-                    <div style="font-size:12px;opacity:0.6;">Total Cost of Lease</div>
-                    <div id="calcTotalCost" style="font-size:20px;font-weight:600;color:white;margin:8px 0;"></div>
-                </div>
-                <div>
-                    <div style="font-size:12px;opacity:0.6;">Cost of Financing</div>
-                    <div id="calcFinancingCost" style="font-size:20px;font-weight:600;color:white;margin:8px 0;"></div>
-                </div>
+            <!-- Multi-term quote table -->
+            <div style="text-align:center;margin-bottom:14px;">
+                <div style="font-size:14px;font-weight:600;color:#C9A84C;" id="calcQuoteHeading">Payment Estimates</div>
+                <div id="calcQuoteSubheading" style="font-size:12px;opacity:0.5;margin-top:2px;"></div>
             </div>
-            <div id="calcPaymentDetails" style="font-size:12px;opacity:0.6;text-align:center;margin-top:12px;"></div>
-            <p style="font-size:11px;opacity:0.4;margin:12px 0 0;text-align:center;">* Estimate only. Actual rates subject to final credit approval, equipment type, and lender terms. Payments shown before applicable taxes.</p>
+            <div style="overflow-x:auto;">
+                <table id="calcQuoteTable" style="width:100%;border-collapse:collapse;font-size:13px;color:white;">
+                    <thead>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.2);">
+                            <th style="padding:10px 8px;text-align:left;font-weight:600;font-size:12px;opacity:0.7;">Term</th>
+                            <th style="padding:10px 8px;text-align:right;font-weight:600;font-size:12px;opacity:0.7;">Monthly</th>
+                            <th style="padding:10px 8px;text-align:right;font-weight:600;font-size:12px;opacity:0.7;">Weekly</th>
+                            <th style="padding:10px 8px;text-align:right;font-weight:600;font-size:12px;opacity:0.7;">Daily</th>
+                            <th style="padding:10px 8px;text-align:right;font-weight:600;font-size:12px;opacity:0.7;">Cost of Financing</th>
+                        </tr>
+                    </thead>
+                    <tbody id="calcQuoteBody"></tbody>
+                </table>
+            </div>
+            <div style="text-align:center;margin-top:14px;">
+                <div style="font-size:12px;opacity:0.5;">$10 Purchase Option at End of Term</div>
+            </div>
+            <p style="font-size:11px;opacity:0.4;margin:12px 0 0;text-align:center;">* Estimates only. Subject to final credit approval, completed documentation, equipment verification, and lender terms. Payments shown before applicable taxes.</p>
             <!-- Send Application with Quote -->
             <div id="calcSendAppRow" style="display:none;margin-top:16px;text-align:center;">
                 <button onclick="sendApplicationWithQuote()" style="background:#C9A84C;color:#0D1E3D;padding:12px 28px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(201,168,76,0.3);" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(201,168,76,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 2px 8px rgba(201,168,76,0.3)'">Send Lease Application with Quote</button>
@@ -25803,7 +25810,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     function calculatePayment() {
         var cost = parseFloat(document.getElementById('calcEquipCost').value);
-        var term = parseInt(document.getElementById('calcTerm').value);
+        var selectedTerm = parseInt(document.getElementById('calcTerm').value);
         var condition = document.getElementById('calcCondition').value;
         var downPayment = parseFloat(document.getElementById('calcDownPayment').value) || 0;
         var resultDiv = document.getElementById('calcResult');
@@ -25844,23 +25851,50 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         var financedAmount = cost - downPayment;
         var rateInfo = getLeaseRate(cost, condition);
-        var monthlyPayment = calcLeasePayment(financedAmount, rateInfo.customerRate, term);
-        var totalCost = (monthlyPayment * term) + 10; // + $10 buyout
-        var financingCost = totalCost - financedAmount;
-
         var sym = calcCurrency === 'CAD' ? 'C$' : 'US$';
         var fmt = function(v) { return sym + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 
-        resultDiv.style.display = 'block';
-        document.getElementById('calcPaymentAmount').textContent = fmt(monthlyPayment);
-        document.getElementById('calcTotalCost').textContent = fmt(totalCost);
-        document.getElementById('calcFinancingCost').textContent = fmt(financingCost);
+        // Build multi-term quote table (24, 36, 48, 60 months)
+        var terms = [24, 36, 48, 60];
+        var tbody = document.getElementById('calcQuoteBody');
+        tbody.innerHTML = '';
 
-        var details = term + ' months | ' + rateInfo.customerRate.toFixed(2) + '% | ' +
-            condition.charAt(0).toUpperCase() + condition.slice(1) + ' Equipment';
-        if (downPayment > 0) details += ' | Down: ' + fmt(downPayment);
-        details += '<br><span style="font-size:11px;opacity:0.5;">$10 Purchase Option at End of Term</span>';
-        document.getElementById('calcPaymentDetails').innerHTML = details;
+        for (var ti = 0; ti < terms.length; ti++) {
+            var term = terms[ti];
+            var monthly = calcLeasePayment(financedAmount, rateInfo.customerRate, term);
+            var weekly = (monthly * 12) / 52;
+            var daily = (monthly * 12) / 365;
+            var totalCost = (monthly * term) + 10;
+            var financingCost = totalCost - financedAmount;
+            var isSelected = (term === selectedTerm);
+
+            var row = document.createElement('tr');
+            row.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+            if (isSelected) {
+                row.style.background = 'rgba(201,168,76,0.15)';
+                row.style.borderRadius = '6px';
+            }
+            row.innerHTML =
+                '<td style="padding:10px 8px;font-weight:' + (isSelected ? '700' : '500') + ';white-space:nowrap;">' +
+                    term + ' mo' + (isSelected ? ' <span style="font-size:9px;background:#C9A84C;color:#0D1E3D;padding:1px 6px;border-radius:3px;font-weight:700;vertical-align:middle;margin-left:4px;">SELECTED</span>' : '') +
+                '</td>' +
+                '<td style="padding:10px 8px;text-align:right;font-weight:' + (isSelected ? '700' : '500') + ';color:' + (isSelected ? '#C9A84C' : 'white') + ';font-size:' + (isSelected ? '15px' : '13px') + ';">' + fmt(monthly) + '</td>' +
+                '<td style="padding:10px 8px;text-align:right;opacity:' + (isSelected ? '1' : '0.7') + ';">' + fmt(weekly) + '</td>' +
+                '<td style="padding:10px 8px;text-align:right;opacity:' + (isSelected ? '1' : '0.7') + ';">' + fmt(daily) + '</td>' +
+                '<td style="padding:10px 8px;text-align:right;opacity:0.6;font-size:12px;">' + fmt(financingCost) + '</td>';
+            tbody.appendChild(row);
+        }
+
+        // Update heading
+        var condLabel = condition.charAt(0).toUpperCase() + condition.slice(1);
+        var heading = document.getElementById('calcQuoteHeading');
+        heading.textContent = 'Payment Estimates — ' + condLabel + ' Equipment';
+        var subheading = document.getElementById('calcQuoteSubheading');
+        var subParts = fmt(cost) + ' equipment cost';
+        if (downPayment > 0) subParts += ' | ' + fmt(downPayment) + ' down payment';
+        subheading.textContent = subParts;
+
+        resultDiv.style.display = 'block';
 
         // Show "Send Application with Quote" button
         var calcSendRow = document.getElementById('calcSendAppRow');
@@ -25871,11 +25905,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     function sendApplicationWithQuote() {
         // Gather calculator values
         var cost = document.getElementById('calcEquipCost').value;
-        var term = document.getElementById('calcTerm').value;
+        var selectedTerm = document.getElementById('calcTerm').value;
         var condition = document.getElementById('calcCondition').value;
         var downPayment = document.getElementById('calcDownPayment').value || '0';
-        var monthlyEl = document.getElementById('calcPaymentAmount');
-        var monthlyPayment = monthlyEl ? monthlyEl.textContent : '';
 
         // Open the Send Application modal (resets everything)
         openSendApplicationModal();
@@ -25890,6 +25922,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 var sym = calcCurrency === 'CAD' ? 'C$' : 'US$';
                 var condLabel = condition.charAt(0).toUpperCase() + condition.slice(1);
+                var fmtVal = function(v) { return sym + parseFloat(v).toLocaleString('en-US', { minimumFractionDigits: 2 }); };
 
                 // Pre-fill equipment details
                 var equipDesc = document.getElementById('quoteEquipDesc');
@@ -25900,7 +25933,6 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 var quoteCondition = document.getElementById('quoteCondition');
                 if (quoteCondition) {
-                    // Match the condition to the select options
                     for (var i = 0; i < quoteCondition.options.length; i++) {
                         if (quoteCondition.options[i].value.toLowerCase() === condition.toLowerCase()) {
                             quoteCondition.selectedIndex = i;
@@ -25909,18 +25941,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     }
                 }
 
-                // Build notes with payment estimate
+                // Build multi-term payment summary for notes
                 var quoteNotes = document.getElementById('quoteNotes');
                 if (quoteNotes) {
-                    var noteLines = 'Payment Estimate from Alliance Financing Calculator:\n';
-                    noteLines += '• Monthly Payment: ' + monthlyPayment + ' + tax\n';
-                    noteLines += '• Term: ' + term + ' months\n';
-                    noteLines += '• Equipment Cost: ' + sym + parseFloat(cost).toLocaleString('en-US', { minimumFractionDigits: 2 }) + '\n';
-                    if (parseFloat(downPayment) > 0) {
-                        noteLines += '• Down Payment: ' + sym + parseFloat(downPayment).toLocaleString('en-US', { minimumFractionDigits: 2 }) + '\n';
+                    var financedAmount = parseFloat(cost) - (parseFloat(downPayment) || 0);
+                    var rateInfo = getLeaseRate(parseFloat(cost), condition);
+                    var terms = [24, 36, 48, 60];
+                    var noteLines = 'Payment Estimates from Alliance Financing:\n';
+                    noteLines += 'Equipment: ' + fmtVal(cost) + ' (' + condLabel + ')';
+                    if (parseFloat(downPayment) > 0) noteLines += ' | Down Payment: ' + fmtVal(downPayment);
+                    noteLines += '\n\n';
+                    for (var ti = 0; ti < terms.length; ti++) {
+                        var t = terms[ti];
+                        var mp = calcLeasePayment(financedAmount, rateInfo.customerRate, t);
+                        var wp = (mp * 12) / 52;
+                        var marker = (t === parseInt(selectedTerm)) ? ' ← selected' : '';
+                        noteLines += '• ' + t + ' months: ' + fmtVal(mp) + '/mo | ' + fmtVal(wp) + '/wk' + marker + '\n';
                     }
-                    noteLines += '• $10 Purchase Option at End of Term\n';
-                    noteLines += '• Estimate only — subject to credit approval and lender terms.';
+                    noteLines += '\n$10 Purchase Option at End of Term\n';
+                    noteLines += 'Estimates only — subject to credit approval and lender terms.';
                     quoteNotes.value = noteLines;
                 }
             }, 100);
@@ -31918,15 +31957,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<p style="font-size:12px;color:#475569;margin:0;">A quote has been included with this application. <a href="' + quoteFileUrl + '" style="color:#2563EB;font-weight:600;">View Quote</a></p>' +
                     quoteDisclaimer + '</div>';
             } else if (quoteData.type === 'manual') {
-                quoteHtml = '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:12px;margin:12px 0;">' +
-                    '<p style="font-size:13px;color:#1E40AF;font-weight:600;margin:0 0 6px;">📋 Equipment Details</p>' +
-                    '<table style="font-size:12px;color:#475569;border-collapse:collapse;">' +
-                    (quoteData.equipment_description ? '<tr><td style="padding:2px 12px 2px 0;font-weight:600;">Equipment:</td><td>' + quoteData.equipment_description + '</td></tr>' : '') +
-                    (quoteData.equipment_cost ? '<tr><td style="padding:2px 12px 2px 0;font-weight:600;">Cost:</td><td>$' + quoteData.equipment_cost + '</td></tr>' : '') +
-                    (quoteData.vendor_name ? '<tr><td style="padding:2px 12px 2px 0;font-weight:600;">Vendor:</td><td>' + quoteData.vendor_name + '</td></tr>' : '') +
-                    (quoteData.condition ? '<tr><td style="padding:2px 12px 2px 0;font-weight:600;">Condition:</td><td>' + quoteData.condition + '</td></tr>' : '') +
-                    (quoteData.notes ? '<tr><td style="padding:2px 12px 2px 0;font-weight:600;">Notes:</td><td>' + quoteData.notes + '</td></tr>' : '') +
-                    '</table>' + quoteDisclaimer + '</div>';
+                // Format notes: convert newlines to <br> for HTML email
+                var notesHtml = quoteData.notes ? quoteData.notes.replace(/\n/g, '<br>') : '';
+                quoteHtml = '<div style="background:#F0F4FF;border:1px solid #BFDBFE;border-radius:8px;padding:16px;margin:16px 0;">' +
+                    '<div style="background:#0D1E3D;color:white;padding:12px 16px;border-radius:6px;margin-bottom:12px;">' +
+                    '<p style="font-size:14px;font-weight:700;color:#C9A84C;margin:0 0 4px;">Equipment Financing Estimate</p>' +
+                    '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd.</p></div>' +
+                    '<table style="font-size:13px;color:#1E293B;border-collapse:collapse;width:100%;">' +
+                    (quoteData.equipment_description ? '<tr><td style="padding:6px 12px 6px 0;font-weight:600;color:#475569;width:120px;vertical-align:top;">Equipment:</td><td style="padding:6px 0;">' + quoteData.equipment_description + '</td></tr>' : '') +
+                    (quoteData.equipment_cost ? '<tr><td style="padding:6px 12px 6px 0;font-weight:600;color:#475569;vertical-align:top;">Cost:</td><td style="padding:6px 0;font-weight:600;font-size:14px;">$' + quoteData.equipment_cost + '</td></tr>' : '') +
+                    (quoteData.vendor_name ? '<tr><td style="padding:6px 12px 6px 0;font-weight:600;color:#475569;vertical-align:top;">Vendor:</td><td style="padding:6px 0;">' + quoteData.vendor_name + '</td></tr>' : '') +
+                    (quoteData.condition ? '<tr><td style="padding:6px 12px 6px 0;font-weight:600;color:#475569;vertical-align:top;">Condition:</td><td style="padding:6px 0;">' + quoteData.condition + '</td></tr>' : '') +
+                    '</table>' +
+                    (notesHtml ? '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #DBEAFE;font-size:12px;color:#334155;line-height:1.6;white-space:pre-line;">' + notesHtml + '</div>' : '') +
+                    quoteDisclaimer + '</div>';
             }
         }
 
