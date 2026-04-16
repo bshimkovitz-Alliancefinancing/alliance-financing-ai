@@ -6696,9 +6696,30 @@ if (location.hostname === 'alliancefinancing.ai') {
                 var mtgAgentAllowed = ['Command Center', 'Dashboard', 'Deal Pipeline', 'Clients', 'Application Hub', 'Help & Resources'];
                 item.style.display = mtgAgentAllowed.includes(label) ? 'flex' : 'none';
             } else if (isReferralAgent) {
-                // Referral agents get: Command Center, Deal Pipeline, Clients, Application Hub, Vendor Programs, Help
-                var referralAllowed = ['Command Center', 'Dashboard', 'Deal Pipeline', 'Clients', 'Application Hub', 'Vendor Programs', 'Help & Resources'];
+                // Referral agents — simplified 5-page experience (April 2026 redesign):
+                // Command Center | Deal Pipeline | Send & Quote (was Application Hub) | Clients & Vendors (merges Clients + Vendor Programs) | Help & Resources
+                // "Info & Quoting Tools" maps to calculator access
+                var referralAllowed = ['Command Center', 'Dashboard', 'Deal Pipeline', 'Clients', 'Application Hub', 'Info & Quoting Tools', 'Help & Resources'];
                 item.style.display = referralAllowed.includes(label) ? 'flex' : 'none';
+                // Rebrand nav labels for referring agents
+                if (label === 'Application Hub') {
+                    var labelSpanRef = item.querySelectorAll('span');
+                    if (labelSpanRef.length > 1) { labelSpanRef[1].textContent = 'Send & Quote'; }
+                    var iconSpanRef = item.querySelector('.nav-icon');
+                    if (iconSpanRef) iconSpanRef.textContent = '📨';
+                }
+                if (label === 'Clients') {
+                    var labelSpanCl = item.querySelectorAll('span');
+                    if (labelSpanCl.length > 1) { labelSpanCl[1].textContent = 'Clients & Vendors'; }
+                    var iconSpanCl = item.querySelector('.nav-icon');
+                    if (iconSpanCl) iconSpanCl.textContent = '🤝';
+                }
+                if (label === 'Info & Quoting Tools') {
+                    var labelSpanQt = item.querySelectorAll('span');
+                    if (labelSpanQt.length > 1) { labelSpanQt[1].textContent = 'Payment Estimator'; }
+                    var iconSpanQt = item.querySelector('.nav-icon');
+                    if (iconSpanQt) iconSpanQt.textContent = '🧮';
+                }
             } else {
                 // ISO/other agent views
                 const adminOnly = ['Agents & Partners', 'Lenders', 'Vendors', 'Website Inquiries', 'Recruitment Hub', 'Team', 'Admin Resources', 'Vendor Resources', 'Documents', 'Mortgage Brokerages'];
@@ -6746,10 +6767,10 @@ if (location.hostname === 'alliancefinancing.ai') {
             vendorQuickTeamBtn.style.display = (currentAgentType === 'vendor_program' && !isAdmin) ? 'flex' : 'none';
         }
 
-        // Show Info & Quoting Tools for vendor users and ISO agents (view-only)
+        // Show Info & Quoting Tools for vendor users, ISO agents, and referring agents
         var vendorToolsNav = document.getElementById('vendorToolsNav');
         if (vendorToolsNav) {
-            var showTools = (isVendor && !isAdmin) || (!isAdmin && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker'));
+            var showTools = (isVendor && !isAdmin) || (!isAdmin && (currentAgentType === 'super_agent' || currentAgentType === 'mortgage_broker' || currentAgentType === 'referring_agent'));
             vendorToolsNav.style.display = showTools ? 'flex' : 'none';
         }
 
@@ -6787,21 +6808,71 @@ if (location.hostname === 'alliancefinancing.ai') {
         if (card3) card3.style.display = 'block';
         if (card4) card4.style.display = 'block';
 
-        // Referral partners: hide Import CSV, Export CSV, and vendor program tabs
+        // Referral partners: simplified experience (April 2026 redesign)
         if (isReferralAgent) {
-            // Hide Import CSV button in header
-            var importCsvBtns = document.querySelectorAll('button');
-            importCsvBtns.forEach(function(btn) {
-                if (btn.textContent.trim() === 'Import CSV') btn.style.display = 'none';
+            // Hide Import/Export CSV buttons
+            document.querySelectorAll('button').forEach(function(btn) {
+                var txt = btn.textContent.trim();
+                if (txt === 'Import CSV' || txt === 'Export CSV') btn.style.display = 'none';
             });
-            // Hide Export CSV buttons
-            var exportCsvBtns = document.querySelectorAll('button');
-            exportCsvBtns.forEach(function(btn) {
-                if (btn.textContent.trim() === 'Export CSV') btn.style.display = 'none';
-            });
-            // Hide Your Vendors / Partner Vendors tabs
-            var vpTabs = document.getElementById('vendorProgramTabs');
-            if (vpTabs) vpTabs.style.display = 'none';
+
+            // ── Rebrand Application Hub → "Send & Quote" ──
+            var appHubPage = document.getElementById('applicationHub');
+            if (appHubPage) {
+                var appHubHeaders = appHubPage.querySelectorAll('h2');
+                appHubHeaders.forEach(function(h) {
+                    if (h.textContent.trim() === 'Application Hub') h.textContent = 'Send & Quote';
+                });
+                // Update subtitle
+                var appHubSubs = appHubPage.querySelectorAll('p');
+                appHubSubs.forEach(function(p) {
+                    if (p.textContent.includes('Send applications, share your landing page')) {
+                        p.textContent = 'Generate lease quotes, send applications, and share marketing materials with your clients.';
+                    }
+                });
+            }
+
+            // ── Rebrand Clients page → "Clients & Vendors" + add vendor tab ──
+            var clientsPage = document.getElementById('clients');
+            if (clientsPage) {
+                // Only inject once
+                if (!document.getElementById('refAgentClientsVendorTabs')) {
+                    var clientsDesc = clientsPage.querySelector('p');
+                    if (clientsDesc) clientsDesc.textContent = 'Manage your client contacts and vendor partnerships in one place.';
+
+                    // Build tab bar
+                    var tabBar = document.createElement('div');
+                    tabBar.id = 'refAgentClientsVendorTabs';
+                    tabBar.style.cssText = 'display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #E2E8F0;';
+                    tabBar.innerHTML = '<button id="refTabClients" onclick="switchRefTab(\'clients\')" style="padding:10px 20px;font-size:13px;font-weight:600;border:none;background:none;color:#0D1E3D;border-bottom:2px solid #C9A84C;margin-bottom:-2px;cursor:pointer;">My Clients</button>' +
+                        '<button id="refTabVendors" onclick="switchRefTab(\'vendors\')" style="padding:10px 20px;font-size:13px;font-weight:600;border:none;background:none;color:#94A3B8;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;">Vendor Programs</button>';
+
+                    // Insert tab bar before the stats bar
+                    var statsBar = document.getElementById('clientStatsBar');
+                    if (statsBar) clientsPage.insertBefore(tabBar, statsBar);
+
+                    // Create vendor programs container (hidden initially)
+                    var vendorContainer = document.createElement('div');
+                    vendorContainer.id = 'refAgentVendorContainer';
+                    vendorContainer.style.cssText = 'display:none;';
+                    vendorContainer.innerHTML =
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+                            '<div>' +
+                                '<h3 style="margin:0;font-size:16px;color:#0D1E3D;font-weight:700;">Your Vendor Programs</h3>' +
+                                '<p style="margin:4px 0 0;font-size:12px;color:#64748B;">Vendors you\'ve submitted and Alliance-approved partner programs.</p>' +
+                            '</div>' +
+                            '<button onclick="openAddVendorModal()" style="padding:8px 14px;background:var(--gold);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">+ Submit Vendor</button>' +
+                        '</div>' +
+                        '<div id="refAgentVendorList" style="color:#94A3B8;font-size:13px;text-align:center;padding:40px 0;">Loading vendor programs...</div>';
+
+                    // Append after the table container
+                    clientsPage.appendChild(vendorContainer);
+                }
+            }
+
+            // ── Hide rate card on calculator page (admin-only) ──
+            var rateCardSection = document.getElementById('rateCardSection');
+            if (rateCardSection) rateCardSection.style.display = 'none';
         }
 
         // Agents (non-admin): hide Import CSV but keep + New Client
@@ -6811,6 +6882,102 @@ if (location.hostname === 'alliancefinancing.ai') {
                 var txt = btn.textContent.trim();
                 if (txt === 'Import CSV') btn.style.display = 'none';
             });
+        }
+    }
+
+    // ============================================
+    // Referring Agent: Clients & Vendors Tab Switching
+    // ============================================
+
+    function switchRefTab(tab) {
+        var tabClients = document.getElementById('refTabClients');
+        var tabVendors = document.getElementById('refTabVendors');
+        var clientStatsBar = document.getElementById('clientStatsBar');
+        var vendorContainer = document.getElementById('refAgentVendorContainer');
+        var clientsPage = document.getElementById('clients');
+        if (!clientsPage) return;
+
+        // Find the clients table container (the .table-container div inside clients page)
+        var clientTableContainer = clientsPage.querySelector('.table-container');
+
+        if (tab === 'vendors') {
+            // Show vendor tab, hide client content
+            if (clientStatsBar) clientStatsBar.style.display = 'none';
+            if (clientTableContainer) clientTableContainer.style.display = 'none';
+            if (vendorContainer) vendorContainer.style.display = 'block';
+            // Tab styling
+            if (tabClients) { tabClients.style.color = '#94A3B8'; tabClients.style.borderBottom = '2px solid transparent'; }
+            if (tabVendors) { tabVendors.style.color = '#0D1E3D'; tabVendors.style.borderBottom = '2px solid #C9A84C'; }
+            // Load vendor data on first activation
+            loadRefAgentVendors();
+        } else {
+            // Show client content, hide vendor tab
+            if (clientStatsBar) clientStatsBar.style.display = 'grid';
+            if (clientTableContainer) clientTableContainer.style.display = 'block';
+            if (vendorContainer) vendorContainer.style.display = 'none';
+            // Tab styling
+            if (tabClients) { tabClients.style.color = '#0D1E3D'; tabClients.style.borderBottom = '2px solid #C9A84C'; }
+            if (tabVendors) { tabVendors.style.color = '#94A3B8'; tabVendors.style.borderBottom = '2px solid transparent'; }
+        }
+    }
+
+    var _refVendorsLoaded = false;
+    async function loadRefAgentVendors() {
+        if (_refVendorsLoaded) return;
+        var listEl = document.getElementById('refAgentVendorList');
+        if (!listEl) return;
+
+        try {
+            // Fetch vendors submitted by this agent (or their sub-agents)
+            var query = db.from('vendors').select('id, name, vendor_code, product_description, status, website, created_at, country').order('name', { ascending: true });
+
+            // Filter to this agent's vendors
+            if (currentUserId) {
+                query = query.eq('source_agent_id', currentUserId);
+            }
+
+            var { data, error } = await query;
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                listEl.innerHTML =
+                    '<div style="padding:40px 20px;text-align:center;">' +
+                        '<div style="font-size:32px;margin-bottom:12px;">🏢</div>' +
+                        '<div style="font-size:14px;font-weight:600;color:#0D1E3D;margin-bottom:4px;">No Vendor Programs Yet</div>' +
+                        '<div style="font-size:12px;color:#94A3B8;max-width:360px;margin:0 auto;">Submit a vendor using the button above to start building your vendor network. Alliance will review and onboard approved vendors.</div>' +
+                    '</div>';
+                _refVendorsLoaded = true;
+                return;
+            }
+
+            var statusStyles = {
+                'Approved': { bg: '#DCFCE7', color: '#166534' },
+                'Requires Approval': { bg: '#FEF3C7', color: '#92400E' },
+                'Application Sent': { bg: '#DBEAFE', color: '#1E40AF' },
+                'Pending Review': { bg: '#FDE68A', color: '#78350F' },
+                'Declined': { bg: '#FEE2E2', color: '#991B1B' },
+                'Archived': { bg: '#F1F5F9', color: '#64748B' }
+            };
+
+            listEl.innerHTML = data.map(function(v) {
+                var st = statusStyles[v.status] || statusStyles['Approved'];
+                var initials = (v.name || '??').substring(0, 2).toUpperCase();
+                return '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:1px solid #E2E8F0;border-radius:10px;margin-bottom:8px;background:white;transition:box-shadow 0.15s;" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'" onmouseout="this.style.boxShadow=\'none\'">' +
+                    '<div style="display:flex;align-items:center;gap:12px;">' +
+                        '<div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#0D1E3D,#1E3A5F);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:12px;flex-shrink:0;">' + initials + '</div>' +
+                        '<div>' +
+                            '<div style="font-weight:600;color:#0D1E3D;font-size:14px;">' + (v.name || 'N/A') + '</div>' +
+                            '<div style="font-size:12px;color:#64748B;margin-top:2px;">' + (v.product_description || v.country || 'Equipment Vendor') + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + st.bg + ';color:' + st.color + ';">' + (v.status || 'Pending') + '</span>' +
+                '</div>';
+            }).join('');
+
+            _refVendorsLoaded = true;
+        } catch (err) {
+            console.error('loadRefAgentVendors error:', err);
+            listEl.innerHTML = '<div style="color:#EF4444;font-size:13px;padding:20px;">Error loading vendors. Please try again.</div>';
         }
     }
 
@@ -18712,6 +18879,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         // Mortgage broker/agent users: redirect Dashboard to Brokerage Portal
         if (pageName === 'dashboard' && (currentAgentType === 'mortgage_broker' || currentAgentType === 'mortgage_agent') && !['super_admin', 'admin'].includes(currentUserRole)) {
             pageName = 'brokeragePortal';
+        }
+
+        // Referring agents: redirect Vendor Programs to Clients page with Vendor tab active
+        if (pageName === 'vendorPrograms' && currentAgentType === 'referring_agent' && !['super_admin', 'admin'].includes(currentUserRole)) {
+            pageName = 'clients';
+            // Activate vendor tab after the page renders
+            setTimeout(function() { switchRefTab('vendors'); }, 50);
         }
 
         // Mortgage brokers: redirect Team to subAgents (their team management page)
