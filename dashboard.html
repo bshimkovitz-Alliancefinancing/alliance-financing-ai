@@ -1491,7 +1491,7 @@
                             <button class="pl-tab" data-filter="outbound" onclick="filterRefPipeline('outbound')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Sent</button>
                             <button class="pl-tab" data-filter="needs_action" onclick="filterRefPipeline('needs_action')" style="padding:7px 14px;border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-size:12px;font-weight:500;background:#f8fafc;color:#333;">Needs Follow-Up</button>
                         </div>
-                        <select id="appSentAgentFilter" onchange="loadReferralPipeline()" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;display:none;">
+                        <select id="refPipelineAgentFilter" onchange="loadReferralPipeline()" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;display:none;">
                             <option value="">All Agents</option>
                         </select>
                     </div>
@@ -34311,35 +34311,37 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         // Each query is independent — catch individually so one failure doesn't block the rest
         try {
-            var r = await db.from('applications_sent').select('id', { count: 'exact', head: true }).in('status', ['Sent', 'Opened', 'Follow-Up Needed']);
-            document.getElementById('glanceAppsOut').textContent = r.count || 0;
+            var { count, error } = await db.from('applications_sent').select('id', { count: 'exact', head: true }).in('status', ['Sent', 'Opened', 'Follow-Up Needed']);
+            if (!error) document.getElementById('glanceAppsOut').textContent = count || 0;
         } catch(e) { console.warn('Glance: apps out error', e); }
 
         try {
-            var r = await db.from('deals').select('id', { count: 'exact', head: true }).eq('status', 'Docs out for signing');
-            document.getElementById('glanceDocsOut').textContent = r.count || 0;
+            var { count, error } = await db.from('deals').select('id', { count: 'exact', head: true }).eq('status', 'Docs out for signing');
+            if (!error) document.getElementById('glanceDocsOut').textContent = count || 0;
         } catch(e) { console.warn('Glance: docs out error', e); }
 
         try {
-            var r = await db.from('applications_sent').select('id', { count: 'exact', head: true }).in('status', ['Sent', 'Follow-Up Needed']).lt('follow_up_date', new Date().toISOString());
-            var el = document.getElementById('glanceOverdue');
-            el.textContent = r.count || 0;
-            el.style.color = (r.count > 0) ? '#EF4444' : '#F59E0B';
+            var { count, error } = await db.from('applications_sent').select('id', { count: 'exact', head: true }).in('status', ['Sent', 'Follow-Up Needed']).lt('follow_up_date', new Date().toISOString());
+            if (!error) {
+                var el = document.getElementById('glanceOverdue');
+                el.textContent = count || 0;
+                el.style.color = (count > 0) ? '#EF4444' : '#F59E0B';
+            }
         } catch(e) { console.warn('Glance: overdue error', e); }
 
         try {
-            var r = await db.from('deals').select('id', { count: 'exact', head: true }).eq('status', 'In Credit');
-            document.getElementById('glanceInCredit').textContent = r.count || 0;
+            var { count, error } = await db.from('deals').select('id', { count: 'exact', head: true }).eq('status', 'In Credit');
+            if (!error) document.getElementById('glanceInCredit').textContent = count || 0;
         } catch(e) { console.warn('Glance: in credit error', e); }
 
         try {
-            var r = await db.from('applications_sent').select('id', { count: 'exact', head: true }).eq('status', 'Returned');
-            document.getElementById('glanceReturned').textContent = r.count || 0;
+            var { count, error } = await db.from('applications_sent').select('id', { count: 'exact', head: true }).eq('status', 'Returned');
+            if (!error) document.getElementById('glanceReturned').textContent = count || 0;
         } catch(e) { console.warn('Glance: returned error', e); }
 
         try {
-            var r = await db.from('partner_applications').select('id', { count: 'exact', head: true }).in('status', ['pending', 'invited']);
-            document.getElementById('glancePendingAgents').textContent = r.count || 0;
+            var { count, error } = await db.from('partner_applications').select('id', { count: 'exact', head: true }).in('status', ['pending', 'invited']);
+            if (!error) document.getElementById('glancePendingAgents').textContent = count || 0;
         } catch(e) { console.warn('Glance: pending agents error', e); }
     }
 
