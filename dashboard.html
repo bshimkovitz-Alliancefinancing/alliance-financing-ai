@@ -6816,6 +6816,68 @@ if (location.hostname === 'alliancefinancing.ai') {
                 if (txt === 'Import CSV' || txt === 'Export CSV') btn.style.display = 'none';
             });
 
+            // ── Redesign Command Center for referring agents ──
+            var dashPage = document.getElementById('dashboard');
+            if (dashPage && !document.getElementById('refAgentCommandCenter')) {
+                // 1. Hide the entire notification system (filter tabs + notification list)
+                var notifSection = document.getElementById('commandCenterNotifications');
+                if (notifSection) notifSection.style.display = 'none';
+
+                // 2. Hide the follow-up detail panel (admin)
+                var fuPanel = document.getElementById('followUpDetailPanel');
+                if (fuPanel) fuPanel.style.display = 'none';
+
+                // 3. Simplify the greeting header — remove Clear All / Refresh buttons
+                var greetingBtns = dashPage.querySelector('div[style*="display:flex;gap:8px;flex-wrap:wrap"]');
+                if (greetingBtns && greetingBtns.parentElement) {
+                    // Just hide the buttons row from the greeting banner
+                    greetingBtns.style.display = 'none';
+                }
+                // Update the summary text
+                var notifSummaryEl = document.getElementById('notifSummary');
+                if (notifSummaryEl) notifSummaryEl.textContent = 'Send applications, estimate payments, and grow your referral network.';
+
+                // 4. Inject the agent Command Center: action cards + alert strip
+                var refCC = document.createElement('div');
+                refCC.id = 'refAgentCommandCenter';
+                refCC.innerHTML =
+                    // ── Alert strip (populated async) ──
+                    '<div id="refAgentAlertStrip" style="display:none;margin-bottom:16px;padding:14px 18px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;"></div>' +
+
+                    // ── 3 Action Cards ──
+                    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px;">' +
+                        // Card 1: Send Application
+                        '<div onclick="openSendApplicationModalWithRef(agentProfile && agentProfile.referral_slug ? agentProfile.referral_slug : \'\')" style="background:white;border:1px solid #E2E8F0;border-radius:14px;padding:24px 20px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.08)\';this.style.borderColor=\'#C9A84C\'" onmouseout="this.style.boxShadow=\'none\';this.style.borderColor=\'#E2E8F0\'">' +
+                            '<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#C9A84C,#B8943F);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><svg width="22" height="22" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg></div>' +
+                            '<div style="font-weight:700;color:#0D1E3D;font-size:15px;margin-bottom:4px;">Send Application</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Email a financing application to your client</div>' +
+                        '</div>' +
+                        // Card 2: Estimate Payment
+                        '<div onclick="showPage(\'vendorTools\')" style="background:white;border:1px solid #E2E8F0;border-radius:14px;padding:24px 20px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.08)\';this.style.borderColor=\'#0D9488\'" onmouseout="this.style.boxShadow=\'none\';this.style.borderColor=\'#E2E8F0\'">' +
+                            '<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#0D9488,#0F766E);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><span style="font-size:22px;">🧮</span></div>' +
+                            '<div style="font-weight:700;color:#0D1E3D;font-size:15px;margin-bottom:4px;">Estimate Payment</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Generate a multi-term lease quote</div>' +
+                        '</div>' +
+                        // Card 3: Submit a Vendor
+                        '<div onclick="openAddVendorModal()" style="background:white;border:1px solid #E2E8F0;border-radius:14px;padding:24px 20px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.08)\';this.style.borderColor=\'#3B82F6\'" onmouseout="this.style.boxShadow=\'none\';this.style.borderColor=\'#E2E8F0\'">' +
+                            '<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#3B82F6,#2563EB);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><span style="font-size:22px;">🏢</span></div>' +
+                            '<div style="font-weight:700;color:#0D1E3D;font-size:15px;margin-bottom:4px;">Submit a Vendor</div>' +
+                            '<div style="font-size:12px;color:#64748B;">Add an equipment vendor to the network</div>' +
+                        '</div>' +
+                    '</div>';
+
+                // Insert right after the greeting banner, before the (now hidden) notifications
+                var greetingBanner = dashPage.querySelector('div[style*="background:linear-gradient(135deg,#0D1E3D"]');
+                if (greetingBanner && greetingBanner.nextSibling) {
+                    dashPage.insertBefore(refCC, greetingBanner.nextSibling);
+                } else {
+                    dashPage.insertBefore(refCC, notifSection);
+                }
+
+                // 5. Load alert strip data async
+                loadRefAgentAlerts();
+            }
+
             // ── Rebrand Application Hub → "Send & Quote" ──
             var appHubPage = document.getElementById('applicationHub');
             if (appHubPage) {
@@ -6978,6 +7040,115 @@ if (location.hostname === 'alliancefinancing.ai') {
         } catch (err) {
             console.error('loadRefAgentVendors error:', err);
             listEl.innerHTML = '<div style="color:#EF4444;font-size:13px;padding:20px;">Error loading vendors. Please try again.</div>';
+        }
+    }
+
+    // ============================================
+    // Referring Agent: Alert Strip Loader
+    // ============================================
+
+    async function loadRefAgentAlerts() {
+        var strip = document.getElementById('refAgentAlertStrip');
+        if (!strip || !currentUserId) return;
+
+        try {
+            var alerts = [];
+
+            // 1. Check for returned applications (client applied back via main form)
+            var { data: sentApps } = await db
+                .from('applications_sent')
+                .select('id, client_name, client_email, status, updated_at')
+                .or('sent_by.eq.' + currentUserId + ',sent_by_id.eq.' + currentUserId)
+                .in('status', ['Returned', 'Completed']);
+            if (sentApps && sentApps.length > 0) {
+                var returnedCount = sentApps.filter(function(a) { return a.status === 'Returned' || a.status === 'Completed'; }).length;
+                if (returnedCount > 0) {
+                    alerts.push({
+                        icon: '📬',
+                        text: returnedCount + ' application' + (returnedCount > 1 ? 's' : '') + ' returned — client submitted',
+                        color: '#059669',
+                        bg: '#ECFDF5'
+                    });
+                }
+            }
+
+            // 2. Check for recently funded deals
+            var { data: fundedDeals } = await db
+                .from('deals')
+                .select('id, company_name, status, status_changed_at')
+                .eq('source_agent_id', currentUserId)
+                .eq('status', 'Funded')
+                .order('status_changed_at', { ascending: false })
+                .limit(5);
+            if (fundedDeals && fundedDeals.length > 0) {
+                var recentFunded = fundedDeals.filter(function(d) {
+                    return d.status_changed_at && (new Date() - new Date(d.status_changed_at)) < 7 * 24 * 60 * 60 * 1000;
+                });
+                if (recentFunded.length > 0) {
+                    alerts.push({
+                        icon: '🎉',
+                        text: recentFunded.length + ' deal' + (recentFunded.length > 1 ? 's' : '') + ' funded this week — ' + recentFunded.map(function(d) { return d.company_name; }).join(', '),
+                        color: '#C9A84C',
+                        bg: '#FFFBEB'
+                    });
+                }
+            }
+
+            // 3. Check for deals needing action (docs requested, info needed)
+            var { data: actionDeals } = await db
+                .from('deals')
+                .select('id, company_name, status')
+                .eq('source_agent_id', currentUserId)
+                .in('status', ['Docs Requested', 'Info Needed', 'Returned']);
+            if (actionDeals && actionDeals.length > 0) {
+                alerts.push({
+                    icon: '⚡',
+                    text: actionDeals.length + ' deal' + (actionDeals.length > 1 ? 's' : '') + ' need your attention',
+                    color: '#DC2626',
+                    bg: '#FEF2F2'
+                });
+            }
+
+            // 4. Check for approved vendors
+            var { data: approvedVendors } = await db
+                .from('vendors')
+                .select('id, name, status, updated_at')
+                .eq('source_agent_id', currentUserId)
+                .eq('status', 'Approved')
+                .order('updated_at', { ascending: false })
+                .limit(3);
+            if (approvedVendors && approvedVendors.length > 0) {
+                var recentApproved = approvedVendors.filter(function(v) {
+                    return v.updated_at && (new Date() - new Date(v.updated_at)) < 14 * 24 * 60 * 60 * 1000;
+                });
+                if (recentApproved.length > 0) {
+                    alerts.push({
+                        icon: '✅',
+                        text: recentApproved.length + ' vendor' + (recentApproved.length > 1 ? 's' : '') + ' approved — ' + recentApproved.map(function(v) { return v.name; }).join(', '),
+                        color: '#059669',
+                        bg: '#ECFDF5'
+                    });
+                }
+            }
+
+            if (alerts.length === 0) {
+                strip.style.display = 'none';
+                return;
+            }
+
+            strip.style.display = 'block';
+            strip.style.background = '#F8FAFC';
+            strip.style.border = '1px solid #E2E8F0';
+            strip.innerHTML = alerts.map(function(a) {
+                return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:' + a.bg + ';border-radius:8px;margin-bottom:6px;">' +
+                    '<span style="font-size:16px;">' + a.icon + '</span>' +
+                    '<span style="font-size:13px;font-weight:500;color:' + a.color + ';">' + a.text + '</span>' +
+                '</div>';
+            }).join('');
+
+        } catch (err) {
+            console.error('loadRefAgentAlerts error:', err);
+            strip.style.display = 'none';
         }
     }
 
@@ -11574,15 +11745,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             greetEl.textContent = greeting + ', ' + firstName + ' 👋';
         }
         if (summaryEl) {
-            var nonDismissed = notifications.filter(function(n) { return !_dismissedNotifications[getDismissKey(n)]; });
-            var actionCount = nonDismissed.filter(function(n) { return n.category === 'action'; }).length;
-            var totalCount = nonDismissed.length;
-            if (totalCount === 0) {
-                summaryEl.textContent = "You're all caught up — no notifications right now.";
-            } else if (actionCount > 0) {
-                summaryEl.textContent = 'You have ' + totalCount + ' notification' + (totalCount !== 1 ? 's' : '') + ', ' + actionCount + ' requiring action.';
-            } else {
-                summaryEl.textContent = 'You have ' + totalCount + ' notification' + (totalCount !== 1 ? 's' : '') + ' — nothing urgent.';
+            // Referring agents have a custom Command Center — don't overwrite their subtitle
+            if (currentAgentType !== 'referring_agent' || ['super_admin', 'admin'].includes(currentUserRole)) {
+                var nonDismissed = notifications.filter(function(n) { return !_dismissedNotifications[getDismissKey(n)]; });
+                var actionCount = nonDismissed.filter(function(n) { return n.category === 'action'; }).length;
+                var totalCount = nonDismissed.length;
+                if (totalCount === 0) {
+                    summaryEl.textContent = "You're all caught up — no notifications right now.";
+                } else if (actionCount > 0) {
+                    summaryEl.textContent = 'You have ' + totalCount + ' notification' + (totalCount !== 1 ? 's' : '') + ', ' + actionCount + ' requiring action.';
+                } else {
+                    summaryEl.textContent = 'You have ' + totalCount + ' notification' + (totalCount !== 1 ? 's' : '') + ' — nothing urgent.';
+                }
             }
         }
 
