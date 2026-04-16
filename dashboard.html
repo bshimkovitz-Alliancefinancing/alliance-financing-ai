@@ -6828,10 +6828,12 @@ if (location.hostname === 'alliancefinancing.ai') {
                 if (fuPanel) fuPanel.style.display = 'none';
 
                 // 3. Simplify the greeting header — remove Clear All / Refresh buttons
-                var greetingBtns = dashPage.querySelector('div[style*="display:flex;gap:8px;flex-wrap:wrap"]');
-                if (greetingBtns && greetingBtns.parentElement) {
-                    // Just hide the buttons row from the greeting banner
-                    greetingBtns.style.display = 'none';
+                var greetingParent = document.getElementById('notifGreeting');
+                if (greetingParent && greetingParent.parentElement && greetingParent.parentElement.parentElement) {
+                    // The buttons div is a sibling of the text div, inside the flex row
+                    var flexRow = greetingParent.parentElement.parentElement;
+                    var btnsDiv = flexRow.querySelectorAll(':scope > div');
+                    if (btnsDiv.length > 1) btnsDiv[1].style.display = 'none';
                 }
                 // Update the summary text
                 var notifSummaryEl = document.getElementById('notifSummary');
@@ -6867,11 +6869,14 @@ if (location.hostname === 'alliancefinancing.ai') {
                     '</div>';
 
                 // Insert right after the greeting banner, before the (now hidden) notifications
-                var greetingBanner = dashPage.querySelector('div[style*="background:linear-gradient(135deg,#0D1E3D"]');
+                // Use child-index: greeting banner is the first direct child div of #dashboard
+                var greetingBanner = dashPage.children[0];
                 if (greetingBanner && greetingBanner.nextSibling) {
                     dashPage.insertBefore(refCC, greetingBanner.nextSibling);
-                } else {
+                } else if (notifSection) {
                     dashPage.insertBefore(refCC, notifSection);
+                } else {
+                    dashPage.appendChild(refCC);
                 }
 
                 // 5. Load alert strip data async
@@ -34948,7 +34953,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var appRaw = item.raw;
                 if (item.isOverdue) {
                     actionHtml += '<button onclick="sendFollowUpEmail(\'' + appRaw.id + '\', \'' + (appRaw.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.application_type || '').replace(/'/g, "\\'") + '\')" style="padding:6px 14px;background:#F59E0B;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">Follow Up</button> ';
-                    actionHtml += '<button onclick="aiDraftFollowUp(\'' + appRaw.id + '\', \'' + (appRaw.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.application_type || '').replace(/'/g, "\\'") + '\', this)" style="padding:6px 14px;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">✨ AI Draft</button> ';
+                    // AI Draft — admin only (edge function)
+                    if (['super_admin', 'admin'].includes(currentUserRole)) {
+                        actionHtml += '<button onclick="aiDraftFollowUp(\'' + appRaw.id + '\', \'' + (appRaw.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (appRaw.application_type || '').replace(/'/g, "\\'") + '\', this)" style="padding:6px 14px;background:linear-gradient(135deg,#7C3AED,#6D28D9);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">✨ AI Draft</button> ';
+                    }
                 }
                 actionHtml += '<select onchange="updateAppSentStatus(\'' + appRaw.id + '\', this.value);setTimeout(loadReferralPipeline,500);" style="padding:5px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;cursor:pointer;">' +
                     '<option value="Sent"' + (appRaw.status === 'Sent' ? ' selected' : '') + '>Sent</option>' +
