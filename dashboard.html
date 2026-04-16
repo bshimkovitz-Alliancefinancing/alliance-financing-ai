@@ -3749,14 +3749,20 @@
         </div>
     </div>
 
-    <!-- Quick Payment Calculator -->
+    <!-- Capital Lease Payment Calculator -->
     <div style="background:linear-gradient(135deg,#0D1E3D,#1a2e5a);border-radius:12px;padding:28px;margin-bottom:24px;color:white;">
-        <h3 style="margin:0 0 4px;font-size:18px;color:#C9A84C;">Quick Payment Estimator</h3>
-        <p style="margin:0 0 20px;font-size:13px;opacity:0.8;">Get an estimated monthly lease payment for your customer</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:16px;align-items:end;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+            <h3 style="margin:0;font-size:18px;color:#C9A84C;">Capital Lease Payment Estimator</h3>
+            <div style="display:flex;gap:2px;background:rgba(255,255,255,0.1);border-radius:6px;padding:2px;">
+                <button id="calcCurrCAD" onclick="setCalcCurrency('CAD')" style="padding:5px 12px;border:none;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;background:#C9A84C;color:#0D1E3D;">CAD</button>
+                <button id="calcCurrUSD" onclick="setCalcCurrency('USD')" style="padding:5px 12px;border:none;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:rgba(255,255,255,0.6);">USD</button>
+            </div>
+        </div>
+        <p style="margin:0 0 20px;font-size:13px;opacity:0.8;">$10 purchase option at end of term &nbsp;|&nbsp; First payment in advance &nbsp;|&nbsp; All payments before tax</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:12px;align-items:end;">
             <div>
-                <label style="display:block;font-size:12px;opacity:0.7;margin-bottom:4px;">Equipment Cost ($)</label>
-                <input type="number" id="calcEquipCost" placeholder="25,000" min="1000" step="500" style="width:100%;padding:10px 12px;border:none;border-radius:6px;font-size:14px;background:rgba(255,255,255,0.15);color:white;" oninput="calculatePayment()">
+                <label style="display:block;font-size:12px;opacity:0.7;margin-bottom:4px;">Equipment Cost</label>
+                <input type="number" id="calcEquipCost" placeholder="150,000" min="2500" step="500" style="width:100%;padding:10px 12px;border:none;border-radius:6px;font-size:14px;background:rgba(255,255,255,0.15);color:white;" oninput="calculatePayment()">
             </div>
             <div>
                 <label style="display:block;font-size:12px;opacity:0.7;margin-bottom:4px;">Lease Term</label>
@@ -3765,84 +3771,118 @@
                     <option value="36">36 Months</option>
                     <option value="48" selected>48 Months</option>
                     <option value="60">60 Months</option>
-                    <option value="72">72 Months</option>
                 </select>
             </div>
             <div>
-                <label style="display:block;font-size:12px;opacity:0.7;margin-bottom:4px;">Credit Profile</label>
-                <select id="calcCredit" style="width:100%;padding:10px 12px;border:none;border-radius:6px;font-size:14px;background:rgba(255,255,255,0.15);color:white;" onchange="calculatePayment()">
-                    <option value="A">A Credit (Strong)</option>
-                    <option value="B" selected>B Credit (Good)</option>
-                    <option value="C">C Credit (Fair)</option>
+                <label style="display:block;font-size:12px;opacity:0.7;margin-bottom:4px;">Equipment Condition</label>
+                <select id="calcCondition" style="width:100%;padding:10px 12px;border:none;border-radius:6px;font-size:14px;background:rgba(255,255,255,0.15);color:white;" onchange="calculatePayment()">
+                    <option value="new" selected>New Equipment</option>
+                    <option value="used">Used Equipment</option>
                 </select>
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;opacity:0.7;margin-bottom:4px;">Down Payment</label>
+                <input type="number" id="calcDownPayment" placeholder="0" min="0" step="500" style="width:100%;padding:10px 12px;border:none;border-radius:6px;font-size:14px;background:rgba(255,255,255,0.15);color:white;" oninput="calculatePayment()">
             </div>
             <button class="btn" onclick="calculatePayment()" style="background:#C9A84C;color:#0D1E3D;padding:10px 20px;border-radius:6px;font-weight:700;font-size:14px;white-space:nowrap;border:none;cursor:pointer;">Calculate</button>
         </div>
-        <div id="calcResult" style="display:none;margin-top:20px;background:rgba(255,255,255,0.1);border-radius:8px;padding:16px;text-align:center;">
-            <div style="font-size:13px;opacity:0.7;">Estimated Monthly Payment</div>
-            <div id="calcPaymentAmount" style="font-size:36px;font-weight:700;color:#C9A84C;margin:4px 0;"></div>
-            <div id="calcPaymentDetails" style="font-size:12px;opacity:0.6;"></div>
-            <p style="font-size:11px;opacity:0.5;margin:10px 0 0;">* Estimate only. Actual rates depend on credit approval, equipment type, and lender terms.</p>
+        <div id="calcError" style="display:none;margin-top:12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:10px 14px;font-size:13px;color:#FCA5A5;"></div>
+        <div id="calcResult" style="display:none;margin-top:20px;background:rgba(255,255,255,0.1);border-radius:8px;padding:20px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;">
+                <div>
+                    <div style="font-size:12px;opacity:0.6;">Estimated Monthly Payment</div>
+                    <div id="calcPaymentAmount" style="font-size:32px;font-weight:700;color:#C9A84C;margin:4px 0;"></div>
+                </div>
+                <div>
+                    <div style="font-size:12px;opacity:0.6;">Total Cost of Lease</div>
+                    <div id="calcTotalCost" style="font-size:20px;font-weight:600;color:white;margin:8px 0;"></div>
+                </div>
+                <div>
+                    <div style="font-size:12px;opacity:0.6;">Cost of Financing</div>
+                    <div id="calcFinancingCost" style="font-size:20px;font-weight:600;color:white;margin:8px 0;"></div>
+                </div>
+            </div>
+            <div id="calcPaymentDetails" style="font-size:12px;opacity:0.6;text-align:center;margin-top:12px;"></div>
+            <p style="font-size:11px;opacity:0.4;margin:12px 0 0;text-align:center;">* Estimate only. Actual rates subject to final credit approval, equipment type, and lender terms. Payments shown before applicable taxes.</p>
+        </div>
+        <div style="margin-top:16px;text-align:center;">
+            <button onclick="typeof showVendorPage === 'function' ? showVendorPage('quote') : null" style="background:transparent;border:1px solid rgba(201,168,76,0.4);color:#C9A84C;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Need an operating lease or custom pricing? Request a Special Bid Quote →</button>
         </div>
     </div>
 
-    <!-- Rate Card Table -->
+    <!-- Capital Lease Rate Card -->
     <div style="background:white;border:1px solid var(--border-gray);border-radius:12px;padding:24px;margin-bottom:24px;">
         <h3 style="margin:0 0 4px;font-size:16px;color:var(--navy);display:flex;align-items:center;gap:8px;">
-            <span style="font-size:20px;">📊</span> Rate Card — Monthly Payment Factors
+            <span style="font-size:20px;">📊</span> Capital Lease Rate Card — CR4 Tier 1
         </h3>
-        <p style="font-size:12px;color:var(--text-light);margin:0 0 16px;">Multiply the equipment cost by the factor below to get the estimated monthly payment. Example: $25,000 × 0.0245 = $612.50/mo</p>
+        <p style="font-size:12px;color:var(--text-light);margin:0 0 16px;">Estimated annual rates by equipment cost bracket. Terms: 24–60 months. $10 purchase option. First payment in advance.</p>
         <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:13px;">
                 <thead>
                     <tr style="background:#0D1E3D;color:white;">
-                        <th style="padding:10px 14px;text-align:left;font-weight:600;border-radius:8px 0 0 0;">Term</th>
+                        <th style="padding:10px 14px;text-align:left;font-weight:600;border-radius:8px 0 0 0;">Equipment Cost</th>
                         <th style="padding:10px 14px;text-align:center;font-weight:600;">
-                            <div>A Credit</div><div style="font-size:10px;opacity:0.7;font-weight:400;">720+ FICO</div>
-                        </th>
-                        <th style="padding:10px 14px;text-align:center;font-weight:600;">
-                            <div>B Credit</div><div style="font-size:10px;opacity:0.7;font-weight:400;">650–719 FICO</div>
+                            <div>Used Equipment</div><div style="font-size:10px;opacity:0.7;font-weight:400;">All types</div>
                         </th>
                         <th style="padding:10px 14px;text-align:center;font-weight:600;border-radius:0 8px 0 0;">
-                            <div>C Credit</div><div style="font-size:10px;opacity:0.7;font-weight:400;">580–649 FICO</div>
+                            <div>New Equipment</div><div style="font-size:10px;opacity:0.7;font-weight:400;">$75K+ discount</div>
                         </th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr style="border-bottom:1px solid #E5E7EB;">
-                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">24 months</td>
-                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">0.0460</td>
-                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">0.0490</td>
-                        <td style="padding:10px 14px;text-align:center;color:#9333EA;font-weight:600;">0.0530</td>
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">$2,500 – $4,999</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">16.90%</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">16.90%</td>
                     </tr>
                     <tr style="background:#F8FAFC;border-bottom:1px solid #E5E7EB;">
-                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">36 months</td>
-                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">0.0315</td>
-                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">0.0340</td>
-                        <td style="padding:10px 14px;text-align:center;color:#9333EA;font-weight:600;">0.0375</td>
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">$5,000 – $9,999</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">14.75%</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">14.75%</td>
                     </tr>
                     <tr style="border-bottom:1px solid #E5E7EB;">
-                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">48 months</td>
-                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">0.0245</td>
-                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">0.0268</td>
-                        <td style="padding:10px 14px;text-align:center;color:#9333EA;font-weight:600;">0.0300</td>
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">$10,000 – $19,999</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">13.50%</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">13.50%</td>
                     </tr>
                     <tr style="background:#F8FAFC;border-bottom:1px solid #E5E7EB;">
-                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">60 months</td>
-                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">0.0205</td>
-                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">0.0228</td>
-                        <td style="padding:10px 14px;text-align:center;color:#9333EA;font-weight:600;">0.0260</td>
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">$20,000 – $49,999</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">12.55%</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">12.55%</td>
                     </tr>
-                    <tr>
-                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">72 months</td>
-                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">0.0178</td>
-                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">0.0200</td>
-                        <td style="padding:10px 14px;text-align:center;color:#9333EA;font-weight:600;">0.0232</td>
+                    <tr style="border-bottom:1px solid #E5E7EB;">
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">$50,000 – $74,999</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">11.95%</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">11.95%</td>
+                    </tr>
+                    <tr style="background:#F8FAFC;border-bottom:1px solid #E5E7EB;">
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">$75,000 – $149,999</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">11.55%</td>
+                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">10.95%</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #E5E7EB;">
+                        <td style="padding:10px 14px;font-weight:600;color:var(--navy);">$150,000 – $350,000</td>
+                        <td style="padding:10px 14px;text-align:center;color:#2563EB;font-weight:600;">11.25%</td>
+                        <td style="padding:10px 14px;text-align:center;color:#059669;font-weight:600;">10.60%</td>
+                    </tr>
+                    <tr style="background:#FEF3C7;">
+                        <td colspan="3" style="padding:10px 14px;text-align:center;font-size:12px;color:#92400E;font-weight:600;">Over $350,000 — Contact Alliance for custom pricing</td>
                     </tr>
                 </tbody>
             </table>
         </div>
-        <p style="font-size:11px;color:var(--text-light);margin:12px 0 0;">* Rates are estimates. Actual rates depend on credit approval, equipment type, and lender terms. Use the Payment Estimator above for quick quotes.</p>
+        <p style="font-size:11px;color:var(--text-light);margin:12px 0 0;">* Rates shown include Alliance arrangement fee. Subject to final credit approval. New equipment discount applies at $75K+. For operating lease quotes with residual value, request a special bid.</p>
+    </div>
+
+    <!-- Operating Lease — Coming Soon -->
+    <div style="background:linear-gradient(135deg,#F5F3FF,#EDE9FE);border:1px solid #C4B5FD;border-radius:12px;padding:24px;margin-bottom:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <span style="font-size:20px;">🚀</span>
+            <h3 style="margin:0;font-size:16px;color:#6D28D9;">Operating Lease Quotes — Coming Soon</h3>
+            <span style="background:#DDD6FE;color:#6D28D9;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;text-transform:uppercase;">Preview</span>
+        </div>
+        <p style="font-size:13px;color:#7C3AED;margin:0 0 12px;line-height:1.5;">Custom operating lease pricing per asset type with flexible structures — including promotional rates, deferred payment programs, and vendor-subsidized financing. Built in partnership with equipment manufacturers.</p>
+        <p style="font-size:12px;color:#8B5CF6;margin:0;">In the meantime, request an operating lease quote through the <strong>Request Quote</strong> page and Alliance will revert with custom pricing based on the asset and residual value.</p>
     </div>
 
     <!-- Am I Eligible? Checker -->
@@ -25261,31 +25301,120 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // ========== Capital Lease Payment Calculator ==========
+    // Based on CWB National Leasing CR4 Tier 1 Buy Rates (Feb 2026) + 3% Alliance arrangement fee
+    // Capital Lease: $10 purchase option, first payment in advance (annuity due), pre-tax
+    var calcCurrency = 'CAD';
+
+    function setCalcCurrency(c) {
+        calcCurrency = c;
+        var cadBtn = document.getElementById('calcCurrCAD');
+        var usdBtn = document.getElementById('calcCurrUSD');
+        if (cadBtn && usdBtn) {
+            cadBtn.style.background = c === 'CAD' ? '#C9A84C' : 'transparent';
+            cadBtn.style.color = c === 'CAD' ? '#0D1E3D' : 'rgba(255,255,255,0.6)';
+            usdBtn.style.background = c === 'USD' ? '#C9A84C' : 'transparent';
+            usdBtn.style.color = c === 'USD' ? '#0D1E3D' : 'rgba(255,255,255,0.6)';
+        }
+        calculatePayment();
+    }
+
+    function getLeaseRate(cost, condition) {
+        // CWB National Leasing CR4 Tier 1 buy rates + 3% Alliance spread
+        var allianceSpread = 3.0;
+        var buyRate;
+
+        // New commercial equipment gets better rates at $75K+
+        if (condition === 'new' && cost >= 150000) { buyRate = 7.60; }
+        else if (condition === 'new' && cost >= 75000) { buyRate = 7.95; }
+        else if (cost >= 150000) { buyRate = 8.25; }
+        else if (cost >= 75000) { buyRate = 8.55; }
+        else if (cost >= 50000) { buyRate = 8.95; }
+        else if (cost >= 20000) { buyRate = 9.55; }
+        else if (cost >= 10000) { buyRate = 10.50; }
+        else if (cost >= 5000) { buyRate = 11.75; }
+        else { buyRate = 13.90; }
+
+        return { buyRate: buyRate, customerRate: buyRate + allianceSpread };
+    }
+
+    function calcLeasePayment(equipCost, annualRatePct, termMonths) {
+        // Capital lease: $10 purchase option, first payment in advance (annuity due)
+        var r = annualRatePct / 100 / 12;  // monthly rate
+        var n = termMonths;
+        var residual = 10;  // $10 buyout
+
+        // Present value of residual
+        var pvResidual = residual / Math.pow(1 + r, n);
+
+        // Amount to amortize
+        var amountToFinance = equipCost - pvResidual;
+
+        // Ordinary annuity payment
+        var payment = amountToFinance * r / (1 - Math.pow(1 + r, -n));
+
+        // Adjust for advance payment (annuity due)
+        payment = payment / (1 + r);
+
+        return payment;
+    }
+
     function calculatePayment() {
         var cost = parseFloat(document.getElementById('calcEquipCost').value);
         var term = parseInt(document.getElementById('calcTerm').value);
-        var credit = document.getElementById('calcCredit').value;
+        var condition = document.getElementById('calcCondition').value;
+        var downPayment = parseFloat(document.getElementById('calcDownPayment').value) || 0;
         var resultDiv = document.getElementById('calcResult');
+        var errorDiv = document.getElementById('calcError');
 
-        if (!cost || cost < 1000) {
+        if (errorDiv) errorDiv.style.display = 'none';
+
+        if (!cost || cost < 2500) {
             resultDiv.style.display = 'none';
+            if (errorDiv && cost > 0) {
+                errorDiv.textContent = 'Minimum equipment cost is $2,500.';
+                errorDiv.style.display = 'block';
+            }
             return;
         }
 
-        // Rate factors per credit tier (approximate monthly rate factors per $1)
-        var rateMap = {
-            'A': { 24: 0.0460, 36: 0.0315, 48: 0.0245, 60: 0.0205, 72: 0.0178 },
-            'B': { 24: 0.0490, 36: 0.0340, 48: 0.0268, 60: 0.0228, 72: 0.0200 },
-            'C': { 24: 0.0530, 36: 0.0375, 48: 0.0300, 60: 0.0260, 72: 0.0232 }
-        };
+        if (cost > 350000) {
+            resultDiv.style.display = 'none';
+            if (errorDiv) {
+                errorDiv.textContent = 'For equipment over $350,000, please request a Special Bid Quote for custom pricing.';
+                errorDiv.style.display = 'block';
+            }
+            return;
+        }
 
-        var factor = rateMap[credit][term] || 0.0268;
-        var monthlyPayment = cost * factor;
-        var totalCost = monthlyPayment * term;
+        if (downPayment >= cost) {
+            resultDiv.style.display = 'none';
+            if (errorDiv) {
+                errorDiv.textContent = 'Down payment must be less than the equipment cost.';
+                errorDiv.style.display = 'block';
+            }
+            return;
+        }
+
+        var financedAmount = cost - downPayment;
+        var rateInfo = getLeaseRate(cost, condition);
+        var monthlyPayment = calcLeasePayment(financedAmount, rateInfo.customerRate, term);
+        var totalCost = (monthlyPayment * term) + 10; // + $10 buyout
+        var financingCost = totalCost - financedAmount;
+
+        var sym = calcCurrency === 'CAD' ? 'C$' : 'US$';
+        var fmt = function(v) { return sym + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 
         resultDiv.style.display = 'block';
-        document.getElementById('calcPaymentAmount').textContent = '$' + monthlyPayment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        document.getElementById('calcPaymentDetails').textContent = term + ' months | ' + credit + ' Credit | Total: $' + totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('calcPaymentAmount').textContent = fmt(monthlyPayment);
+        document.getElementById('calcTotalCost').textContent = fmt(totalCost);
+        document.getElementById('calcFinancingCost').textContent = fmt(financingCost);
+
+        var details = term + ' months | ' + rateInfo.customerRate.toFixed(2) + '% | ' +
+            condition.charAt(0).toUpperCase() + condition.slice(1) + ' Equipment';
+        if (downPayment > 0) details += ' | Down: ' + fmt(downPayment);
+        details += '<br><span style="font-size:11px;opacity:0.5;">$10 Purchase Option at End of Term</span>';
+        document.getElementById('calcPaymentDetails').innerHTML = details;
     }
 
     // ========== Am I Eligible? Checker ==========
@@ -28384,7 +28513,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <div style="display: grid; grid-template-columns: 1fr 1fr; background: linear-gradient(135deg, #F5F3FF, #EDE9FE);">
                         <div style="padding: 16px 20px; display: flex; align-items: center;">
                             <span style="font-size: 12px; font-weight: 700; color: #6D28D9; text-transform: uppercase; letter-spacing: 0.5px;">Alliance Net Fee</span>
-                            <span style="font-size: 10px; color: #8B5CF6; margin-left: 8px;">(Gross - Agent - Referral)</span>
+                            <span style="font-size: 10px; color: #8B5CF6; margin-left: 8px;">(Gross - Agent Fee)</span>
                         </div>
                         <div style="padding: 16px 20px;">
                             <div id="feeAllianceNet" style="padding: 8px 12px; background: white; border: 2px solid #C4B5FD; border-radius: 6px; font-size: 16px; font-weight: 800; color: var(--navy); text-align: right;">$0.00</div>
@@ -28732,6 +28861,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var alliancePct = parseFloat(el('feeAlliancePct')?.value) || 0;
         var agentPct = parseFloat(el('feeAgentPct')?.value) || 0;
         var subAgentPct = parseFloat(el('feeSubAgentPct')?.value) || 0;
+
+        // Clamp percentages to valid ranges (0–100)
+        if (alliancePct < 0) { alliancePct = 0; if (el('feeAlliancePct')) el('feeAlliancePct').value = 0; }
+        if (alliancePct > 25) { alliancePct = 25; if (el('feeAlliancePct')) el('feeAlliancePct').value = 25; }
+        if (agentPct < 0) { agentPct = 0; if (el('feeAgentPct')) el('feeAgentPct').value = 0; }
+        if (agentPct > 100) { agentPct = 100; if (el('feeAgentPct')) el('feeAgentPct').value = 100; }
+        if (subAgentPct < 0) { subAgentPct = 0; if (el('feeSubAgentPct')) el('feeSubAgentPct').value = 0; }
+        if (subAgentPct > 100) { subAgentPct = 100; if (el('feeSubAgentPct')) el('feeSubAgentPct').value = 100; }
 
         var allianceGross = amountFunded * alliancePct / 100;
         var agentGross = allianceGross * agentPct / 100;
