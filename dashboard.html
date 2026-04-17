@@ -1782,6 +1782,37 @@
                     </div>
                 </div>
 
+                <!-- Email Replies Section (Lender & Client Replies) -->
+                <div class="table-container" style="margin-top:30px;display:none;" id="emailRepliesSection">
+                    <div class="table-header" style="flex-wrap:wrap;gap:12px;">
+                        <div class="table-title" style="display:flex;align-items:center;gap:10px;">
+                            Lender &amp; Client Replies
+                            <span id="unreadRepliesBadge" style="display:none;padding:3px 10px;background:#EF4444;color:white;border-radius:12px;font-size:11px;font-weight:700;"></span>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <button onclick="markAllRepliesRead()" style="padding:6px 14px;background:#E2E8F0;border:none;border-radius:6px;font-size:12px;color:#475569;cursor:pointer;font-weight:600;">Mark All Read</button>
+                            <button onclick="loadEmailReplies()" style="padding:6px 14px;background:#E2E8F0;border:none;border-radius:6px;font-size:12px;color:#475569;cursor:pointer;font-weight:600;">Refresh</button>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                    <table style="width:100%;min-width:700px;">
+                        <thead>
+                            <tr style="border-bottom:2px solid var(--border-gray);">
+                                <th style="width:30px;"></th>
+                                <th style="text-align:left;">From</th>
+                                <th style="text-align:left;">Subject</th>
+                                <th style="text-align:left;">Preview</th>
+                                <th style="text-align:left;">Received</th>
+                                <th style="text-align:left;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="emailRepliesBody">
+                            <tr><td colspan="6" style="padding:40px;text-align:center;color:var(--text-light);">Loading replies...</td></tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+
             </div>
 
             <!-- Deal Slide-Out Panel -->
@@ -6572,7 +6603,8 @@ if (location.hostname === 'alliancefinancing.ai') {
                 loadDashboard().catch(function(e) { console.error('loadDashboard error:', e); }),
                 loadNotifications().catch(function(e) { console.error('loadNotifications error:', e); }),
                 loadApplicationsSent().catch(function(e) { console.error('loadApplicationsSent error:', e); }),
-                loadAdminAtAGlance().catch(function(e) { console.error('loadAdminAtAGlance error:', e); })
+                loadAdminAtAGlance().catch(function(e) { console.error('loadAdminAtAGlance error:', e); }),
+                loadEmailReplies().catch(function(e) { console.error('loadEmailReplies error:', e); })
             ]);
 
             // NOW show the app (data is loaded, no more $0 flash)
@@ -30087,6 +30119,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             var selectedBadge = isSelected ? '<span style="padding:3px 10px;background:var(--gold);color:white;border-radius:12px;font-size:11px;font-weight:700;">★ Selected Lender</span>' : '';
 
+            // AI parse badge (if the reply was analyzed)
+            var aiParseBadge = '';
+            if (sub.ai_parsed_decision) {
+                var aiColors = { approved: '#065F46', declined: '#991B1B', counter_offer: '#1E40AF', more_info_needed: '#92400E', reviewing: '#3730A3', unclear: '#6B7280' };
+                var aiBgs = { approved: '#D1FAE5', declined: '#FEE2E2', counter_offer: '#DBEAFE', more_info_needed: '#FEF3C7', reviewing: '#E0E7FF', unclear: '#F3F4F6' };
+                var aiLabel = (sub.ai_parsed_decision || '').replace(/_/g, ' ').toUpperCase();
+                aiParseBadge = '<span style="padding:3px 10px;background:' + (aiBgs[sub.ai_parsed_decision] || '#F3F4F6') + ';color:' + (aiColors[sub.ai_parsed_decision] || '#6B7280') + ';border-radius:12px;font-size:11px;font-weight:700;">AI: ' + aiLabel + '</span>';
+            }
+
+            // AI full result expandable section
+            var aiResultPanel = '';
+            if (sub.ai_full_result) {
+                var air = sub.ai_full_result;
+                aiResultPanel = '<div style="margin-top:8px;padding:10px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:6px;font-size:12px;">';
+                aiResultPanel += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+                aiResultPanel += '<span style="font-weight:700;color:#5B21B6;">AI Analysis</span>';
+                if (sub.ai_parsed_at) aiResultPanel += '<span style="color:#8B5CF6;font-size:11px;">' + new Date(sub.ai_parsed_at).toLocaleString() + '</span>';
+                aiResultPanel += '</div>';
+                if (air.summary) aiResultPanel += '<div style="color:#1E293B;margin-bottom:6px;">' + air.summary + '</div>';
+                if (air.next_steps) aiResultPanel += '<div style="color:#1E293B;"><strong>Next steps:</strong> ' + air.next_steps + '</div>';
+                aiResultPanel += '</div>';
+            }
+
             var actions = '<div style="display:flex;gap:6px;margin-top:10px;">';
             actions += '<button onclick="toggleLenderSubEdit(\'' + sub.id + '\')" style="padding:5px 12px;background:var(--info);color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">Edit</button>';
             if (!isSelected && sub.status === 'Approved') {
@@ -30146,9 +30201,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             rows += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
             rows += '<div><div style="font-weight:700;color:var(--navy);font-size:14px;">' + lenderName + '</div>';
             rows += '<div style="font-size:12px;color:#64748B;">Submitted ' + subDate + (sub.submitted_by_name ? ' by ' + sub.submitted_by_name : '') + '</div></div>';
-            rows += '<div style="display:flex;gap:6px;align-items:center;">' + statusBadge + ' ' + selectedBadge + '</div>';
+            rows += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' + statusBadge + ' ' + selectedBadge + ' ' + aiParseBadge + '</div>';
             rows += '</div>';
             rows += approvalDetails;
+            rows += aiResultPanel;
             rows += actions;
             rows += editPanel;
             rows += '</div>';
@@ -35791,18 +35847,162 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         '</div>' +
                         '<div style="font-size:16px;font-weight:600;color:#0D1E3D;padding:8px 0;border-bottom:1px solid #E2E8F0;">' + (reply.subject || '(no subject)').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
                     '</div>' +
-                    '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:16px;font-size:14px;line-height:1.6;white-space:pre-wrap;max-height:400px;overflow-y:auto;">' +
+                    '<div id="aiEmailBody_' + reply.id + '" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:16px;font-size:14px;line-height:1.6;white-space:pre-wrap;max-height:400px;overflow-y:auto;">' +
                         (reply.body_html ? reply.body_html : (reply.body_text || '(no content)').replace(/</g, '&lt;').replace(/>/g, '&gt;')) +
                     '</div>' +
-                    (reply.deal_id ? '<div style="margin-top:16px;"><button onclick="viewDeal(\'' + reply.deal_id + '\');this.closest(\'div[style*=fixed]\').remove();" class="btn btn-gold" style="padding:8px 20px;">View Linked Deal</button></div>' : '') +
+                    '<div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
+                        (reply.deal_id || (reply.entity_type === 'deal' && reply.entity_id) ? '<button onclick="viewDeal(\'' + (reply.deal_id || reply.entity_id) + '\');this.closest(\'div[style*=fixed]\').remove();" class="btn btn-gold" style="padding:8px 20px;">View Linked Deal</button>' : '') +
+                        '<button id="aiAnalyzeBtn_' + reply.id + '" onclick="analyzeLenderReply(\'' + reply.id + '\', document.getElementById(\'aiEmailBody_' + reply.id + '\').textContent, _aiReplyContextMap[\'' + reply.id + '\'])" style="padding:8px 20px;background:#6366F1;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Analyze Reply</button>' +
+                    '</div>' +
+                    '<div id="aiAnalysisResult_' + reply.id + '" style="display:none;"></div>' +
                     (reply.application_sent_id ? '<div style="margin-top:8px;font-size:12px;color:#64748B;">Linked to sent application: ' + reply.application_sent_id + '</div>' : '') +
                 '</div>';
+
+            // Store context for AI analysis button
+            _aiReplyContextMap[reply.id] = {
+                deal_id: reply.deal_id || (reply.entity_type === 'deal' ? reply.entity_id : null),
+                lender_id: reply.entity_type === 'lender_submission' ? null : null,
+                lender_submission_id: reply.entity_type === 'lender_submission' ? reply.entity_id : null,
+                reply_id: reply.id,
+                lender_name: reply.from_name || reply.from_email || null,
+                deal_name: null
+            };
 
             modal.appendChild(content);
             document.body.appendChild(modal);
         } catch (err) {
             console.error('View email reply error:', err);
             alert('Error loading reply: ' + err.message);
+        }
+    }
+
+    // ===== AI LENDER REPLY ANALYSIS =====
+    var _aiReplyContextMap = {};
+
+    async function analyzeLenderReply(replyId, emailText, context) {
+        // context = { deal_id, lender_id, lender_submission_id, lender_name, deal_name, reply_id }
+        context = context || {};
+        var resultDiv = document.getElementById('aiAnalysisResult_' + replyId);
+        var btn = document.getElementById('aiAnalyzeBtn_' + replyId);
+        if (!resultDiv || !btn) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><span class="spinner" style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;"></span> Analyzing...</span>';
+        resultDiv.innerHTML = '';
+        resultDiv.style.display = 'none';
+
+        try {
+            var payload = {
+                email_text: emailText,
+                deal_id: context.deal_id || null,
+                lender_id: context.lender_id || null,
+                lender_submission_id: context.lender_submission_id || null,
+                reply_id: context.reply_id || replyId,
+                lender_name: context.lender_name || null,
+                deal_name: context.deal_name || null
+            };
+
+            var resp = await fetch(SUPABASE_URL + '/functions/v1/process-lender-reply', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify(payload)
+            });
+
+            var result = await resp.json();
+            if (!resp.ok || !result.success) {
+                throw new Error(result.error || 'Analysis failed');
+            }
+
+            var p = result.parsed_decision;
+            var decisionColors = {
+                approved: { bg: '#D1FAE5', color: '#065F46', icon: '✓', label: 'APPROVED' },
+                declined: { bg: '#FEE2E2', color: '#991B1B', icon: '✕', label: 'DECLINED' },
+                counter_offer: { bg: '#DBEAFE', color: '#1E40AF', icon: '↔', label: 'COUNTER OFFER' },
+                more_info_needed: { bg: '#FEF3C7', color: '#92400E', icon: '?', label: 'MORE INFO NEEDED' },
+                reviewing: { bg: '#E0E7FF', color: '#3730A3', icon: '⏳', label: 'STILL REVIEWING' },
+                unclear: { bg: '#F3F4F6', color: '#6B7280', icon: '—', label: 'UNCLEAR' }
+            };
+            var dc = decisionColors[p.decision] || decisionColors.unclear;
+            var confidencePct = Math.round((p.confidence || 0) * 100);
+            var confColor = confidencePct >= 70 ? '#065F46' : confidencePct >= 40 ? '#92400E' : '#991B1B';
+
+            var html = '<div style="margin-top:16px;border:2px solid ' + dc.color + ';border-radius:8px;overflow:hidden;">';
+            // Header
+            html += '<div style="background:' + dc.bg + ';padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">';
+            html += '<div style="display:flex;align-items:center;gap:8px;">';
+            html += '<span style="font-size:20px;">' + dc.icon + '</span>';
+            html += '<span style="font-weight:700;font-size:16px;color:' + dc.color + ';">' + dc.label + '</span>';
+            html += '</div>';
+            html += '<div style="text-align:right;">';
+            html += '<span style="font-size:12px;color:' + confColor + ';font-weight:600;">Confidence: ' + confidencePct + '%</span>';
+            if (result.auto_updated) {
+                html += '<br><span style="font-size:11px;color:#065F46;font-weight:600;">Auto-updated lender submission</span>';
+            }
+            html += '</div></div>';
+            // Body
+            html += '<div style="padding:16px;background:white;">';
+            // Summary
+            if (p.summary) {
+                html += '<div style="font-size:14px;color:#1E293B;margin-bottom:12px;line-height:1.5;">' + p.summary + '</div>';
+            }
+            // Terms grid (for approvals/counters)
+            var hasTerms = p.approved_amount || p.rate || p.term_months;
+            if (hasTerms) {
+                html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">';
+                if (p.approved_amount) html += '<div style="padding:8px;background:#F0F9FF;border-radius:4px;text-align:center;"><div style="font-size:11px;color:#64748B;">Amount</div><div style="font-size:15px;font-weight:700;color:#0D1E3D;">$' + Number(p.approved_amount).toLocaleString() + '</div></div>';
+                if (p.rate) html += '<div style="padding:8px;background:#F0F9FF;border-radius:4px;text-align:center;"><div style="font-size:11px;color:#64748B;">Rate</div><div style="font-size:15px;font-weight:700;color:#0D1E3D;">' + p.rate + '</div></div>';
+                if (p.term_months) html += '<div style="padding:8px;background:#F0F9FF;border-radius:4px;text-align:center;"><div style="font-size:11px;color:#64748B;">Term</div><div style="font-size:15px;font-weight:700;color:#0D1E3D;">' + p.term_months + ' mo</div></div>';
+                html += '</div>';
+            }
+            // Conditions
+            if (p.conditions && p.conditions.length > 0) {
+                html += '<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">CONDITIONS:</div>';
+                for (var ci = 0; ci < p.conditions.length; ci++) {
+                    html += '<div style="font-size:13px;color:#1E293B;padding:3px 0;">• ' + p.conditions[ci] + '</div>';
+                }
+                html += '</div>';
+            }
+            // Decline reason
+            if (p.decline_reason) {
+                html += '<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">DECLINE REASON:</div>';
+                html += '<div style="font-size:13px;color:#991B1B;">' + p.decline_reason + '</div></div>';
+            }
+            // Counter terms
+            if (p.counter_terms) {
+                html += '<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">COUNTER TERMS:</div>';
+                html += '<div style="font-size:13px;color:#1E40AF;">' + p.counter_terms + '</div></div>';
+            }
+            // Next steps
+            if (p.next_steps) {
+                html += '<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">NEXT STEPS:</div>';
+                html += '<div style="font-size:13px;color:#1E293B;">' + p.next_steps + '</div></div>';
+            }
+            // Key quotes
+            if (p.key_quotes && p.key_quotes.length > 0) {
+                html += '<div style="margin-bottom:6px;"><div style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:4px;">KEY QUOTES:</div>';
+                for (var qi = 0; qi < p.key_quotes.length; qi++) {
+                    html += '<div style="font-size:12px;color:#64748B;font-style:italic;padding:3px 0 3px 10px;border-left:3px solid #E5E7EB;">"' + p.key_quotes[qi] + '"</div>';
+                }
+                html += '</div>';
+            }
+            // Footer
+            html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #E5E7EB;font-size:11px;color:#94A3B8;">Analyzed by AI (model: ' + (result.model || 'unknown') + ') — results are advisory. Verify before acting.</div>';
+            html += '</div></div>';
+
+            resultDiv.innerHTML = html;
+            resultDiv.style.display = 'block';
+            btn.innerHTML = 'Re-Analyze Reply';
+            btn.disabled = false;
+            btn.style.background = '#64748B';
+        } catch (err) {
+            console.error('AI analysis error:', err);
+            resultDiv.innerHTML = '<div style="margin-top:12px;padding:12px;background:#FEE2E2;border-radius:6px;color:#991B1B;font-size:13px;">Analysis failed: ' + err.message + '</div>';
+            resultDiv.style.display = 'block';
+            btn.innerHTML = 'Retry Analysis';
+            btn.disabled = false;
         }
     }
 
