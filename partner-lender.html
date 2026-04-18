@@ -785,67 +785,60 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
         </div>
     </div>
 
-    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-    document.getElementById('lenderForm').addEventListener('submit', function(e) {
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    document.getElementById('lenderForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        
+
         const btn = document.getElementById('submitBtn');
         btn.disabled = true;
         btn.textContent = 'Submitting...';
 
-        // Collect form data
         const form = e.target;
-        const data = {
-            contactName: form.contactName.value,
-            title: form.title.value,
-            companyName: form.companyName.value,
-            email: form.email.value,
-            phone: form.phone.value,
-            website: form.website.value,
-            institutionType: form.institutionType.value,
-            products: Array.from(form.querySelectorAll('input[name="products"]:checked')).map(cb => cb.value).join(', '),
-            minDeal: form.minDeal.value,
-            maxDeal: form.maxDeal.value,
-            minCredit: form.minCredit.value,
-            minTimeInBiz: form.minTimeInBiz.value,
-            minRevenue: form.minRevenue.value,
-            approvalTimeline: form.approvalTimeline.value,
-            coverageArea: form.coverageArea.value,
-            specificRegions: form.specificRegions.value,
-            industries: Array.from(form.querySelectorAll('input[name="industries"]:checked')).map(cb => cb.value).join(', '),
-            differentiator: form.differentiator.value,
-            hearAboutUs: form.hearAboutUs.value,
-            notes: form.notes.value,
-            submittedAt: new Date().toISOString()
-        };
 
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrnmkZLBGJWba0Nd9UcLssIP2EocKnz6I6i4eX-k-OEwxw_sIgHhuTnrUr1HXYwURRdw/exec';
+        try {
+            const { data, error } = await db.from('lender_applications').insert([{
+                contact_name: form.contactName.value.trim(),
+                title: form.title.value.trim() || null,
+                company_name: form.companyName.value.trim(),
+                email: form.email.value.trim(),
+                phone: form.phone.value.trim() || null,
+                website: form.website.value.trim() || null,
+                institution_type: form.institutionType.value || null,
+                products: Array.from(form.querySelectorAll('input[name="products"]:checked')).map(cb => cb.value),
+                min_deal_size: form.minDeal.value || null,
+                max_deal_size: form.maxDeal.value || null,
+                min_credit_score: form.minCredit.value || null,
+                min_time_in_business: form.minTimeInBiz.value || null,
+                min_annual_revenue: form.minRevenue.value || null,
+                approval_timeline: form.approvalTimeline.value || null,
+                coverage_area: form.coverageArea.value || null,
+                specific_regions: form.specificRegions.value.trim() || null,
+                industries: Array.from(form.querySelectorAll('input[name="industries"]:checked')).map(cb => cb.value),
+                differentiator: form.differentiator.value.trim() || null,
+                hear_about_us: form.hearAboutUs.value || null,
+                notes: form.notes.value.trim() || null,
+                status: 'pending'
+            }]).select();
 
-        // Use hidden form + iframe (reliable cross-origin POST to Apps Script)
-        const tempForm = document.createElement('form');
-        tempForm.method = 'POST';
-        tempForm.action = SCRIPT_URL;
-        tempForm.target = 'hidden_iframe';
-        tempForm.style.display = 'none';
+            if (error) throw error;
 
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'data';
-        input.value = JSON.stringify(data);
-        tempForm.appendChild(input);
-
-        document.body.appendChild(tempForm);
-        tempForm.submit();
-        document.body.removeChild(tempForm);
-
-        // Show success after short delay
-        setTimeout(function() {
+            const appId = data && data[0] ? data[0].application_id : 'LA-0000';
             document.getElementById('formContent').style.display = 'none';
             document.getElementById('successMessage').style.display = 'block';
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 1500);
+
+        } catch (err) {
+            console.error('Submission error:', err);
+            alert('Something went wrong. Please try again or contact us at 1-877-660-3660 ext. 222.');
+            btn.disabled = false;
+            btn.textContent = 'Submit Lender Application';
+        }
     });
 
     // "All Industries" toggle
