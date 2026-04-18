@@ -27,28 +27,231 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap&text="  rel="stylesheet">
 
     <style>
+        /* V2 Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background-color: #FFFFFF;
+            border-bottom: 1px solid #E5E7EB;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            padding: 0 40px;
+            z-index: 1000;
+            justify-content: space-between;
+            box-shadow: 0 0 0 transparent;
+            transition: box-shadow 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+        nav.scrolled { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
+        .nav-logo { height: 40px; }
+        .nav-center {
+            display: flex;
+            gap: 40px;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .nav-center a {
+            font-size: 15px;
+            font-weight: 500;
+            color: #4B5563;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .nav-center a:hover { color: #0A1628; }
+        .nav-dropdown-wrapper { position: relative; }
+        .nav-dropdown-wrapper > a {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .nav-dropdown-wrapper > a svg {
+            width: 12px;
+            height: 12px;
+            transition: transform 0.3s ease;
+        }
+        .nav-dropdown-wrapper:hover > a svg { transform: rotate(180deg); }
+        .nav-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #FFFFFF;
+            border-top: 3px solid #C9A84C;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            min-width: 520px;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            padding: 24px 0 16px;
+            padding-top: 36px;
+            z-index: 1001;
+            display: flex;
+            gap: 0;
+        }
+        .nav-dropdown-wrapper:hover .nav-dropdown-menu {
+            opacity: 1;
+            visibility: visible;
+        }
+        .dropdown-col { flex: 1; padding: 0 8px; }
+        .dropdown-col + .dropdown-col { border-left: 1px solid #F3F4F6; }
+        .nav-dropdown-menu .dropdown-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #0A1628;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 0 16px 10px;
+        }
+        .nav-dropdown-menu a {
+            display: block;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            text-decoration: none;
+            transition: background-color 0.15s ease, color 0.15s ease;
+            border-radius: 6px;
+            margin: 0 8px;
+        }
+        .nav-dropdown-menu a:hover {
+            background-color: #F8F9FB;
+            color: #C9A84C;
+        }
+        .nav-dropdown-single {
+            min-width: 220px;
+            display: block;
+            padding: 8px 0;
+        }
+        .nav-dropdown-single a {
+            margin: 0;
+            border-radius: 0;
+            padding: 10px 20px;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .apply-btn {
+            background-color: #C9A84C;
+            color: #FFFFFF;
+            padding: 12px 24px;
+            border-radius: 24px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+        .apply-btn:hover {
+            background-color: #B8963E;
+            transform: translateY(-2px);
+        }
+        .login-wrapper { position: relative; }
+        .login-btn {
+            background: none;
+            border: 1.5px solid #D1D5DB;
+            color: #0A1628;
+            padding: 10px 22px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.3s ease, color 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .login-btn:hover { border-color: #0A1628; }
+        .login-btn svg {
+            width: 14px;
+            height: 14px;
+            transition: transform 0.3s ease;
+        }
+        .login-wrapper.open .login-btn svg { transform: rotate(180deg); }
+        .login-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            min-width: 200px;
+            visibility: hidden;
+            opacity: 0;
+            padding-top: 8px;
+            transform: translateY(-4px);
+            transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+            overflow: hidden;
+            z-index: 1001;
+        }
+        .login-wrapper.open .login-dropdown {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        .login-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            text-decoration: none;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+        .login-dropdown a:hover {
+            background-color: #F8F9FB;
+            color: #0A1628;
+        }
+        .login-dropdown a + a { border-top: 1px solid #F3F4F6; }
+        .login-dropdown .portal-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .login-dropdown .portal-icon.agent {
+            background-color: #EEF2FF;
+            color: #4F46E5;
+        }
+        .login-dropdown .portal-icon.client {
+            background-color: #FBF7ED;
+            color: #C9A84C;
+        }
+        .login-dropdown .portal-icon svg { width: 16px; height: 16px; }
+        .login-dropdown .portal-label {
+            font-weight: 600;
+            color: #0A1628;
+            font-size: 14px;
+        }
+        .login-dropdown .portal-desc {
+            font-size: 12px;
+            color: #6B7280;
+            font-weight: 400;
+        }
+        @media (max-width: 768px) {
+            .nav-center { display: none; }
+            nav { padding: 0 20px; }
+        }
+
 .hero{padding:8rem 2rem 4rem;background:linear-gradient(135deg,#EEF2FF,#F5F3FF);text-align:center;position:relative;overflow:hidden}
 .hero h1{font-size:clamp(2.5rem,5vw,3.5rem);font-weight:700;color:#0F172A;margin-bottom:1rem;line-height:1.15}
 .hero p{font-size:1.25rem;color:#475569;max-width:700px;margin:0 auto;line-height:1.7}
 
-nav{position:fixed;top:0;width:100%;background:rgba(255,255,255,.95);backdrop-filter:blur(12px);border-bottom:1px solid #e2e8f0;z-index:1000;padding:1.25rem 0}
-.nav-container{max-width:1200px;margin:0 auto;padding:0 2rem;display:grid;grid-template-columns:auto 1fr auto;align-items:center}
-.logo{display:flex;align-items:center;text-decoration:none}
-.logo svg{height:32px;width:auto}
-.nav-links{display:flex;gap:1.75rem;align-items:center;justify-content:center}
-.nav-links a{color:#0F172A;text-decoration:none;font-size:.9375rem;font-weight:600;transition:all .2s;position:relative}
-.nav-links a:hover{color:#2563EB}
-.nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:#2563EB;transition:width .2s}
-.nav-links a:hover::after{width:100%}
-.nav-links a.active{color:#2563EB}
-.nav-links a.active::after{width:100%}
-.nav-cta{justify-self:end;display:flex;gap:1rem}
-.btn-outline{background:#fff;color:#334155;border:2px solid #e2e8f0;padding:.75rem 1.5rem;border-radius:.5rem;font-weight:600;cursor:pointer;text-decoration:none;font-size:.9375rem;transition:all .2s}
-.btn-outline:hover{border-color:#2563EB;color:#2563EB}
-.btn-primary{background:#2563EB;color:#fff;padding:.75rem 1.5rem;border-radius:.5rem;border:none;font-weight:600;cursor:pointer;text-decoration:none;font-size:.9375rem;transition:all .2s}
-.btn-primary:hover{background:#1E40AF}
-.mobile-menu-btn{display:none;background:#2563EB;border:none;cursor:pointer;padding:.75rem 1.5rem;border-radius:.5rem;color:#fff;font-weight:600;font-size:.9375rem}
-@media(max-width:768px){.nav-links,.nav-cta{display:none!important}.mobile-menu-btn{display:flex!important;justify-content:center;width:100%}.nav-container{grid-template-columns:1fr!important}.nav-container .logo{display:none!important}}
+
 
         :root {
             --primary: #2563EB;
@@ -440,25 +643,57 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
 
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-        <nav>
-        <div class="nav-container">
-            <a href="index.html" class="logo"><img src="alliance-logo-transparent.png" alt="Alliance Financing Group" style="height:36px;width:auto"></a>
-            <div class="nav-links">
-                
-                <a href="how-it-works.html">How It Works</a>
-                <a href="products.html">Products</a>
-                <a href="partners.html">Partners</a>
-                <a href="blog.html">Insights</a>
-                <a href="track-application.html">Track Application</a>
+            <nav>
+        <a href="https://alliance-website-v2.vercel.app/index.html" class="nav-logo" style="text-decoration:none;"><img src="https://alliance-website-v2.vercel.app/assets/logo.png" alt="Alliance Financing Group" style="height:36px;"></a>
+        <div class="nav-center">
+            <div class="nav-dropdown-wrapper">
+                <a href="https://alliance-website-v2.vercel.app/equipment-leasing.html">Fund Your Business <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg></a>
+                <div class="nav-dropdown-menu">
+                        <div class="dropdown-col">
+                            <div class="dropdown-label">Financing Solutions</div>
+                            <a href="https://alliance-website-v2.vercel.app/equipment-leasing.html">Equipment Leasing</a>
+                            <a href="https://alliance-website-v2.vercel.app/working-capital.html">Working Capital</a>
+                            <a href="https://alliance-website-v2.vercel.app/sred-financing.html">SR&amp;ED Financing</a>
+                            <a href="https://alliance-website-v2.vercel.app/sale-leaseback.html">Sale-Leaseback</a>
+                            <a href="https://alliance-website-v2.vercel.app/bridge-financing.html">Bridge Financing</a>
+                            <a href="https://alliance-website-v2.vercel.app/asset-based-lending.html">Asset-Based Lending</a>
+                        </div>
+                        <div class="dropdown-col">
+                            <div class="dropdown-label">Specialty Products</div>
+                            <a href="https://alliance-website-v2.vercel.app/factoring.html">Factoring</a>
+                            <a href="https://alliance-website-v2.vercel.app/merchant-cash-advance.html">Merchant Cash Advance</a>
+                            <a href="https://alliance-website-v2.vercel.app/debt-restructuring.html">Debt Restructuring</a>
+                            <a href="https://alliance-website-v2.vercel.app/commercial-real-estate.html">Commercial Real Estate</a>
+                            <a href="https://alliance-website-v2.vercel.app/acquisition-financing.html">Acquisition Financing</a>
+                        </div>
+                    </div>
             </div>
-            <div class="nav-cta">
-                <a href="agent-login.html" class="btn-outline">Partner Login</a>
-                <a href="contact.html" class="btn-outline">Contact Us</a>
-                <a href="application.html" class="btn-primary">Apply Now</a>
+            <div class="nav-dropdown-wrapper">
+                <a href="https://alliance-website-v2.vercel.app/partner.html">Partner <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg></a>
+                <div class="nav-dropdown-menu nav-dropdown-single">
+                    <a href="https://alliance-website-v2.vercel.app/partner-lenders.html">Lenders</a>
+                    <a href="https://alliance-website-v2.vercel.app/partner-vendors.html">Vendors</a>
+                    <a href="https://alliance-website-v2.vercel.app/partner-brokers.html">Broker Partners</a>
+                    <a href="https://alliance-website-v2.vercel.app/partner-mortgage.html">Mortgage Brokers</a>
+                    <a href="https://alliance-website-v2.vercel.app/partner-apply.html">Apply Now</a>
+                </div>
             </div>
-            <button class="mobile-menu-btn" onclick="window.location.href='application.html'">Apply Now</button>
+            <a href="https://alliance-website-v2.vercel.app/knowledge-centre.html">Knowledge Centre</a>
+            <a href="https://alliance-website-v2.vercel.app/about.html">About</a>
+        </div>
+        <div class="nav-right">
+            <div class="login-wrapper" id="loginWrapper">
+                <button class="login-btn" id="loginBtn">Login <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg></button>
+                <div class="login-dropdown">
+                    <a href="agent-login.html" target="_blank"><div class="portal-icon agent"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z"/></svg></div><div><div class="portal-label">Agent Portal</div><div class="portal-desc">Partner &amp; broker access</div></div></a>
+                    <a href="track-application.html" target="_blank"><div class="portal-icon" style="background-color:rgba(201,168,76,0.1);color:#C9A84C;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm2 10a1 1 0 10-2 0v3a1 1 0 102 0v-3zm2-3a1 1 0 011 1v5a1 1 0 11-2 0v-5a1 1 0 011-1zm4 2a1 1 0 10-2 0v3a1 1 0 102 0v-3z" clip-rule="evenodd"/></svg></div><div><div class="portal-label">Track Application</div><div class="portal-desc">Check your application status</div></div></a>
+                    <a href="#" style="opacity:0.5;pointer-events:none;"><div class="portal-icon client"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M1 6a3 3 0 013-3h12a3 3 0 013 3v8a3 3 0 01-3 3H4a3 3 0 01-3-3V6zm4 1.5a2 2 0 114 0 2 2 0 01-4 0zm2 3a4 4 0 00-3.665 2.395.75.75 0 00.416 1A8.98 8.98 0 007 14.5a8.98 8.98 0 003.249-.604.75.75 0 00.416-1.001A4.001 4.001 0 007 10.5zm6-1a.75.75 0 01.75-.75h2.5a.75.75 0 010 1.5h-2.5a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h2.5a.75.75 0 000-1.5h-2.5z" clip-rule="evenodd"/></svg></div><div><div class="portal-label">Client Portal</div><div class="portal-desc">Coming Soon</div></div></a>
+                </div>
+            </div>
+            <a href="application.html" class="apply-btn" style="text-decoration:none;">Apply Now</a>
         </div>
     </nav>
 
@@ -673,7 +908,7 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
         <div class="footer-container">
             <div class="footer-brand">
                 <h3>Alliance Financing Group Ltd.</h3>
-                <p>35 years of commercial financing expertise meets AI-powered technology. Helping businesses access capital faster than ever.</p>
+                <p>37 years of commercial financing expertise meets AI-powered technology. Helping businesses access capital faster than ever.</p>
                 <p style="margin-top: 1rem;">
                     <strong>Phone:</strong> <a href="tel:+18776603660" style="color: inherit; text-decoration: none;">1-877-660-3660 ext. 222</a><br>
                     <strong>Email:</strong> <a href="mailto:info@alliancefinancing.ai" style="color: inherit; text-decoration: none;">info@alliancefinancing.ai</a>
@@ -1025,5 +1260,29 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
         });
     </script>
 
+<script>
+    // V2 Nav scroll effect
+    window.addEventListener('scroll', () => {
+        const nav = document.querySelector('nav');
+        if (window.scrollY > 10) {
+            nav.classList.add('scrolled');
+        } else {
+            nav.classList.remove('scrolled');
+        }
+    });
+
+    // V2 Login dropdown toggle
+    const loginBtn = document.getElementById('loginBtn');
+    const loginWrapper = document.getElementById('loginWrapper');
+    if (loginBtn) loginBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        loginWrapper.classList.toggle('open');
+    });
+    document.addEventListener('click', (e) => {
+        if (loginWrapper && !loginWrapper.contains(e.target)) {
+            loginWrapper.classList.remove('open');
+        }
+    });
+</script>
 </body>
 </html>
