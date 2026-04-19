@@ -737,7 +737,7 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <polyline points="20 6 9 17 4 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
                     </svg>
-                    <span><strong>Instant AI Matching:</strong> Our system analyzes your application and matches you with qualified lenders</span>
+                    <span><strong>Smart Matching:</strong> Our platform analyzes your application and matches you with qualified lenders</span>
                 </li>
                 <li>
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1213,6 +1213,51 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                     }
                 } catch (dealCreateErr) {
                     console.error('Auto-deal creation failed:', dealCreateErr);
+                }
+
+                // =============================================
+                // SEND ADMIN NOTIFICATION EMAIL
+                // =============================================
+                try {
+                    var notifSubject = 'New Application: ' + businessName + ' — ' + (fundingAmount || 'Amount TBD');
+                    var notifHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                        '<div style="background:#0A1628;padding:24px 32px;border-radius:8px 8px 0 0;">' +
+                        '<h1 style="color:#C9A84C;margin:0;font-size:20px;">New Application Received</h1></div>' +
+                        '<div style="background:#fff;padding:24px 32px;border:1px solid #E2E8F0;border-top:none;">' +
+                        '<table style="width:100%;border-collapse:collapse;font-size:15px;">' +
+                        '<tr><td style="padding:8px 0;color:#666;width:140px;">Applicant</td><td style="padding:8px 0;font-weight:600;">' + fullName + '</td></tr>' +
+                        '<tr><td style="padding:8px 0;color:#666;">Business</td><td style="padding:8px 0;font-weight:600;">' + businessName + '</td></tr>' +
+                        '<tr><td style="padding:8px 0;color:#666;">Email</td><td style="padding:8px 0;"><a href="mailto:' + email + '" style="color:#2563EB;">' + email + '</a></td></tr>' +
+                        '<tr><td style="padding:8px 0;color:#666;">Phone</td><td style="padding:8px 0;">' + phone + '</td></tr>' +
+                        '<tr><td style="padding:8px 0;color:#666;">Amount</td><td style="padding:8px 0;font-weight:600;">' + (fundingAmount || 'Not specified') + '</td></tr>' +
+                        '<tr><td style="padding:8px 0;color:#666;">Revenue</td><td style="padding:8px 0;">' + (annualRevenue || 'Not specified') + '</td></tr>' +
+                        '<tr><td style="padding:8px 0;color:#666;">Time in Business</td><td style="padding:8px 0;">' + (timeInBusiness || 'Not specified') + '</td></tr>' +
+                        '<tr><td style="padding:8px 0;color:#666;">Products</td><td style="padding:8px 0;">' + (financingTypes.join(', ') || 'Not specified') + '</td></tr>' +
+                        '<tr><td style="padding:8px 0;color:#666;">Source</td><td style="padding:8px 0;">' + (referralSlug ? 'Agent Referral (' + referralSlug + ')' : 'Direct / Website') + '</td></tr>' +
+                        '</table>' +
+                        (description ? '<div style="margin-top:16px;padding:12px;background:#F8F9FA;border-radius:6px;font-size:14px;"><strong>Notes:</strong> ' + description + '</div>' : '') +
+                        '<div style="margin-top:20px;text-align:center;">' +
+                        '<a href="https://app.alliancefinancing.com/dashboard.html" style="display:inline-block;background:#C9A84C;color:#0A1628;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">View in Dashboard</a></div>' +
+                        '</div>' +
+                        '<div style="padding:12px 32px;text-align:center;font-size:11px;color:#999;">Alliance Financing Group | alliancefinancing.com</div></div>';
+
+                    var emailEndpoint = window.SUPABASE_URL + '/functions/v1/send-email';
+                    await fetch(emailEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            to: 'info@alliancefinancing.com',
+                            subject: notifSubject,
+                            html: notifHtml,
+                            reply_to: email
+                        })
+                    });
+                    console.log('Admin notification email sent');
+                } catch (notifErr) {
+                    console.warn('Admin notification email failed (non-blocking):', notifErr);
                 }
 
                 // Auto-update applications_sent status to "Returned"
