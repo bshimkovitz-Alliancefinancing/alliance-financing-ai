@@ -11599,6 +11599,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (recentApps) {
                     recentApps.forEach(function(app) {
                         if (app.status === 'Moved to Pipeline' || app.status === 'Archived' || app.status === 'Returned') return;
+                        // Highlight fresh applications that have a deal created but haven't been reviewed
+                        if (app.status === 'New — Deal Created') {
+                            notifications.push({
+                                type: 'inquiry',
+                                category: 'action',
+                                icon: '🆕',
+                                iconBg: '#FEF3C7',
+                                iconColor: '#D97706',
+                                title: 'New application — deal auto-created for ' + (app.full_name || app.business_name || 'Unknown'),
+                                detail: (app.business_name || '') + (app.business_name && app.email ? ' · ' : '') + (app.email || ''),
+                                time: new Date(app.submitted_at),
+                                action: "showPage('inbox')",
+                                actionLabel: 'Review in Inbox',
+                                priority: 1
+                            });
+                            return;
+                        }
                         notifications.push({
                             type: 'inquiry',
                             category: 'action',
@@ -37494,22 +37511,51 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 return !a.referral_slug || !a.referral_slug.startsWith('deal-');
             });
 
-            // Auto-clean: if any applications already have a deal in the pipeline, mark them as 'Moved to Pipeline'
+            // Auto-clean: if applications already have a deal in the pipeline AND are older than 48 hours,
+            // mark them as 'Moved to Pipeline'. Newer ones stay visible for admin review.
             if (apps.length > 0) {
                 var appIds = apps.map(function(a) { return a.id; });
-                var { data: linkedDeals } = await db.from('deals').select('application_id').in('application_id', appIds);
+                var { data: linkedDeals } = await db.from('deals').select('application_id, created_at').in('application_id', appIds);
                 if (linkedDeals && linkedDeals.length > 0) {
+                    var now = Date.now();
+                    var fortyEightHours = 48 * 60 * 60 * 1000;
+                    var dealAppMap = {};
+                    linkedDeals.forEach(function(d) { dealAppMap[d.application_id] = d.created_at; });
                     var dealAppIds = linkedDeals.map(function(d) { return d.application_id; });
-                    // Update status in database for these applications
+
+                    // Only auto-move applications where the deal is older than 48 hours
+                    var staleAppIds = [];
+                    var freshAppIds = [];
                     for (var di = 0; di < dealAppIds.length; di++) {
+                        var dealCreated = new Date(dealAppMap[dealAppIds[di]]).getTime();
+                        if ((now - dealCreated) > fortyEightHours) {
+                            staleAppIds.push(dealAppIds[di]);
+                        } else {
+                            freshAppIds.push(dealAppIds[di]);
+                        }
+                    }
+
+                    // Mark stale ones as 'Moved to Pipeline'
+                    for (var si = 0; si < staleAppIds.length; si++) {
                         try {
-                            await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', dealAppIds[di]);
+                            await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', staleAppIds[si]);
                         } catch(e) { console.warn('Auto-update app status:', e); }
                     }
-                    // Also auto-update matching applications_sent records to 'Returned'
-                    for (var ri = 0; ri < dealAppIds.length; ri++) {
+
+                    // Mark fresh ones as 'New — Deal Created' so admin sees them
+                    for (var fi = 0; fi < freshAppIds.length; fi++) {
                         try {
-                            var matchApp = apps.find(function(a) { return a.id === dealAppIds[ri]; });
+                            var freshApp = apps.find(function(a) { return a.id === freshAppIds[fi]; });
+                            if (freshApp && freshApp.status === 'Application Received') {
+                                await db.from('applications').update({ status: 'New — Deal Created' }).eq('id', freshAppIds[fi]);
+                            }
+                        } catch(e) { console.warn('Auto-update fresh app status:', e); }
+                    }
+
+                    // Also auto-update matching applications_sent records to 'Returned' for stale apps
+                    for (var ri = 0; ri < staleAppIds.length; ri++) {
+                        try {
+                            var matchApp = apps.find(function(a) { return a.id === staleAppIds[ri]; });
                             if (matchApp && matchApp.email) {
                                 await db.from('applications_sent')
                                     .update({ status: 'Returned' })
@@ -37518,9 +37564,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             }
                         } catch(e) { console.warn('Auto-update applications_sent:', e); }
                     }
-                    // Filter out these applications from the inbox display
+                    // Filter out only stale applications from the inbox display (keep fresh ones visible)
                     if (!showArchived) {
-                        apps = apps.filter(function(a) { return !dealAppIds.includes(a.id); });
+                        apps = apps.filter(function(a) { return !staleAppIds.includes(a.id); });
                     }
                 }
             }
