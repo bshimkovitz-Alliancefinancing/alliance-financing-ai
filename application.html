@@ -9,6 +9,9 @@
         window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
     </script>
 
+    <!-- Cloudflare Turnstile (bot protection) -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
     <!-- Google Analytics 4 -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-JEP3FEBY4V"></script>
     <script>
@@ -865,6 +868,9 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                     <textarea id="description" name="description" placeholder="Tell us about your business and why you need funding..."></textarea>
                 </div>
 
+                <!-- Cloudflare Turnstile widget -->
+                <div class="cf-turnstile" data-sitekey="0x4AAAAAADAId6DvZ_P8B0FO" data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired" style="margin-bottom: 16px;"></div>
+
                 <button type="submit" class="btn-submit" id="submitBtn">Submit Application</button>
                 <div id="errorMessage" class="error-message"></div>
             </form>
@@ -1080,6 +1086,22 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
             }
         })();
 
+        // Turnstile token tracking
+        var turnstileToken = null;
+        function onTurnstileSuccess(token) { turnstileToken = token; }
+        function onTurnstileExpired() { turnstileToken = null; }
+
+        // Spam detection — reject gibberish names and amounts
+        function looksLikeSpam(str) {
+            if (!str) return false;
+            // Random mixed-case gibberish: 3+ uppercase letters in a word that also has lowercase
+            if (/(?:[a-z][A-Z]){3,}/.test(str)) return true;
+            // All consonants, no vowels (5+ chars)
+            if (str.length > 5 && !/[aeiouAEIOU\s\d]/.test(str)) return true;
+            // Non-numeric funding amount (letters where numbers should be)
+            return false;
+        }
+
         // Form submission
         document.getElementById('applicationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -1093,6 +1115,13 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
             // Hide previous messages
             errorMsg.style.display = 'none';
             successMsg.style.display = 'none';
+
+            // Turnstile verification
+            if (!turnstileToken) {
+                errorMsg.textContent = 'Please complete the verification checkbox above.';
+                errorMsg.style.display = 'block';
+                return;
+            }
 
             // Set loading state
             submitBtn.disabled = true;
@@ -1109,6 +1138,11 @@ footer{background:#0F172A;color:#94A3B8;padding:4rem 0 0}
                 const fundingAmount = document.getElementById('fundingAmount').value.trim();
                 const description = document.getElementById('description').value.trim();
                 const referralSlug = getReferralSlug();
+
+                // Spam detection
+                if (looksLikeSpam(fullName) || looksLikeSpam(businessName) || /[A-Za-z]{10,}/.test(fundingAmount)) {
+                    throw new Error('Your submission could not be processed. Please check your entries and try again.');
+                }
 
                 // Get selected financing types
                 const financingTypes = Array.from(document.querySelectorAll('input[name="financing_type"]:checked')).map(cb => cb.value);
