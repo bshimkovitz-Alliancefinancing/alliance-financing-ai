@@ -11232,7 +11232,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             title: 'Follow up on ' + (a.applicant_name || 'Unknown') + "'s application",
                             detail: (a.application_type || 'Application') + ' sent ' + new Date(a.sent_at).toLocaleDateString(),
                             time: new Date(a.follow_up_date),
-                            action: "showPage('applicationHub')",
+                            action: "gotoAppSentFollowUp('" + a.id + "')",
                             actionLabel: 'View Applications',
                             priority: 2
                         });
@@ -34760,7 +34760,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 var rowStyle = isOverdue ? 'background:#FFF7ED;' : (app.status === 'Archived' ? 'opacity:0.6;' : '');
 
-                return '<tr style="' + rowStyle + '">' +
+                return '<tr data-app-sent-id="' + app.id + '" style="' + rowStyle + '">' +
                     '<td><strong>' + (app.applicant_name || 'N/A') + '</strong></td>' +
                     '<td>' + (app.applicant_email || 'N/A') + '</td>' +
                     '<td>' + (app.application_type || 'N/A') + '</td>' +
@@ -34782,6 +34782,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Error loading applications. <a href="#" onclick="loadApplicationsSent();return false;" style="color:#0EA5E9;text-decoration:underline;">Retry</a></td></tr>';
             }
         }
+    }
+
+    // Jump to a specific Applications Sent row — called from Command Center "Follow up on X" notifications.
+    // Navigates to Deal Pipeline, applies the Follow-Up Needed filter, scrolls to the row, and pulse-highlights it.
+    async function gotoAppSentFollowUp(appSentId) {
+        if (!appSentId) return;
+        showPage('deals');
+        setTimeout(async function() {
+            var f = document.getElementById('appSentStatusFilter');
+            if (f) { f.value = 'Follow-Up Needed'; }
+            try { await loadApplicationsSent(); } catch(e) { console.warn('gotoAppSentFollowUp: load failed', e); }
+            var section = document.getElementById('appsSentSection');
+            if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(function() {
+                var row = document.querySelector('#applicationsSentBody tr[data-app-sent-id="' + appSentId + '"]');
+                if (!row) return;
+                var origBg = row.style.background;
+                row.style.transition = 'background 0.6s ease';
+                row.style.background = '#FEF3C7';
+                setTimeout(function() { row.style.background = origBg || ''; }, 2200);
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }, 200);
     }
 
     // ============================================
