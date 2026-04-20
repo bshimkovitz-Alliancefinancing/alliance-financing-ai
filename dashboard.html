@@ -23848,8 +23848,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             var dateStr = app.created_at ? new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
+            var statusBadge = '';
+            if (app.status === 'approved' || app.status === 'Approved') {
+                statusBadge = '<div style="margin-top:3px;"><span style="background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;">APPROVED</span></div>';
+            } else if (app.status === 'invited') {
+                statusBadge = '<div style="margin-top:3px;"><span style="background:#DBEAFE;color:#1E40AF;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;">INVITED</span></div>';
+            }
+
             return '<tr style="cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'transparent\'" onclick="showPartnerAppDetail(\'' + (app.id || '') + '\')">' +
-                '<td style="padding:10px 16px;font-size:12px;color:#64748B;border-bottom:1px solid #F1F5F9;font-weight:600;">' + (app.application_id || '—') + '</td>' +
+                '<td style="padding:10px 16px;font-size:12px;color:#64748B;border-bottom:1px solid #F1F5F9;font-weight:600;">' + (app.application_id || '—') + statusBadge + '</td>' +
                 '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;"><div style="font-size:13px;font-weight:600;color:#1E293B;">' + (app.first_name || '') + ' ' + (app.last_name || '') + '</div><div style="font-size:11px;color:#64748B;">' + (app.email || '') + '</div></td>' +
                 '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;font-size:13px;color:#334155;">' + (app.company_name || '—') + '</td>' +
                 '<td style="padding:10px 16px;border-bottom:1px solid #F1F5F9;font-size:12px;color:#475569;">' + (app.partner_type || '—') + '</td>' +
@@ -23988,6 +23995,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
         // Action buttons
         html += '<div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">';
+        if (app.status !== 'approved' && app.status !== 'Approved') {
+            html += '<button id="approveInviteBtn_' + appId + '" onclick="approvePartnerApplication(\'' + appId + '\')" style="padding:8px 20px;background:linear-gradient(135deg,#22C55E,#16A34A);color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">';
+            html += '<span style="font-size:16px;">&#10003;</span> Approve & Invite</button>';
+        } else {
+            html += '<div style="padding:8px 20px;background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;border-radius:6px;font-size:13px;font-weight:600;">Approved</div>';
+        }
         if (score) {
             html += '<button onclick="rescorePartnerApp(\'' + appId + '\', this)" style="padding:8px 20px;background:#F1F5F9;color:#475569;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;cursor:pointer;">Re-score</button>';
         }
@@ -24021,6 +24034,139 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             showNotification('Scoring error: ' + err.message, 'error');
             if (btn) { btn.disabled = false; btn.textContent = 'Score'; }
         });
+    }
+
+    async function approvePartnerApplication(appId) {
+        var app = _partnerAppsData.find(function(a) { return a.id === appId; });
+        if (!app) { showNotification('Application not found.', 'error'); return; }
+        if (!app.email) { showNotification('This application has no email address. Cannot send invite.', 'error'); return; }
+
+        var partnerName = ((app.first_name || '') + ' ' + (app.last_name || '')).trim() || 'Partner';
+        if (!confirm('Approve ' + partnerName + ' (' + (app.company_name || '') + ') and send an activation invite to ' + app.email + '?')) return;
+
+        var btn = document.getElementById('approveInviteBtn_' + appId);
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span style="font-size:14px;">&#8987;</span> Processing...'; }
+
+        try {
+            // Map partner_type to agent_type
+            var partnerTypeMap = {
+                'ISO': 'iso_agent',
+                'iso': 'iso_agent',
+                'ISO Partner': 'iso_agent',
+                'Referral': 'referral_agent',
+                'referral': 'referral_agent',
+                'Referral Partner': 'referral_agent',
+                'Vendor': 'vendor_admin',
+                'vendor': 'vendor_admin',
+                'Mortgage': 'mortgage_broker',
+                'mortgage': 'mortgage_broker',
+                'Mortgage Broker': 'mortgage_broker',
+                'Strategic': 'strategic_partner',
+                'strategic': 'strategic_partner',
+                'BaaS': 'strategic_partner'
+            };
+            var agentType = partnerTypeMap[(app.partner_type || '')] || partnerTypeMap[(app.partner_type || '').split(' ')[0]] || 'referral_agent';
+
+            // Check if a user with this email already exists
+            var { data: existingUser } = await db.from('users').select('id, role, agent_type, onboarding_status').eq('email', app.email).maybeSingle();
+
+            var userId;
+            var inviteToken = crypto.randomUUID();
+            var tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+            if (existingUser) {
+                // Safety: never overwrite admin accounts
+                if (['super_admin', 'admin'].includes(existingUser.role)) {
+                    showNotification('Cannot approve — this email belongs to an admin account.', 'error');
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<span style="font-size:16px;">&#10003;</span> Approve & Invite'; }
+                    return;
+                }
+                // User exists — update with new invite token
+                userId = existingUser.id;
+                var { error: updateErr } = await db.from('users').update({
+                    invite_token: inviteToken,
+                    invite_token_expires_at: tokenExpires,
+                    invite_sent_at: new Date().toISOString(),
+                    onboarding_status: 'invited',
+                    agent_type: agentType,
+                    role: 'agent',
+                    full_name: partnerName,
+                    phone: app.phone || undefined,
+                    company_name: app.company_name || undefined
+                }).eq('id', userId);
+                if (updateErr) throw updateErr;
+            } else {
+                // Create new user record
+                var { data: newUser, error: createErr } = await db.from('users').insert({
+                    email: app.email,
+                    full_name: partnerName,
+                    phone: app.phone || null,
+                    company_name: app.company_name || null,
+                    role: 'agent',
+                    agent_type: agentType,
+                    agent_status: 'Active',
+                    invite_token: inviteToken,
+                    invite_token_expires_at: tokenExpires,
+                    invite_sent_at: new Date().toISOString(),
+                    onboarding_status: 'invited',
+                    status: 'Active'
+                }).select().single();
+                if (createErr) throw createErr;
+                userId = newUser.id;
+            }
+
+            // Update partner_applications status to approved and link to user
+            var { error: appUpdateErr } = await db.from('partner_applications').update({
+                status: 'approved',
+                approved_at: new Date().toISOString(),
+                approved_by: currentUserId,
+                user_id: userId
+            }).eq('id', appId);
+            if (appUpdateErr) {
+                console.error('Non-critical: failed to update partner_applications status:', appUpdateErr);
+            }
+
+            // Send welcome/activation email
+            var activateUrl = window.location.origin + '/agent-activate.html?token=' + inviteToken;
+            var partnerLabel = (app.partner_type || 'Partner').replace(/_/g, ' ');
+            var emailHtml =
+                '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:25px 30px;border-radius:12px 12px 0 0;text-align:center;">' +
+                '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;border-top:none;">' +
+                '<p style="font-size:16px;color:#1E293B;">Hi ' + (app.first_name || partnerName) + ',</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">Great news — your partner application with Alliance Financing Group has been <strong>approved</strong>.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">As a <strong>' + partnerLabel + '</strong>, you now have access to our platform of 70+ institutional lenders across North America. You can submit deals, track progress, and earn commissions on funded transactions.</p>' +
+                '<p style="font-size:14px;color:#475569;line-height:1.6;">To activate your account and set your password, click the button below:</p>' +
+                '<div style="text-align:center;margin:25px 0;">' +
+                '<a href="' + activateUrl + '" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px;">Activate My Account</a></div>' +
+                '<p style="font-size:13px;color:#64748B;">Or copy this link: <a href="' + activateUrl + '" style="color:#3B82F6;">' + activateUrl + '</a></p>' +
+                '<p style="font-size:13px;color:#64748B;">This link expires in 7 days. If you have any questions, contact us at info@alliancefinancing.com or call 1-877-660-3660 ext. 222.</p>' +
+                '<p style="font-size:14px;color:#475569;">Welcome aboard,<br><strong>Alliance Financing Group</strong></p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 12px 12px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+
+            await sendEmailViaResend(
+                app.email,
+                'Your Alliance Financing Partner Account is Approved — Activate Now',
+                emailHtml,
+                '',
+                'info@alliancefinancing.com',
+                null,
+                'info@alliancefinancing.com'
+            );
+
+            // Close modal, refresh, notify
+            closeGenericModal();
+            showNotification('Approved! Activation invite sent to ' + app.email, 'success');
+            loadPartnerApplications();
+
+        } catch (err) {
+            console.error('Approve partner error:', err);
+            showNotification('Error approving partner: ' + (err.message || err), 'error');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<span style="font-size:16px;">&#10003;</span> Approve & Invite'; }
+        }
     }
 
     async function loadLenders() {
