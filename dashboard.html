@@ -29846,7 +29846,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 ${!isAgentView ? buildRequestDocsHtml(deal, dealId, clientContacts) : ''}
 
                 <!-- Section 9c: Send Credit Application (admin and agents) -->
-                ${buildSendCreditAppHtml(deal, dealId, clientContacts)}
+                ${buildSendCreditAppHtml(deal, dealId, clientContacts, dealDocuments || [], cachedAgents || [])}
 
                 <!-- Section 10: Approval Notice (Admin only) -->
                 ${!isAgentView ? buildApprovalNoticeHtml(deal, dealId, clientContacts, approvalNotices) : ''}
@@ -36155,13 +36155,60 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Send Credit Application from Deal
     // ============================================
 
-    function buildSendCreditAppHtml(deal, dealId, clientContacts) {
+    function buildSendCreditAppHtml(deal, dealId, clientContacts, dealDocuments, cachedAgents) {
+        dealDocuments = dealDocuments || [];
+        cachedAgents = cachedAgents || [];
         var applicantEmail = '';
         var applicantName = '';
         if (clientContacts && clientContacts.length > 0) {
             applicantEmail = clientContacts[0].email || '';
             applicantName = clientContacts[0].full_name || clientContacts[0].first_name || '';
         }
+
+        // Find the deal's referring agent for the optional "CC referring agent" checkbox
+        var sourceAgent = null;
+        if (deal.source_agent_id && cachedAgents.length) {
+            sourceAgent = cachedAgents.find(function(a) { return a.id === deal.source_agent_id; });
+        }
+        var sourceAgentCcHtml = '';
+        if (sourceAgent && sourceAgent.email) {
+            var agentLabel = (sourceAgent.full_name || sourceAgent.email).replace(/"/g, '&quot;');
+            sourceAgentCcHtml = '<label style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer;font-size:12px;color:#475569;">' +
+                '<input type="checkbox" id="creditAppCcAgent_' + dealId + '" data-email="' + sourceAgent.email + '" style="margin:0;width:14px;height:14px;cursor:pointer;">' +
+                'CC referring agent (' + agentLabel + ' &mdash; ' + sourceAgent.email + ')' +
+                '</label>';
+        }
+
+        // Build attachment picker from documents already uploaded to this deal
+        var attachmentPickerHtml = '';
+        if (dealDocuments && dealDocuments.length > 0) {
+            var docRows = dealDocuments.map(function(d) {
+                var rawSize = d.file_size_bytes || d.file_size || 0;
+                var sizeKb = rawSize ? Math.round(rawSize / 1024) : 0;
+                var sizeLabel = sizeKb > 1024 ? (sizeKb / 1024).toFixed(2) + ' MB' : (sizeKb + ' KB');
+                var safeName = (d.file_name || 'Untitled').replace(/"/g, '&quot;');
+                var safePath = (d.file_path || '').replace(/"/g, '&quot;');
+                var docType = (d.document_type || 'Document').replace(/"/g, '&quot;');
+                return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #E2E8F0;border-radius:6px;background:#fff;cursor:pointer;font-size:12px;">' +
+                    '<input type="checkbox" class="creditAppAttachCheck_' + dealId + '" data-doc-id="' + d.id + '" data-path="' + safePath + '" data-name="' + safeName + '" onchange="updateCreditAppPreview(\'' + dealId + '\')" style="margin:0;width:14px;height:14px;cursor:pointer;">' +
+                    '<span style="flex:1;color:#0D1E3D;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 ' + safeName + '</span>' +
+                    '<span style="color:#64748B;font-size:11px;white-space:nowrap;">' + docType + ' • ' + sizeLabel + '</span>' +
+                    '</label>';
+            }).join('');
+            attachmentPickerHtml = '<div style="margin-bottom:12px;">' +
+                '<label style="font-size:12px;font-weight:600;color:#5B21B6;display:block;margin-bottom:6px;">Attach files from this deal (optional)</label>' +
+                '<div style="display:grid;grid-template-columns:1fr;gap:6px;max-height:160px;overflow-y:auto;padding:6px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">' + docRows + '</div>' +
+                '<div style="font-size:11px;color:#64748B;margin-top:4px;">Selected files are included as secure download links in the email (links valid 7 days).</div>' +
+                '</div>';
+        } else {
+            attachmentPickerHtml = '<div style="margin-bottom:12px;padding:8px 10px;background:#F8FAFC;border:1px dashed #CBD5E1;border-radius:6px;font-size:12px;color:#64748B;">No documents uploaded to this deal yet. Upload one in the Documents section above to attach it here.</div>';
+        }
+
+        var ccBlockHtml = '<div style="margin-bottom:12px;">' +
+            '<label style="font-size:12px;font-weight:600;color:#5B21B6;display:block;margin-bottom:4px;">CC (optional, comma-separated)</label>' +
+            '<input type="text" id="creditAppCc_' + dealId + '" placeholder="e.g. agent@firm.com, partner@example.com" style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
+            sourceAgentCcHtml +
+            '</div>';
 
         var appTypes = [
             { value: 'leasing', label: 'Equipment Leasing', icon: '🏗️', page: 'apply-leasing.html', desc: 'Full equipment lease application' },
@@ -36201,6 +36248,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             '<input type="email" id="creditAppEmail_' + dealId + '" placeholder="applicant@email.com" value="' + applicantEmail + '" style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;">' +
                         '</div>' +
                     '</div>' +
+                    ccBlockHtml +
+                    attachmentPickerHtml +
                     '<div style="margin-bottom:12px;">' +
                         '<label style="font-size:12px;font-weight:600;color:#5B21B6;display:block;margin-bottom:4px;">Personal Message (optional — replaces the default template below)</label>' +
                         '<textarea id="creditAppMsg_' + dealId + '" placeholder="Leave blank to use the default template, or type a custom message to replace it..." oninput="updateCreditAppPreview(\'' + dealId + '\')" style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:50px;resize:vertical;font-family:Arial,sans-serif;"></textarea>' +
@@ -36230,9 +36279,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         return selected;
     }
 
-    function buildCreditAppEmailHtml(dealId, name, message) {
+    function buildCreditAppEmailHtml(dealId, name, message, attachmentsHtml) {
         var selected = getSelectedCreditApps(dealId);
         var baseUrl = window.location.origin;
+        attachmentsHtml = attachmentsHtml || '';
 
         if (message && message.trim()) {
             // Personal message replaces the template body
@@ -36251,6 +36301,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<p style="font-size:16px;color:#1E293B;">Hi ' + name + ',</p>' +
                     '<div style="font-size:14px;color:#475569;line-height:1.6;white-space:pre-line;">' + message.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
                     linksHtml +
+                    attachmentsHtml +
                     '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group Ltd.</strong><br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>' +
                 '</div>' +
                 '<div style="background:#F8FAFC;padding:15px;text-align:center;font-size:12px;color:#94A3B8;">' +
@@ -36285,6 +36336,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">Please complete our <strong>' + appLabel + '</strong> ' + (selected.length === 1 ? 'application' : 'applications') + ' using the ' + (selected.length === 1 ? 'button' : 'buttons') + ' below:</p>' +
                 '<div style="margin:20px 0;">' + buttonsHtml + '</div>' +
                 linksText +
+                attachmentsHtml +
                 '<p style="font-size:14px;color:#475569;line-height:1.6;">If you have any questions, please don\'t hesitate to reach out.</p>' +
                 '<p style="font-size:14px;color:#475569;">Best regards,<br><strong>Alliance Financing Group Ltd.</strong><br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>' +
             '</div>' +
@@ -36299,9 +36351,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (selected.length === 0) return;
         var name = (document.getElementById('creditAppName_' + dealId).value || '').trim() || 'there';
         var message = (document.getElementById('creditAppMsg_' + dealId).value || '').trim();
+        // Preview attachments (filenames only — URLs resolved at send time)
+        var attachmentsPreview = '';
+        var attachChecks = document.querySelectorAll('.creditAppAttachCheck_' + dealId + ':checked');
+        if (attachChecks.length > 0) {
+            var itemsHtml = Array.prototype.map.call(attachChecks, function(c) {
+                var nm = (c.dataset.name || 'file').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<div style="padding:8px 12px;margin:4px 0;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;color:#0D1E3D;">📎 ' + nm + '</div>';
+            }).join('');
+            attachmentsPreview = '<div style="margin:18px 0;padding:14px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;">' +
+                '<p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#92400E;">📎 Attached Documents</p>' +
+                itemsHtml +
+                '<p style="margin:8px 0 0;font-size:11px;color:#92400E;">Actual download links are generated when the email is sent (valid 7 days).</p>' +
+                '</div>';
+        }
         var previewEl = document.getElementById('creditAppEmailPreview_' + dealId);
         if (previewEl) {
-            previewEl.innerHTML = buildCreditAppEmailHtml(dealId, name, message);
+            previewEl.innerHTML = buildCreditAppEmailHtml(dealId, name, message, attachmentsPreview);
         }
     }
 
@@ -36349,6 +36415,34 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         });
     }
 
+    // Read CC field + optional "CC referring agent" checkbox, return deduped array.
+    function getCcForCreditApp(dealId) {
+        var ccArr = [];
+        var ccEl = document.getElementById('creditAppCc_' + dealId);
+        var ccText = ccEl ? (ccEl.value || '').trim() : '';
+        if (ccText) {
+            ccText.split(',').forEach(function(e) {
+                var trimmed = (e || '').trim();
+                if (trimmed && ccArr.indexOf(trimmed) === -1) ccArr.push(trimmed);
+            });
+        }
+        var agentBox = document.getElementById('creditAppCcAgent_' + dealId);
+        if (agentBox && agentBox.checked && agentBox.dataset.email) {
+            if (ccArr.indexOf(agentBox.dataset.email) === -1) ccArr.push(agentBox.dataset.email);
+        }
+        return ccArr;
+    }
+
+    // Read checked deal-document attachments, return [{id, path, name}].
+    function getSelectedCreditAppAttachments(dealId) {
+        var atts = [];
+        var checks = document.querySelectorAll('.creditAppAttachCheck_' + dealId + ':checked');
+        checks.forEach(function(c) {
+            atts.push({ id: c.dataset.docId, path: c.dataset.path || '', name: c.dataset.name || 'file' });
+        });
+        return atts;
+    }
+
     async function sendCreditApplicationEmail(dealId) {
         var selected = getSelectedCreditApps(dealId);
         if (selected.length === 0) { alert('Please select at least one application type.'); return; }
@@ -36356,6 +36450,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var name = (document.getElementById('creditAppName_' + dealId).value || '').trim() || 'there';
         var email = (document.getElementById('creditAppEmail_' + dealId).value || '').trim();
         var message = (document.getElementById('creditAppMsg_' + dealId).value || '').trim();
+        var ccArr = getCcForCreditApp(dealId);
+        var attachments = getSelectedCreditAppAttachments(dealId);
 
         if (!email) { alert('Please enter the applicant\'s email address.'); return; }
 
@@ -36368,8 +36464,53 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var appNames = selected.map(function(a) { return a.label; });
             var appLabel = appNames.length === 1 ? appNames[0] : appNames.slice(0, -1).join(', ') + ' & ' + appNames[appNames.length - 1];
 
-            // Build HTML email using shared function
-            var htmlEmail = buildCreditAppEmailHtml(dealId, name, message);
+            // Resolve signed download URLs for each selected deal document
+            var attachmentsHtml = '';
+            var attachmentsText = '';
+            var resolvedAttachments = [];
+            if (attachments.length > 0) {
+                btn.textContent = '⏳ Preparing attachments...';
+                for (var ai = 0; ai < attachments.length; ai++) {
+                    var att = attachments[ai];
+                    var signedUrl = null;
+                    try { signedUrl = await resolveStorageUrl(att.path); } catch(e) { console.warn('Attachment URL resolve failed for', att.path, e); }
+                    if (signedUrl) {
+                        resolvedAttachments.push({ name: att.name, url: signedUrl });
+                    } else {
+                        console.warn('Skipping attachment (no URL):', att.name);
+                    }
+                }
+                if (resolvedAttachments.length === 0 && attachments.length > 0) {
+                    if (!confirm('Could not generate download links for the selected attachments. Send the email without them?')) {
+                        btn.disabled = false;
+                        btn.textContent = '📧 Send via Email';
+                        return;
+                    }
+                } else if (resolvedAttachments.length < attachments.length) {
+                    if (!confirm('Some attachments could not be prepared (' + (attachments.length - resolvedAttachments.length) + ' of ' + attachments.length + ' failed). Send with the ones that worked?')) {
+                        btn.disabled = false;
+                        btn.textContent = '📧 Send via Email';
+                        return;
+                    }
+                }
+                if (resolvedAttachments.length > 0) {
+                    var itemsHtml = resolvedAttachments.map(function(a) {
+                        var safeName = (a.name || 'file').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        return '<div style="margin:8px 0;">' +
+                            '<a href="' + a.url + '" style="display:inline-block;padding:10px 18px;background:#0D1E3D;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:13px;">📎 Download ' + safeName + '</a>' +
+                            '</div>';
+                    }).join('');
+                    attachmentsHtml = '<div style="margin:20px 0;padding:16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;">' +
+                        '<p style="margin:0 0 10px;font-size:14px;font-weight:600;color:#92400E;">📎 Attached Documents</p>' +
+                        itemsHtml +
+                        '<p style="margin:10px 0 0;font-size:12px;color:#92400E;">Download links are valid for 7 days.</p>' +
+                        '</div>';
+                    attachmentsText = '\n\nAttached documents:\n' + resolvedAttachments.map(function(a) { return '- ' + a.name + ': ' + a.url; }).join('\n');
+                }
+            }
+
+            // Build HTML email using shared function (attachmentsHtml injected)
+            var htmlEmail = buildCreditAppEmailHtml(dealId, name, message, attachmentsHtml);
 
             // Build plain text version
             var linksText = selected.map(function(app) {
@@ -36378,17 +36519,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             var textEmail;
             if (message) {
-                textEmail = 'Hi ' + name + ',\n\n' + message + '\n\n' + linksText + '\n\nBest regards,\nAlliance Financing Group Ltd.\n1-877-660-3660 ext. 222\ninfo@alliancefinancing.com';
+                textEmail = 'Hi ' + name + ',\n\n' + message + '\n\n' + linksText + attachmentsText + '\n\nBest regards,\nAlliance Financing Group Ltd.\n1-877-660-3660 ext. 222\ninfo@alliancefinancing.com';
             } else {
-                textEmail = 'Hi ' + name + ',\n\nThank you for your interest in financing with Alliance Financing Group.\n\nPlease complete our ' + appLabel + ' application(s) at:\n' + linksText + '\n\nBest regards,\nAlliance Financing Group Ltd.\n1-877-660-3660 ext. 222\ninfo@alliancefinancing.com';
+                textEmail = 'Hi ' + name + ',\n\nThank you for your interest in financing with Alliance Financing Group.\n\nPlease complete our ' + appLabel + ' application(s) at:\n' + linksText + attachmentsText + '\n\nBest regards,\nAlliance Financing Group Ltd.\n1-877-660-3660 ext. 222\ninfo@alliancefinancing.com';
             }
 
-            // Send via Resend
+            btn.textContent = '⏳ Sending...';
+            // Send via Resend (CC passed as array, arg order: to, subject, html, text, replyTo, cc, fromAddress, threadOpts)
             await sendEmailViaResend(
                 email,
                 'Alliance Financing - ' + appLabel + ' Application',
                 htmlEmail,
-                textEmail
+                textEmail,
+                null,
+                ccArr.length ? ccArr : null
             );
 
             // Log as deal note
@@ -36398,11 +36542,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var now = new Date();
             var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             var userEmail = document.getElementById('userEmailDisplay').textContent;
+            var noteBits = ['📧 ' + appLabel + ' application' + (selected.length > 1 ? 's' : '') + ' sent to ' + email + ' via email.'];
+            if (ccArr.length) noteBits.push('CC: ' + ccArr.join(', ') + '.');
+            if (resolvedAttachments.length) noteBits.push('Attached: ' + resolvedAttachments.map(function(a) { return a.name; }).join(', ') + '.');
+            if (message) noteBits.push('(Custom message)');
             notes.push({
-                text: '📧 ' + appLabel + ' application' + (selected.length > 1 ? 's' : '') + ' sent to ' + email + ' via email.' + (message ? ' (Custom message)' : ''),
+                text: noteBits.join(' '),
                 author: currentUserName || userEmail,
                 date: dateStr,
-                visible_to_agent: true
+                visible_to_agent: true,
+                type: 'email',
+                is_email: true,
+                email_to: email,
+                email_cc: ccArr.join(', '),
+                email_subject: 'Alliance Financing - ' + appLabel + ' Application'
             });
             await db.from('deals').update({ notes: JSON.stringify(notes), status: 'Quote sent' }).eq('id', dealId);
 
