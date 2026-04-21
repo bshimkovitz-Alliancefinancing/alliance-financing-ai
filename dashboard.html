@@ -35995,6 +35995,48 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // ============================================
+    // Website Inquiries — kebab menu helpers (April 2026 UI cleanup)
+    // ============================================
+    function closeAllInboxKebabs() {
+        document.querySelectorAll('.inboxKebabMenu').forEach(function(m) { m.style.display = 'none'; });
+    }
+    function toggleInboxKebab(evt, itemId) {
+        if (evt && evt.stopPropagation) evt.stopPropagation();
+        var menu = document.getElementById('inboxKebab_' + itemId);
+        if (!menu) return;
+        var isOpen = menu.style.display === 'block';
+        closeAllInboxKebabs();
+        closeAllAppSentKebabs();
+        if (isOpen) return;
+        var btn = evt && evt.currentTarget ? evt.currentTarget : null;
+        if (btn && btn.getBoundingClientRect) {
+            var rect = btn.getBoundingClientRect();
+            var menuWidth = 210;
+            var viewportW = window.innerWidth;
+            var viewportH = window.innerHeight;
+            var left = Math.max(8, Math.min(rect.right - menuWidth, viewportW - menuWidth - 8));
+            var top = rect.bottom + 4;
+            if (top + 200 > viewportH && rect.top > 200) {
+                top = rect.top - 4 - 200;
+                menu.style.maxHeight = '200px';
+                menu.style.overflowY = 'auto';
+            }
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+            menu.style.right = 'auto';
+        }
+        menu.style.display = 'block';
+    }
+    // Click-outside dismissal (shared with appSent kebab handler)
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest || !e.target.closest('.inboxKebabMenu')) {
+            if (!e.target.closest || !e.target.closest('[aria-label="More actions"]')) {
+                closeAllInboxKebabs();
+            }
+        }
+    });
+
+    // ============================================
     // Applications Sent — kebab menu helpers (April 2026 UI cleanup)
     // ============================================
     function closeAllAppSentKebabs() {
@@ -38540,25 +38582,35 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const isStale = (item.status === 'New' || item.status === 'Application Received') &&
                 (new Date() - new Date(item.dateReceived)) > 24 * 60 * 60 * 1000;
 
-            let actions = '';
-            if (item.type === 'application') {
-                actions = `<button class="btn btn-secondary btn-sm" onclick="viewInboxApplication('${item.id}')" style="padding:3px 8px;font-size:11px;">View</button>`;
-                if (isAdmin && item.status !== 'Moved to Pipeline') {
-                    actions += ` <button class="btn btn-gold btn-sm" onclick="moveToPipeline('${item.id}')" style="padding:3px 8px;font-size:11px;">Pipeline</button>`;
-                }
-                if (isAdmin) {
-                    actions += ` <button class="btn btn-sm" onclick="showAssignDropdown('${item.id}')" style="background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE;padding:3px 8px;font-size:11px;" title="${item.assignedTo ? 'Reassign' : 'Assign to team member'}">${item.assignedTo ? '👤' : 'Assign'}</button>`;
-                }
-            } else {
-                actions = `<button class="btn btn-secondary btn-sm" onclick="viewContact('${item.id}')" style="padding:3px 8px;font-size:11px;">View</button>`;
-                if (isAdmin) {
-                    actions += ` <button class="btn btn-gold btn-sm" onclick="moveContactToPipeline('${item.id}')" style="padding:3px 8px;font-size:11px;">Pipeline</button>`;
-                    actions += ` <button class="btn btn-sm" onclick="archiveContact('${item.id}')" style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;padding:3px 8px;font-size:11px;">Archive</button>`;
-                }
+            // Inbox row actions (April 2026 UI: primary Review button + gold Route + kebab for the rest)
+            const viewFn = item.type === 'application' ? `viewInboxApplication('${item.id}')` : `viewContact('${item.id}')`;
+            const routeFn = item.type === 'application' ? `moveToPipeline('${item.id}')` : `moveContactToPipeline('${item.id}')`;
+            const canRoute = isAdmin && item.status !== 'Moved to Pipeline';
+            const reviewBtn = `<button onclick="${viewFn}" title="Open to review full details" style="padding:5px 12px;background:#0D1E3D;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Review</button>`;
+            const routeBtn = canRoute ? `<button onclick="${routeFn}" title="Create a deal from this inquiry and move it to the pipeline" style="padding:5px 12px;background:linear-gradient(135deg,#C9A84C,#B8943F);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;margin-left:4px;">&rarr; Route</button>` : '';
+
+            // Kebab menu items
+            const kebabItems = [];
+            if (isAdmin && item.type === 'application') {
+                const assignLabel = item.assignedTo ? 'Reassign to...' : 'Assign to...';
+                kebabItems.push(`<button onclick="showAssignDropdown('${item.id}');closeAllInboxKebabs();" style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:none;border:none;width:100%;text-align:left;font-size:13px;color:#1E40AF;cursor:pointer;font-weight:500;">👤 ${assignLabel}</button>`);
             }
             if (item.email) {
-                actions += ` <a href="mailto:${item.email}" class="btn btn-sm" style="background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;padding:3px 8px;font-size:11px;text-decoration:none;">Respond</a>`;
+                kebabItems.push(`<a href="mailto:${item.email}" onclick="closeAllInboxKebabs()" style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:none;border:none;width:100%;text-align:left;font-size:13px;color:#166534;cursor:pointer;font-weight:500;text-decoration:none;box-sizing:border-box;">✉️ Email ${item.clientName.split(' ')[0] || 'contact'}</a>`);
             }
+            if (isAdmin && item.type === 'inquiry') {
+                if (kebabItems.length > 0) kebabItems.push('<div style="height:1px;background:#E2E8F0;margin:4px 0;"></div>');
+                kebabItems.push(`<button onclick="archiveContact('${item.id}');closeAllInboxKebabs();" style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:none;border:none;width:100%;text-align:left;font-size:13px;color:#991B1B;cursor:pointer;font-weight:500;">🗄️ Archive</button>`);
+            }
+            const kebabHtml = kebabItems.length > 0 ?
+                `<div style="position:relative;display:inline-block;margin-left:4px;">
+                    <button onclick="toggleInboxKebab(event,'${item.id}')" aria-label="More actions" style="padding:5px 9px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:4px;font-size:14px;line-height:1;cursor:pointer;font-weight:700;">&middot;&middot;&middot;</button>
+                    <div id="inboxKebab_${item.id}" class="inboxKebabMenu" style="display:none;position:fixed;min-width:200px;background:#fff;border:1px solid #E2E8F0;border-radius:6px;box-shadow:0 6px 20px rgba(15,23,42,0.18);z-index:9999;overflow:hidden;padding:4px 0;">
+                        ${kebabItems.join('')}
+                    </div>
+                </div>` : '';
+
+            const actions = `<div style="display:flex;align-items:center;white-space:nowrap;">${reviewBtn}${routeBtn}${kebabHtml}</div>`;
 
             return `<tr style="${isStale ? 'background:#FEF2F2;' : ''}">
                 <td style="text-align:center;font-size:16px;" title="${item.type === 'application' ? 'Credit Application' : 'Contact Inquiry'}">${item.typeIcon}</td>
