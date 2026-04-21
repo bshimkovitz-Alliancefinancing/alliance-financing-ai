@@ -11706,7 +11706,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (recentApps) {
                     recentApps.forEach(function(app) {
                         if (app.status === 'Moved to Pipeline' || app.status === 'Archived' || app.status === 'Returned') return;
-                        // Highlight fresh applications that have a deal created but haven't been reviewed
+                        // Legacy branch — 'New — Deal Created' no longer written by new code
+                        // but kept as a safety net for any legacy rows that escaped the backfill.
                         if (app.status === 'New — Deal Created') {
                             notifications.push({
                                 type: 'inquiry',
@@ -23107,9 +23108,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 } catch(e) { console.warn('Auto-update applications_sent on pipeline move:', e); }
             }
 
-            // Refresh dashboard and deals
+            // Refresh dashboard, deals, AND the New Applications list so the routed item disappears
             await loadDashboard();
             await loadDeals();
+            try { await loadUnifiedInbox(); } catch(e) { /* inbox not on current view */ }
 
             alert('Application moved to pipeline successfully! Client profile auto-populated for AI lender matching.');
         } catch (error) {
@@ -31608,10 +31610,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <select id="appStatusSelect_${app.id}" onchange="updateApplicationStatus('${app.id}', this.value)" style="padding: 6px 12px; border: 1px solid #CBD5E1; border-radius: 4px; font-size: 13px; cursor: pointer;">
                             <option value="Application Received" ${app.status === 'Application Received' ? 'selected' : ''}>Application Received</option>
                             <option value="Under Review" ${app.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
-                            <option value="Approved" ${app.status === 'Approved' ? 'selected' : ''}>Approved</option>
+                            <option value="Info Requested" ${app.status === 'Info Requested' ? 'selected' : ''}>Info Requested</option>
+                            <option value="Moved to Pipeline" ${app.status === 'Moved to Pipeline' ? 'selected' : ''}>Moved to Pipeline</option>
                             <option value="Declined" ${app.status === 'Declined' ? 'selected' : ''}>Declined</option>
                             <option value="Withdrawn" ${app.status === 'Withdrawn' ? 'selected' : ''}>Withdrawn</option>
-                            <option value="Archived" ${app.status === 'Archived' ? 'selected' : ''}>Archived</option>
                         </select>
                         <button onclick="if(confirm('Are you sure you want to permanently delete this application? This cannot be undone.')){deleteApplication('${app.id}')}" style="padding: 6px 14px; background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; margin-left: auto;">🗑️ Delete</button>
                     </div>
@@ -38370,12 +38372,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         } catch(e) { console.warn('Auto-update app status:', e); }
                     }
 
-                    // Mark fresh ones as 'New — Deal Created' so admin sees them
+                    // Any linked-deal application is considered moved to pipeline.
+                    // (The old 48h "New — Deal Created" split added UX confusion — one canonical state now.)
                     for (var fi = 0; fi < freshAppIds.length; fi++) {
                         try {
                             var freshApp = apps.find(function(a) { return a.id === freshAppIds[fi]; });
                             if (freshApp && freshApp.status === 'Application Received') {
-                                await db.from('applications').update({ status: 'New — Deal Created' }).eq('id', freshAppIds[fi]);
+                                await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', freshAppIds[fi]);
                             }
                         } catch(e) { console.warn('Auto-update fresh app status:', e); }
                     }
@@ -39302,6 +39305,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 <option value="Info Requested" ${app.status === 'Info Requested' ? 'selected' : ''}>Info Requested</option>
                                 <option value="Moved to Pipeline" ${app.status === 'Moved to Pipeline' ? 'selected' : ''}>Moved to Pipeline</option>
                                 <option value="Declined" ${app.status === 'Declined' ? 'selected' : ''}>Declined</option>
+                                <option value="Withdrawn" ${app.status === 'Withdrawn' ? 'selected' : ''}>Withdrawn</option>
                             </select>
                         </div>
                     </div>
