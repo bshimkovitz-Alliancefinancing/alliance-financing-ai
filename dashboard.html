@@ -5658,6 +5658,61 @@
     </div>
 </div>
 
+<!-- Archive Application Sent Modal (April 2026) -->
+<div id="archiveAppSentModal" class="modal" style="z-index: 1200;">
+    <div class="modal-content" style="max-width: 560px;">
+        <div class="modal-header">
+            <h2 style="margin:0;font-size:18px;color:#991B1B;">Archive Application</h2>
+            <button class="modal-close" onclick="closeArchiveAppSentModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <div id="archiveAppSentSummary" style="padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:14px;font-size:13px;color:#475569;"></div>
+
+            <label style="display:block;font-size:12px;font-weight:600;color:#991B1B;margin-bottom:4px;">Reason for archiving <span style="color:#DC2626;">*</span></label>
+            <textarea id="archiveAppSentReason" placeholder="e.g. Client no longer pursuing, duplicate submission, wrong product type..." style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:70px;resize:vertical;margin-bottom:14px;"></textarea>
+
+            <label style="display:block;font-size:12px;font-weight:600;color:#991B1B;margin-bottom:4px;">Personal message to referring agent (optional)</label>
+            <textarea id="archiveAppSentPersonalMsg" placeholder="Leave blank to send just the reason, or add context here..." style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:50px;resize:vertical;margin-bottom:10px;"></textarea>
+
+            <div id="archiveAppSentNotifyBlock" style="display:none;padding:10px 12px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;margin-bottom:14px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#92400E;font-weight:500;">
+                    <input type="checkbox" id="archiveAppSentNotifyCheck" checked style="width:16px;height:16px;cursor:pointer;">
+                    <span id="archiveAppSentNotifyLabel">Notify referring agent via email</span>
+                </label>
+                <div style="font-size:11px;color:#92400E;margin-top:4px;margin-left:24px;">Agent will receive your message, the reason, and a one-click &ldquo;Resurrect this referral&rdquo; button.</div>
+            </div>
+
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button onclick="closeArchiveAppSentModal()" style="padding:8px 16px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>
+                <button id="archiveAppSentConfirmBtn" onclick="confirmArchiveAppSent()" style="padding:8px 20px;background:#991B1B;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Archive</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm-with-Agent Modal (April 2026) — pre-archive note -->
+<div id="confirmWithAgentModal" class="modal" style="z-index: 1200;">
+    <div class="modal-content" style="max-width: 560px;">
+        <div class="modal-header">
+            <h2 style="margin:0;font-size:18px;color:#065F46;">Confirm with Referring Agent</h2>
+            <button class="modal-close" onclick="closeConfirmWithAgentModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <div id="confirmWithAgentSummary" style="padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;margin-bottom:14px;font-size:13px;color:#475569;"></div>
+
+            <p style="font-size:13px;color:#475569;margin:0 0 10px;">Send a note to the referring agent asking for guidance before you archive. Nothing is archived by this action &mdash; it just starts a conversation.</p>
+
+            <label style="display:block;font-size:12px;font-weight:600;color:#065F46;margin-bottom:4px;">Message to agent</label>
+            <textarea id="confirmWithAgentMessage" placeholder="e.g. We haven't heard back from the client in 3 weeks. Should I archive this, or is there still traction on your end?" style="width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;min-height:110px;resize:vertical;margin-bottom:14px;"></textarea>
+
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button onclick="closeConfirmWithAgentModal()" style="padding:8px 16px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>
+                <button id="confirmWithAgentSendBtn" onclick="sendConfirmWithAgentNote()" style="padding:8px 20px;background:#065F46;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Send to Agent</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Document Upload Modal -->
 <div id="documentUploadModal" class="modal">
     <div class="modal-content" style="max-width: 550px;">
@@ -11206,10 +11261,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var appsQuery = db.from('applications_sent').select('*');
             appsQuery = appsQuery.order('sent_at', { ascending: false }).limit(50);
             var { data: apps } = await appsQuery;
-            // Filter applications by current user's name (applications_sent uses sent_by name, not UUID)
+            // Filter applications by current user — match on sent_by name OR referral_slug OR referral_agent name.
+            // (Admin-sent referrals still need to appear for the agent whose slug/name they carry.)
             if (!isAdmin && apps) {
+                var mySlug = null;
+                try {
+                    var { data: slugRow } = await db.from('users').select('referral_slug').eq('id', currentUserId).single();
+                    if (slugRow) mySlug = slugRow.referral_slug;
+                } catch(e) {}
+                var myName = (currentUserName || '').toLowerCase();
                 apps = apps.filter(function(a) {
-                    return a.sent_by && a.sent_by.toLowerCase() === (currentUserName || '').toLowerCase();
+                    if (a.sent_by && a.sent_by.toLowerCase() === myName) return true;
+                    if (mySlug && a.referral_slug && a.referral_slug === mySlug) return true;
+                    if (a.referral_agent && a.referral_agent.toLowerCase() === myName) return true;
+                    return false;
                 });
             }
             if (apps) {
@@ -11253,6 +11318,27 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             priority: 1,
                             appSentId: a.id
                         });
+                    }
+                    // Archived referrals — agent-facing notification so they can resurrect or acknowledge
+                    if (a.status === 'Archived' && !isAdmin) {
+                        var archivedAt = a.updated_at ? new Date(a.updated_at) : (a.sent_at ? new Date(a.sent_at) : null);
+                        var cutoff = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000); // 21 days
+                        if (archivedAt && archivedAt >= cutoff) {
+                            notifications.push({
+                                type: 'applications',
+                                category: 'action',
+                                icon: '🗄️',
+                                iconBg: '#FEF2F2',
+                                iconColor: '#991B1B',
+                                title: 'Your referral was archived: ' + (a.applicant_name || a.applicant_email || 'Unknown'),
+                                detail: (a.application_type || 'Application') + ' — click to review or resurrect',
+                                time: archivedAt,
+                                action: "handleResurrectAppSent('" + a.id + "')",
+                                actionLabel: 'Review / Resurrect',
+                                priority: 2,
+                                appSentId: a.id
+                            });
+                        }
                     }
                 });
             }
@@ -34725,19 +34811,22 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 // Action buttons based on status
                 var actionHtml = '';
-                if (app.status === 'Returned') {
-                    // Returned = in credit, managed by credit team. Show locked status + archive
-                    actionHtml = '<span style="padding:4px 10px;background:#10B98115;color:#059669;border:1px solid #10B981;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;">Returned</span> ' +
-                        '<button onclick="archiveAppSent(\'' + app.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;margin-left:4px;">Archive</button>';
+                var safeAppId = app.id;
+                var hasRefAgent = !!(app.referral_agent || app.referral_slug);
+                var archiveBtn = '<button onclick="showArchiveAppSentModal(\'' + safeAppId + '\')" style="padding:4px 10px;background:#FEF2F2;color:#991B1B;border:1px solid #FCA5A5;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;margin-left:4px;" title="Archive this application (with optional notification to referring agent)">Archive</button>';
+                var confirmBtn = hasRefAgent && isAdmin ? '<button onclick="showConfirmWithAgentModal(\'' + safeAppId + '\')" style="padding:4px 10px;background:#ECFDF5;color:#065F46;border:1px solid #6EE7B7;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;margin-left:4px;" title="Send a note to the referring agent before archiving">Confirm w/ Agent</button>' : '';
+                if (app.status === 'Archived') {
+                    // Archived — Restore only (archive wouldn't make sense here)
+                    actionHtml = '<button onclick="updateAppSentStatus(\'' + safeAppId + '\', \'Sent\')" style="padding:4px 10px;background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">Restore</button>';
+                } else if (app.status === 'Returned') {
+                    // Returned = in credit, managed by credit team. Locked status + archive + confirm
+                    actionHtml = '<span style="padding:4px 10px;background:#10B98115;color:#059669;border:1px solid #10B981;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;">Returned</span>' + confirmBtn + archiveBtn;
                 } else if (app.status === 'Expired') {
-                    // Expired — show Archive button
-                    actionHtml = '<button onclick="archiveAppSent(\'' + app.id + '\')" style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">Archive</button>';
-                } else if (app.status === 'Archived') {
-                    // Archived — show Restore button
-                    actionHtml = '<button onclick="updateAppSentStatus(\'' + app.id + '\', \'Sent\')" style="padding:4px 10px;background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">Restore</button>';
+                    // Expired — Archive + Confirm
+                    actionHtml = '<span style="padding:4px 10px;background:#EF444415;color:#B91C1C;border:1px solid #FCA5A5;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;">Expired</span>' + confirmBtn + archiveBtn;
                 } else {
-                    // Active — show status dropdown + follow-up
-                    actionHtml = '<select onchange="updateAppSentStatus(\'' + app.id + '\', this.value)" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;cursor:pointer;">' +
+                    // Active (Sent / Follow-Up Needed / Opened / Reviewed) — dropdown + follow-up + archive + confirm
+                    actionHtml = '<select onchange="updateAppSentStatus(\'' + safeAppId + '\', this.value)" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;cursor:pointer;">' +
                         '<option value="Sent"' + (app.status === 'Sent' ? ' selected' : '') + '>Sent</option>' +
                         '<option value="Follow-Up Needed"' + (app.status === 'Follow-Up Needed' ? ' selected' : '') + '>Follow-Up Needed</option>' +
                         '<option value="Returned"' + (app.status === 'Returned' ? ' selected' : '') + '>Returned</option>' +
@@ -34746,8 +34835,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         '<option value="Expired"' + (app.status === 'Expired' ? ' selected' : '') + '>Expired</option>' +
                     '</select>';
                     if (['Sent', 'Follow-Up Needed', 'Opened'].includes(app.status)) {
-                        actionHtml += ' <button onclick="sendFollowUpEmail(\'' + app.id + '\', \'' + (app.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (app.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (app.application_type || '').replace(/'/g, "\\'") + '\')" style="margin-left:4px;padding:4px 8px;background:' + (isOverdue ? '#F59E0B' : '#0D1E3D') + ';color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;" title="Send follow-up reminder">' + (isOverdue ? 'Follow Up' : 'Remind') + '</button>';
+                        actionHtml += ' <button onclick="sendFollowUpEmail(\'' + safeAppId + '\', \'' + (app.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (app.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (app.application_type || '').replace(/'/g, "\\'") + '\')" style="margin-left:4px;padding:4px 8px;background:' + (isOverdue ? '#F59E0B' : '#0D1E3D') + ';color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;" title="Send follow-up reminder">' + (isOverdue ? 'Follow Up' : 'Remind') + '</button>';
                     }
+                    actionHtml += confirmBtn + archiveBtn;
                 }
 
                 // View button — find matching submitted application by email
@@ -35574,14 +35664,411 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    async function archiveAppSent(id) {
-        // Prompt for archive reason
-        var reason = prompt('Why are you archiving this application?\n\nThis will be saved to the permanent notes for future reference.');
-        if (reason === null) return; // User cancelled
-        if (!reason.trim()) {
-            alert('Please provide a reason for archiving.');
+    // ============================================
+    // Archive / Confirm-w/-Agent flow (April 2026)
+    // ============================================
+    // Legacy alias — any old code paths calling archiveAppSent(id) now open the modal
+    async function archiveAppSent(id) { return showArchiveAppSentModal(id); }
+
+    // In-flight context while the modal is open
+    var _pendingArchiveAppSent = null;
+    var _pendingConfirmAppSent = null;
+
+    // Resolve the referring agent's full_name + email from applications_sent metadata.
+    // Tries referral_slug first, falls back to full_name match on referral_agent, then sent_by.
+    async function resolveReferringAgentForAppSent(appSent) {
+        if (!appSent) return null;
+        try {
+            if (appSent.referral_slug) {
+                var { data: bySlug } = await db.from('users').select('id, full_name, email, referral_slug').eq('referral_slug', appSent.referral_slug).limit(1);
+                if (bySlug && bySlug.length > 0 && bySlug[0].email) return bySlug[0];
+            }
+            if (appSent.referral_agent) {
+                var { data: byName } = await db.from('users').select('id, full_name, email, referral_slug').ilike('full_name', appSent.referral_agent).limit(1);
+                if (byName && byName.length > 0 && byName[0].email) return byName[0];
+            }
+            // Last-resort: sent_by (only useful if the agent sent the app themselves)
+            if (appSent.sent_by) {
+                var { data: bySender } = await db.from('users').select('id, full_name, email, referral_slug').ilike('full_name', appSent.sent_by).limit(1);
+                if (bySender && bySender.length > 0 && bySender[0].email && bySender[0].referral_slug) return bySender[0];
+            }
+        } catch(e) { console.warn('resolveReferringAgentForAppSent:', e); }
+        return null;
+    }
+
+    async function showArchiveAppSentModal(id) {
+        try {
+            var { data: record, error } = await db.from('applications_sent').select('*').eq('id', id).single();
+            if (error || !record) { alert('Could not load the application record.'); return; }
+            var agent = await resolveReferringAgentForAppSent(record);
+            _pendingArchiveAppSent = { id: id, record: record, agent: agent };
+
+            document.getElementById('archiveAppSentReason').value = '';
+            document.getElementById('archiveAppSentPersonalMsg').value = '';
+            var summary = document.getElementById('archiveAppSentSummary');
+            summary.innerHTML = '<strong>' + (record.applicant_name || 'N/A') + '</strong> &mdash; ' +
+                (record.applicant_email || 'no email') + '<br>' +
+                '<span style="color:#64748B;">' + (record.application_type || 'Application') + ' &bull; status: ' + record.status + '</span>';
+
+            var notifyBlock = document.getElementById('archiveAppSentNotifyBlock');
+            var notifyCheck = document.getElementById('archiveAppSentNotifyCheck');
+            var notifyLabel = document.getElementById('archiveAppSentNotifyLabel');
+            if (agent && agent.email) {
+                notifyBlock.style.display = 'block';
+                notifyCheck.checked = true;
+                notifyLabel.textContent = 'Notify referring agent via email (' + (agent.full_name || agent.email) + ')';
+            } else {
+                notifyBlock.style.display = 'none';
+                notifyCheck.checked = false;
+            }
+
+            var btn = document.getElementById('archiveAppSentConfirmBtn');
+            btn.disabled = false;
+            btn.textContent = 'Archive';
+            document.getElementById('archiveAppSentModal').style.display = 'flex';
+        } catch (err) {
+            console.error('showArchiveAppSentModal error:', err);
+            alert('Error opening archive dialog: ' + (err.message || err));
+        }
+    }
+
+    function closeArchiveAppSentModal() {
+        document.getElementById('archiveAppSentModal').style.display = 'none';
+        _pendingArchiveAppSent = null;
+    }
+
+    async function confirmArchiveAppSent() {
+        if (!_pendingArchiveAppSent) return;
+        var ctx = _pendingArchiveAppSent;
+        var reason = (document.getElementById('archiveAppSentReason').value || '').trim();
+        var personalMsg = (document.getElementById('archiveAppSentPersonalMsg').value || '').trim();
+        var notifyCheck = document.getElementById('archiveAppSentNotifyCheck');
+        var shouldNotify = !!(ctx.agent && ctx.agent.email && notifyCheck && notifyCheck.checked);
+
+        if (!reason) {
+            alert('Please enter a reason for archiving.');
+            document.getElementById('archiveAppSentReason').focus();
             return;
         }
+
+        var btn = document.getElementById('archiveAppSentConfirmBtn');
+        btn.disabled = true;
+        btn.textContent = 'Archiving...';
+
+        try {
+            // ----- 1. Persist archive reason as a note on the applications_sent record -----
+            var record = ctx.record;
+            var notes = [];
+            try { notes = record && record.notes ? JSON.parse(record.notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            var archiverLabel = currentUserName || (document.getElementById('userEmailDisplay') ? document.getElementById('userEmailDisplay').textContent : 'Admin');
+            var noteText = 'ARCHIVED by ' + archiverLabel + ': ' + reason + (personalMsg ? '\nMessage to agent: ' + personalMsg : '');
+            notes.push({
+                text: noteText,
+                author: archiverLabel,
+                date: dateStr,
+                type: 'archive_reason',
+                is_audit_log: true,
+                notified_agent: shouldNotify ? (ctx.agent.email) : null
+            });
+
+            var { error: upErr } = await db.from('applications_sent').update({
+                status: 'Archived',
+                notes: JSON.stringify(notes)
+            }).eq('id', ctx.id);
+            if (upErr) throw upErr;
+
+            // ----- 2. Cascade archive to the linked deal if one exists -----
+            if (record.applicant_email) {
+                try {
+                    var { data: linkedApp } = await db.from('applications').select('id').eq('email', record.applicant_email).limit(1);
+                    if (linkedApp && linkedApp.length > 0) {
+                        var { data: linkedDeal } = await db.from('deals').select('id, notes').eq('application_id', linkedApp[0].id).limit(1);
+                        if (linkedDeal && linkedDeal.length > 0) {
+                            var dealNotes = [];
+                            try { dealNotes = linkedDeal[0].notes ? JSON.parse(linkedDeal[0].notes) : []; } catch(e) { dealNotes = []; }
+                            dealNotes.push({
+                                text: 'ARCHIVED via Applications Sent by ' + archiverLabel + ': ' + reason + (personalMsg ? '\nMessage to agent: ' + personalMsg : ''),
+                                author: archiverLabel,
+                                date: dateStr,
+                                type: 'archive_reason',
+                                is_audit_log: true
+                            });
+                            await db.from('deals').update({
+                                is_archived: true,
+                                notes: JSON.stringify(dealNotes)
+                            }).eq('id', linkedDeal[0].id);
+                        }
+                    }
+                } catch(e) { console.warn('Could not cascade archive to deal:', e); }
+            }
+
+            // ----- 3. Notify referring agent via email (if opted in) -----
+            if (shouldNotify) {
+                try {
+                    btn.textContent = 'Notifying agent...';
+                    var baseUrl = window.location.origin;
+                    var resurrectUrl = baseUrl + '/dashboard.html?resurrect_app_sent=' + encodeURIComponent(ctx.id);
+                    var agentName = ctx.agent.full_name || ctx.agent.email.split('@')[0];
+                    var applicant = record.applicant_name || record.applicant_email || 'your referral';
+                    var appType = record.application_type || 'application';
+                    var safeMsg = personalMsg.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                    var safeReason = reason.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+
+                    var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                        '<div style="background:#0D1E3D;padding:25px;text-align:center;">' +
+                            '<h1 style="color:#C5A572;margin:0;font-size:22px;">Alliance Financing Group</h1>' +
+                        '</div>' +
+                        '<div style="padding:30px;background:#fff;">' +
+                            '<p style="font-size:16px;color:#1E293B;">Hi ' + agentName + ',</p>' +
+                            '<p style="font-size:14px;color:#475569;line-height:1.6;">We have archived the ' + appType + ' for <strong>' + applicant + '</strong>. You are receiving this note because you were the referring partner on this file.</p>' +
+                            (personalMsg ? '<div style="margin:16px 0;padding:14px 16px;background:#F8FAFC;border-left:3px solid #C5A572;"><p style="margin:0;font-size:14px;color:#1E293B;font-style:italic;">' + safeMsg + '</p><p style="margin:6px 0 0;font-size:12px;color:#64748B;">&mdash; ' + archiverLabel + '</p></div>' : '') +
+                            '<div style="margin:16px 0;padding:12px 14px;background:#FEF2F2;border-left:3px solid #DC2626;"><p style="margin:0;font-size:13px;color:#991B1B;"><strong>Reason for archiving:</strong></p><p style="margin:4px 0 0;font-size:13px;color:#1E293B;">' + safeReason + '</p></div>' +
+                            '<p style="font-size:14px;color:#475569;line-height:1.6;">If this was premature &mdash; the client is still engaged, or you have new information &mdash; click below to resurrect the referral and we&rsquo;ll re-open it.</p>' +
+                            '<div style="text-align:center;margin:24px 0;">' +
+                                '<a href="' + resurrectUrl + '" style="display:inline-block;padding:14px 32px;background:#C5A572;color:#fff;text-decoration:none;border-radius:6px;font-weight:700;font-size:14px;">🔄 Resurrect this Referral</a>' +
+                            '</div>' +
+                            '<p style="font-size:12px;color:#94A3B8;line-height:1.6;">Or reply to this email to discuss next steps.</p>' +
+                            '<p style="font-size:14px;color:#475569;margin-top:24px;">Best regards,<br><strong>Alliance Financing Group Ltd.</strong><br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>' +
+                        '</div>' +
+                        '<div style="background:#F8FAFC;padding:15px;text-align:center;font-size:12px;color:#94A3B8;">Alliance Financing Group Ltd. | alliancefinancing.com</div>' +
+                        '</div>';
+
+                    var textBody = 'Hi ' + agentName + ',\n\nWe have archived the ' + appType + ' for ' + applicant + '.\n\n' +
+                        (personalMsg ? 'Message from ' + archiverLabel + ':\n' + personalMsg + '\n\n' : '') +
+                        'Reason for archiving:\n' + reason + '\n\n' +
+                        'If this was premature, resurrect the referral here:\n' + resurrectUrl + '\n\n' +
+                        'Best regards,\nAlliance Financing Group Ltd.\n1-877-660-3660 ext. 222\ninfo@alliancefinancing.com';
+
+                    await sendEmailViaResend(
+                        ctx.agent.email,
+                        'Your referral was archived: ' + applicant,
+                        htmlBody,
+                        textBody
+                    );
+                } catch (emailErr) {
+                    console.warn('Archive notification email failed:', emailErr);
+                    // Don't block the archive — just warn in console
+                }
+            }
+
+            if (typeof showNotification === 'function') {
+                showNotification('Application archived.' + (shouldNotify ? ' Referring agent notified.' : ''), 'success');
+            }
+
+            closeArchiveAppSentModal();
+
+            // Refresh views
+            if (document.getElementById('applicationsSentBody')) await loadApplicationsSent();
+            if (document.getElementById('pipelineBody')) await loadReferralPipeline();
+            if (document.getElementById('dealsBody')) { try { await loadDeals(); } catch(e) {} }
+            if (document.getElementById('dashboardAlerts')) { try { await loadDashboardAlerts(); } catch(e) {} }
+        } catch (err) {
+            console.error('confirmArchiveAppSent error:', err);
+            alert('Error archiving: ' + (err.message || err));
+            btn.disabled = false;
+            btn.textContent = 'Archive';
+        }
+    }
+
+    async function showConfirmWithAgentModal(id) {
+        try {
+            var { data: record, error } = await db.from('applications_sent').select('*').eq('id', id).single();
+            if (error || !record) { alert('Could not load the application record.'); return; }
+            var agent = await resolveReferringAgentForAppSent(record);
+            if (!agent || !agent.email) {
+                alert('No referring agent on file for this application, or the agent has no email address. Use Archive directly instead.');
+                return;
+            }
+            _pendingConfirmAppSent = { id: id, record: record, agent: agent };
+
+            document.getElementById('confirmWithAgentMessage').value = '';
+            var summary = document.getElementById('confirmWithAgentSummary');
+            summary.innerHTML = '<strong>' + (record.applicant_name || 'N/A') + '</strong> &mdash; ' +
+                (record.applicant_email || 'no email') + '<br>' +
+                '<span style="color:#64748B;">' + (record.application_type || 'Application') + ' &bull; sending to: <strong>' + (agent.full_name || agent.email) + '</strong> &lt;' + agent.email + '&gt;</span>';
+            var btn = document.getElementById('confirmWithAgentSendBtn');
+            btn.disabled = false;
+            btn.textContent = 'Send to Agent';
+            document.getElementById('confirmWithAgentModal').style.display = 'flex';
+        } catch (err) {
+            console.error('showConfirmWithAgentModal error:', err);
+            alert('Error opening confirm dialog: ' + (err.message || err));
+        }
+    }
+
+    function closeConfirmWithAgentModal() {
+        document.getElementById('confirmWithAgentModal').style.display = 'none';
+        _pendingConfirmAppSent = null;
+    }
+
+    async function sendConfirmWithAgentNote() {
+        if (!_pendingConfirmAppSent) return;
+        var ctx = _pendingConfirmAppSent;
+        var message = (document.getElementById('confirmWithAgentMessage').value || '').trim();
+        if (!message) {
+            alert('Please enter a message to send.');
+            document.getElementById('confirmWithAgentMessage').focus();
+            return;
+        }
+        var btn = document.getElementById('confirmWithAgentSendBtn');
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        try {
+            var senderLabel = currentUserName || (document.getElementById('userEmailDisplay') ? document.getElementById('userEmailDisplay').textContent : 'Admin');
+            var record = ctx.record;
+            var agentName = ctx.agent.full_name || ctx.agent.email.split('@')[0];
+            var applicant = record.applicant_name || record.applicant_email || 'your referral';
+            var appType = record.application_type || 'application';
+            var safeMsg = message.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+
+            var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                '<div style="background:#0D1E3D;padding:25px;text-align:center;">' +
+                    '<h1 style="color:#C5A572;margin:0;font-size:22px;">Alliance Financing Group</h1>' +
+                '</div>' +
+                '<div style="padding:30px;background:#fff;">' +
+                    '<p style="font-size:16px;color:#1E293B;">Hi ' + agentName + ',</p>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">Quick check-in on your referral: <strong>' + applicant + '</strong> (' + appType + '). Status is currently <em>' + record.status + '</em>.</p>' +
+                    '<div style="margin:16px 0;padding:14px 16px;background:#F8FAFC;border-left:3px solid #C5A572;"><p style="margin:0;font-size:14px;color:#1E293B;">' + safeMsg + '</p><p style="margin:6px 0 0;font-size:12px;color:#64748B;">&mdash; ' + senderLabel + '</p></div>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.6;">Just reply to this email to let us know how you would like to proceed.</p>' +
+                    '<p style="font-size:14px;color:#475569;margin-top:24px;">Best regards,<br><strong>Alliance Financing Group Ltd.</strong><br>1-877-660-3660 ext. 222<br><a href="mailto:info@alliancefinancing.com" style="color:#3B82F6;">info@alliancefinancing.com</a></p>' +
+                '</div>' +
+                '<div style="background:#F8FAFC;padding:15px;text-align:center;font-size:12px;color:#94A3B8;">Alliance Financing Group Ltd. | alliancefinancing.com</div>' +
+                '</div>';
+
+            var textBody = 'Hi ' + agentName + ',\n\nQuick check-in on your referral: ' + applicant + ' (' + appType + '). Status: ' + record.status + '.\n\n' +
+                message + '\n\n\u2014 ' + senderLabel + '\n\nReply to this email to let us know how you would like to proceed.\n\nBest regards,\nAlliance Financing Group Ltd.';
+
+            await sendEmailViaResend(
+                ctx.agent.email,
+                'Checking in on your referral: ' + applicant,
+                htmlBody,
+                textBody
+            );
+
+            // Log the note on the applications_sent record
+            var notes = [];
+            try { notes = record && record.notes ? JSON.parse(record.notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            notes.push({
+                text: 'Confirmation note sent to referring agent (' + ctx.agent.email + '): ' + message,
+                author: senderLabel,
+                date: dateStr,
+                type: 'email',
+                is_email: true,
+                email_to: ctx.agent.email,
+                email_subject: 'Checking in on your referral: ' + applicant
+            });
+            await db.from('applications_sent').update({ notes: JSON.stringify(notes) }).eq('id', ctx.id);
+
+            if (typeof showNotification === 'function') {
+                showNotification('Note sent to ' + (ctx.agent.full_name || ctx.agent.email) + '.', 'success');
+            }
+            closeConfirmWithAgentModal();
+            if (document.getElementById('applicationsSentBody')) await loadApplicationsSent();
+        } catch (err) {
+            console.error('sendConfirmWithAgentNote error:', err);
+            alert('Error sending note: ' + (err.message || err));
+            btn.disabled = false;
+            btn.textContent = 'Send to Agent';
+        }
+    }
+
+    // Invoked when a resurrect link is clicked from an archive-notification email.
+    // Called after auth via handleResurrectUrlParam below.
+    async function handleResurrectAppSent(appSentId) {
+        if (!appSentId) return;
+        try {
+            var { data: record, error } = await db.from('applications_sent').select('*').eq('id', appSentId).single();
+            if (error || !record) { alert('Could not find this application record. It may have been permanently deleted.'); return; }
+            if (record.status !== 'Archived') {
+                alert('This application is not archived (current status: ' + record.status + '). Nothing to resurrect.');
+                return;
+            }
+            var who = record.applicant_name || record.applicant_email || 'this referral';
+            if (!confirm('Resurrect ' + who + "'s " + (record.application_type || 'application') + '?\n\nStatus will go back to "Follow-Up Needed" and the linked deal will be un-archived.')) return;
+
+            // Restore status
+            var notes = [];
+            try { notes = record.notes ? JSON.parse(record.notes) : []; } catch(e) { notes = []; }
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            notes.push({
+                text: 'RESURRECTED by ' + (currentUserName || 'user') + ' via email link.',
+                author: currentUserName || 'user',
+                date: dateStr,
+                type: 'archive_reason',
+                is_audit_log: true
+            });
+            await db.from('applications_sent').update({ status: 'Follow-Up Needed', notes: JSON.stringify(notes) }).eq('id', appSentId);
+
+            // Cascade un-archive to linked deal if any
+            if (record.applicant_email) {
+                try {
+                    var { data: linkedApp } = await db.from('applications').select('id').eq('email', record.applicant_email).limit(1);
+                    if (linkedApp && linkedApp.length > 0) {
+                        var { data: linkedDeal } = await db.from('deals').select('id, notes, is_archived').eq('application_id', linkedApp[0].id).limit(1);
+                        if (linkedDeal && linkedDeal.length > 0 && linkedDeal[0].is_archived) {
+                            var dNotes = [];
+                            try { dNotes = linkedDeal[0].notes ? JSON.parse(linkedDeal[0].notes) : []; } catch(e) { dNotes = []; }
+                            dNotes.push({
+                                text: 'RESURRECTED via Applications Sent by ' + (currentUserName || 'user') + '.',
+                                author: currentUserName || 'user',
+                                date: dateStr,
+                                type: 'archive_reason',
+                                is_audit_log: true
+                            });
+                            await db.from('deals').update({ is_archived: false, notes: JSON.stringify(dNotes) }).eq('id', linkedDeal[0].id);
+                        }
+                    }
+                } catch(e) { console.warn('Cascade un-archive failed:', e); }
+            }
+
+            if (typeof showNotification === 'function') {
+                showNotification('Referral resurrected. Status is now Follow-Up Needed.', 'success');
+            } else {
+                alert('Referral resurrected. Status is now Follow-Up Needed.');
+            }
+            // Clean up the URL so a refresh doesn't retrigger
+            try { history.replaceState({}, document.title, window.location.pathname); } catch(e) {}
+
+            // Navigate to the Applications Sent section + scroll to the row
+            try { gotoAppSentFollowUp(appSentId); } catch(e) {}
+        } catch (err) {
+            console.error('handleResurrectAppSent error:', err);
+            alert('Error resurrecting referral: ' + (err.message || err));
+        }
+    }
+
+    // Scan URL for ?resurrect_app_sent=X and fire handleResurrectAppSent once auth is ready.
+    // Polls currentUserId for up to 30s since auth runs async after DOMContentLoaded.
+    function handleResurrectUrlParam() {
+        try {
+            var params = new URLSearchParams(window.location.search);
+            var appSentId = params.get('resurrect_app_sent');
+            if (!appSentId) return;
+            var attempts = 0;
+            var poll = setInterval(function() {
+                attempts++;
+                if (typeof currentUserId !== 'undefined' && currentUserId) {
+                    clearInterval(poll);
+                    handleResurrectAppSent(appSentId);
+                } else if (attempts > 60) {
+                    clearInterval(poll);
+                    console.warn('handleResurrectUrlParam: auth never became ready.');
+                }
+            }, 500);
+        } catch(e) { console.warn('handleResurrectUrlParam:', e); }
+    }
+    document.addEventListener('DOMContentLoaded', handleResurrectUrlParam);
+
+    // LEGACY archiveAppSent body (kept for reference — archiveAppSent now delegates to modal):
+    async function _archiveAppSentLegacyUnused(id) {
+        var reason = 'legacy';
+        if (reason === null) return; // placeholder
+        if (!reason.trim()) { return; }
         try {
             // Save archive reason as a note on the record
             var { data: record } = await db.from('applications_sent').select('notes, applicant_name, applicant_email').eq('id', id).single();
