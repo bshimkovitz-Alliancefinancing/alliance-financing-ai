@@ -11232,7 +11232,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         'Docs requested': { icon: '📄', bg: '#EFF6FF', color: '#1E40AF', msg: 'documents have been requested' },
                         'Docs out for signing': { icon: '✍️', bg: '#F0F9FF', color: '#0369A1', msg: 'docs are out for signing' },
                         'In funding': { icon: '💰', bg: '#FEF3C7', color: '#92400E', msg: 'is in the funding process' },
-                        'Quote sent': { icon: '📝', bg: '#EFF6FF', color: '#1E40AF', msg: 'quote has been sent' }
+                        'Quote sent':        { icon: '📝', bg: '#EFF6FF', color: '#1E40AF', msg: 'quote has been sent' },
+                        'Quote Requested':   { icon: '💬', bg: '#F3E8FF', color: '#6B21A8', msg: 'quote has been requested' },
+                        'Application Sent':  { icon: '📨', bg: '#EFF6FF', color: '#1E40AF', msg: 'credit application sent' },
+                        'Withdrawn':         { icon: '❎', bg: '#F1F5F9', color: '#64748B', msg: 'has been withdrawn' }
                     };
                     var si = statusIcons[d.status];
                     if (!si) return; // Skip statuses that don't need notifications
@@ -24238,7 +24241,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             // Update partner_applications status to approved and link to user
             var { error: appUpdateErr } = await db.from('partner_applications').update({
-                status: 'approved',
+                status: 'Approved',
                 approved_at: new Date().toISOString(),
                 approved_by: currentUserId,
                 user_id: userId
@@ -34647,7 +34650,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch(e) { console.warn('Glance: returned error', e); }
 
         try {
-            var { count, error } = await db.from('partner_applications').select('id', { count: 'exact', head: true }).in('status', ['pending', 'invited']);
+            var { count, error } = await db.from('partner_applications').select('id', { count: 'exact', head: true }).in('status', ['Pending', 'pending', 'invited']);
             if (!error) document.getElementById('glancePendingAgents').textContent = count || 0;
         } catch(e) { console.warn('Glance: pending agents error', e); }
     }
