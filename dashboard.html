@@ -42453,7 +42453,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             // Fetch deals linked to this vendor's salespeople
             let spDeals = [];
             try {
-                const { data: spd } = await db.from('deals').select('id, company_name, deal_amount, status, vendor_salesperson_id').eq('source_vendor_id', vendorId);
+                const { data: spd } = await db.from('deals').select('id, deal_number, company_name, deal_amount, status, vendor_salesperson_id, alliance_fee, date_submitted, is_archived, product_type, source_agent_id').eq('source_vendor_id', vendorId);
                 spDeals = spd || [];
             } catch(e) { console.warn('Could not load vendor deals:', e); }
 
@@ -42793,68 +42793,143 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <button class="btn btn-gold btn-sm" onclick="addApprovedLenders('${vendorId}')" style="margin-top: 8px; white-space: nowrap;">Add Selected Lenders</button>
                 ` : ''}
 
+                <!-- ========================== PERFORMANCE ========================== -->
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
-                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Funding Performance</label>
+                    <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Performance</label>
                 </div>
                 <div class="modal-row">
                     <div class="modal-field">
-                        <label>Projected Annual Volume</label>
+                        <label>Annual Volume Target</label>
                         <input type="text" id="vendorProjectedVolume" value="${vendor.projected_volume || ''}"
-                            onblur="updateVendorField('${vendorId}', 'projected_volume', this.value ? parseFloat(this.value.replace(/[^0-9.]/g, '')) : null)"
+                            placeholder="$0"
+                            onblur="updateVendorField('${vendorId}', 'projected_volume', this.value ? parseFloat(this.value.replace(/[^0-9.]/g, '')) : null); viewVendor('${vendorId}');"
                             style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                     </div>
                     <div class="modal-field">
-                        <label>Actual Volume (YTD)</label>
-                        <input type="text" id="vendorActualVolume" value="${vendor.actual_volume || ''}"
-                            onblur="updateVendorField('${vendorId}', 'actual_volume', this.value ? parseFloat(this.value.replace(/[^0-9.]/g, '')) : null)"
+                        <label>Annual Revenue Target <span style="font-weight:400;font-size:11px;color:#94A3B8;">(Alliance commission)</span></label>
+                        <input type="text" id="vendorRevenueTarget" value="${vendor.revenue_target || ''}"
+                            placeholder="$0"
+                            onblur="updateVendorField('${vendorId}', 'revenue_target', this.value ? parseFloat(this.value.replace(/[^0-9.]/g, '')) : null); viewVendor('${vendorId}');"
                             style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                     </div>
                 </div>
                 ${(() => {
-                    const pct = vendor.projected_volume && vendor.actual_volume
-                        ? Math.round((vendor.actual_volume / vendor.projected_volume) * 100)
-                        : 0;
-                    const pctDisplay = pct > 0 ? pct + '%' : 'N/A';
-                    const pctColor = pct >= 100 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)';
-                    return `
-                    <div class="modal-row">
-                        <div class="modal-field">
-                            <label>Revenue Target</label>
-                            <input type="text" id="vendorRevenueTarget" value="${vendor.revenue_target || ''}"
-                                onblur="updateVendorField('${vendorId}', 'revenue_target', this.value ? parseFloat(this.value.replace(/[^0-9.]/g, '')) : null)"
-                                style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
-                        </div>
-                        <div class="modal-field">
-                            <label>% of Target</label>
-                            <div class="modal-field-value" style="font-weight: 600; color: ${pctColor};">${pctDisplay}</div>
-                        </div>
-                    </div>
-                    `;
+                    var _now = new Date();
+                    var _yearStart = new Date(_now.getFullYear(), 0, 1);
+                    var _daysIntoYear = Math.max(1, Math.ceil((_now - _yearStart) / 86400000));
+                    var _fractionOfYear = Math.min(1, _daysIntoYear / 365);
+                    var _isFunded = function(d) { return d.status === 'Funded' || d.status === 'Closed'; };
+                    var _ytdDeals = spDeals.filter(function(d) { return d.date_submitted && new Date(d.date_submitted) >= _yearStart; });
+                    var _ytdVolume = _ytdDeals.reduce(function(s, d) { return s + (d.deal_amount || 0); }, 0);
+                    var _ytdFunded = _ytdDeals.filter(_isFunded);
+                    var _ytdFundedVol = _ytdFunded.reduce(function(s, d) { return s + (d.deal_amount || 0); }, 0);
+                    var _ytdRev = _ytdFunded.reduce(function(s, d) { return s + (d.alliance_fee || 0); }, 0);
+                    var _lifetimeVol = spDeals.reduce(function(s, d) { return s + (d.deal_amount || 0); }, 0);
+                    var _lifetimeFunded = spDeals.filter(_isFunded);
+                    var _lifetimeFundedVol = _lifetimeFunded.reduce(function(s, d) { return s + (d.deal_amount || 0); }, 0);
+                    var _lifetimeRev = _lifetimeFunded.reduce(function(s, d) { return s + (d.alliance_fee || 0); }, 0);
+                    var _volTarget = vendor.projected_volume || 0;
+                    var _revTarget = vendor.revenue_target || 0;
+                    var _volPct = _volTarget > 0 ? Math.round((_ytdFundedVol / _volTarget) * 100) : 0;
+                    var _revPct = _revTarget > 0 ? Math.round((_ytdRev / _revTarget) * 100) : 0;
+                    var _expVol = _volTarget * _fractionOfYear;
+                    var _expRev = _revTarget * _fractionOfYear;
+                    var _volPace = _volTarget > 0 && _expVol > 0 ? Math.round((_ytdFundedVol / _expVol) * 100) : 0;
+                    var _revPace = _revTarget > 0 && _expRev > 0 ? Math.round((_ytdRev / _expRev) * 100) : 0;
+                    var _barColor = function(pct) { return pct >= 95 ? 'var(--success)' : pct >= 70 ? 'var(--warning)' : 'var(--danger)'; };
+                    var _paceLabel = function(p) { return p >= 95 ? 'on pace' : p >= 70 ? 'behind pace' : 'well behind pace'; };
+                    return '<div style="margin-top: 16px; padding: 15px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">' +
+                        '<div style="font-size: 11px; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">Year to Date — ' + _now.getFullYear() + '</div>' +
+                        '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">' +
+                            '<div style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #E2E8F0; text-align: center;">' +
+                                '<div style="font-size: 20px; font-weight: 700; color: var(--navy);">' + _ytdDeals.length + '</div>' +
+                                '<div style="font-size: 11px; color: var(--text-light);">Deals Submitted</div>' +
+                            '</div>' +
+                            '<div style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #E2E8F0; text-align: center;">' +
+                                '<div style="font-size: 20px; font-weight: 700; color: var(--gold);">' + formatCurrency(_ytdVolume) + '</div>' +
+                                '<div style="font-size: 11px; color: var(--text-light);">Volume Submitted</div>' +
+                            '</div>' +
+                            '<div style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #E2E8F0; text-align: center;">' +
+                                '<div style="font-size: 20px; font-weight: 700; color: var(--success);">' + _ytdFunded.length + '</div>' +
+                                '<div style="font-size: 11px; color: var(--text-light);">Funded (' + formatCurrency(_ytdFundedVol) + ')</div>' +
+                            '</div>' +
+                            '<div style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #E2E8F0; text-align: center;">' +
+                                '<div style="font-size: 20px; font-weight: 700; color: #3B82F6;">' + formatCurrency(_ytdRev) + '</div>' +
+                                '<div style="font-size: 11px; color: var(--text-light);">Alliance Revenue</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="margin-bottom: 12px;">' +
+                            '<div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">' +
+                                '<span style="color: #475569;"><strong>Volume Progress</strong>' + (_volTarget > 0 ? ' — ' + formatCurrency(_ytdFundedVol) + ' of ' + formatCurrency(_volTarget) : '') + '</span>' +
+                                '<span style="color: ' + _barColor(_volPct) + '; font-weight: 600;">' + (_volTarget > 0 ? _volPct + '%' : 'Set target above') + '</span>' +
+                            '</div>' +
+                            '<div style="height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden;">' +
+                                '<div style="height: 100%; width: ' + Math.min(_volPct, 100) + '%; background: ' + _barColor(_volPct) + '; transition: width 0.3s;"></div>' +
+                            '</div>' +
+                            (_volTarget > 0 ? '<div style="font-size: 11px; color: #64748B; margin-top: 3px;">Expected by day ' + _daysIntoYear + ': ' + formatCurrency(_expVol) + ' · ' + _paceLabel(_volPace) + '</div>' : '') +
+                        '</div>' +
+                        '<div>' +
+                            '<div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">' +
+                                '<span style="color: #475569;"><strong>Revenue Progress</strong>' + (_revTarget > 0 ? ' — ' + formatCurrency(_ytdRev) + ' of ' + formatCurrency(_revTarget) : '') + '</span>' +
+                                '<span style="color: ' + _barColor(_revPct) + '; font-weight: 600;">' + (_revTarget > 0 ? _revPct + '%' : 'Set target above') + '</span>' +
+                            '</div>' +
+                            '<div style="height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden;">' +
+                                '<div style="height: 100%; width: ' + Math.min(_revPct, 100) + '%; background: ' + _barColor(_revPct) + '; transition: width 0.3s;"></div>' +
+                            '</div>' +
+                            (_revTarget > 0 ? '<div style="font-size: 11px; color: #64748B; margin-top: 3px;">Expected by day ' + _daysIntoYear + ': ' + formatCurrency(_expRev) + ' · ' + _paceLabel(_revPace) + '</div>' : '') +
+                        '</div>' +
+                        '<div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B;">' +
+                            '<strong>Lifetime:</strong> ' + spDeals.length + ' deals · ' + formatCurrency(_lifetimeVol) + ' submitted · ' + _lifetimeFunded.length + ' funded (' + formatCurrency(_lifetimeFundedVol) + ') · ' + formatCurrency(_lifetimeRev) + ' revenue' +
+                        '</div>' +
+                    '</div>';
                 })()}
-                <!-- Salespeople Summary -->
-                ${spDeals.length > 0 ? `
-                <div style="margin-top: 20px; padding: 15px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
-                    <label style="font-size: 15px; font-weight: 600; color: var(--navy); margin-bottom: 10px; display: block;">Deal Summary by Source</label>
-                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                        <div style="background: white; padding: 10px 16px; border-radius: 6px; border: 1px solid #E2E8F0; min-width: 100px; text-align: center;">
-                            <div style="font-size: 22px; font-weight: 700; color: var(--navy);">${spDeals.length}</div>
-                            <div style="font-size: 12px; color: var(--text-light);">Total Deals</div>
-                        </div>
-                        <div style="background: white; padding: 10px 16px; border-radius: 6px; border: 1px solid #E2E8F0; min-width: 100px; text-align: center;">
-                            <div style="font-size: 22px; font-weight: 700; color: var(--success);">${spDeals.filter(d => d.status === 'Funded' || d.status === 'Closed').length}</div>
-                            <div style="font-size: 12px; color: var(--text-light);">Funded</div>
-                        </div>
-                        <div style="background: white; padding: 10px 16px; border-radius: 6px; border: 1px solid #E2E8F0; min-width: 100px; text-align: center;">
-                            <div style="font-size: 22px; font-weight: 700; color: var(--gold);">${formatCurrency(spDeals.reduce((s,d) => s + (d.deal_amount || 0), 0))}</div>
-                            <div style="font-size: 12px; color: var(--text-light);">Total Volume</div>
-                        </div>
-                        <div style="background: white; padding: 10px 16px; border-radius: 6px; border: 1px solid #E2E8F0; min-width: 100px; text-align: center;">
-                            <div style="font-size: 22px; font-weight: 700; color: #3B82F6;">${(contacts || []).filter(c => c.status !== 'Left Company').length}</div>
-                            <div style="font-size: 12px; color: var(--text-light);">Active Salespeople</div>
-                        </div>
-                    </div>
-                </div>
-                ` : ''}
+                <!-- ========================== ATTRIBUTED DEALS ========================== -->
+                ${(() => {
+                    var _activeCount = spDeals.filter(function(d) { return !d.is_archived; }).length;
+                    if (spDeals.length === 0) {
+                        return '<div style="margin-top: 20px; padding: 20px; background: white; border: 1px dashed #E2E8F0; border-radius: 8px; text-align: center; color: #94A3B8; font-size: 13px;">No deals attributed to this vendor yet. Deals appear here when they are created with this vendor selected.</div>';
+                    }
+                    var _sortedDeals = spDeals.slice().sort(function(a, b) { return (b.date_submitted || '').localeCompare(a.date_submitted || ''); });
+                    var _rows = _sortedDeals.map(function(d) {
+                        var _cls = d.is_archived ? 'vendor-deal-archived' : 'vendor-deal-active';
+                        var _hidden = d.is_archived ? ' style="display:none;"' : '';
+                        var _statusColor = _isFunded(d) ? '#10B981' : (d.status === 'Declined' || d.status === 'Dead approval') ? '#EF4444' : (d.status === 'In funding' || d.status === 'Approved' || d.status === 'Approval sent' || d.status === 'Docs out for signing' || d.status === 'Docs requested') ? '#3B82F6' : '#64748B';
+                        var _submitted = d.date_submitted ? new Date(d.date_submitted).toLocaleDateString('en-CA') : '—';
+                        var _archivedBadge = d.is_archived ? ' <span style="font-size:10px;padding:1px 6px;background:#F1F5F9;color:#64748B;border-radius:10px;">Archived</span>' : '';
+                        return '<tr class="' + _cls + '"' + _hidden + ' style="border-bottom: 1px solid #F1F5F9;">' +
+                            '<td style="padding: 8px 10px; color: #475569; font-family: ui-monospace, monospace; font-size: 12px;">' + (d.deal_number || d.id.slice(0,8)) + '</td>' +
+                            '<td style="padding: 8px 10px; color: var(--navy); font-weight: 500;">' + (d.company_name || '—') + _archivedBadge + '</td>' +
+                            '<td style="padding: 8px 10px; text-align: right; color: var(--navy); font-weight: 600;">' + formatCurrency(d.deal_amount || 0) + '</td>' +
+                            '<td style="padding: 8px 10px;"><span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: ' + _statusColor + '1A; color: ' + _statusColor + '; font-weight: 600;">' + (d.status || '—') + '</span></td>' +
+                            '<td style="padding: 8px 10px; color: #64748B; font-size: 12px;">' + _submitted + '</td>' +
+                            '<td style="padding: 8px 10px; text-align: right;"><button class="btn btn-secondary btn-sm" onclick="viewDeal(\'' + d.id + '\')" style="padding: 3px 10px; font-size: 11px;">View</button></td>' +
+                        '</tr>';
+                    }).join('');
+                    return '<div style="margin-top: 20px; padding: 15px; background: white; border: 1px solid #E2E8F0; border-radius: 8px;">' +
+                        '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
+                            '<label style="font-size: 15px; font-weight: 600; color: var(--navy); margin: 0;">Attributed Deals <span id="vendorDealCountLabel_' + vendorId + '" style="font-weight: 400; color: #64748B; font-size: 13px;">(' + _activeCount + ' active)</span></label>' +
+                            '<label style="font-size: 12px; color: #475569; display: flex; align-items: center; gap: 6px; cursor: pointer;">' +
+                                '<input type="checkbox" id="vendorShowArchived_' + vendorId + '" onchange="toggleVendorArchivedDeals(\'' + vendorId + '\', this.checked)" style="margin: 0;">' +
+                                'Show archived' +
+                            '</label>' +
+                        '</div>' +
+                        '<div style="max-height: 280px; overflow-y: auto;">' +
+                            '<table style="width: 100%; font-size: 13px; border-collapse: collapse;">' +
+                                '<thead style="position: sticky; top: 0; background: #F8FAFC; z-index: 1;">' +
+                                    '<tr style="text-align: left; color: #64748B; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">' +
+                                        '<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0;">Deal #</th>' +
+                                        '<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0;">Company</th>' +
+                                        '<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0; text-align: right;">Amount</th>' +
+                                        '<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0;">Status</th>' +
+                                        '<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0;">Submitted</th>' +
+                                        '<th style="padding: 8px 10px; border-bottom: 1px solid #E2E8F0;"></th>' +
+                                    '</tr>' +
+                                '</thead>' +
+                                '<tbody id="vendorDealsTableBody_' + vendorId + '">' + _rows + '</tbody>' +
+                            '</table>' +
+                        '</div>' +
+                    '</div>';
+                })()}
 
                 <div class="modal-row full" style="margin-top: 20px;">
                     <div class="modal-field">
@@ -47698,7 +47773,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Legacy bell icon, polling checks, nav badges, and localStorage-based notifications have been removed.
     // ===== END LEGACY NOTIFICATION SYSTEM =====
 
-    function formatCurrency(value, decimals) {
+
+    function toggleVendorArchivedDeals(vendorId, showArchived) {
+        var tbody = document.getElementById('vendorDealsTableBody_' + vendorId);
+        if (!tbody) return;
+        var archivedRows = tbody.querySelectorAll('.vendor-deal-archived');
+        var activeRows = tbody.querySelectorAll('.vendor-deal-active');
+        archivedRows.forEach(function(r) { r.style.display = showArchived ? '' : 'none'; });
+        var label = document.getElementById('vendorDealCountLabel_' + vendorId);
+        if (label) {
+            var total = activeRows.length + archivedRows.length;
+            label.textContent = showArchived ? '(' + total + ' total)' : '(' + activeRows.length + ' active)';
+        }
+    }
+
+        function formatCurrency(value, decimals) {
         var d = typeof decimals === 'number' ? decimals : 0;
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
