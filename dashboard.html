@@ -11302,6 +11302,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             priority: 2
                         });
                     }
+                    // Recently sent (last 24 hours) — activity ping so sends are visible immediately
+                    if (a.sent_at && (Date.now() - new Date(a.sent_at).getTime()) < 24 * 60 * 60 * 1000) {
+                        notifications.push({
+                            type: 'applications',
+                            category: 'activity',
+                            icon: '📤',
+                            iconBg: '#EFF6FF',
+                            iconColor: '#1E40AF',
+                            title: 'Application sent to ' + (a.applicant_name || a.applicant_email || 'applicant'),
+                            detail: (a.application_type || 'Application') + ' · ' + new Date(a.sent_at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+                            time: new Date(a.sent_at),
+                            action: "gotoAppSentFollowUp('" + a.id + "')",
+                            actionLabel: 'View Application',
+                            priority: 4
+                        });
+                    }
+
                     // Returned/completed applications
                     if (a.status === 'Returned') {
                         notifications.push({
@@ -29917,6 +29934,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 const agentName = agentMatch ? (agentMatch.full_name || agentMatch.email) : 'Agent';
                                 return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:12px;"><input type="checkbox" id="ccDealAgentOnNote" data-agent-id="' + deal.source_agent_id + '" data-deal-name="' + (deal.company_name || 'Deal').replace(/"/g, '&quot;') + '" style="cursor:pointer;width:16px;height:16px;"><span style="font-weight:500;font-size:13px;color:var(--navy);">CC ' + agentName + ' via email</span></label>';
                             })() : ''}
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:12px;">
+                                <input type="checkbox" id="newDealNoteFollowup" onchange="document.getElementById('newDealNoteFollowupFields').style.display=this.checked?'flex':'none'" style="cursor:pointer;width:16px;height:16px;">
+                                <span style="font-weight:500;font-size:13px;color:var(--navy);">Set follow-up</span>
+                            </label>
+                        </div>
+                        <div id="newDealNoteFollowupFields" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+                            <input type="date" id="newDealNoteFollowupDate" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+                            <input type="text" id="newDealNoteFollowupReason" placeholder="Follow-up reason..." style="flex:1;min-width:200px;padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
                         </div>` : ''}
                         <button onclick="addDealNote('${dealId}')" style="padding: 8px 16px; background: var(--gold); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Add Note</button>
                     </div>
@@ -31109,6 +31134,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const visibleToAgent = isAgent ? true : (visibleCheckbox ? visibleCheckbox.checked : false);
 
             let noteEntry = { text: noteText, author: userEmail, date: dateStr, visible_to_agent: visibleToAgent };
+
+            // Capture follow-up (if checkbox is checked and date set)
+            const followupCheckbox = document.getElementById('newDealNoteFollowup');
+            if (followupCheckbox && followupCheckbox.checked) {
+                const fuDate = (document.getElementById('newDealNoteFollowupDate') || {}).value;
+                const fuReason = (document.getElementById('newDealNoteFollowupReason') || {}).value;
+                if (fuDate) {
+                    noteEntry.followup_date = fuDate;
+                    noteEntry.followup_reason = fuReason || '';
+                }
+            }
 
             // Check if CC Agent via email is checked
             const ccCheckbox = document.getElementById('ccDealAgentOnNote');
@@ -32862,6 +32898,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     vendor_name: vendorTrackName || null
                 });
             } catch (trackErr) { console.error('Failed to log sent application:', trackErr); }
+
+            // Auto-update the linked deal's status to "Application Sent" so the
+            // Command Center feed reflects what was actually sent (not a stale
+            // "Quote sent" status from an earlier step).
+            try {
+                if (typeof currentDocUploadDealId !== 'undefined' && currentDocUploadDealId) {
+                    // Only move the status forward if the deal is still in a pre-credit-review stage.
+                    // Never regress an Approved / Funded / In Credit deal back to "Application Sent".
+                    var { data: _curDeal } = await db.from('deals').select('status').eq('id', currentDocUploadDealId).single();
+                    var _advanceableStatuses = ['Prospect', 'Quote Requested', 'Quote sent', 'Info received'];
+                    if (_curDeal && _advanceableStatuses.includes(_curDeal.status)) {
+                        await db.from('deals').update({
+                            status: 'Application Sent',
+                            status_changed_at: new Date().toISOString()
+                        }).eq('id', currentDocUploadDealId);
+                    }
+                }
+            } catch (statusErr) { console.warn('Failed to auto-update deal status:', statusErr); }
+
             // If vendor tracked, also log to vendor admin_notes
             if (vendorTrackId) {
                 try {
