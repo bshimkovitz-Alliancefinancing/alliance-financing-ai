@@ -34809,23 +34809,45 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     }
                 }
 
-                // Action buttons based on status
+                // Action buttons (April 2026 UI cleanup): View + Status/Badge + "···" kebab menu.
+                // Primary ops (status change, restore) stay inline; secondary ops move into kebab.
                 var actionHtml = '';
                 var safeAppId = app.id;
                 var hasRefAgent = !!(app.referral_agent || app.referral_slug);
-                var archiveBtn = '<button onclick="showArchiveAppSentModal(\'' + safeAppId + '\')" style="padding:4px 10px;background:#FEF2F2;color:#991B1B;border:1px solid #FCA5A5;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;margin-left:4px;" title="Archive this application (with optional notification to referring agent)">Archive</button>';
-                var confirmBtn = hasRefAgent && isAdmin ? '<button onclick="showConfirmWithAgentModal(\'' + safeAppId + '\')" style="padding:4px 10px;background:#ECFDF5;color:#065F46;border:1px solid #6EE7B7;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;margin-left:4px;" title="Send a note to the referring agent before archiving">Confirm w/ Agent</button>' : '';
+                var safeEmail = (app.applicant_email || '').replace(/'/g, "\\'");
+                var safeName = (app.applicant_name || '').replace(/'/g, "\\'");
+                var safeType = (app.application_type || '').replace(/'/g, "\\'");
+
+                // Build kebab menu items based on status
+                var kebabItems = [];
+                if (app.status !== 'Archived') {
+                    if (['Sent', 'Follow-Up Needed', 'Opened'].includes(app.status)) {
+                        var remindLabel = isOverdue ? 'Send Follow-Up' : 'Send Reminder';
+                        kebabItems.push('<button onclick="sendFollowUpEmail(\'' + safeAppId + '\', \'' + safeEmail + '\', \'' + safeName + '\', \'' + safeType + '\');closeAllAppSentKebabs();" style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:none;border:none;width:100%;text-align:left;font-size:13px;color:#0D1E3D;cursor:pointer;font-weight:500;">' + (isOverdue ? '⏰' : '📬') + ' ' + remindLabel + '</button>');
+                    }
+                    if (hasRefAgent && isAdmin) {
+                        kebabItems.push('<button onclick="showConfirmWithAgentModal(\'' + safeAppId + '\');closeAllAppSentKebabs();" style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:none;border:none;width:100%;text-align:left;font-size:13px;color:#065F46;cursor:pointer;font-weight:500;">🤝 Confirm w/ Agent</button>');
+                    }
+                    kebabItems.push('<div style="height:1px;background:#E2E8F0;margin:4px 0;"></div>');
+                    kebabItems.push('<button onclick="showArchiveAppSentModal(\'' + safeAppId + '\');closeAllAppSentKebabs();" style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:none;border:none;width:100%;text-align:left;font-size:13px;color:#991B1B;cursor:pointer;font-weight:500;">🗄️ Archive</button>');
+                }
+                var kebabHtml = kebabItems.length > 0 ? (
+                    '<div style="position:relative;display:inline-block;margin-left:4px;">' +
+                        '<button onclick="toggleAppSentKebab(event,\'' + safeAppId + '\')" aria-label="More actions" style="padding:4px 8px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:4px;font-size:14px;line-height:1;cursor:pointer;font-weight:700;">&middot;&middot;&middot;</button>' +
+                        '<div id="appSentKebab_' + safeAppId + '" class="appSentKebabMenu" style="display:none;position:fixed;min-width:190px;background:#fff;border:1px solid #E2E8F0;border-radius:6px;box-shadow:0 6px 20px rgba(15,23,42,0.18);z-index:9999;overflow:hidden;padding:4px 0;">' +
+                            kebabItems.join('') +
+                        '</div>' +
+                    '</div>'
+                ) : '';
+
                 if (app.status === 'Archived') {
-                    // Archived — Restore only (archive wouldn't make sense here)
-                    actionHtml = '<button onclick="updateAppSentStatus(\'' + safeAppId + '\', \'Sent\')" style="padding:4px 10px;background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">Restore</button>';
+                    actionHtml = '<span style="padding:4px 10px;background:#F1F5F9;color:#64748B;border:1px solid #CBD5E1;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;margin-right:6px;">Archived</span>' +
+                        '<button onclick="updateAppSentStatus(\'' + safeAppId + '\', \'Follow-Up Needed\')" style="padding:4px 10px;background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">Restore</button>';
                 } else if (app.status === 'Returned') {
-                    // Returned = in credit, managed by credit team. Locked status + archive + confirm
-                    actionHtml = '<span style="padding:4px 10px;background:#10B98115;color:#059669;border:1px solid #10B981;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;">Returned</span>' + confirmBtn + archiveBtn;
+                    actionHtml = '<span style="padding:4px 10px;background:#10B98115;color:#059669;border:1px solid #10B981;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;">Returned</span>' + kebabHtml;
                 } else if (app.status === 'Expired') {
-                    // Expired — Archive + Confirm
-                    actionHtml = '<span style="padding:4px 10px;background:#EF444415;color:#B91C1C;border:1px solid #FCA5A5;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;">Expired</span>' + confirmBtn + archiveBtn;
+                    actionHtml = '<span style="padding:4px 10px;background:#EF444415;color:#B91C1C;border:1px solid #FCA5A5;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;">Expired</span>' + kebabHtml;
                 } else {
-                    // Active (Sent / Follow-Up Needed / Opened / Reviewed) — dropdown + follow-up + archive + confirm
                     actionHtml = '<select onchange="updateAppSentStatus(\'' + safeAppId + '\', this.value)" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;cursor:pointer;">' +
                         '<option value="Sent"' + (app.status === 'Sent' ? ' selected' : '') + '>Sent</option>' +
                         '<option value="Follow-Up Needed"' + (app.status === 'Follow-Up Needed' ? ' selected' : '') + '>Follow-Up Needed</option>' +
@@ -34833,11 +34855,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         '<option value="Reviewed"' + (app.status === 'Reviewed' ? ' selected' : '') + '>Reviewed</option>' +
                         '<option value="Opened"' + (app.status === 'Opened' ? ' selected' : '') + '>Opened</option>' +
                         '<option value="Expired"' + (app.status === 'Expired' ? ' selected' : '') + '>Expired</option>' +
-                    '</select>';
-                    if (['Sent', 'Follow-Up Needed', 'Opened'].includes(app.status)) {
-                        actionHtml += ' <button onclick="sendFollowUpEmail(\'' + safeAppId + '\', \'' + (app.applicant_email || '').replace(/'/g, "\\'") + '\', \'' + (app.applicant_name || '').replace(/'/g, "\\'") + '\', \'' + (app.application_type || '').replace(/'/g, "\\'") + '\')" style="margin-left:4px;padding:4px 8px;background:' + (isOverdue ? '#F59E0B' : '#0D1E3D') + ';color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;" title="Send follow-up reminder">' + (isOverdue ? 'Follow Up' : 'Remind') + '</button>';
-                    }
-                    actionHtml += confirmBtn + archiveBtn;
+                    '</select>' + kebabHtml;
                 }
 
                 // View button — find matching submitted application by email
@@ -35975,6 +35993,50 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             btn.textContent = 'Send to Agent';
         }
     }
+
+    // ============================================
+    // Applications Sent — kebab menu helpers (April 2026 UI cleanup)
+    // ============================================
+    function closeAllAppSentKebabs() {
+        document.querySelectorAll('.appSentKebabMenu').forEach(function(m) { m.style.display = 'none'; });
+    }
+    function toggleAppSentKebab(evt, appSentId) {
+        if (evt && evt.stopPropagation) evt.stopPropagation();
+        var menu = document.getElementById('appSentKebab_' + appSentId);
+        if (!menu) return;
+        var isOpen = menu.style.display === 'block';
+        closeAllAppSentKebabs();
+        if (isOpen) return;
+        // Position the fixed menu relative to the clicked button's viewport rect
+        var btn = evt && evt.currentTarget ? evt.currentTarget : null;
+        if (btn && btn.getBoundingClientRect) {
+            var rect = btn.getBoundingClientRect();
+            var menuWidth = 190;
+            var viewportW = window.innerWidth;
+            var viewportH = window.innerHeight;
+            // Default: align menu's right edge with button's right edge, open downward
+            var left = Math.max(8, Math.min(rect.right - menuWidth, viewportW - menuWidth - 8));
+            var top = rect.bottom + 4;
+            // If there's not enough room below, flip above
+            if (top + 200 > viewportH && rect.top > 200) {
+                top = rect.top - 4 - 200; // assume ~200px tall; close enough
+                menu.style.maxHeight = '200px';
+                menu.style.overflowY = 'auto';
+            }
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+            menu.style.right = 'auto';
+        }
+        menu.style.display = 'block';
+    }
+    // Close kebab when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest || !e.target.closest('.appSentKebabMenu')) {
+            if (!e.target.closest || !e.target.closest('[aria-label="More actions"]')) {
+                closeAllAppSentKebabs();
+            }
+        }
+    });
 
     // Invoked when a resurrect link is clicked from an archive-notification email.
     // Called after auth via handleResurrectUrlParam below.
