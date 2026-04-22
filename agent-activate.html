@@ -274,16 +274,20 @@
                 termsRecord.ip_address = ipData.ip || null;
             } catch(e) { /* IP lookup optional */ }
 
-            var updates = {
-                onboarding_status: 'active',
-                terms_accepted_at: new Date().toISOString(),
-                invite_accepted_at: new Date().toISOString(),
-                terms_acceptance_record: termsRecord
-            };
-            if (authData && authData.user && authData.user.id) {
-                updates.auth_id = authData.user.id;
+            // RPC fix (April 22 2026): anon + newly-signed-up user can't UPDATE users directly (RLS self-update
+            // policy requires auth_id to already match auth.uid(), chicken-and-egg). Use SECURITY DEFINER function
+            // that atomically validates token + sets auth_id + activation metadata.
+            var newAuthId = (authData && authData.user && authData.user.id) ? authData.user.id : null;
+            var { data: activationRows, error: activationError } = await db.rpc('complete_agent_activation', {
+                p_token: token,
+                p_auth_id: newAuthId,
+                p_terms_record: termsRecord
+            });
+            if (activationError) throw activationError;
+            var activationResult = (activationRows && activationRows.length > 0) ? activationRows[0] : null;
+            if (!activationResult || !activationResult.success) {
+                throw new Error('Activation failed. The link may have expired or already been used.');
             }
-            await db.from('users').update(updates).eq('id', userData.id);
 
             // Notify admin that a new account was activated (non-blocking)
             (async function() {
@@ -344,11 +348,10 @@
         }
 
         try {
-            var { data: user, error } = await db
-                .from('users')
-                .select('id, full_name, email, onboarding_status, invite_token, invite_accepted_at, invite_token_expires_at, agent_type')
-                .eq('invite_token', token)
-                .maybeSingle();
+            // RPC fix (April 22 2026): anon can't SELECT users after RLS lockdown; use SECURITY DEFINER function.
+            // The RPC already filters by token validity (not expired, not yet accepted), so if it returns null, the token is invalid for any reason.
+            var { data: userRows, error } = await db.rpc('get_user_by_invite_token', { p_token: token });
+            var user = (userRows && userRows.length > 0) ? userRows[0] : null;
 
             if (error || !user) {
                 document.getElementById('loadingView').classList.add('hidden');

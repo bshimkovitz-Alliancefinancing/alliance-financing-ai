@@ -451,7 +451,7 @@
         </div>
 
         <div class="footer">
-            <p>Alliance Financing Group Ltd. | <a href="https://alliancefinancing.ai">alliancefinancing.ai</a></p>
+            <p>Alliance Financing Group Ltd. | <a href="https://alliancefinancing.com">alliancefinancing.com</a></p>
         </div>
     </div>
 
@@ -485,7 +485,10 @@
             }
 
             try {
-                var { data: vendor, error } = await db.from('vendors').select('*').eq('id', vid).single();
+                // RPC fix (April 22 2026): anon can't SELECT vendors after RLS lockdown; use SECURITY DEFINER function
+                // that also returns the primary contact in one round-trip.
+                var { data: vendorRows, error } = await db.rpc('get_vendor_for_application', { p_id: vid });
+                var vendor = (vendorRows && vendorRows.length > 0) ? vendorRows[0] : null;
                 if (error || !vendor) {
                     showError('Vendor not found. Please contact Alliance Financing Group for assistance.');
                     return;
@@ -506,19 +509,11 @@
                 if (vendor.product_description) document.getElementById('equipmentDescription').value = vendor.product_description;
                 if (vendor.country) document.getElementById('countriesOfOp').value = vendor.country;
 
-                // Load primary contact
-                try {
-                    var { data: contacts } = await db.from('vendor_contacts').select('*').eq('vendor_id', vid).limit(1);
-                    if (contacts && contacts.length > 0) {
-                        var c = contacts[0];
-                        if (c.contact_name) document.getElementById('contactName').value = c.contact_name;
-                        if (c.email) document.getElementById('contactEmail').value = c.email;
-                        if (c.phone) document.getElementById('contactPhone').value = c.phone;
-                        if (c.role_title) {
-                            document.getElementById('contactRole').value = c.role_title;
-                        }
-                    }
-                } catch(e) {}
+                // Primary contact fields come from the same RPC (joined server-side)
+                if (vendor.primary_contact_name)  document.getElementById('contactName').value = vendor.primary_contact_name;
+                if (vendor.primary_contact_email) document.getElementById('contactEmail').value = vendor.primary_contact_email;
+                if (vendor.primary_contact_phone) document.getElementById('contactPhone').value = vendor.primary_contact_phone;
+                if (vendor.primary_contact_role)  document.getElementById('contactRole').value = vendor.primary_contact_role;
 
                 var greeting = 'Complete the form below to apply for the Alliance Financing vendor program.';
                 if (vendor.name) {
@@ -652,46 +647,18 @@
                     }
                 };
 
-                var updateData = {
-                    name: applicationData.company.legal_name || vendorData.name,
-                    website: applicationData.company.website || vendorData.website,
-                    product_description: applicationData.equipment.description || vendorData.product_description,
-                    country: applicationData.equipment.countries || vendorData.country,
-                    vendor_application: applicationData,
-                    application_completed_at: new Date().toISOString(),
-                    status: 'Pending Review'
-                };
-
-                var { error: updateError } = await db.from('vendors').update(updateData).eq('id', vendorId);
-                if (updateError) throw updateError;
-
-                // Update primary contact
-                try {
-                    var { data: existingContacts } = await db.from('vendor_contacts').select('id').eq('vendor_id', vendorId).limit(1);
-                    if (existingContacts && existingContacts.length > 0) {
-                        await db.from('vendor_contacts').update({
-                            contact_name: applicationData.primary_contact.name,
-                            email: applicationData.primary_contact.email,
-                            phone: applicationData.primary_contact.phone,
-                            role_title: applicationData.primary_contact.role || applicationData.primary_contact.title || 'Admin'
-                        }).eq('id', existingContacts[0].id);
-                    }
-                } catch(e) {}
-
-                // Add admin note
-                try {
-                    var notes = [];
-                    try { notes = vendorData.admin_notes ? JSON.parse(vendorData.admin_notes) : []; } catch(e) { notes = []; }
-                    var now = new Date();
-                    var dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                    notes.unshift({
-                        text: 'Vendor Application COMPLETED by ' + applicationData.primary_contact.name + ' (' + applicationData.primary_contact.email + ')',
-                        timestamp: dateStr,
-                        by: applicationData.primary_contact.name,
-                        type: 'system'
-                    });
-                    await db.from('vendors').update({ admin_notes: JSON.stringify(notes) }).eq('id', vendorId);
-                } catch(e) {}
+                // RPC fix (April 22 2026): anon can't UPDATE vendors or vendor_contacts after RLS lockdown.
+                // submit_vendor_application is a SECURITY DEFINER function that atomically writes the application
+                // data to the vendor row + upserts the primary contact, and sets status to Pending Review.
+                var { data: submitRows, error: submitError } = await db.rpc('submit_vendor_application', {
+                    p_vendor_id: vendorId,
+                    p_application: applicationData
+                });
+                if (submitError) throw submitError;
+                var submitResult = (submitRows && submitRows.length > 0) ? submitRows[0] : null;
+                if (!submitResult || !submitResult.success) {
+                    throw new Error(submitResult && submitResult.note ? submitResult.note : 'Submission failed. Please try again or contact support.');
+                }
 
                 // Notify Alliance admin (non-blocking)
                 var appCompany = applicationData.company.legal_name || vendorData.name || 'Unknown';
@@ -716,7 +683,7 @@
                     '<tr><td style="padding:6px 0;font-weight:600;">Countries</td><td>' + appCountries + '</td></tr>' +
                     '</table></div>' +
                     '<div style="padding:12px 24px;background:#F8FAFC;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;">' +
-                    '<p style="font-size:12px;color:#94A3B8;margin:0;">Open <a href="https://alliancefinancing.ai/dashboard" style="color:#C9A84C;">Admin Dashboard → Vendors</a> to review and approve.</p></div></div>'
+                    '<p style="font-size:12px;color:#94A3B8;margin:0;">Open <a href="https://alliancefinancing.com/dashboard" style="color:#C9A84C;">Admin Dashboard → Vendors</a> to review and approve.</p></div></div>'
                 );
 
                 document.getElementById('applicationForm').style.display = 'none';
