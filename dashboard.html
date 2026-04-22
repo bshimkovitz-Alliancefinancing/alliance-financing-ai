@@ -1292,6 +1292,10 @@
                 <span class="nav-icon">📈</span>
                 <span>Stats & Reports</span>
             </div>
+            <div class="nav-item" id="dataHealthNav" onclick="showPage('dataHealth')" style="display: none;">
+                <span class="nav-icon">🩺</span>
+                <span>Data Health</span>
+            </div>
             <div class="nav-item" id="helpNav" onclick="showPage('help')" style="display: none;">
                 <span class="nav-icon">📖</span>
                 <span>Help & Resources</span>
@@ -1323,6 +1327,55 @@
         <div class="content-area">
 
             <!-- Stats & Reports Page -->
+            <!-- Data Health Page (April 22, 2026) — admin-only consistency check dashboard -->
+            <div id="dataHealth" class="page-section">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                    <div>
+                        <h2 style="margin:0;color:var(--navy);font-size:22px;">🩺 Data Health</h2>
+                        <p style="margin:4px 0 0;color:var(--text-light);font-size:13px;">Consistency checks across deals, applications, agents, and clients. Refresh anytime.</p>
+                    </div>
+                    <button onclick="loadDataHealth()" id="dataHealthRefreshBtn" style="padding:8px 16px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">↻ Refresh</button>
+                </div>
+
+                <!-- Summary badges -->
+                <div id="dataHealthSummary" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:140px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:14px 16px;">
+                        <div style="font-size:11px;color:#166534;font-weight:600;letter-spacing:0.5px;">HEALTHY</div>
+                        <div id="dhOkCount" style="font-size:28px;font-weight:700;color:#166534;margin-top:4px;">—</div>
+                    </div>
+                    <div style="flex:1;min-width:140px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:14px 16px;">
+                        <div style="font-size:11px;color:#92400E;font-weight:600;letter-spacing:0.5px;">WARNING</div>
+                        <div id="dhWarnCount" style="font-size:28px;font-weight:700;color:#92400E;margin-top:4px;">—</div>
+                    </div>
+                    <div style="flex:1;min-width:140px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:14px 16px;">
+                        <div style="font-size:11px;color:#991B1B;font-weight:600;letter-spacing:0.5px;">ALERT</div>
+                        <div id="dhAlertCount" style="font-size:28px;font-weight:700;color:#991B1B;margin-top:4px;">—</div>
+                    </div>
+                </div>
+
+                <!-- Checks table -->
+                <div style="background:white;border:1px solid var(--border-gray);border-radius:10px;overflow:hidden;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#F8FAFC;border-bottom:1px solid var(--border-gray);">
+                                <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;width:120px;">Category</th>
+                                <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;">Check</th>
+                                <th style="padding:12px 16px;text-align:center;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;width:100px;">Count</th>
+                                <th style="padding:12px 16px;text-align:center;font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;width:120px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataHealthRows">
+                            <tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-light);font-size:13px;">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top:16px;padding:12px 16px;background:#F8FAFC;border-radius:8px;font-size:12px;color:var(--text-light);line-height:1.6;">
+                    <strong>How to read this:</strong> Each check looks for a specific class of data inconsistency. A count of 0 means that check passes.
+                    Click a row to see more detail about what it means and what to do. Check this page weekly (or when something feels off).
+                </div>
+            </div>
+
             <div id="statsReports" class="page-section">
                 <div class="stats-grid">
                     <div class="stat-card" id="statCard1" data-accent="blue">
@@ -28904,6 +28957,63 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             case 'help':
                 await loadHelpPage();
                 break;
+            case 'dataHealth':
+                if (['super_admin', 'admin'].includes(currentUserRole)) {
+                    await loadDataHealth();
+                }
+                break;
+        }
+    }
+
+    // ============================================
+    // Data Health (April 22, 2026) — admin consistency check dashboard
+    // ============================================
+    async function loadDataHealth() {
+        const rowsEl = document.getElementById('dataHealthRows');
+        const refreshBtn = document.getElementById('dataHealthRefreshBtn');
+        if (!rowsEl) return;
+
+        if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '↻ Loading…'; }
+        rowsEl.innerHTML = '<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-light);font-size:13px;">Loading consistency checks…</td></tr>';
+
+        try {
+            const { data: checks, error } = await db.rpc('admin_data_health');
+            if (error) throw error;
+            if (!checks || checks.length === 0) {
+                rowsEl.innerHTML = '<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-light);font-size:13px;">No checks returned — admin_data_health() may not be deployed.</td></tr>';
+                return;
+            }
+
+            // Count severities
+            let okCount = 0, warnCount = 0, alertCount = 0;
+            checks.forEach(c => {
+                if (c.severity === 'ok') okCount++;
+                else if (c.severity === 'warn') warnCount++;
+                else if (c.severity === 'alert') alertCount++;
+            });
+            const okEl = document.getElementById('dhOkCount');    if (okEl)    okEl.textContent    = okCount;
+            const warnEl = document.getElementById('dhWarnCount'); if (warnEl)  warnEl.textContent  = warnCount;
+            const alertEl = document.getElementById('dhAlertCount'); if (alertEl) alertEl.textContent = alertCount;
+
+            // Build rows
+            const sevColor = { ok: { bg: '#F0FDF4', fg: '#166534', label: '✓ Healthy' }, warn: { bg: '#FFFBEB', fg: '#92400E', label: '⚠ Warning' }, alert: { bg: '#FEF2F2', fg: '#991B1B', label: '✕ Alert' } };
+            const html = checks.map(function(c) {
+                const s = sevColor[c.severity] || sevColor.ok;
+                const desc = (c.description || '').replace(/"/g, '&quot;');
+                return '<tr style="border-bottom:1px solid var(--border-gray);transition:background 0.15s;cursor:help;" onmouseover="this.style.background=\'#FAFBFC\'" onmouseout="this.style.background=\'white\'" title="' + desc + '">' +
+                    '<td style="padding:14px 16px;font-size:12px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.3px;">' + (c.category || '') + '</td>' +
+                    '<td style="padding:14px 16px;"><div style="font-size:14px;font-weight:500;color:var(--navy);margin-bottom:2px;">' + (c.check_name || '') + '</div><div style="font-size:11.5px;color:var(--text-light);line-height:1.4;">' + desc + '</div></td>' +
+                    '<td style="padding:14px 16px;text-align:center;font-size:20px;font-weight:700;color:' + s.fg + ';">' + (c.n || 0) + '</td>' +
+                    '<td style="padding:14px 16px;text-align:center;"><span style="background:' + s.bg + ';color:' + s.fg + ';padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;">' + s.label + '</span></td>' +
+                    '</tr>';
+            }).join('');
+            rowsEl.innerHTML = html;
+
+        } catch (err) {
+            console.error('[Data Health] failed:', err);
+            rowsEl.innerHTML = '<tr><td colspan="4" style="padding:30px;text-align:center;color:#991B1B;font-size:13px;">Failed to load: ' + (err.message || err) + '</td></tr>';
+        } finally {
+            if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↻ Refresh'; }
         }
     }
 
