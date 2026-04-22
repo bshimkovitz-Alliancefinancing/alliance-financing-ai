@@ -41058,12 +41058,40 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     ccInput.value.split(',').forEach(function(e) { var t = e.trim(); if (t) ccEmails.push(t); });
                 }
 
+                // Patch (April 22 2026): upload attached file BEFORE building the email HTML
+                // so we can include a download link in the body. Previously the file was uploaded
+                // to storage AFTER send, meaning recipients got an email with no attachment.
+                var uploadedAttachment = null;
+                var preUploadFileInput = document.getElementById('entityComposeFile_' + key);
+                if (preUploadFileInput && preUploadFileInput.files[0]) {
+                    if (sendBtn) sendBtn.textContent = '⏳ Uploading file...';
+                    try {
+                        uploadedAttachment = await uploadCommFile(preUploadFileInput.files[0], entityType, entityId);
+                    } catch(upErr) {
+                        console.error('Attachment upload failed:', upErr);
+                        // Proceed without attachment; body will still send
+                    }
+                }
+
+                // Build attachment block for email body (only if we have a file + download URL)
+                var attachmentBlock = '';
+                if (uploadedAttachment && uploadedAttachment.url) {
+                    var fileSizeKb = uploadedAttachment.size ? Math.round(uploadedAttachment.size / 1024) + ' KB' : '';
+                    attachmentBlock =
+                        '<div style="margin:20px 0;padding:14px 16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;">' +
+                        '<p style="font-size:11px;color:#92400E;margin:0 0 8px;font-weight:600;letter-spacing:0.5px;">ATTACHMENT</p>' +
+                        '<a href="' + uploadedAttachment.url + '" style="display:inline-block;background:#0D1E3D;color:#ffffff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">📎 Download ' + (uploadedAttachment.name || 'file') + '</a>' +
+                        (fileSizeKb ? '<p style="font-size:11px;color:#92400E;margin:8px 0 0;">' + fileSizeKb + '</p>' : '') +
+                        '</div>';
+                }
+
                 // Build branded email HTML
                 var htmlBody = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
                     '<div style="background:#0D1E3D;padding:18px 25px;border-radius:8px 8px 0 0;">' +
                     '<h1 style="margin:0;color:#C9A84C;font-size:17px;font-weight:700;">Alliance Financing Group</h1></div>' +
                     '<div style="padding:20px 25px;background:white;border:1px solid #E5E7EB;border-top:none;">' +
                     '<div style="font-size:14px;color:#334155;line-height:1.7;white-space:pre-wrap;">' + body.value.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') + '</div>' +
+                    attachmentBlock +
                     '<hr style="border:none;border-top:1px solid #E5E7EB;margin:20px 0 12px;">' +
                     '<p style="font-size:12px;color:#64748B;margin:0;font-weight:600;">Team Alliance</p>' +
                     '<p style="font-size:12px;color:#64748B;margin:2px 0;"><a href="mailto:Info@alliancefinancing.com" style="color:#3B82F6;text-decoration:none;">Info@alliancefinancing.com</a></p>' +
@@ -41104,8 +41132,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             // Handle file attachment
+            // For email mode, the file was already uploaded above (so it could be linked in the email body).
+            // For note mode, we upload it here.
             var fileInput = document.getElementById('entityComposeFile_' + key);
-            if (fileInput && fileInput.files[0]) {
+            if (type === 'email' && typeof uploadedAttachment !== 'undefined' && uploadedAttachment) {
+                // Reuse the already-uploaded file
+                newEntry.attachment = uploadedAttachment;
+            } else if (fileInput && fileInput.files[0]) {
                 try {
                     var fileData = await uploadCommFile(fileInput.files[0], entityType, entityId);
                     newEntry.attachment = fileData;
