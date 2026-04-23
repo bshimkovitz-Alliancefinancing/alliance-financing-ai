@@ -25201,6 +25201,19 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         <option value="Inactive" ${brokerage.agent_status === 'Inactive' ? 'selected' : ''}>Inactive</option>
                     </select>
                 </div>
+                ${(function() {
+                    // Account Manager dropdown (April 22, 2026 — added on the brokerage modal too)
+                    var mgrs = window._cachedAccountManagers || [];
+                    var mgrOptions = mgrs.map(function(u) {
+                        return '<option value="' + u.id + '"' + (brokerage.account_manager_id === u.id ? ' selected' : '') + '>' + (u.full_name || u.email) + '</option>';
+                    }).join('');
+                    return '<div style="margin-bottom:20px;">' +
+                        '<label style="display:block;font-size:11px;font-weight:600;color:#64748B;margin-bottom:4px;">Account Manager <span style="font-weight:400;color:#94A3B8;">— Alliance team member who owns this relationship</span></label>' +
+                        '<select onchange="updateAgentField(\'' + brokerageId + '\', \'account_manager_id\', this.value || null)" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;background:#F8FAFC;cursor:pointer;width:100%;">' +
+                        '<option value="">— Not assigned —</option>' +
+                        mgrOptions +
+                        '</select></div>';
+                })()}
             `;
 
             // ─── CONTACTS SECTION (Admin + Agents as cards) ───
@@ -39960,6 +39973,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 .map(a => `<option value="${a.id}" ${agent.parent_agent_id === a.id ? 'selected' : ''}>${a.full_name || a.email}</option>`)
                 .join('');
 
+            // Build account manager options — internal Alliance team (admins + super_agents who manage relationships)
+            // (Added April 22, 2026 — column added same day via alter-table migration)
+            if (!window._cachedAccountManagers) {
+                const { data: mgrs } = await db.from('users').select('id, full_name, email, role, agent_type').in('role', ['admin', 'super_admin', 'agent']);
+                window._cachedAccountManagers = (mgrs || []).filter(u =>
+                    u.role === 'admin' || u.role === 'super_admin' || u.agent_type === 'super_agent'
+                ).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
+            }
+            const accountManagerOptions = window._cachedAccountManagers
+                .map(u => `<option value="${u.id}" ${agent.account_manager_id === u.id ? 'selected' : ''}>${u.full_name || u.email}</option>`)
+                .join('');
+
             // Get sub-agents count
             const subAgents = cachedAgents.filter(a => a.parent_agent_id === agentId);
 
@@ -40046,6 +40071,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 ${parentAgentOptions}
                             </select>
                         </div>
+                    </div>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-field">
+                        <label>Account Manager <span style="font-weight:400;color:#94A3B8;font-size:11px;">Alliance team member who owns this relationship</span></label>
+                        <div class="modal-field-value">
+                            <select onchange="updateAgentField('${agentId}', 'account_manager_id', this.value || null)" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; cursor: pointer;">
+                                <option value="">— Not assigned —</option>
+                                ${accountManagerOptions}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-field">
+                        <!-- spacer for row alignment -->
                     </div>
                 </div>
                 <div class="modal-row">
@@ -40846,15 +40885,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (emailFields) emailFields.style.display = 'block';
             if (header) header.textContent = 'Send Email';
             if (sendBtn) sendBtn.textContent = 'Send Email';
-            // Reset contact checkboxes and manual entries
+            // Reset contact checkboxes and manual entries (multi-contact picker entities only)
             var toCheckboxes = document.querySelectorAll('input[name="entityEmailToContact_' + key + '"]');
             toCheckboxes.forEach(function(cb) { cb.checked = false; if (cb.parentElement) cb.parentElement.style.background = '#F1F5F9'; });
             var manualList = document.getElementById('entityEmailToManualList_' + key);
             if (manualList) manualList.innerHTML = '';
             var manualInput = document.getElementById('entityEmailToManual_' + key);
             if (manualInput) manualInput.value = '';
-            var hiddenTo = document.getElementById('entityEmailTo_' + key);
-            if (hiddenTo) hiddenTo.value = '';
+            // Only clear the To field for multi-contact picker entities (vendors/lenders/brokerages).
+            // For agents, the To field is a visible readonly input pre-filled with agent.email —
+            // clearing it would force admin to retype the recipient every time. (Fix: April 22, 2026.)
+            if (entityType === 'vendor' || entityType === 'lender' || entityType === 'brokerage') {
+                var hiddenTo = document.getElementById('entityEmailTo_' + key);
+                if (hiddenTo) hiddenTo.value = '';
+            }
             // Reset CC quick-add buttons
             var ccContactBtns = document.getElementById('entityEmailCcContacts_' + key);
             if (ccContactBtns) {
