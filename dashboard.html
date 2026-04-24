@@ -25151,6 +25151,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             const pd = brokerage.program_details || {};
             const provincesStr = pd.provinces_licensed ? (Array.isArray(pd.provinces_licensed) ? pd.provinces_licensed.join(', ') : pd.provinces_licensed) : '';
 
+            // ─── POPULATE ACCOUNT MANAGER CACHE (fix for empty dropdown on brokerage modal) ───
+            if (!window._cachedAccountManagers) {
+                const { data: mgrs } = await db.from('users').select('id, full_name, email, role, agent_type').in('role', ['admin', 'super_admin', 'agent']);
+                window._cachedAccountManagers = (mgrs || []).filter(u =>
+                    u.role === 'admin' || u.role === 'super_admin' || u.agent_type === 'super_agent'
+                ).sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
+            }
+
             // ─── EDITABLE BROKERAGE INFO ───
             const infoHtml = `
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
