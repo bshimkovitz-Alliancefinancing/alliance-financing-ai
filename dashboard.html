@@ -42311,12 +42311,34 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '</div></div>';
 
                 try {
-                    await db.functions.invoke('send-email', {
-                        body: { to: adminEmail, subject: inviteSubject, html: inviteHtml }
-                    });
+                    // Use the same email path as the Resend Invite button (fixed April 24)
+                    await sendEmailViaResend(adminEmail, inviteSubject, inviteHtml);
+
+                    // Mark welcome_email_sent so Data Health can distinguish sent vs silently-failed
+                    try {
+                        await db.from('users').update({ welcome_email_sent: true }).eq('id', data[0].id);
+                    } catch(flagErr) {
+                        console.warn('Could not set welcome_email_sent flag:', flagErr);
+                    }
+
+                    // Audit log: record the invite send in email_threads for traceability
+                    try {
+                        var threadId = 'brk-invite-' + data[0].id + '-' + Date.now();
+                        await db.from('email_threads').insert([{
+                            thread_id: threadId,
+                            entity_type: 'brokerage_invite',
+                            entity_id: data[0].id,
+                            recipient_email: adminEmail,
+                            sender_email: 'info@alliancefinancing.com',
+                            subject: inviteSubject
+                        }]);
+                    } catch(logErr) {
+                        console.warn('Could not log email thread:', logErr);
+                    }
                 } catch(emailErr) {
-                    console.warn('Could not send invite email:', emailErr);
-                    showToast('Brokerage created but invite email could not be sent', 'warning');
+                    // Loud alert instead of silent console.warn so admin sees the failure (fixed April 24 — Scott Westlake case)
+                    console.error('Brokerage invite email failed:', emailErr);
+                    alert('Brokerage "' + brkName + '" was created in the system\n\nBUT THE INVITE EMAIL FAILED TO SEND.\n\nError: ' + (emailErr && emailErr.message ? emailErr.message : emailErr) + '\n\nOpen the brokerage, find ' + adminName + ' in the contacts list, and click "Portal Invite" to retry. Or contact them manually at: ' + adminEmail);
                 }
             }
 
