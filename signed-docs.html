@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Signed Documents — Alliance Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --navy: #0A1628; --gold: #C9A84C; --cream: #F7F5EF;
+      --border: #E5E7EB; --text: #1A1A1A; --muted: #6B7280; --green: #047857; --orange: #EA580C;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           color: var(--text); background: var(--cream); line-height: 1.5; }
+    .topbar { background: var(--navy); color: #fff; padding: 14px 24px;
+              display: flex; align-items: center; justify-content: space-between; }
+    .brand { font-family: Georgia, serif; font-size: 14pt; font-weight: bold; }
+    a.back { color: #B8C4D6; text-decoration: none; font-size: 11pt; }
+    .container { max-width: 1280px; margin: 18px auto; padding: 0 16px 60px; }
+    h1 { font-family: Georgia, serif; margin: 8px 0 6px; color: var(--navy); }
+    .controls {
+      display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center;
+    }
+    .controls input, .controls select {
+      padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 11pt; background: #fff;
+    }
+    .controls input { min-width: 240px; }
+    button.primary {
+      background: var(--navy); color: #fff; border: none; padding: 9px 16px;
+      border-radius: 6px; font-size: 11pt; font-weight: 600; cursor: pointer; text-decoration: none;
+    }
+    table { width: 100%; border-collapse: collapse; background: #fff;
+            border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 9pt;
+         text-transform: uppercase; letter-spacing: 0.5px;
+         background: #F9FAFB; border-bottom: 1px solid var(--border); font-weight: 600; }
+    td { padding: 10px 12px; border-bottom: 1px solid #F3F4F6; font-size: 11pt; vertical-align: middle; }
+    tr:hover td { background: #FAFAF8; }
+    .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 9pt; font-weight: 600; }
+    .pill.green { background: #DCFCE7; color: var(--green); }
+    .pill.orange { background: #FFEDD5; color: var(--orange); }
+    .pill.gray { background: #F3F4F6; color: var(--muted); }
+    .empty { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 60px; text-align: center; color: var(--muted); }
+    a.view {
+      color: var(--navy); text-decoration: none; font-size: 10pt; font-weight: 600;
+      padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px;
+    }
+    a.view:hover { background: var(--cream); }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Signed Documents</div>
+    <div style="display: flex; gap: 14px;">
+      <a class="back" href="/dashboard.html">← Dashboard</a>
+      <a class="back" href="/send-document.html">+ New Signing Request</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1>Signed documents</h1>
+    <p style="color: var(--muted); margin: 0 0 18px;">All NDAs, fee agreements, PG addendums, and other documents sent through the Alliance signing flow.</p>
+
+    <div class="controls">
+      <input id="search" placeholder="Search by counterparty name or email…" />
+      <select id="status-filter">
+        <option value="">All statuses</option>
+        <option value="sent_to_counterparty">Sent — awaiting counterparty</option>
+        <option value="counterparty_signed">Counterparty signed — needs your countersign</option>
+        <option value="fully_signed">Fully executed</option>
+        <option value="archived">Archived</option>
+      </select>
+      <select id="type-filter">
+        <option value="">All types</option>
+        <option value="nda">NDA</option>
+        <option value="placement_fee">Placement Fee</option>
+        <option value="pg_addendum">PG Addendum</option>
+      </select>
+      <button class="primary" id="refresh">↻ Refresh</button>
+    </div>
+
+    <div id="result-area"></div>
+  </div>
+
+  <script>
+  (() => {
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let allRows = [];
+
+    function statusPill(status) {
+      const map = {
+        'sent_to_counterparty': ['orange', 'Sent'],
+        'counterparty_signed': ['orange', 'Awaiting your sign'],
+        'fully_signed': ['green', 'Fully executed'],
+        'archived': ['gray', 'Archived'],
+        'pending_intake': ['orange', 'Awaiting fill-in'],
+        'sent': ['orange', 'Sent'],
+        'send_failed': ['orange', 'Send failed'],
+      };
+      const [cls, label] = map[status] || ['gray', status];
+      return `<span class="pill ${cls}">${label}</span>`;
+    }
+
+    function actionFor(row) {
+      if (row.status === 'counterparty_signed') {
+        return `<a class="view" href="/countersign.html?id=${row.id}">Countersign</a>`;
+      }
+      if (['fully_signed', 'archived'].includes(row.status)) {
+        return `<a class="view" href="/view-document.html?id=${row.id}">View</a>`;
+      }
+      return `<a class="view" href="/view-document.html?id=${row.id}">View</a>`;
+    }
+
+    async function load() {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) {
+        document.getElementById('result-area').innerHTML = '<div class="empty">Please <a href="/dashboard.html">log in</a>.</div>';
+        return;
+      }
+      const { data: prof } = await sb.from('users').select('id, role').eq('auth_id', user.id).single();
+      if (!prof || !['super_admin', 'admin'].includes(prof.role)) {
+        document.getElementById('result-area').innerHTML = '<div class="empty">Admin access required.</div>';
+        return;
+      }
+
+      const { data, error } = await sb.from('signing_documents')
+        .select('id, status, sent_to_name, sent_to_email, sent_at, counterparty_signed_at, alliance_signed_at, template_id, client_id, document_templates(template_name, template_type), clients(company_name)')
+        .order('sent_at', { ascending: false, nullsFirst: false });
+
+      if (error) {
+        document.getElementById('result-area').innerHTML = `<div class="empty">Error: ${error.message}</div>`;
+        return;
+      }
+
+      allRows = data || [];
+      render();
+    }
+
+    function render() {
+      const search = document.getElementById('search').value.trim().toLowerCase();
+      const statusFilter = document.getElementById('status-filter').value;
+      const typeFilter = document.getElementById('type-filter').value;
+
+      let rows = allRows;
+      if (search) rows = rows.filter(r =>
+        (r.sent_to_name||'').toLowerCase().includes(search) ||
+        (r.sent_to_email||'').toLowerCase().includes(search) ||
+        (r.clients?.company_name||'').toLowerCase().includes(search)
+      );
+      if (statusFilter) rows = rows.filter(r => r.status === statusFilter);
+      if (typeFilter) rows = rows.filter(r => r.document_templates?.template_type === typeFilter);
+
+      const area = document.getElementById('result-area');
+      if (rows.length === 0) {
+        area.innerHTML = '<div class="empty">No signing requests match your filters.</div>';
+        return;
+      }
+      area.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Counterparty</th>
+              <th>Client</th>
+              <th>Status</th>
+              <th>Sent</th>
+              <th>Counterparty signed</th>
+              <th>Alliance signed</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${r.document_templates?.template_name || '—'}</td>
+                <td><strong>${r.sent_to_name || '—'}</strong><br><span style="font-size: 9pt; color: var(--muted);">${r.sent_to_email || ''}</span></td>
+                <td>${r.clients?.company_name || '<span style="color:var(--muted);">—</span>'}</td>
+                <td>${statusPill(r.status)}</td>
+                <td style="font-size: 10pt;">${r.sent_at ? new Date(r.sent_at).toLocaleDateString() : '—'}</td>
+                <td style="font-size: 10pt;">${r.counterparty_signed_at ? new Date(r.counterparty_signed_at).toLocaleDateString() : '—'}</td>
+                <td style="font-size: 10pt;">${r.alliance_signed_at ? new Date(r.alliance_signed_at).toLocaleDateString() : '—'}</td>
+                <td>${actionFor(r)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div style="margin-top: 12px; font-size: 10pt; color: var(--muted);">${rows.length} document${rows.length===1?'':'s'}</div>
+      `;
+    }
+
+    document.getElementById('search').addEventListener('input', render);
+    document.getElementById('status-filter').addEventListener('change', render);
+    document.getElementById('type-filter').addEventListener('change', render);
+    document.getElementById('refresh').addEventListener('click', load);
+
+    load();
+  })();
+  </script>
+</body>
+</html>

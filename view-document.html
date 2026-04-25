@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Signed Document — Alliance Financing Group</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --navy: #0A1628; --gold: #C9A84C; --cream: #F7F5EF;
+      --border: #E5E7EB; --text: #1A1A1A; --muted: #6B7280; --green: #047857;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           color: var(--text); background: var(--cream); line-height: 1.55; }
+    .topbar { background: var(--navy); color: #fff; padding: 14px 24px;
+              display: flex; align-items: center; justify-content: space-between; }
+    .brand { font-family: Georgia, serif; font-size: 14pt; font-weight: bold; }
+    .topbar-actions { display: flex; gap: 14px; align-items: center; }
+    a.back, button.print {
+      color: #B8C4D6; background: transparent; border: 1px solid #B8C4D6;
+      padding: 6px 14px; border-radius: 6px; font-size: 10pt; cursor: pointer;
+      text-decoration: none;
+    }
+    a.back:hover, button.print:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .container { max-width: 900px; margin: 24px auto; padding: 0 16px 60px; }
+    .status-banner {
+      background: #DCFCE7; border: 1px solid #BBF7D0; padding: 12px 18px;
+      border-radius: 8px; margin-bottom: 18px; color: var(--green); font-weight: 600;
+    }
+    .meta-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px 22px;
+      background: #fff; padding: 16px 18px; border: 1px solid var(--border);
+      border-radius: 8px; margin-bottom: 18px;
+    }
+    .meta-grid .label { font-size: 9pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .meta-grid .value { font-size: 11pt; font-weight: 600; color: var(--text); margin-top: 2px; }
+    .doc-card {
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      padding: 36px; margin-bottom: 18px;
+    }
+    .signatures {
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin-bottom: 18px;
+    }
+    .signatures h3 { font-family: Georgia, serif; margin: 0 0 12px; color: var(--navy); font-size: 13pt; }
+    .sig-block {
+      padding: 12px; border-left: 3px solid var(--gold); margin-bottom: 12px;
+      background: #FAFAF8; border-radius: 4px;
+    }
+    .sig-block .role { font-size: 9pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .sig-block .name {
+      font-family: 'Brush Script MT', 'Lucida Handwriting', cursive;
+      font-size: 22pt; color: var(--navy); margin: 4px 0; line-height: 1.1;
+    }
+    .sig-block .meta { font-size: 9pt; color: var(--muted); }
+    .empty { text-align: center; padding: 60px; color: var(--muted); background: #fff; border-radius: 8px; }
+    @media print {
+      .topbar, .status-banner, .topbar-actions { display: none !important; }
+      body { background: #fff; }
+      .container { max-width: 100%; padding: 0; }
+      .doc-card, .signatures, .meta-grid { border: none; box-shadow: none; padding: 16px 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Alliance Financing Group — Document</div>
+    <div class="topbar-actions">
+      <button class="print" onclick="window.print()">🖨 Print / Save as PDF</button>
+      <a class="back" href="/dashboard.html" id="back-link">← Dashboard</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="loading" style="text-align:center; padding: 60px; color: var(--muted);">Loading document…</div>
+    <div id="content" style="display:none;">
+      <div class="status-banner" id="status-banner">✓ Fully Executed</div>
+      <div class="meta-grid" id="meta-grid"></div>
+      <div class="doc-card" id="doc-card"></div>
+      <div class="signatures" id="signatures">
+        <h3>Signatures</h3>
+        <div id="sig-list"></div>
+      </div>
+    </div>
+    <div id="error" style="display:none;" class="empty"></div>
+  </div>
+
+  <script>
+  (() => {
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const params = new URLSearchParams(window.location.search);
+    const docId = params.get('id');         // admin path
+    const viewToken = params.get('token');  // counterparty path
+
+    const loadingEl = document.getElementById('loading');
+    const contentEl = document.getElementById('content');
+    const errorEl = document.getElementById('error');
+
+    function showError(msg) {
+      loadingEl.style.display = 'none';
+      errorEl.style.display = 'block';
+      errorEl.innerHTML = msg;
+    }
+
+    async function loadAdmin() {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) { showError('Please <a href="/dashboard.html">log in</a> to view this document.'); return null; }
+      const { data: prof } = await sb.from('users').select('id, role').eq('auth_id', user.id).single();
+      if (!prof || !['super_admin', 'admin'].includes(prof.role)) {
+        showError('Admin access required.'); return null;
+      }
+      const { data, error } = await sb
+        .from('signing_documents')
+        .select('*, document_templates(template_name, template_type)')
+        .eq('id', docId)
+        .maybeSingle();
+      if (error || !data) { showError('Document not found.'); return null; }
+      return data;
+    }
+
+    async function loadCounterparty() {
+      const { data, error } = await sb
+        .from('signing_documents')
+        .select('id, status, sent_to_name, sent_to_email, populated_html, counterparty_signed_at, alliance_signed_at, viewing_token, viewing_token_expires_at, document_templates(template_name, template_type), filled_fields')
+        .eq('viewing_token', viewToken)
+        .maybeSingle();
+      if (error || !data) { showError('This link is invalid or expired. Please contact Alliance Financing Group at info@alliancefinancing.com.'); return null; }
+      if (data.viewing_token_expires_at && new Date(data.viewing_token_expires_at) < new Date()) {
+        showError('This link has expired. Please contact Alliance Financing Group for a fresh copy.'); return null;
+      }
+      return data;
+    }
+
+    async function loadSignatures(docDbId) {
+      const { data } = await sb.from('document_signatures')
+        .select('signer_role, signed_by, title, email, signed_at, ip_address')
+        .eq('document_id', docDbId)
+        .order('signed_at', { ascending: true });
+      return data || [];
+    }
+
+    function render(doc, sigs) {
+      const tpl = doc.document_templates?.template_name || 'Document';
+      document.title = `${tpl} — Alliance Financing Group`;
+
+      const status = doc.status === 'fully_signed' ? '✓ Fully Executed'
+        : doc.status === 'counterparty_signed' ? '⏳ Awaiting Alliance countersignature'
+        : `Status: ${doc.status}`;
+      document.getElementById('status-banner').textContent = status;
+      if (doc.status !== 'fully_signed' && doc.status !== 'archived') {
+        document.getElementById('status-banner').style.background = '#FFEDD5';
+        document.getElementById('status-banner').style.color = '#EA580C';
+        document.getElementById('status-banner').style.borderColor = '#FED7AA';
+      }
+
+      document.getElementById('meta-grid').innerHTML = `
+        <div><div class="label">Document</div><div class="value">${tpl}</div></div>
+        <div><div class="label">Counterparty</div><div class="value">${doc.sent_to_name || '—'}</div></div>
+        <div><div class="label">Sent to</div><div class="value">${doc.sent_to_email || '—'}</div></div>
+        <div><div class="label">Counterparty signed</div><div class="value">${doc.counterparty_signed_at ? new Date(doc.counterparty_signed_at).toLocaleString() : '—'}</div></div>
+        <div><div class="label">Alliance signed</div><div class="value">${doc.alliance_signed_at ? new Date(doc.alliance_signed_at).toLocaleString() : '—'}</div></div>
+        <div><div class="label">Document ID</div><div class="value" style="font-family:monospace; font-size:9pt;">${doc.id}</div></div>
+      `;
+
+      document.getElementById('doc-card').innerHTML = doc.populated_html || '<em>No content.</em>';
+
+      document.getElementById('sig-list').innerHTML = sigs.length === 0
+        ? '<div style="color: var(--muted); font-size: 10pt;">No signatures recorded yet.</div>'
+        : sigs.map(s => `
+          <div class="sig-block">
+            <div class="role">${s.signer_role === 'alliance' ? 'Alliance Financing Group Ltd.' : (s.signer_role || 'Counterparty')}</div>
+            <div class="name">${s.signed_by || ''}</div>
+            <div class="meta">
+              ${s.title ? `<strong>${s.title}</strong> · ` : ''}
+              ${s.email ? `${s.email} · ` : ''}
+              ${s.signed_at ? `Signed ${new Date(s.signed_at).toLocaleString()}` : ''}
+              ${s.ip_address ? ` · IP ${s.ip_address}` : ''}
+            </div>
+          </div>
+        `).join('');
+
+      loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
+    }
+
+    (async () => {
+      let doc = null;
+      if (docId) {
+        document.getElementById('back-link').textContent = '← Dashboard';
+        doc = await loadAdmin();
+      } else if (viewToken) {
+        document.getElementById('back-link').style.display = 'none';
+        doc = await loadCounterparty();
+      } else {
+        showError('Missing document id or token.');
+        return;
+      }
+      if (!doc) return;
+      const sigs = await loadSignatures(doc.id);
+      render(doc, sigs);
+    })();
+  })();
+  </script>
+</body>
+</html>
