@@ -143,9 +143,10 @@
   </div>
 
   <script>
+  (() => {
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
@@ -172,7 +173,7 @@
         return;
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('signing_documents')
         .select('id, status, signing_token, token_expires_at, sent_to_name, sent_to_email, populated_html, template_id, document_templates(template_name, template_type)')
         .eq('signing_token', token)
@@ -221,7 +222,7 @@
       const signerTitle = signerTitleEl.value.trim();
 
       // Insert into document_signatures (audit trail)
-      const { error: sigErr } = await supabase
+      const { error: sigErr } = await sb
         .from('document_signatures')
         .insert({
           document_id: signingDoc.id,
@@ -242,7 +243,7 @@
       }
 
       // Update signing_documents — status + counterparty_signed_at
-      const { error: updErr } = await supabase
+      const { error: updErr } = await sb
         .from('signing_documents')
         .update({
           status: 'counterparty_signed',
@@ -262,6 +263,7 @@
     });
 
     load();
+  })();
   </script>
 </body>
 </html>
