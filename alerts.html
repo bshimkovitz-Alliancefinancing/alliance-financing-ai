@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alerts — Alliance Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --navy: #0A1628; --gold: #C9A84C; --cream: #F7F5EF;
+      --border: #E5E7EB; --text: #1A1A1A; --muted: #6B7280;
+      --red: #DC2626; --orange: #EA580C; --blue: #2563EB; --green: #047857;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           color: var(--text); background: var(--cream); line-height: 1.5; }
+    .topbar { background: var(--navy); color: #fff; padding: 14px 24px;
+              display: flex; align-items: center; justify-content: space-between; }
+    .brand { font-family: Georgia, serif; font-size: 14pt; font-weight: bold; }
+    a.back { color: #B8C4D6; text-decoration: none; font-size: 11pt; }
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px 60px; }
+    h1 { font-family: Georgia, serif; margin: 0 0 6px; color: var(--navy); }
+    .controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .controls select, .controls button {
+      padding: 8px 14px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 11pt; background: #fff; cursor: pointer;
+    }
+    .controls button.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .alert-card {
+      background: #fff; border: 1px solid var(--border); border-left-width: 4px;
+      border-radius: 6px; padding: 14px 18px; margin-bottom: 10px;
+    }
+    .alert-card.critical { border-left-color: var(--red); }
+    .alert-card.warn { border-left-color: var(--orange); }
+    .alert-card.info { border-left-color: var(--blue); }
+    .alert-card.resolved { opacity: 0.55; }
+    .alert-head { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+    .severity {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 9pt; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .severity.critical { background: #FEE2E2; color: var(--red); }
+    .severity.warn { background: #FFEDD5; color: var(--orange); }
+    .severity.info { background: #DBEAFE; color: var(--blue); }
+    .alert-subject { font-weight: 600; font-size: 12pt; color: var(--navy); margin: 4px 0 6px; }
+    .alert-body { font-size: 10pt; color: #444; white-space: pre-line; }
+    .alert-meta { font-size: 9pt; color: var(--muted); margin-top: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .alert-actions { display: flex; gap: 6px; }
+    .alert-actions button {
+      padding: 5px 10px; font-size: 10pt; border-radius: 4px; cursor: pointer;
+      background: #fff; border: 1px solid var(--border);
+    }
+    .alert-actions button:hover { background: var(--cream); }
+    .empty {
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      padding: 60px; text-align: center; color: var(--muted);
+    }
+    .empty.success { border-color: #BBF7D0; background: #F0FDF4; color: var(--green); }
+    .stat-row { display: flex; gap: 12px; margin-bottom: 18px; }
+    .stat {
+      flex: 1; background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 18px;
+    }
+    .stat .num { font-family: Georgia, serif; font-size: 28pt; font-weight: bold; color: var(--navy); line-height: 1; }
+    .stat .label { font-size: 10pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .stat.crit .num { color: var(--red); }
+    .stat.warn .num { color: var(--orange); }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">⚠ Alerts</div>
+    <a class="back" href="/dashboard.html">← Back to dashboard</a>
+  </div>
+
+  <div class="container">
+    <h1>Alerts</h1>
+    <p style="color: var(--muted); margin: 0 0 18px;">Real-time and recent alerts from email failures, scheduled tasks, data health, and uptime monitoring.</p>
+
+    <div class="stat-row" id="stats"></div>
+
+    <div class="controls">
+      <button data-filter="unresolved" class="active">Unresolved</button>
+      <button data-filter="all">All</button>
+      <button data-filter="critical">Critical only</button>
+      <select id="source-filter">
+        <option value="">All sources</option>
+        <option value="email">Email</option>
+        <option value="data_health">Data Health</option>
+        <option value="scheduled_task">Scheduled task</option>
+        <option value="uptime">Uptime</option>
+        <option value="manual">Manual</option>
+      </select>
+      <button id="refresh">↻ Refresh</button>
+    </div>
+
+    <div id="list"></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsImtpZCI6Ii9jZ1pZdjVQelcxc25aNGEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTI4NjMsImV4cCI6MjA2NzY4ODg2M30.h6HfzrHgQLA1rLkPOmqoDhg-67sgdHLBE7KW7WtJxK0';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentFilter = 'unresolved';
+    let currentSource = '';
+    let currentUserId = null;
+
+    async function getMe() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data: prof } = await supabase.from('users').select('id, role').eq('auth_id', user.id).single();
+      if (prof && ['admin','super_admin'].includes(prof.role)) {
+        currentUserId = prof.id;
+        return prof;
+      }
+      return null;
+    }
+
+    async function loadStats() {
+      const { data: open } = await supabase.from('alerts').select('id, severity').is('resolved_at', null);
+      const counts = { critical: 0, warn: 0, info: 0 };
+      (open || []).forEach(a => counts[a.severity] = (counts[a.severity] || 0) + 1);
+      document.getElementById('stats').innerHTML = `
+        <div class="stat crit"><div class="num">${counts.critical}</div><div class="label">Critical</div></div>
+        <div class="stat warn"><div class="num">${counts.warn}</div><div class="label">Warning</div></div>
+        <div class="stat"><div class="num">${counts.info}</div><div class="label">Info</div></div>
+      `;
+    }
+
+    async function loadList() {
+      let q = supabase.from('alerts').select('*').order('triggered_at', { ascending: false }).limit(200);
+      if (currentFilter === 'unresolved') q = q.is('resolved_at', null);
+      if (currentFilter === 'critical') q = q.eq('severity', 'critical');
+      if (currentSource) q = q.eq('source', currentSource);
+
+      const { data, error } = await q;
+      const list = document.getElementById('list');
+      if (error) { list.innerHTML = `<div class="empty">Error: ${error.message}</div>`; return; }
+      if (!data || data.length === 0) {
+        list.innerHTML = `<div class="empty success">✓ No alerts. Quiet system.</div>`;
+        return;
+      }
+      list.innerHTML = data.map(a => {
+        const triggeredAt = new Date(a.triggered_at).toLocaleString();
+        const isResolved = !!a.resolved_at;
+        return `
+          <div class="alert-card ${a.severity} ${isResolved ? 'resolved' : ''}" data-id="${a.id}">
+            <div class="alert-head">
+              <div style="flex:1;">
+                <span class="severity ${a.severity}">${a.severity}</span>
+                <span class="severity" style="background: var(--cream); color: var(--muted);">${a.source}</span>
+                <div class="alert-subject">${a.subject}</div>
+                ${a.body ? `<div class="alert-body">${escapeHtml(a.body)}</div>` : ''}
+                <div class="alert-meta">
+                  <span>${triggeredAt}</span>
+                  ${a.metadata?.recipient ? `<span>· To: ${a.metadata.recipient}</span>` : ''}
+                  ${isResolved ? `<span>· Resolved ${new Date(a.resolved_at).toLocaleString()}</span>` : ''}
+                </div>
+              </div>
+              <div class="alert-actions">
+                ${!isResolved ? `<button onclick="resolve('${a.id}')">Mark resolved</button>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(s) {
+      return (s || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'})[c]);
+    }
+
+    window.resolve = async (id) => {
+      const { error } = await supabase.from('alerts')
+        .update({ resolved_at: new Date().toISOString(), resolved_by: currentUserId })
+        .eq('id', id);
+      if (error) { alert('Could not resolve: ' + error.message); return; }
+      loadStats(); loadList();
+    };
+
+    document.querySelectorAll('.controls button[data-filter]').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.controls button[data-filter]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        currentFilter = b.dataset.filter;
+        loadList();
+      });
+    });
+    document.getElementById('source-filter').addEventListener('change', e => {
+      currentSource = e.target.value;
+      loadList();
+    });
+    document.getElementById('refresh').addEventListener('click', () => { loadStats(); loadList(); });
+
+    (async () => {
+      const me = await getMe();
+      if (!me) {
+        document.querySelector('.container').innerHTML = '<div class="empty">You must be logged in as admin to view alerts. <a href="/dashboard.html">Go back</a>.</div>';
+        return;
+      }
+      await loadStats();
+      await loadList();
+      // auto-refresh every 60s
+      setInterval(() => { loadStats(); loadList(); }, 60000);
+    })();
+  </script>
+</body>
+</html>
