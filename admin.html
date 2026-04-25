@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Hub — Alliance Financing Group</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --navy: #0A1628; --gold: #C9A84C; --cream: #F7F5EF;
+      --border: #E5E7EB; --text: #1A1A1A; --muted: #6B7280;
+      --green: #047857; --red: #DC2626; --orange: #EA580C;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           color: var(--text); background: var(--cream); line-height: 1.5; }
+    .topbar { background: var(--navy); color: #fff; padding: 14px 24px;
+              display: flex; align-items: center; justify-content: space-between; }
+    .brand { font-family: Georgia, serif; font-size: 14pt; font-weight: bold; }
+    .topbar-actions { display: flex; gap: 14px; align-items: center; }
+    .topbar-actions a { color: #B8C4D6; text-decoration: none; font-size: 11pt; }
+    .topbar-actions a:hover { color: #fff; }
+    .greeting { color: #CADCFC; font-size: 11pt; }
+
+    .container { max-width: 1100px; margin: 28px auto; padding: 0 16px 60px; }
+    h1 { font-family: Georgia, serif; margin: 0 0 6px; color: var(--navy); font-size: 26pt; }
+    .sub { color: var(--muted); margin: 0 0 28px; }
+
+    .quick-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px;
+    }
+    .stat {
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 18px;
+    }
+    .stat .num {
+      font-family: Georgia, serif; font-size: 22pt; font-weight: bold; color: var(--navy);
+      line-height: 1;
+    }
+    .stat.crit .num { color: var(--red); }
+    .stat.warn .num { color: var(--orange); }
+    .stat.ok .num { color: var(--green); }
+    .stat .label {
+      font-size: 9pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
+      margin-top: 6px;
+    }
+    .stat a {
+      color: var(--navy); text-decoration: none; display: block;
+      margin-top: 6px; font-size: 10pt; font-weight: 600;
+    }
+    .stat a:hover { text-decoration: underline; }
+
+    .tile-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    }
+    .tile {
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      padding: 22px 24px; text-decoration: none; color: var(--text);
+      transition: all 0.15s; display: block;
+    }
+    .tile:hover {
+      border-color: var(--navy); box-shadow: 0 4px 12px rgba(10, 22, 40, 0.08);
+      transform: translateY(-1px);
+    }
+    .tile h2 {
+      font-family: Georgia, serif; font-size: 15pt; margin: 0 0 6px;
+      color: var(--navy);
+    }
+    .tile p {
+      font-size: 10.5pt; color: var(--muted); margin: 0;
+    }
+    .tile .icon {
+      font-size: 22pt; margin-bottom: 8px; display: block; line-height: 1;
+    }
+    .tile.primary {
+      background: var(--navy); color: #fff;
+    }
+    .tile.primary h2 { color: var(--gold); }
+    .tile.primary p { color: #CADCFC; }
+
+    .section-title {
+      font-size: 9pt; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 1pt; font-weight: 600; margin: 28px 0 12px;
+    }
+
+    @media (max-width: 800px) {
+      .tile-grid { grid-template-columns: 1fr; }
+      .quick-stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Alliance Admin</div>
+    <div class="topbar-actions">
+      <span class="greeting" id="greeting">Welcome</span>
+      <a href="/dashboard.html">CRM Dashboard →</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1>Admin Hub</h1>
+    <p class="sub">Send documents, view alerts, check metrics, manage signed agreements. One place for everything.</p>
+
+    <div class="section-title">Quick Status</div>
+    <div class="quick-stats" id="quick-stats">
+      <div class="stat"><div class="num" id="stat-pending-sign">…</div><div class="label">Awaiting your signature</div></div>
+      <div class="stat"><div class="num" id="stat-out-for-sign">…</div><div class="label">Out for counterparty</div></div>
+      <div class="stat crit"><div class="num" id="stat-alerts">…</div><div class="label">Open alerts</div></div>
+      <div class="stat ok"><div class="num" id="stat-fully-signed">…</div><div class="label">Fully executed</div></div>
+    </div>
+
+    <div class="section-title">Documents &amp; Signing</div>
+    <div class="tile-grid">
+      <a href="/send-document.html" class="tile primary">
+        <span class="icon">📤</span>
+        <h2>Send for Signature</h2>
+        <p>Send an NDA, fee agreement, or PG addendum to a counterparty for signing.</p>
+      </a>
+      <a href="/signed-docs.html" class="tile">
+        <span class="icon">📋</span>
+        <h2>Signed Documents Inbox</h2>
+        <p>All NDAs, fee agreements, and PGs — sent, signed, fully executed. Searchable.</p>
+      </a>
+      <a href="/lender-package.html" class="tile">
+        <span class="icon">📦</span>
+        <h2>Lender Package</h2>
+        <p>Bundle credit app + signed PG addendums for lender submission. (Use ?deal_id=X)</p>
+      </a>
+    </div>
+
+    <div class="section-title">Operations</div>
+    <div class="tile-grid">
+      <a href="/metrics.html" class="tile">
+        <span class="icon">📊</span>
+        <h2>Metrics</h2>
+        <p>Daily numbers — pipeline, conversion, time-to-fund, top agents and lenders.</p>
+      </a>
+      <a href="/alerts.html" class="tile">
+        <span class="icon">⚠️</span>
+        <h2>Alerts</h2>
+        <p>Real-time email failures, scheduled task issues, data health warnings.</p>
+      </a>
+      <a href="/dashboard.html" class="tile">
+        <span class="icon">📂</span>
+        <h2>CRM Dashboard</h2>
+        <p>Clients, deals, lenders, agents, vendors. The main work area.</p>
+      </a>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function load() {
+      // Greeting
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) {
+        document.getElementById('greeting').innerHTML = '<a href="/dashboard.html" style="color:#fff;">Log in</a>';
+        return;
+      }
+      const { data: prof } = await sb.from('users').select('id, full_name, role').eq('auth_id', user.id).maybeSingle();
+      if (prof?.full_name) {
+        const first = prof.full_name.split(' ')[0];
+        document.getElementById('greeting').textContent = `Hi ${first}`;
+      }
+      if (!prof || !['super_admin', 'admin'].includes(prof.role)) {
+        // Non-admins still see the page, but quick stats will be empty
+        return;
+      }
+
+      // Quick stats — parallel queries
+      const [pendingSign, outForSign, openAlerts, fullySigned] = await Promise.all([
+        sb.from('signing_documents').select('id', { count: 'exact', head: true }).eq('status', 'counterparty_signed'),
+        sb.from('signing_documents').select('id', { count: 'exact', head: true }).eq('status', 'sent_to_counterparty'),
+        sb.from('alerts').select('id', { count: 'exact', head: true }).is('resolved_at', null),
+        sb.from('signing_documents').select('id', { count: 'exact', head: true }).eq('status', 'fully_signed'),
+      ]);
+
+      const setStat = (id, val, linkHref, linkText) => {
+        const el = document.getElementById(id);
+        el.textContent = val ?? 0;
+        if (linkHref && val > 0) {
+          el.parentElement.insertAdjacentHTML('beforeend', `<a href="${linkHref}">${linkText} →</a>`);
+        }
+      };
+      setStat('stat-pending-sign', pendingSign.count ?? 0, '/signed-docs.html?status=counterparty_signed', 'Countersign');
+      setStat('stat-out-for-sign', outForSign.count ?? 0, '/signed-docs.html?status=sent_to_counterparty', 'View');
+      setStat('stat-alerts', openAlerts.count ?? 0, '/alerts.html', 'Triage');
+      setStat('stat-fully-signed', fullySigned.count ?? 0, '/signed-docs.html?status=fully_signed', 'Browse');
+    }
+
+    load();
+  })();
+  </script>
+</body>
+</html>
