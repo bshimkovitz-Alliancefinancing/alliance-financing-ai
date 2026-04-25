@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Countersign — Alliance Financing Group</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --navy: #0A1628;
+      --gold: #C9A84C;
+      --cream: #F7F5EF;
+      --border: #E5E7EB;
+      --text: #1A1A1A;
+      --muted: #6B7280;
+      --green: #047857;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text); background: var(--cream); line-height: 1.55;
+    }
+    .topbar {
+      background: var(--navy); color: #fff; padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .brand { font-family: Georgia, serif; font-size: 14pt; font-weight: bold; }
+    .meta { font-size: 11pt; color: #B8C4D6; }
+    .container { max-width: 900px; margin: 24px auto; padding: 0 16px 60px; }
+    .badge {
+      display: inline-block; padding: 4px 10px; border-radius: 999px;
+      background: #DCFCE7; color: var(--green); font-size: 10pt; font-weight: 600;
+    }
+    .info-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px;
+      margin: 20px 0; padding: 16px; background: #fff;
+      border: 1px solid var(--border); border-radius: 8px;
+    }
+    .info-grid .label { font-size: 9pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-grid .value { font-size: 11pt; font-weight: 600; color: var(--text); }
+    .doc-card {
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      padding: 32px; margin-bottom: 24px;
+    }
+    .signed-block {
+      background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 6px;
+      padding: 14px 18px; margin: 18px 0;
+    }
+    .signed-block .check { color: var(--green); font-weight: bold; }
+    .sign-card {
+      background: #fff; border: 2px solid var(--gold); border-radius: 8px;
+      padding: 24px 28px; margin-bottom: 24px;
+    }
+    .sign-card h2 { font-family: Georgia, serif; font-size: 16pt; margin: 0 0 8px; color: var(--navy); }
+    label { display: block; font-weight: 600; margin: 16px 0 6px; font-size: 11pt; }
+    input[type="text"] {
+      width: 100%; padding: 12px 14px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 14pt;
+      font-family: 'Brush Script MT', 'Lucida Handwriting', cursive;
+      color: var(--navy);
+    }
+    button.submit {
+      width: 100%; padding: 14px; background: var(--navy); color: #fff;
+      border: none; border-radius: 6px; font-size: 13pt; font-weight: 600;
+      cursor: pointer; margin-top: 18px;
+    }
+    button.submit:disabled { background: var(--muted); cursor: not-allowed; }
+    button.submit:hover:not(:disabled) { background: #1c2c4d; }
+    .status { padding: 14px 18px; border-radius: 6px; margin-bottom: 18px; font-size: 11pt; }
+    .status.error { background: #fee; color: #c00; border: 1px solid #fcc; }
+    .status.info { background: #eef5ff; color: #035; border: 1px solid #bcd; }
+    .status.success { background: #efe; color: #053; border: 1px solid #cdc; }
+    .loading { padding: 60px; text-align: center; color: var(--muted); }
+    a.back { color: #B8C4D6; text-decoration: none; font-size: 11pt; }
+    a.back:hover { color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Alliance Admin — Countersign</div>
+    <a class="back" href="/dashboard.html">← Back to dashboard</a>
+  </div>
+
+  <div class="container">
+    <div id="status-area"></div>
+    <div id="loading" class="loading">Loading document…</div>
+
+    <div id="content" style="display:none;">
+      <div class="info-grid" id="info-grid"></div>
+
+      <div class="doc-card" id="doc-card"></div>
+
+      <div class="signed-block" id="counterparty-signed-block">
+        <div class="check">✓ Counterparty has signed</div>
+        <div id="counterparty-sig-detail" style="font-size: 10pt; color: var(--muted); margin-top: 4px;"></div>
+      </div>
+
+      <div class="sign-card">
+        <h2>Your countersignature</h2>
+        <p>Signing as <strong id="alliance-signer-name">Bernie Shimkovitz</strong>, Director, on behalf of Alliance Financing Group Ltd.</p>
+
+        <label for="signer-name">Type your full legal name to countersign</label>
+        <input id="signer-name" type="text" placeholder="Bernie Shimkovitz" autocomplete="off" />
+
+        <button id="submit-btn" class="submit" disabled>Countersign &amp; Finalize</button>
+        <div style="text-align:center; font-size: 9pt; color: var(--muted); margin-top: 12px;">
+          On finalize: counterparty receives an email with the fully executed copy.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsImtpZCI6Ii9jZ1pZdjVQelcxc25aNGEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTI4NjMsImV4cCI6MjA2NzY4ODg2M30.h6HfzrHgQLA1rLkPOmqoDhg-67sgdHLBE7KW7WtJxK0';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const params = new URLSearchParams(window.location.search);
+    const docId = params.get('id');
+
+    const statusArea = document.getElementById('status-area');
+    const loadingEl = document.getElementById('loading');
+    const contentEl = document.getElementById('content');
+    const infoGrid = document.getElementById('info-grid');
+    const docCard = document.getElementById('doc-card');
+    const cpSigDetail = document.getElementById('counterparty-sig-detail');
+    const signerNameEl = document.getElementById('signer-name');
+    const submitBtn = document.getElementById('submit-btn');
+
+    let signingDoc = null, currentUser = null;
+
+    function setStatus(kind, text) {
+      statusArea.innerHTML = `<div class="status ${kind}">${text}</div>`;
+    }
+
+    async function load() {
+      if (!docId) {
+        loadingEl.style.display = 'none';
+        setStatus('error', 'Missing document id.');
+        return;
+      }
+
+      // Auth check — must be logged in admin
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        loadingEl.style.display = 'none';
+        setStatus('error', 'You must be logged in to the Alliance dashboard. <a href="/login.html">Log in</a>.');
+        return;
+      }
+      currentUser = user;
+
+      // Pull profile to get full name and verify admin
+      const { data: prof } = await supabase
+        .from('users')
+        .select('id, full_name, role')
+        .eq('auth_id', user.id)
+        .single();
+
+      if (!prof || !['super_admin', 'admin'].includes(prof.role)) {
+        loadingEl.style.display = 'none';
+        setStatus('error', 'You must be an admin to countersign.');
+        return;
+      }
+
+      document.getElementById('alliance-signer-name').textContent = prof.full_name || 'Alliance Admin';
+      signerNameEl.placeholder = prof.full_name || 'Your name';
+
+      const { data, error } = await supabase
+        .from('signing_documents')
+        .select('id, status, signing_token, sent_to_name, sent_to_email, populated_html, counterparty_signed_at, alliance_signed_at, template_id, document_templates(template_name, template_type), filled_fields')
+        .eq('id', docId)
+        .maybeSingle();
+
+      if (error || !data) {
+        loadingEl.style.display = 'none';
+        setStatus('error', 'Document not found.');
+        return;
+      }
+
+      if (data.alliance_signed_at) {
+        loadingEl.style.display = 'none';
+        setStatus('success', '✓ This document is already fully signed. <a href="/dashboard.html">Back to dashboard</a>.');
+        return;
+      }
+
+      if (data.status !== 'counterparty_signed') {
+        loadingEl.style.display = 'none';
+        setStatus('info', `This document is in status "${data.status}" — counterparty has not signed yet. You can countersign once they do.`);
+        return;
+      }
+
+      signingDoc = { ...data, profile: prof };
+
+      const tplName = data.document_templates?.template_name || 'Document';
+      document.title = `Countersign: ${tplName} — Alliance`;
+
+      infoGrid.innerHTML = `
+        <div><div class="label">Document</div><div class="value">${tplName}</div></div>
+        <div><div class="label">Counterparty</div><div class="value">${data.sent_to_name}</div></div>
+        <div><div class="label">Email</div><div class="value">${data.sent_to_email}</div></div>
+        <div><div class="label">Counterparty signed</div><div class="value">${new Date(data.counterparty_signed_at).toLocaleString()}</div></div>
+      `;
+
+      docCard.innerHTML = data.populated_html;
+      cpSigDetail.textContent = `${data.filled_fields?.counterparty_signed_name || data.sent_to_name} · ${new Date(data.counterparty_signed_at).toLocaleString()}`;
+
+      loadingEl.style.display = 'none';
+      contentEl.style.display = 'block';
+
+      signerNameEl.addEventListener('input', () => {
+        submitBtn.disabled = signerNameEl.value.trim().length < 3;
+      });
+    }
+
+    submitBtn.addEventListener('click', async () => {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Finalizing…';
+
+      const signedAt = new Date().toISOString();
+      const signerName = signerNameEl.value.trim();
+
+      // 1. Insert document_signatures row for alliance signature
+      const { error: sigErr } = await supabase
+        .from('document_signatures')
+        .insert({
+          document_id: signingDoc.id,
+          signer_role: 'alliance',
+          signed_by: signerName,
+          title: 'Director',
+          email: 'bernie@alliancefinancing.com',
+          signature_data: signerName,
+          consent_given: true,
+          signed_at: signedAt,
+        });
+
+      if (sigErr) {
+        setStatus('error', `Could not record signature: ${sigErr.message}`);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Countersign & Finalize';
+        return;
+      }
+
+      // 2. Update signing_documents — fully_signed
+      const { error: updErr } = await supabase
+        .from('signing_documents')
+        .update({
+          status: 'fully_signed',
+          alliance_signed_at: signedAt,
+          alliance_signer_id: signingDoc.profile.id,
+          countersigned_by: signingDoc.profile.id,  // legacy alias
+        })
+        .eq('id', signingDoc.id);
+
+      if (updErr) {
+        setStatus('error', `Status update failed: ${updErr.message}`);
+        return;
+      }
+
+      contentEl.style.display = 'none';
+      setStatus('success', '✓ Countersigned and finalized. Counterparty will be emailed the fully executed copy. <a href="/dashboard.html">Back to dashboard</a>');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    load();
+  </script>
+</body>
+</html>
