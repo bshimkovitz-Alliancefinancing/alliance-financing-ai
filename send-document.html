@@ -144,9 +144,10 @@
   </div>
 
   <script>
+  (() => {
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsImtpZCI6Ii9jZ1pZdjVQelcxc25aNGEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTI4NjMsImV4cCI6MjA2NzY4ODg2M30.h6HfzrHgQLA1rLkPOmqoDhg-67sgdHLBE7KW7WtJxK0';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const params = new URLSearchParams(window.location.search);
     const preselectClientId = params.get('client_id');
@@ -168,7 +169,7 @@
     }
 
     async function loadTemplates() {
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('document_templates')
         .select('id, template_name, template_type, template_html, placeholders')
         .eq('is_active', true)
@@ -185,7 +186,7 @@
     }
 
     async function loadClients() {
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('clients')
         .select('id, company_name, legal_name, address_line1, city, province_state, postal_code, country')
         .order('company_name');
@@ -198,7 +199,7 @@
     }
 
     async function loadClientContact(clientId) {
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('client_contact_persons')
         .select('full_name, email, title, role_title')
         .eq('client_id', clientId)
@@ -301,7 +302,7 @@
         email_intro: document.getElementById('email-intro').value.trim() || undefined,
       };
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await sb.auth.getSession();
       if (!session) {
         setStatus('error', 'Not logged in. Please log in to send.');
         btn.disabled = false; btn.textContent = 'Send for signature ✓';
@@ -337,6 +338,7 @@
     // boot
     loadTemplates();
     loadClients();
+  })();
   </script>
 </body>
 </html>

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Metrics — Alliance</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --navy: #0A1628; --gold: #C9A84C; --cream: #F7F5EF;
+      --border: #E5E7EB; --text: #1A1A1A; --muted: #6B7280;
+      --green: #047857; --red: #DC2626; --orange: #EA580C; --blue: #2563EB;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           color: var(--text); background: var(--cream); line-height: 1.5; }
+    .topbar { background: var(--navy); color: #fff; padding: 14px 24px;
+              display: flex; align-items: center; justify-content: space-between; }
+    .brand { font-family: Georgia, serif; font-size: 14pt; font-weight: bold; }
+    a.back { color: #B8C4D6; text-decoration: none; font-size: 11pt; margin-right: 16px; }
+    a.back:hover { color: #fff; }
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .timestamp { color: #B8C4D6; font-size: 10pt; }
+    .container { max-width: 1280px; margin: 18px auto; padding: 0 16px 60px; }
+    h1 { font-family: Georgia, serif; margin: 8px 0 6px; color: var(--navy); }
+
+    .hero {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px;
+    }
+    .hero .stat {
+      background: var(--navy); color: #fff; padding: 18px 20px; border-radius: 8px;
+    }
+    .hero .stat .num {
+      font-family: Georgia, serif; font-size: 30pt; font-weight: bold; color: var(--gold);
+      line-height: 1;
+    }
+    .hero .stat .label {
+      font-size: 9pt; color: #B8C4D6; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px;
+    }
+    .hero .stat .sub { font-size: 9pt; color: #CADCFC; margin-top: 4px; }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; }
+    .card h2 {
+      font-family: Georgia, serif; font-size: 12pt; margin: 0 0 12px;
+      color: var(--navy); border-bottom: 1px solid var(--border); padding-bottom: 8px;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+    th { text-align: left; padding: 6px 8px; color: var(--muted); font-weight: 600;
+         text-transform: uppercase; font-size: 8.5pt; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+    td { padding: 8px 8px; border-bottom: 1px solid #F3F4F6; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9pt; font-weight: 600; }
+    .pill.green { background: #DCFCE7; color: var(--green); }
+    .pill.red { background: #FEE2E2; color: var(--red); }
+    .pill.orange { background: #FFEDD5; color: var(--orange); }
+    .pill.blue { background: #DBEAFE; color: var(--blue); }
+    .pill.gray { background: #F3F4F6; color: var(--muted); }
+
+    .funnel-row {
+      display: flex; align-items: center; gap: 10px; padding: 6px 0;
+    }
+    .funnel-bar { background: var(--navy); height: 24px; border-radius: 3px; min-width: 4px; transition: width 0.4s; }
+    .funnel-label { width: 130px; font-size: 10pt; color: var(--text); }
+    .funnel-count { font-variant-numeric: tabular-nums; font-size: 10pt; font-weight: 600; }
+
+    .empty { text-align: center; padding: 30px; color: var(--muted); font-size: 10pt; }
+    .alert-stat { display: flex; gap: 14px; align-items: center; }
+    .alert-stat .big { font-family: Georgia, serif; font-size: 28pt; font-weight: bold; }
+    .alert-stat.crit .big { color: var(--red); }
+    .alert-stat.ok .big { color: var(--green); }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Metrics</div>
+    <div class="topbar-right">
+      <a class="back" href="/dashboard.html">← Dashboard</a>
+      <a class="back" href="/alerts.html">Alerts</a>
+      <span class="timestamp" id="timestamp"></span>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1>Alliance — daily metrics</h1>
+    <p style="color: var(--muted); margin: 0 0 18px;">Live numbers from production. Auto-refreshes every 5 minutes.</p>
+
+    <div class="hero" id="hero"></div>
+
+    <div class="row">
+      <div class="card">
+        <h2>Deal pipeline funnel</h2>
+        <div id="funnel"></div>
+      </div>
+      <div class="card">
+        <h2>Time to fund (by product)</h2>
+        <div id="ttf"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h2>Top agents by funded volume YTD</h2>
+        <div id="top-agents"></div>
+      </div>
+      <div class="card">
+        <h2>Top lenders by closed-deal count</h2>
+        <div id="top-lenders"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h2>Email pipeline (last 7 days)</h2>
+        <div id="email-health"></div>
+      </div>
+      <div class="card">
+        <h2>Vendor onboarding pipeline</h2>
+        <div id="vendor-pipeline"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Open alerts</h2>
+      <div id="alerts-summary"></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsImtpZCI6Ii9jZ1pZdjVQelcxc25aNGEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTI4NjMsImV4cCI6MjA2NzY4ODg2M30.h6HfzrHgQLA1rLkPOmqoDhg-67sgdHLBE7KW7WtJxK0';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const fmt = (n) => (n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+    const fmtMoney = (n) => '$' + fmt(n);
+    const fmtPct = (n) => (n == null ? '—' : (Math.round(n * 1000) / 10) + '%');
+    const TERMINAL_FUNDED = ['Funded'];
+    const TERMINAL_LOST = ['Declined', 'Withdrawn'];
+
+    async function checkAuth() {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) {
+        document.querySelector('.container').innerHTML = '<div class="empty">Please <a href="/dashboard.html">log in</a> to view metrics.</div>';
+        return false;
+      }
+      return true;
+    }
+
+    async function loadHero() {
+      const { data: deals } = await sb
+        .from('deals')
+        .select('status, amount_funded, deal_amount, created_at, origination_date')
+        .or('is_test.eq.false,is_test.is.null');
+
+      const ytdStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
+      const total = deals?.length || 0;
+      const funded = (deals || []).filter(d => TERMINAL_FUNDED.includes(d.status));
+      const fundedYtd = funded.filter(d => (d.origination_date ?? d.created_at) >= ytdStart);
+      const fundedYtdSum = fundedYtd.reduce((s, d) => s + (Number(d.amount_funded) || Number(d.deal_amount) || 0), 0);
+      const active = (deals || []).filter(d => !TERMINAL_FUNDED.includes(d.status) && !TERMINAL_LOST.includes(d.status)).length;
+      const closedTotal = funded.length + (deals || []).filter(d => TERMINAL_LOST.includes(d.status)).length;
+      const conv = closedTotal === 0 ? null : funded.length / closedTotal;
+
+      const ttfDays = funded
+        .map(d => {
+          const orig = d.origination_date ? new Date(d.origination_date) : null;
+          const created = d.created_at ? new Date(d.created_at) : null;
+          if (orig && created) return (orig - created) / 86400000;
+          return null;
+        })
+        .filter(x => x != null && x >= 0);
+      const avgTtf = ttfDays.length ? ttfDays.reduce((a,b)=>a+b,0) / ttfDays.length : null;
+
+      document.getElementById('hero').innerHTML = `
+        <div class="stat"><div class="num">${active}</div><div class="label">Active deals</div><div class="sub">${total} all-time</div></div>
+        <div class="stat"><div class="num">${fmtMoney(fundedYtdSum)}</div><div class="label">Funded YTD</div><div class="sub">${fundedYtd.length} deal${fundedYtd.length===1?'':'s'}</div></div>
+        <div class="stat"><div class="num">${fmtPct(conv)}</div><div class="label">Conversion (funded vs lost)</div><div class="sub">${closedTotal} closed deals</div></div>
+        <div class="stat"><div class="num">${avgTtf == null ? '—' : Math.round(avgTtf) + 'd'}</div><div class="label">Avg time to fund</div><div class="sub">created → origination</div></div>
+      `;
+    }
+
+    async function loadFunnel() {
+      const { data } = await sb
+        .from('deals')
+        .select('status')
+        .or('is_test.eq.false,is_test.is.null');
+      const counts = {};
+      (data || []).forEach(d => counts[d.status] = (counts[d.status] || 0) + 1);
+
+      const ORDER = ['Prospect','Info received','Application Sent','Quote sent','In Credit','Approved','Approval sent','In funding','Funded','Declined','Withdrawn'];
+      const ordered = ORDER.filter(s => counts[s]).map(s => ({ status: s, n: counts[s] }));
+      Object.keys(counts).filter(s => !ORDER.includes(s)).forEach(s => ordered.push({ status: s, n: counts[s] }));
+
+      const max = Math.max(...ordered.map(o => o.n), 1);
+      document.getElementById('funnel').innerHTML = ordered.map(o => `
+        <div class="funnel-row">
+          <div class="funnel-label">${o.status}</div>
+          <div class="funnel-bar" style="width: ${(o.n / max) * 60}%"></div>
+          <div class="funnel-count">${o.n}</div>
+        </div>
+      `).join('');
+    }
+
+    async function loadTtf() {
+      const { data } = await sb
+        .from('deals')
+        .select('product_type, created_at, origination_date, status')
+        .eq('status', 'Funded')
+        .or('is_test.eq.false,is_test.is.null');
+
+      const byProduct = {};
+      (data || []).forEach(d => {
+        if (!d.origination_date || !d.created_at) return;
+        const days = (new Date(d.origination_date) - new Date(d.created_at)) / 86400000;
+        if (days < 0) return;
+        const k = d.product_type || 'Unknown';
+        if (!byProduct[k]) byProduct[k] = [];
+        byProduct[k].push(days);
+      });
+
+      const rows = Object.entries(byProduct)
+        .map(([k, arr]) => ({ product: k, n: arr.length, avg: arr.reduce((a,b)=>a+b,0)/arr.length }))
+        .sort((a,b) => b.n - a.n);
+
+      if (rows.length === 0) {
+        document.getElementById('ttf').innerHTML = '<div class="empty">No funded deals yet with origination dates set.</div>';
+        return;
+      }
+      document.getElementById('ttf').innerHTML = `
+        <table>
+          <thead><tr><th>Product</th><th class="num">Funded #</th><th class="num">Avg days</th></tr></thead>
+          <tbody>${rows.map(r => `<tr><td>${r.product}</td><td class="num">${r.n}</td><td class="num">${Math.round(r.avg)}</td></tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    async function loadTopAgents() {
+      const { data } = await sb
+        .from('deals')
+        .select('source_agent_id, amount_funded, deal_amount, status, users:source_agent_id(full_name, company_name)')
+        .eq('status', 'Funded')
+        .or('is_test.eq.false,is_test.is.null');
+
+      const totals = {};
+      (data || []).forEach(d => {
+        const id = d.source_agent_id || 'unattributed';
+        const name = d.users?.full_name || (id === 'unattributed' ? 'Unattributed' : 'Unknown');
+        const amt = Number(d.amount_funded) || Number(d.deal_amount) || 0;
+        if (!totals[id]) totals[id] = { name, deals: 0, total: 0 };
+        totals[id].deals += 1;
+        totals[id].total += amt;
+      });
+      const rows = Object.values(totals).sort((a,b) => b.total - a.total).slice(0, 10);
+      if (rows.length === 0) {
+        document.getElementById('top-agents').innerHTML = '<div class="empty">No funded deals yet.</div>';
+        return;
+      }
+      document.getElementById('top-agents').innerHTML = `
+        <table>
+          <thead><tr><th>Agent</th><th class="num">Deals</th><th class="num">Funded</th></tr></thead>
+          <tbody>${rows.map(r => `<tr><td>${r.name}</td><td class="num">${r.deals}</td><td class="num">${fmtMoney(r.total)}</td></tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    async function loadTopLenders() {
+      const { data } = await sb
+        .from('lender_submissions')
+        .select('lender_id, status, lenders:lender_id(name)');
+
+      const totals = {};
+      (data || []).forEach(s => {
+        const name = s.lenders?.name || 'Unknown';
+        if (!totals[s.lender_id]) totals[s.lender_id] = { name, total: 0, funded: 0, declined: 0 };
+        totals[s.lender_id].total += 1;
+        if (['funded', 'approved', 'accepted'].includes((s.status || '').toLowerCase())) totals[s.lender_id].funded += 1;
+        if (['declined', 'rejected'].includes((s.status || '').toLowerCase())) totals[s.lender_id].declined += 1;
+      });
+      const rows = Object.values(totals).sort((a,b) => b.funded - a.funded || b.total - a.total).slice(0, 10);
+      if (rows.length === 0) {
+        document.getElementById('top-lenders').innerHTML = '<div class="empty">No lender submissions yet.</div>';
+        return;
+      }
+      document.getElementById('top-lenders').innerHTML = `
+        <table>
+          <thead><tr><th>Lender</th><th class="num">Subs</th><th class="num">Funded</th><th class="num">Declined</th></tr></thead>
+          <tbody>${rows.map(r => `<tr><td>${r.name}</td><td class="num">${r.total}</td><td class="num">${r.funded}</td><td class="num">${r.declined}</td></tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    async function loadEmailHealth() {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+      const { data } = await sb
+        .from('email_threads')
+        .select('id, is_active, created_at')
+        .gte('created_at', sevenDaysAgo);
+      const total = data?.length || 0;
+      const active = (data || []).filter(t => t.is_active).length;
+      const inactive = total - active;
+
+      const { data: alerts } = await sb
+        .from('alerts')
+        .select('id, severity')
+        .eq('source', 'email')
+        .gte('triggered_at', sevenDaysAgo);
+      const critEmail = (alerts || []).filter(a => a.severity === 'critical').length;
+      const warnEmail = (alerts || []).filter(a => a.severity === 'warn').length;
+
+      document.getElementById('email-health').innerHTML = `
+        <table>
+          <tr><td>Total threads (7d)</td><td class="num">${total}</td></tr>
+          <tr><td>Active</td><td class="num"><span class="pill green">${active}</span></td></tr>
+          <tr><td>Inactive (bounced/closed)</td><td class="num"><span class="pill ${inactive > 0 ? 'red' : 'gray'}">${inactive}</span></td></tr>
+          <tr><td>Email-failure alerts (7d, critical)</td><td class="num"><span class="pill ${critEmail > 0 ? 'red' : 'green'}">${critEmail}</span></td></tr>
+          <tr><td>Email-failure alerts (7d, warn)</td><td class="num"><span class="pill ${warnEmail > 0 ? 'orange' : 'green'}">${warnEmail}</span></td></tr>
+        </table>`;
+    }
+
+    async function loadVendorPipeline() {
+      const { data } = await sb.from('vendors').select('status');
+      const counts = {};
+      (data || []).forEach(v => counts[v.status || 'Unknown'] = (counts[v.status || 'Unknown'] || 0) + 1);
+      const rows = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+      document.getElementById('vendor-pipeline').innerHTML = `
+        <table>
+          <thead><tr><th>Status</th><th class="num">Vendors</th></tr></thead>
+          <tbody>${rows.map(([s, n]) => `<tr><td>${s}</td><td class="num">${n}</td></tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    async function loadAlertsSummary() {
+      const { data } = await sb.from('alerts').select('severity, source').is('resolved_at', null);
+      const total = data?.length || 0;
+      if (total === 0) {
+        document.getElementById('alerts-summary').innerHTML = '<div class="alert-stat ok"><div class="big">0</div><div>No open alerts. <a href="/alerts.html">View history →</a></div></div>';
+        return;
+      }
+      const crit = (data || []).filter(a => a.severity === 'critical').length;
+      const warn = (data || []).filter(a => a.severity === 'warn').length;
+      document.getElementById('alerts-summary').innerHTML = `
+        <div class="alert-stat ${crit > 0 ? 'crit' : ''}">
+          <div class="big">${total}</div>
+          <div>open alert${total === 1 ? '' : 's'} —
+            ${crit} critical, ${warn} warn.
+            <a href="/alerts.html">Triage →</a></div>
+        </div>`;
+    }
+
+    async function loadAll() {
+      await Promise.all([
+        loadHero(), loadFunnel(), loadTtf(),
+        loadTopAgents(), loadTopLenders(),
+        loadEmailHealth(), loadVendorPipeline(), loadAlertsSummary()
+      ]);
+      document.getElementById('timestamp').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    }
+
+    (async () => {
+      const ok = await checkAuth();
+      if (!ok) return;
+      await loadAll();
+      setInterval(loadAll, 5 * 60 * 1000);  // every 5 min
+    })();
+</script>
+</body>
+</html>

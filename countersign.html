@@ -111,9 +111,10 @@
   </div>
 
   <script>
+  (() => {
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsImtpZCI6Ii9jZ1pZdjVQelcxc25aNGEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTI4NjMsImV4cCI6MjA2NzY4ODg2M30.h6HfzrHgQLA1rLkPOmqoDhg-67sgdHLBE7KW7WtJxK0';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const params = new URLSearchParams(window.location.search);
     const docId = params.get('id');
@@ -141,7 +142,7 @@
       }
 
       // Auth check — must be logged in admin
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await sb.auth.getUser();
       if (!user) {
         loadingEl.style.display = 'none';
         setStatus('error', 'You must be logged in to the Alliance dashboard. <a href="/login.html">Log in</a>.');
@@ -150,7 +151,7 @@
       currentUser = user;
 
       // Pull profile to get full name and verify admin
-      const { data: prof } = await supabase
+      const { data: prof } = await sb
         .from('users')
         .select('id, full_name, role')
         .eq('auth_id', user.id)
@@ -165,7 +166,7 @@
       document.getElementById('alliance-signer-name').textContent = prof.full_name || 'Alliance Admin';
       signerNameEl.placeholder = prof.full_name || 'Your name';
 
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from('signing_documents')
         .select('id, status, signing_token, sent_to_name, sent_to_email, populated_html, counterparty_signed_at, alliance_signed_at, template_id, document_templates(template_name, template_type), filled_fields')
         .eq('id', docId)
@@ -220,7 +221,7 @@
       const signerName = signerNameEl.value.trim();
 
       // 1. Insert document_signatures row for alliance signature
-      const { error: sigErr } = await supabase
+      const { error: sigErr } = await sb
         .from('document_signatures')
         .insert({
           document_id: signingDoc.id,
@@ -241,7 +242,7 @@
       }
 
       // 2. Update signing_documents — fully_signed
-      const { error: updErr } = await supabase
+      const { error: updErr } = await sb
         .from('signing_documents')
         .update({
           status: 'fully_signed',
@@ -262,6 +263,7 @@
     });
 
     load();
-  </script>
+    })();
+</script>
 </body>
 </html>

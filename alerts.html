@@ -100,16 +100,16 @@
   <script>
     const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsImtpZCI6Ii9jZ1pZdjVQelcxc25aNGEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTI4NjMsImV4cCI6MjA2NzY4ODg2M30.h6HfzrHgQLA1rLkPOmqoDhg-67sgdHLBE7KW7WtJxK0';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentFilter = 'unresolved';
     let currentSource = '';
     let currentUserId = null;
 
     async function getMe() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await sb.auth.getUser();
       if (!user) return null;
-      const { data: prof } = await supabase.from('users').select('id, role').eq('auth_id', user.id).single();
+      const { data: prof } = await sb.from('users').select('id, role').eq('auth_id', user.id).single();
       if (prof && ['admin','super_admin'].includes(prof.role)) {
         currentUserId = prof.id;
         return prof;
@@ -118,7 +118,7 @@
     }
 
     async function loadStats() {
-      const { data: open } = await supabase.from('alerts').select('id, severity').is('resolved_at', null);
+      const { data: open } = await sb.from('alerts').select('id, severity').is('resolved_at', null);
       const counts = { critical: 0, warn: 0, info: 0 };
       (open || []).forEach(a => counts[a.severity] = (counts[a.severity] || 0) + 1);
       document.getElementById('stats').innerHTML = `
@@ -129,7 +129,7 @@
     }
 
     async function loadList() {
-      let q = supabase.from('alerts').select('*').order('triggered_at', { ascending: false }).limit(200);
+      let q = sb.from('alerts').select('*').order('triggered_at', { ascending: false }).limit(200);
       if (currentFilter === 'unresolved') q = q.is('resolved_at', null);
       if (currentFilter === 'critical') q = q.eq('severity', 'critical');
       if (currentSource) q = q.eq('source', currentSource);
@@ -172,7 +172,7 @@
     }
 
     window.resolve = async (id) => {
-      const { error } = await supabase.from('alerts')
+      const { error } = await sb.from('alerts')
         .update({ resolved_at: new Date().toISOString(), resolved_by: currentUserId })
         .eq('id', id);
       if (error) { alert('Could not resolve: ' + error.message); return; }
