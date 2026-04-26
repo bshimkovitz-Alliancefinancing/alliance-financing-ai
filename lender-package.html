@@ -239,6 +239,17 @@
             .toc { break-after: page; }
             section h2 { break-after: avoid; }
         }
+            /* Credit review section (Phase 2D) */
+        .cr-section { page-break-before: always; padding-top: 8px; }
+        .cr-section h2 { color: #1B3A5C; font-size: 18px; font-weight: 700; border-bottom: 2px solid #C5A55A; padding-bottom: 6px; margin: 0 0 14px; letter-spacing: 0.5px; text-transform: uppercase; }
+        .cr-subsection { margin-bottom: 16px; page-break-inside: avoid; }
+        .cr-subsection h3 { color: #1B3A5C; font-size: 13px; font-weight: 700; border-bottom: 1px solid #C5A55A; padding-bottom: 3px; margin-bottom: 8px; letter-spacing: 0.4px; text-transform: uppercase; }
+        .cr-subsection p { margin-bottom: 6px; line-height: 1.5; }
+        .cr-subsection ul { margin: 4px 0 4px 20px; }
+        .cr-subsection ul li { margin-bottom: 3px; }
+        .cr-subsection pre { white-space: pre-wrap; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; margin: 4px 0; padding: 8px 10px; background: #F5F5F5; border-left: 2px solid #E5E7EB; }
+        .cr-meta { font-size: 10px; color: #6B7280; margin-bottom: 14px; padding: 6px 10px; background: #F5F5F5; border-radius: 4px; }
+        .cr-empty { padding: 20px; background: #FFFBF4; border: 1px dashed #FBBF24; border-radius: 4px; color: #B45309; font-size: 12px; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -451,6 +462,70 @@
                 '</div>';
         }
 
+        async function fetchCreditReview(dealId) {
+            // Phase 2D — pull most recent credit review draft for this deal
+            const { data, error } = await sb.from('credit_review_drafts')
+                .select('id, ai_response, edited_response, model_version, input_tokens, output_tokens, cost_usd, created_at, status')
+                .eq('deal_id', dealId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            if (error) console.warn('Credit review lookup warning:', error.message);
+            return data || null;
+        }
+
+        function renderCreditReviewSection(draft) {
+            if (!draft) {
+                return '<div class="cr-section"><h2>Credit Review</h2><div class="cr-empty">No credit review drafted for this deal yet. <a href="/credit-review-draft.html" style="color:#1B3A5C;font-weight:600;">Open the AI Credit Review Draft tool</a> to generate one.</div></div>';
+            }
+            const resp = draft.edited_response || draft.ai_response || {};
+            if (resp._parse_error) {
+                return '<div class="cr-section"><h2>Credit Review</h2><div class="cr-empty">The current draft has an unparseable AI response. Please regenerate via <a href="/credit-review-draft.html" style="color:#1B3A5C;font-weight:600;">the credit review tool</a>.</div></div>';
+            }
+
+            // Canonical-7 lender-facing sections only (matches credit-review skill spec)
+            // Format: [key, label, fallbackKey] — fallback supports old-format drafts
+            const sections = [
+                ['executive_summary', 'Executive Summary'],
+                ['transaction_overview', 'Transaction Overview', 'transaction_structure'],
+                ['equipment_or_use_of_funds', 'Equipment / Use of Funds'],
+                ['company_overview', 'Company Overview', 'borrower_overview'],
+                ['financial_summary', 'Financial Summary (with Adjusted EBITDA Reconciliation)'],
+                ['audit_history', 'Audit History'],
+                ['existing_debt_summary', 'Existing Debt Summary'],
+                ['personal_guarantor_summary', 'Personal Guarantor'],
+                ['attachments', 'Attachments'],
+            ];
+
+            const renderSection = (key, label, fb) => {
+                const v = resp[key] !== undefined ? resp[key] : (fb ? resp[fb] : undefined);
+                if (v == null || (Array.isArray(v) && v.length === 0)) return '';
+                if (typeof v === 'string' && !v.trim()) return '';
+                let body;
+                if (Array.isArray(v)) {
+                    body = '<ul>' + v.map(item => '<li>' + esc(String(item)) + '</li>').join('') + '</ul>';
+                } else {
+                    const text = String(v).trim();
+                    const paras = text.split(/\n\n+/).map(p => {
+                        const hasIndent = /^\s{2,}/m.test(p) || p.includes('Net Income') || /Facility \d+:/i.test(p);
+                        if (hasIndent) return '<pre>' + esc(p) + '</pre>';
+                        return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>';
+                    }).join('');
+                    body = paras;
+                }
+                return '<div class="cr-subsection"><h3>' + esc(label) + '</h3>' + body + '</div>';
+            };
+
+            const draftDate = new Date(draft.created_at).toLocaleString();
+            const sectionHtml = sections.map(([k, l, fb]) => renderSection(k, l, fb)).join('');
+
+            return '<div class="cr-section">' +
+                '<h2>Credit Review</h2>' +
+                '<div class="cr-meta">Drafted ' + esc(draftDate) + ' · Status: ' + esc(draft.status) + ' · Model: ' + esc(draft.model_version || '') + '</div>' +
+                sectionHtml +
+                '</div>';
+        }
+
         async function loadPackage() {
             if (!dealId) {
                 renderDealPicker();
@@ -484,8 +559,12 @@
                     .order('created_at', { ascending: true });
                 if (sdErr) console.warn('Signing documents lookup warning: ' + sdErr.message);
 
+                // Phase 2D — pull credit review draft for this deal (if any)
+                const creditReviewDraft = await fetchCreditReview(dealId);
+
                 // Build the package HTML
                 let html = renderCoverPage(app, deal);
+                html += renderCreditReviewSection(creditReviewDraft);
                 html += renderApplicationSection(app, deal);
                 html += renderPGSection(signingDocs || []);
 
