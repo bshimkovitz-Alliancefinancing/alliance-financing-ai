@@ -266,16 +266,19 @@
       renderDraft(responseToShow, data);
     }
 
-    async function generateDraft() {
+    async function generateDraft(extraContext) {
       const dealId = $('deal-select').value;
       if (!dealId) return;
 
       $('draft-btn').disabled = true;
-      $('status-area').innerHTML = '<div class="loading"><div class="spinner"></div><span>Drafting credit review (typically 15-30 seconds)…</span></div>';
+      const ctxNote = extraContext ? ' (with extra context)' : '';
+      $('status-area').innerHTML = `<div class="loading"><div class="spinner"></div><span>Drafting credit review${ctxNote} (typically 15-40 seconds)…</span></div>`;
       $('draft-area').innerHTML = '';
 
       try {
         const { data: { session } } = await sb.auth.getSession();
+        const payload = { deal_id: dealId };
+        if (extraContext) payload.extra_context = extraContext;
         const resp = await fetch(`${SUPABASE_URL}/functions/v1/draft-credit-review`, {
           method: 'POST',
           headers: {
@@ -283,7 +286,7 @@
             'Content-Type': 'application/json',
             'apikey': SUPABASE_ANON_KEY,
           },
-          body: JSON.stringify({ deal_id: dealId }),
+          body: JSON.stringify(payload),
         });
         const result = await resp.json();
         if (!resp.ok) {
@@ -292,7 +295,8 @@
           return;
         }
 
-        $('status-area').innerHTML = `<div style="color: var(--green); font-size: 10pt;">✓ Draft generated · ${result.input_tokens}+${result.output_tokens} tokens · $${result.cost_usd.toFixed(4)}</div>`;
+        const ctxBadge = result.used_extra_context ? ' · <strong>used extra context</strong>' : '';
+        $('status-area').innerHTML = `<div style="color: var(--green); font-size: 10pt;">✓ Draft generated · ${result.input_tokens}+${result.output_tokens} tokens · $${result.cost_usd.toFixed(4)}${ctxBadge}</div>`;
 
         // Reload with full record
         await loadDraft(result.draft_id);
@@ -314,17 +318,25 @@
         return;
       }
 
+      // Canonical-7 sections per credit-review skill (Build D Phase 2B)
+      // Format: [key, label, icon, isFlag, fallbackKey]
       const sections = [
+        // LENDER-FACING (9)
         ['executive_summary', 'Executive summary', '◆', false],
-        ['borrower_overview', 'Borrower overview', '◆', false],
-        ['transaction_structure', 'Transaction structure', '◆', false],
-        ['financial_summary', 'Financial summary', '◆', false],
-        ['credit_strengths', 'Credit strengths', '✓', false],
-        ['risk_factors', 'Risk factors', '⚠', true],
-        ['mitigants', 'Mitigants', '◆', false],
+        ['transaction_overview', 'Transaction overview', '◆', false, 'transaction_structure'],
+        ['equipment_or_use_of_funds', 'Equipment / Use of funds', '◆', false],
+        ['company_overview', 'Company overview', '◆', false, 'borrower_overview'],
+        ['financial_summary', 'Financial summary (with Adjusted EBITDA Reconciliation)', '◆', false],
+        ['audit_history', 'Audit history', '◆', false],
+        ['existing_debt_summary', 'Existing debt summary', '◆', false],
         ['personal_guarantor_summary', 'Personal guarantor summary', '◆', false],
-        ['recommendation', 'Recommendation', '◆', false],
-        ['missing_information', 'Missing information — needed before lender submission', '!', true],
+        ['attachments', 'Attachments', '◆', false],
+        // INTERNAL ONLY (5)
+        ['credit_strengths', 'Credit strengths (internal)', '✓', false],
+        ['risk_factors', 'Risk factors (internal)', '⚠', true],
+        ['mitigants', 'Mitigants (internal)', '◆', false],
+        ['missing_information', 'Missing information — needed before lender submission (internal)', '!', true],
+        ['internal_routing_note', 'Internal routing note', '◆', false, 'recommendation'],
       ];
 
       const meta = `
@@ -337,8 +349,8 @@
         </div>
       `;
 
-      const sectionsHtml = sections.map(([key, label, icon, flag]) => {
-        const val = resp[key];
+      const sectionsHtml = sections.map(([key, label, icon, flag, fallbackKey]) => {
+        const val = resp[key] !== undefined ? resp[key] : (fallbackKey ? resp[fallbackKey] : undefined);
         if (val === undefined || val === null) return '';
         let body;
         if (Array.isArray(val)) {
@@ -358,20 +370,53 @@
         <div class="card">
           ${meta}
           ${sectionsHtml}
-          <div style="display: flex; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);">
+          <div style="display: flex; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); flex-wrap: wrap;">
             <button id="regen-btn" class="secondary">Regenerate from scratch</button>
+            <button id="regen-context-btn" class="secondary">Regenerate with extra context…</button>
             <button id="copy-btn" class="secondary">Copy to clipboard</button>
             <span style="flex: 1;"></span>
             <button id="export-btn">Export to PDF</button>
           </div>
+          <div id="extra-context-area" style="display: none; margin-top: 14px; padding: 14px; background: #FFFBF4; border: 1px solid #FFEDD5; border-radius: 6px;">
+            <label style="text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text); font-size: 11pt; margin-bottom: 8px;">Add authoritative context for this redraft</label>
+            <p style="font-size: 10pt; color: var(--muted); margin-bottom: 10px;">Paste anything the AI didn't have access to — recent financials, PG net worth numbers, equipment specs, BMO covenant details, audit opinion language, debt schedule, etc. The new draft will incorporate these as fact and remove resolved items from "Missing information."</p>
+            <textarea id="extra-context-input" placeholder="e.g.&#10;FY2024 financials (notice-to-reader, BDO):&#10;Revenue $4.2M, Net Income ($420K), D&amp;A $310K, Interest expense $85K&#10;Cash $180K, Working capital $90K, Total debt $1.1M (BMO operating line $750K, equipment loans $350K)&#10;PG: Kalai Kalaichelvan — total assets $2.4M, liquid $480K, total liabilities $1.1M, net worth $1.3M&#10;Equipment specs: 8x NVIDIA H100 SXM5 servers, 4x DGX H200 nodes, AltaAI integrator, on-site delivery wk 7" style="width: 100%; min-height: 160px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 10.5pt; line-height: 1.5;"></textarea>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <button id="submit-context-btn">Redraft with this context</button>
+              <button id="cancel-context-btn" class="secondary">Cancel</button>
+              <span style="flex: 1;"></span>
+              <span id="extra-context-charcount" style="font-size: 9pt; color: var(--muted); align-self: center;">0 chars</span>
+            </div>
+          </div>
         </div>
       `;
 
-      $('regen-btn').addEventListener('click', generateDraft);
+      $('regen-btn').addEventListener('click', () => generateDraft());
       $('copy-btn').addEventListener('click', () => copyDraft(resp));
       $('export-btn').addEventListener('click', () => {
         if (!currentDraft) return;
         window.open('/credit-review-pdf.html?draft_id=' + currentDraft.id, '_blank');
+      });
+      $('regen-context-btn').addEventListener('click', () => {
+        const area = $('extra-context-area');
+        area.style.display = area.style.display === 'none' ? 'block' : 'none';
+        if (area.style.display === 'block') {
+          $('extra-context-input').focus();
+        }
+      });
+      $('cancel-context-btn').addEventListener('click', () => {
+        $('extra-context-area').style.display = 'none';
+        $('extra-context-input').value = '';
+        $('extra-context-charcount').textContent = '0 chars';
+      });
+      $('submit-context-btn').addEventListener('click', () => {
+        const ctx = $('extra-context-input').value.trim();
+        if (!ctx) { alert('Please paste some context first, or click Cancel.'); return; }
+        generateDraft(ctx);
+        $('extra-context-area').style.display = 'none';
+      });
+      $('extra-context-input').addEventListener('input', (e) => {
+        $('extra-context-charcount').textContent = e.target.value.length.toLocaleString() + ' chars';
       });
 
       // Track edits
@@ -433,18 +478,22 @@
       const parts = [];
       const order = [
         ['executive_summary', 'EXECUTIVE SUMMARY'],
-        ['borrower_overview', 'BORROWER OVERVIEW'],
-        ['transaction_structure', 'TRANSACTION STRUCTURE'],
-        ['financial_summary', 'FINANCIAL SUMMARY'],
-        ['credit_strengths', 'CREDIT STRENGTHS'],
-        ['risk_factors', 'RISK FACTORS'],
-        ['mitigants', 'MITIGANTS'],
+        ['transaction_overview', 'TRANSACTION OVERVIEW', 'transaction_structure'],
+        ['equipment_or_use_of_funds', 'EQUIPMENT / USE OF FUNDS'],
+        ['company_overview', 'COMPANY OVERVIEW', 'borrower_overview'],
+        ['financial_summary', 'FINANCIAL SUMMARY (WITH ADJUSTED EBITDA RECONCILIATION)'],
+        ['audit_history', 'AUDIT HISTORY'],
+        ['existing_debt_summary', 'EXISTING DEBT SUMMARY'],
         ['personal_guarantor_summary', 'PERSONAL GUARANTOR'],
-        ['recommendation', 'RECOMMENDATION'],
-        ['missing_information', 'MISSING INFORMATION'],
+        ['attachments', 'ATTACHMENTS'],
+        ['credit_strengths', 'CREDIT STRENGTHS (INTERNAL)'],
+        ['risk_factors', 'RISK FACTORS (INTERNAL)'],
+        ['mitigants', 'MITIGANTS (INTERNAL)'],
+        ['missing_information', 'MISSING INFORMATION (INTERNAL)'],
+        ['internal_routing_note', 'INTERNAL ROUTING NOTE', 'recommendation'],
       ];
-      order.forEach(([k, label]) => {
-        const v = resp[k];
+      order.forEach(([k, label, fb]) => {
+        const v = resp[k] !== undefined ? resp[k] : (fb ? resp[fb] : undefined);
         if (v === undefined || v === null) return;
         parts.push(label);
         parts.push('—'.repeat(label.length));
