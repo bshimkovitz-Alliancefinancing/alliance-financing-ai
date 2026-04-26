@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vendor Onboarding — Alliance Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --navy: #0A1628; --gold: #C9A84C; --cream: #F7F5EF;
+      --border: #E5E7EB; --text: #1A1A1A; --muted: #6B7280;
+      --green: #047857; --red: #DC2626; --orange: #EA580C; --blue: #1E40AF;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           color: var(--text); background: var(--cream); line-height: 1.5; }
+    .topbar { background: var(--navy); color: #fff; padding: 14px 24px;
+              display: flex; align-items: center; justify-content: space-between; }
+    .brand { font-family: Georgia, serif; font-size: 14pt; font-weight: bold; }
+    a.back { color: #B8C4D6; text-decoration: none; font-size: 11pt; }
+    .container { max-width: 1400px; margin: 22px auto; padding: 0 16px 80px; }
+    h1 { font-family: Georgia, serif; margin: 8px 0 6px; color: var(--navy); }
+    .sub { color: var(--muted); margin: 0 0 24px; }
+
+    .funnel { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 22px; }
+    .funnel-stage {
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 16px; position: relative;
+    }
+    .funnel-stage .label {
+      font-size: 8.5pt; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.5px; font-weight: 600;
+    }
+    .funnel-stage .num {
+      font-family: Georgia, serif; font-size: 24pt; color: var(--navy);
+      font-weight: bold; line-height: 1; margin-top: 4px;
+    }
+    .funnel-stage .pct { font-size: 9pt; color: var(--muted); margin-top: 2px; }
+    .funnel-stage.crit .num { color: var(--red); }
+    .funnel-stage.warn .num { color: var(--orange); }
+    .funnel-stage.ok .num { color: var(--green); }
+
+    table { width: 100%; border-collapse: collapse; background: #fff;
+            border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 9pt;
+         text-transform: uppercase; letter-spacing: 0.5px;
+         background: #F9FAFB; border-bottom: 1px solid var(--border); font-weight: 600;
+         position: sticky; top: 0; z-index: 1; }
+    td { padding: 10px 12px; border-bottom: 1px solid #F3F4F6; font-size: 11pt; vertical-align: top; }
+    tr:hover td { background: #FAFAF8; }
+
+    .pill { display: inline-block; padding: 2px 9px; border-radius: 999px;
+            font-size: 9pt; font-weight: 600; white-space: nowrap; }
+    .pill.green { background: #DCFCE7; color: var(--green); }
+    .pill.orange { background: #FFEDD5; color: var(--orange); }
+    .pill.red { background: #FEE2E2; color: var(--red); }
+    .pill.blue { background: #DBEAFE; color: var(--blue); }
+    .pill.gray { background: #F3F4F6; color: var(--muted); }
+
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .actions a, .actions button {
+      font-size: 9.5pt; padding: 4px 10px; border: 1px solid var(--border);
+      border-radius: 4px; text-decoration: none; color: var(--navy);
+      background: #fff; cursor: pointer; font-family: inherit;
+    }
+    .actions a:hover, .actions button:hover { background: var(--cream); border-color: var(--navy); }
+    .actions .primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .actions .primary:hover { background: #15293F; }
+    .actions .gold { background: var(--gold); color: var(--navy); border-color: var(--gold); font-weight: 600; }
+    .actions .gold:hover { background: #B89548; }
+
+    .stage-bar {
+      display: inline-flex; gap: 2px; align-items: center;
+    }
+    .stage-bar .step {
+      width: 18px; height: 8px; border-radius: 1px; background: #E5E7EB;
+    }
+    .stage-bar .step.done { background: var(--green); }
+    .stage-bar .step.current { background: var(--gold); }
+    .stage-bar .step.stuck { background: var(--orange); }
+
+    .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+    .filters input, .filters select {
+      padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 11pt; background: #fff;
+    }
+
+    .empty { background: #fff; border: 1px dashed var(--border); border-radius: 8px;
+             padding: 60px; text-align: center; color: var(--muted); }
+    .loading { padding: 40px; text-align: center; color: var(--muted); }
+
+    .vendor-name { font-weight: 600; color: var(--navy); }
+    .vendor-meta { font-size: 9pt; color: var(--muted); margin-top: 2px; }
+    .contact { font-size: 10.5pt; }
+    .contact-email { font-size: 9pt; color: var(--muted); }
+
+    .toast {
+      position: fixed; bottom: 20px; right: 20px;
+      background: var(--navy); color: #fff; padding: 12px 18px;
+      border-radius: 6px; font-size: 11pt; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      display: none; z-index: 100;
+    }
+    .toast.show { display: block; }
+    .toast.error { background: var(--red); }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Vendor Onboarding</div>
+    <div style="display: flex; gap: 14px;">
+      <a class="back" href="/admin.html">← Admin Hub</a>
+      <a class="back" href="/dashboard.html">Dashboard</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1>Vendor program onboarding</h1>
+    <p class="sub">One-screen view of every vendor's funnel state. Each stage is actionable from here.</p>
+
+    <div class="funnel" id="funnel"></div>
+
+    <div class="filters">
+      <input id="search" placeholder="Search vendor or contact…" />
+      <select id="stage-filter">
+        <option value="">All stages</option>
+        <option value="lead">Lead — vendor record only</option>
+        <option value="app_sent">Vendor app sent — waiting on submission</option>
+        <option value="app_received">Vendor app submitted — waiting on review</option>
+        <option value="active_no_invite">Vendor Active — no admin invite</option>
+        <option value="invited_pending">Admin invited — pending activation</option>
+        <option value="activated_no_team">Activated — no team yet</option>
+        <option value="activated_with_team">Activated — has team</option>
+        <option value="has_deal">First deal received</option>
+      </select>
+      <select id="show-test">
+        <option value="hide">Hide test/inactive</option>
+        <option value="all">Show all</option>
+      </select>
+    </div>
+
+    <div id="result-area"><div class="loading">Loading vendor pipeline…</div></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+  (() => {
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let allRows = [];
+
+    function showToast(msg, isError) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show' + (isError ? ' error' : '');
+      setTimeout(() => t.className = 'toast', 3500);
+    }
+
+    function escHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function classifyStage(row) {
+      // Return funnel stage based on vendor + user state
+      const hasUser = row.admin_user_id != null;
+      const hasAuth = row.admin_has_auth;
+      const teamCount = row.team_count || 0;
+      const dealCount = row.deal_count || 0;
+      const vstatus = (row.vendor_status || '').toLowerCase();
+
+      if (dealCount > 0) return 'has_deal';
+      if (hasAuth && teamCount > 0) return 'activated_with_team';
+      if (hasAuth && teamCount === 0) return 'activated_no_team';
+      if (hasUser && !hasAuth) return 'invited_pending';
+      if (vstatus === 'active' && !hasUser) return 'active_no_invite';
+      if (vstatus === 'application sent' || vstatus === 'app_sent') return 'app_sent';
+      if (vstatus === 'application received' || vstatus === 'app_received') return 'app_received';
+      return 'lead';
+    }
+
+    function stageLabel(stage) {
+      const map = {
+        'lead': ['Lead', 'gray'],
+        'app_sent': ['App sent', 'orange'],
+        'app_received': ['App received', 'blue'],
+        'active_no_invite': ['Active — no invite', 'orange'],
+        'invited_pending': ['Invited — pending', 'orange'],
+        'activated_no_team': ['Activated — no team', 'blue'],
+        'activated_with_team': ['Activated + team', 'green'],
+        'has_deal': ['Has deal', 'green'],
+      };
+      return map[stage] || ['Unknown', 'gray'];
+    }
+
+    function stageBar(stage) {
+      const order = ['lead','app_sent','app_received','active_no_invite','invited_pending','activated_no_team','activated_with_team','has_deal'];
+      const reachedIdx = order.indexOf(stage);
+      // Compress to 5 visible steps: Lead → App → Active → Invited → Activated → Deal
+      const shortOrder = [
+        ['lead','app_sent','app_received'],
+        ['active_no_invite'],
+        ['invited_pending'],
+        ['activated_no_team'],
+        ['activated_with_team','has_deal'],
+      ];
+      let html = '<span class="stage-bar">';
+      shortOrder.forEach((group, i) => {
+        const groupReached = group.some(g => order.indexOf(g) <= reachedIdx);
+        const groupCurrent = group.includes(stage);
+        let cls = 'step';
+        if (groupCurrent) cls += stage.includes('pending') || stage === 'app_sent' || stage === 'active_no_invite' ? ' stuck' : ' current';
+        else if (groupReached) cls += ' done';
+        html += `<span class="${cls}"></span>`;
+      });
+      html += '</span>';
+      return html;
+    }
+
+    async function loadAll() {
+      // 1. Pull all vendors
+      const { data: vendors, error: vErr } = await sb.from('vendors')
+        .select('id, name, status, created_at')
+        .order('created_at', { ascending: false });
+      if (vErr) { showToast('Could not load vendors: ' + vErr.message, true); return; }
+
+      // 2. Pull all vendor_program users + their auth status
+      const { data: users } = await sb.from('users')
+        .select('id, full_name, email, vendor_id, agent_status, auth_id, invite_token, invite_token_expires_at, invite_accepted_at, invite_sent_at, parent_agent_id, referral_slug, agent_type')
+        .eq('agent_type', 'vendor_program');
+
+      // 3. Pull primary vendor_contact per vendor (first one if multiple)
+      const { data: contacts } = await sb.from('vendor_contacts')
+        .select('id, vendor_id, contact_name, email, role_title');
+
+      // 4. Pull deals tied to vendors
+      const { data: deals } = await sb.from('deals')
+        .select('id, source_vendor_id, status')
+        .or('is_archived.is.null,is_archived.eq.false');
+
+      // 5. Pull users (any role) where parent_agent_id matches a vendor admin (for team_count)
+      const userIds = (users || []).map(u => u.id);
+      let teamMembers = [];
+      if (userIds.length > 0) {
+        const { data: tm } = await sb.from('users')
+          .select('id, parent_agent_id, agent_status, auth_id')
+          .in('parent_agent_id', userIds);
+        teamMembers = tm || [];
+      }
+
+      // 6. Combine into rows
+      allRows = (vendors || []).map(v => {
+        const adminUser = (users || []).find(u => u.vendor_id === v.id);
+        const primaryContact = (contacts || []).find(c => c.vendor_id === v.id);
+        const vendorDeals = (deals || []).filter(d => d.source_vendor_id === v.id);
+        const team = adminUser ? teamMembers.filter(t => t.parent_agent_id === adminUser.id) : [];
+        const activatedTeam = team.filter(t => t.auth_id != null);
+
+        return {
+          vendor_id: v.id,
+          vendor_name: v.name || '(no name)',
+          vendor_status: v.status,
+          vendor_created: v.created_at,
+          contact_name: adminUser?.full_name || primaryContact?.contact_name || '',
+          contact_email: adminUser?.email || primaryContact?.email || '',
+          admin_user_id: adminUser?.id || null,
+          admin_has_auth: adminUser?.auth_id != null,
+          admin_invite_token: adminUser?.invite_token || null,
+          admin_invite_expires: adminUser?.invite_token_expires_at || null,
+          admin_agent_status: adminUser?.agent_status || null,
+          admin_invite_sent_at: adminUser?.invite_sent_at || null,
+          admin_referral_slug: adminUser?.referral_slug || null,
+          team_count: team.length,
+          team_activated_count: activatedTeam.length,
+          deal_count: vendorDeals.length,
+        };
+      });
+
+      renderFunnel();
+      render();
+    }
+
+    function renderFunnel() {
+      const counts = {
+        total: allRows.length,
+        lead: 0, app_sent: 0, app_received: 0,
+        active_no_invite: 0, invited_pending: 0,
+        activated_no_team: 0, activated_with_team: 0,
+        has_deal: 0,
+      };
+      allRows.forEach(r => { counts[classifyStage(r)] = (counts[classifyStage(r)]||0) + 1; });
+
+      const stages = [
+        ['Total vendors', counts.total, '', ''],
+        ['Lead / App sent', counts.lead + counts.app_sent + counts.app_received, 'orange', 'warn'],
+        ['Active — no admin invite', counts.active_no_invite, 'red', 'crit'],
+        ['Invited — not activated', counts.invited_pending, 'orange', 'warn'],
+        ['Activated — no team', counts.activated_no_team, 'blue', ''],
+        ['Activated + team / deal', counts.activated_with_team + counts.has_deal, 'green', 'ok'],
+      ];
+
+      const total = counts.total || 1;
+      document.getElementById('funnel').innerHTML = stages.map(([label, n, _color, mod]) => `
+        <div class="funnel-stage ${mod}">
+          <div class="label">${escHtml(label)}</div>
+          <div class="num">${n}</div>
+          <div class="pct">${Math.round((n / total) * 100)}% of total</div>
+        </div>
+      `).join('');
+    }
+
+    function render() {
+      const search = document.getElementById('search').value.trim().toLowerCase();
+      const stageFilter = document.getElementById('stage-filter').value;
+      const showTest = document.getElementById('show-test').value;
+
+      let rows = allRows.slice();
+      if (showTest === 'hide') {
+        rows = rows.filter(r => !/test|sample|demo/i.test(r.vendor_name));
+      }
+      if (search) {
+        rows = rows.filter(r =>
+          r.vendor_name.toLowerCase().includes(search) ||
+          (r.contact_name||'').toLowerCase().includes(search) ||
+          (r.contact_email||'').toLowerCase().includes(search)
+        );
+      }
+      if (stageFilter) {
+        rows = rows.filter(r => classifyStage(r) === stageFilter);
+      }
+      // Sort: vendors with action needed (red/orange) first, then by activity
+      rows.sort((a, b) => {
+        const sa = classifyStage(a), sb = classifyStage(b);
+        const priority = { 'has_deal': 7, 'activated_with_team': 6, 'activated_no_team': 5, 'invited_pending': 4, 'active_no_invite': 3, 'app_received': 2, 'app_sent': 1, 'lead': 0 };
+        return (priority[sb]||0) - (priority[sa]||0);
+      });
+
+      if (rows.length === 0) {
+        document.getElementById('result-area').innerHTML = '<div class="empty">No vendors match these filters.</div>';
+        return;
+      }
+
+      document.getElementById('result-area').innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 22%;">Vendor</th>
+              <th style="width: 18%;">Primary contact</th>
+              <th style="width: 16%;">Stage</th>
+              <th style="width: 14%;">Progress</th>
+              <th style="width: 10%;">Team / Deals</th>
+              <th style="width: 20%;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => {
+              const stage = classifyStage(r);
+              const [stageLabelText, stageColor] = stageLabel(stage);
+              return `
+                <tr data-vendor-id="${r.vendor_id}">
+                  <td>
+                    <div class="vendor-name">${escHtml(r.vendor_name)}</div>
+                    <div class="vendor-meta">${escHtml(r.vendor_status || '—')} · created ${new Date(r.vendor_created).toLocaleDateString()}</div>
+                  </td>
+                  <td>
+                    <div class="contact">${escHtml(r.contact_name || '—')}</div>
+                    <div class="contact-email">${escHtml(r.contact_email || '—')}</div>
+                  </td>
+                  <td><span class="pill ${stageColor}">${escHtml(stageLabelText)}</span></td>
+                  <td>${stageBar(stage)}</td>
+                  <td>
+                    <div style="font-size: 10pt;">${r.team_activated_count}/${r.team_count} team</div>
+                    <div style="font-size: 9pt; color: var(--muted);">${r.deal_count} deal${r.deal_count===1?'':'s'}</div>
+                  </td>
+                  <td>${actionsFor(r)}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+        <div style="margin-top: 14px; font-size: 10pt; color: var(--muted);">${rows.length} vendor${rows.length===1?'':'s'}</div>
+      `;
+
+      // Wire actions
+      document.querySelectorAll('.act-resend').forEach(b =>
+        b.addEventListener('click', () => resendInvite(b.dataset.userId, b.dataset.email, b.dataset.vendor)));
+      document.querySelectorAll('.act-copy-link').forEach(b =>
+        b.addEventListener('click', () => copyActivationLink(b.dataset.token, b.dataset.vendor)));
+      document.querySelectorAll('.act-copy-referral').forEach(b =>
+        b.addEventListener('click', () => copyReferralUrl(b.dataset.vendorId, b.dataset.vendor)));
+    }
+
+    function actionsFor(r) {
+      const parts = [];
+      if (r.admin_invite_token && !r.admin_has_auth) {
+        parts.push(`<button class="primary act-resend" data-user-id="${r.admin_user_id}" data-email="${escHtml(r.contact_email)}" data-vendor="${escHtml(r.vendor_name)}">Resend invite</button>`);
+        parts.push(`<button class="act-copy-link" data-token="${r.admin_invite_token}" data-vendor="${escHtml(r.vendor_name)}">Copy link</button>`);
+      } else if (!r.admin_user_id) {
+        parts.push(`<a class="gold" href="/dashboard.html#vendors">Set up admin</a>`);
+      }
+      parts.push(`<button class="act-copy-referral" data-vendor-id="${r.vendor_id}" data-vendor="${escHtml(r.vendor_name)}">Copy referral URL</button>`);
+      if (r.deal_count > 0) {
+        parts.push(`<a href="/dashboard.html#deals">View deals</a>`);
+      }
+      return `<div class="actions">${parts.join('')}</div>`;
+    }
+
+    function copyActivationLink(token, vendorName) {
+      const url = `${window.location.origin}/agent-activate.html?token=${token}`;
+      navigator.clipboard.writeText(url).then(() => showToast('Activation link copied for ' + vendorName));
+    }
+    function copyReferralUrl(vendorId, vendorName) {
+      const url = `${window.location.origin}/apply?ref=vendor-${vendorId}`;
+      navigator.clipboard.writeText(url).then(() => showToast('Public referral URL copied for ' + vendorName));
+    }
+
+    async function resendInvite(userId, email, vendorName) {
+      if (!confirm(`Resend Alliance vendor portal invite to ${email}?\n\nThis sends a polished welcome email with the direct activation link.`)) return;
+
+      // Refresh token expiry first
+      const { error: updErr } = await sb.from('users')
+        .update({ invite_sent_at: new Date().toISOString(), invite_token_expires_at: new Date(Date.now() + 14*86400*1000).toISOString() })
+        .eq('id', userId);
+      if (updErr) { showToast('DB update failed: ' + updErr.message, true); return; }
+
+      // Refetch fresh token
+      const { data: u } = await sb.from('users').select('invite_token, full_name').eq('id', userId).single();
+      if (!u || !u.invite_token) { showToast('No invite token on user', true); return; }
+
+      const activationUrl = `${window.location.origin}/agent-activate.html?token=${u.invite_token}`;
+      const firstName = (u.full_name || '').split(' ')[0] || 'there';
+
+      const html = `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#1E293B;">
+          <p style="font-size:15px;line-height:1.7;">Hi ${firstName},</p>
+          <p style="font-size:15px;line-height:1.7;">Following up on getting <strong>${vendorName}</strong> fully set up in our vendor program. Here's your direct activation link:</p>
+          <p style="text-align:center;margin:24px 0;"><a href="${activationUrl}" style="background:#0D1E3D;color:#C9A84C;padding:14px 32px;text-decoration:none;border-radius:4px;font-weight:700;font-size:15px;display:inline-block;">Activate vendor portal</a></p>
+          <p style="font-size:15px;line-height:1.7;">Click once, set a password, and you'll be in the ${vendorName} Vendor Program Portal. From there you can:</p>
+          <ol style="font-size:15px;line-height:1.7;">
+            <li>See every deal you've sent us — status, amount, credit decisions, commissions</li>
+            <li>Invite your salespeople — each gets their own referral link tied to ${vendorName}</li>
+            <li>Submit new deals, request quotes, track signed agreements</li>
+          </ol>
+          <p style="font-size:14px;color:#64748B;">The link is valid for 14 days. Hit reply if anything's off — happy to also do a 15-min walkthrough call.</p>
+          <p style="margin-top:24px;font-size:15px;">Best,<br><strong>Bernie Shimkovitz</strong><br>Director, Alliance Financing Group Ltd<br><span style="color:#64748B;font-size:13px;">905-660-3660 ext. 225 · bernie@alliancefinancing.com</span></p>
+        </div>`;
+
+      const text = `Hi ${firstName},\n\nFollowing up on getting ${vendorName} fully set up in our vendor program. Here's your direct activation link:\n\n${activationUrl}\n\nClick once, set a password, and you'll be in the ${vendorName} Vendor Program Portal where you can see your deals, invite your salespeople, and track commissions.\n\nThe link is valid for 14 days.\n\nBest,\nBernie Shimkovitz\nDirector, Alliance Financing Group Ltd\n905-660-3660 ext. 225 · bernie@alliancefinancing.com`;
+
+      try {
+        const resp = await fetch(SUPABASE_URL + '/functions/v1/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: email,
+            subject: `Your ${vendorName} vendor portal access — Alliance Financing`,
+            from: 'Bernie Shimkovitz <bernie@alliancefinancing.com>',
+            reply_to: 'bernie@alliancefinancing.com',
+            html, text
+          })
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.success) throw new Error(result.error || 'Send failed');
+        showToast('✓ Invite resent to ' + email);
+      } catch (err) {
+        showToast('❌ Send failed: ' + err.message, true);
+      }
+    }
+
+    document.getElementById('search').addEventListener('input', render);
+    document.getElementById('stage-filter').addEventListener('change', render);
+    document.getElementById('show-test').addEventListener('change', render);
+
+    loadAll();
+  })();
+  </script>
+</body>
+</html>
