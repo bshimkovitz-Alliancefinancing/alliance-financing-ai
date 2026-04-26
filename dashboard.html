@@ -38101,6 +38101,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     async function sendContactResponse(contactId, recipientEmail, recipientName) {
+        // Defensive version (Apr 26, 2026 patch) — guards against silent send failures.
         const messageText = document.getElementById('responseMessageText').value.trim();
         if (!messageText) {
             alert('Please type a response message.');
@@ -38111,32 +38112,39 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         sendBtn.disabled = true;
         sendBtn.textContent = 'Sending...';
 
-        try {
-            // Build clean HTML email (no banner header)
-            const htmlBody = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px 0; color: #1E293B;">
-                    <div style="padding: 0 25px;">
-                        <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px 0;">Hi ${recipientName || 'there'},</p>
-                        <div style="font-size: 15px; line-height: 1.7; margin: 0 0 16px 0; white-space: pre-wrap;">${messageText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-                        <p style="font-size: 15px; line-height: 1.7; margin: 24px 0 0 0;">Best regards,</p>
-                        <p style="font-size: 15px; line-height: 1.7; margin: 0; font-weight: 600; color: #0D1E3D;">Alliance Financing Group</p>
-                        <p style="font-size: 13px; color: #64748B; margin: 4px 0 0 0;">1-877-660-3660 ext. 222 | info@alliancefinancing.com</p>
-                    </div>
-                    <div style="padding: 12px 25px; text-align: center; font-size: 11px; color: #94A3B8; border-top: 1px solid #f0f0f0; margin-top: 10px;">
-                        Alliance Financing Group Ltd. | <a href="https://www.alliancefinancing.com" style="color: #C9A84C;">alliancefinancing.com</a>
-                        <br>You can reply directly to this email.
-                    </div>
+        const htmlBody = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px 0; color: #1E293B;">
+                <div style="padding: 0 25px;">
+                    <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px 0;">Hi ${recipientName || 'there'},</p>
+                    <div style="font-size: 15px; line-height: 1.7; margin: 0 0 16px 0; white-space: pre-wrap;">${messageText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                    <p style="font-size: 15px; line-height: 1.7; margin: 24px 0 0 0;">Best regards,</p>
+                    <p style="font-size: 15px; line-height: 1.7; margin: 0; font-weight: 600; color: #0D1E3D;">Alliance Financing Group</p>
+                    <p style="font-size: 13px; color: #64748B; margin: 4px 0 0 0;">1-877-660-3660 ext. 222 | info@alliancefinancing.com</p>
                 </div>
-            `;
+                <div style="padding: 12px 25px; text-align: center; font-size: 11px; color: #94A3B8; border-top: 1px solid #f0f0f0; margin-top: 10px;">
+                    Alliance Financing Group Ltd. | <a href="https://www.alliancefinancing.com" style="color: #C9A84C;">alliancefinancing.com</a>
+                    <br>You can reply directly to this email.
+                </div>
+            </div>
+        `;
+        const textBody = `Hi ${recipientName || 'there'},\n\n${messageText}\n\nBest regards,\nAlliance Financing Group\n1-877-660-3660 ext. 222 | info@alliancefinancing.com`;
 
-            const textBody = `Hi ${recipientName || 'there'},\n\n${messageText}\n\nBest regards,\nAlliance Financing Group\n1-877-660-3660 ext. 222 | info@alliancefinancing.com`;
+        let emailSucceeded = false;
+        let failureDetail = null;
 
-            // Send via Resend edge function with reply-to address
-            const EMAIL_FUNCTION_URL = SUPABASE_URL + '/functions/v1/send-email';
-            const response = await fetch(EMAIL_FUNCTION_URL, {
+        try {
+            // Use user session token if available (more reliable than bare anon key)
+            let authToken = SUPABASE_ANON_KEY;
+            try {
+                const { data: { session } } = await db.auth.getSession();
+                if (session && session.access_token) authToken = session.access_token;
+            } catch (sessErr) { console.warn('No session token, using anon:', sessErr); }
+
+            const response = await fetch(SUPABASE_URL + '/functions/v1/send-email', {
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                    'Authorization': 'Bearer ' + authToken,
+                    'apikey': SUPABASE_ANON_KEY,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -38149,41 +38157,63 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 })
             });
 
-            if (!response.ok) {
-                const errData = await response.json().catch(function() { return { message: response.statusText }; });
-                throw new Error(errData.error || errData.message || 'Email send failed');
+            const respText = await response.text();
+            let respJson = null;
+            try { respJson = JSON.parse(respText); } catch (e) {}
+
+            // STRICT success: HTTP 200 AND body.success === true
+            if (!response.ok || !respJson || respJson.success !== true) {
+                failureDetail = 'HTTP ' + response.status + ': ' + (respJson?.error || respJson?.message || respText || 'Unknown error');
+                throw new Error(failureDetail);
             }
 
-            // Log the response as a note
+            emailSucceeded = true;
+        } catch (error) {
+            console.error('Send response error:', error);
+            failureDetail = failureDetail || error.message || 'Unknown error';
+        }
+
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const userEmail = (document.getElementById('userEmailDisplay') || {}).textContent || 'unknown';
+
+        try {
             const { data: contact } = await db.from('contact_submissions').select('admin_notes').eq('id', contactId).single();
             let notes = [];
             try { notes = contact.admin_notes ? JSON.parse(contact.admin_notes) : []; } catch(e) { notes = []; }
-            const now = new Date();
-            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            const userEmail = document.getElementById('userEmailDisplay').textContent;
-            notes.push({
-                text: 'Response sent via email: "' + (messageText.length > 80 ? messageText.substring(0, 80) + '...' : messageText) + '"',
-                author: userEmail,
-                date: dateStr
-            });
 
-            // Update status to Responded and save note
-            await db.from('contact_submissions')
-                .update({ status: 'Responded', admin_notes: JSON.stringify(notes) })
-                .eq('id', contactId);
+            if (emailSucceeded) {
+                notes.push({
+                    text: 'Response sent via email: "' + (messageText.length > 80 ? messageText.substring(0, 80) + '...' : messageText) + '"',
+                    author: userEmail,
+                    date: dateStr
+                });
+                await db.from('contact_submissions')
+                    .update({ status: 'Responded', admin_notes: JSON.stringify(notes) })
+                    .eq('id', contactId);
+                showNotification('Response sent to ' + recipientEmail, 'success');
+            } else {
+                // LOUD failure: write FAILURE note for audit trail, do NOT change status
+                notes.push({
+                    text: '⚠ EMAIL SEND FAILED — recipient did NOT receive: "' + (messageText.length > 60 ? messageText.substring(0, 60) + '...' : messageText) + '" — error: ' + failureDetail,
+                    author: userEmail,
+                    date: dateStr
+                });
+                await db.from('contact_submissions')
+                    .update({ admin_notes: JSON.stringify(notes) })
+                    .eq('id', contactId);
+                alert('❌ EMAIL DID NOT SEND\n\n' + failureDetail + '\n\nThe recipient has NOT received your reply.\nA failure note has been logged.\nPlease retry, or send manually from Outlook.');
+            }
 
-            showNotification('Response sent to ' + recipientEmail, 'success');
-
-            // Refresh the modal to show updated notes and status
             await viewContact(contactId);
             await loadContacts();
-        } catch (error) {
-            console.error('Send response error:', error);
-            alert('Error sending response: ' + error.message);
-        } finally {
-            sendBtn.disabled = false;
-            sendBtn.textContent = 'Send Response';
+        } catch (logErr) {
+            console.error('Could not log send result:', logErr);
+            if (!emailSucceeded) alert('❌ EMAIL DID NOT SEND: ' + failureDetail + '\n\n(Also could not log to DB: ' + (logErr.message || logErr) + ')');
         }
+
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send Response';
     }
 
     async function updateContactStatus(contactId, newStatus) {
