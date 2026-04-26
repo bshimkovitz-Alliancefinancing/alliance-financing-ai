@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Credit Review — Alliance Financing Group</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* Alliance brand colors per credit-review skill */
+    :root {
+      --navy: #1B3A5C;
+      --gold: #C5A55A;
+      --dark-gray: #333333;
+      --light-gray: #F5F5F5;
+      --border: #E5E7EB;
+      --muted: #6B7280;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: var(--dark-gray);
+      background: #fff;
+      line-height: 1.55;
+      font-size: 11pt;
+    }
+
+    /* Toolbar (hidden on print) */
+    .toolbar {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--navy); color: #fff;
+      padding: 12px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .toolbar h1 { font-size: 14pt; font-weight: 600; color: var(--gold); }
+    .toolbar a, .toolbar button {
+      color: #fff; background: transparent; border: 1px solid #B8C4D6;
+      padding: 8px 16px; border-radius: 4px; text-decoration: none;
+      font-size: 11pt; cursor: pointer; margin-left: 8px;
+    }
+    .toolbar button.primary { background: var(--gold); color: var(--navy); border-color: var(--gold); font-weight: 700; }
+    .toolbar button.primary:hover { background: #B89548; }
+    .toolbar a:hover, .toolbar button:hover { background: #15293F; }
+
+    /* Page layout */
+    .page {
+      max-width: 8.5in;
+      margin: 0 auto;
+      padding: 0.75in 0.85in;
+      background: #fff;
+      min-height: 11in;
+    }
+
+    /* Header — first page only */
+    .doc-header {
+      border-bottom: 3px solid var(--navy);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .doc-header .org {
+      color: var(--navy);
+      font-size: 22pt;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .doc-header .tagline {
+      color: var(--gold);
+      font-size: 12pt;
+      font-weight: 600;
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+    .doc-header .meta {
+      color: var(--muted);
+      font-size: 10pt;
+      margin-top: 6px;
+    }
+
+    /* Cover block */
+    .cover {
+      background: var(--light-gray);
+      padding: 20px 24px;
+      border-left: 4px solid var(--gold);
+      margin-bottom: 26px;
+    }
+    .cover .deal-name {
+      font-size: 18pt; color: var(--navy); font-weight: 700; margin-bottom: 4px;
+    }
+    .cover .product {
+      font-size: 11pt; color: var(--muted); margin-bottom: 10px;
+    }
+    .cover .ask {
+      font-size: 14pt; color: var(--dark-gray);
+    }
+    .cover .ask strong { color: var(--navy); }
+
+    /* Sections */
+    .section {
+      margin-bottom: 22px;
+      page-break-inside: avoid;
+    }
+    .section h2 {
+      color: var(--navy);
+      font-size: 13pt;
+      font-weight: 700;
+      border-bottom: 1px solid var(--gold);
+      padding-bottom: 4px;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .section p { margin-bottom: 8px; }
+    .section ul { padding-left: 22px; margin: 6px 0; }
+    .section ul li { margin-bottom: 4px; }
+
+    /* Internal-only sections (rendered with a marker, but available in PDF — admin's choice) */
+    .section.internal-flag {
+      border-left: 3px solid #FFEDD5;
+      padding-left: 12px;
+      background: #FFFBF4;
+    }
+    .section.internal-flag h2 {
+      color: #B45309;
+      border-bottom-color: #FBBF24;
+    }
+    .section.internal-flag h2::before {
+      content: "✱ INTERNAL — ";
+      font-size: 9pt;
+      letter-spacing: 1px;
+    }
+
+    /* Footer (every page on print) */
+    .doc-footer {
+      margin-top: 40px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-size: 9pt;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* Loading + error states */
+    .status-card {
+      background: var(--light-gray);
+      padding: 60px 40px;
+      text-align: center;
+      border-radius: 6px;
+      color: var(--muted);
+    }
+    .status-card.error { color: #B91C1C; background: #FEF2F2; }
+
+    /* Internal toggle in toolbar */
+    .toolbar label {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: #B8C4D6; font-size: 10pt; margin-right: 8px;
+    }
+    .toolbar label input { margin-right: 4px; }
+
+    /* Print rules */
+    @media print {
+      .toolbar { display: none !important; }
+      body { font-size: 10.5pt; }
+      .page { padding: 0; max-width: none; min-height: 0; }
+      .section { page-break-inside: avoid; }
+      .section h2 { page-break-after: avoid; }
+      .doc-header { page-break-after: avoid; }
+      .internal-only-hidden { display: none !important; }
+      @page {
+        margin: 0.75in 0.85in;
+        @bottom-center { content: "Alliance Financing Group Ltd. — Confidential Credit Review"; font-size: 9pt; color: #666; }
+        @bottom-right { content: counter(page); font-size: 9pt; color: #666; }
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>Alliance Credit Review</h1>
+    <div>
+      <label><input type="checkbox" id="hide-internal" checked /> Hide internal sections from PDF</label>
+      <a href="/credit-review-draft.html" id="back-link">← Back to draft</a>
+      <button class="primary" id="print-btn">Print / Save as PDF</button>
+    </div>
+  </div>
+
+  <div class="page" id="page-root">
+    <div class="status-card">Loading credit review…</div>
+  </div>
+
+  <script>
+  (() => {
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const draftId = urlParams.get('draft_id');
+
+    function escHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function renderError(msg) {
+      document.getElementById('page-root').innerHTML =
+        `<div class="status-card error"><strong>Couldn't load credit review</strong><br><br>${escHtml(msg)}</div>`;
+    }
+
+    // Section grouping per credit-review skill conventions
+    // LENDER-FACING (always in PDF)
+    const LENDER_SECTIONS = [
+      ['executive_summary', 'Executive Summary'],
+      ['borrower_overview', 'Company Overview'],
+      ['transaction_structure', 'Transaction Overview'],
+      ['financial_summary', 'Financial Summary'],
+      ['credit_strengths', 'Credit Strengths'],
+      ['personal_guarantor_summary', 'Personal Guarantor'],
+    ];
+    // INTERNAL — hidden from PDF by default (analyst notes)
+    const INTERNAL_SECTIONS = [
+      ['risk_factors', 'Risk Factors'],
+      ['mitigants', 'Mitigants'],
+      ['recommendation', 'Internal Recommendation'],
+      ['missing_information', 'Missing Information — needed before lender submission'],
+    ];
+
+    function renderSection(key, label, value, isInternal) {
+      if (value == null) return '';
+      let body;
+      if (Array.isArray(value)) {
+        if (value.length === 0) return '';
+        body = `<ul>${value.map(item => `<li>${escHtml(String(item))}</li>`).join('')}</ul>`;
+      } else {
+        const text = String(value).trim();
+        if (!text) return '';
+        // Preserve paragraph breaks
+        const paragraphs = text.split(/\n\n+/).map(p => `<p>${escHtml(p).replace(/\n/g, '<br>')}</p>`).join('');
+        body = paragraphs;
+      }
+      const cls = isInternal ? 'section internal-flag internal-only-hidden' : 'section';
+      return `<div class="${cls}" data-section="${key}"><h2>${escHtml(label)}</h2>${body}</div>`;
+    }
+
+    async function load() {
+      if (!draftId) {
+        renderError('Missing draft_id URL parameter. Use ?draft_id=<uuid>. Open this page from credit-review-draft.html via the "Export to PDF" button.');
+        return;
+      }
+
+      // Auth check (admin only)
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) { renderError('Please log in via /dashboard.html first.'); return; }
+      const { data: prof } = await sb.from('users').select('id, role').eq('auth_id', user.id).maybeSingle();
+      if (!prof || !['super_admin','admin'].includes(prof.role)) { renderError('Admin access required.'); return; }
+
+      // Load draft
+      const { data: draft, error: draftErr } = await sb.from('credit_review_drafts').select('*').eq('id', draftId).single();
+      if (draftErr || !draft) { renderError('Draft not found: ' + (draftErr?.message || 'unknown')); return; }
+
+      // Load deal for cover block
+      const { data: deal } = await sb.from('deals').select('id, deal_number, company_name, product_type, deal_amount, amount_requested, currency, source_agent_id, date_submitted').eq('id', draft.deal_id).maybeSingle();
+      let agentName = '';
+      if (deal?.source_agent_id) {
+        const { data: agent } = await sb.from('users').select('full_name, company_name').eq('id', deal.source_agent_id).maybeSingle();
+        if (agent) agentName = agent.full_name + (agent.company_name ? ' / ' + agent.company_name : '');
+      }
+
+      // Use edited_response if present, else ai_response
+      const resp = draft.edited_response || draft.ai_response || {};
+      if (resp._parse_error) { renderError('This draft has an unparseable AI response. Open in the editor and regenerate.'); return; }
+
+      const today = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+      const askAmount = deal?.amount_requested ?? deal?.deal_amount;
+      const askDisplay = askAmount ? '$' + Number(askAmount).toLocaleString() + ' ' + (deal?.currency || 'CAD') : '—';
+
+      // Set page title for PDF filename
+      const companyName = deal?.company_name || 'Credit Review';
+      document.title = `${companyName} — Credit Review — ${new Date().toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}`;
+
+      // Update back link to return to the draft editor for this deal
+      if (draft.deal_id) {
+        document.getElementById('back-link').href = `/credit-review-draft.html?deal_id=${draft.deal_id}`;
+      }
+
+      const lenderHtml = LENDER_SECTIONS.map(([k, l]) => renderSection(k, l, resp[k], false)).join('');
+      const internalHtml = INTERNAL_SECTIONS.map(([k, l]) => renderSection(k, l, resp[k], true)).join('');
+
+      document.getElementById('page-root').innerHTML = `
+        <div class="doc-header">
+          <div class="org">ALLIANCE FINANCING GROUP</div>
+          <div class="tagline">Credit Review for Lender Submission</div>
+          <div class="meta">Prepared ${escHtml(today)}${deal?.deal_number ? ' · Deal ' + escHtml(deal.deal_number) : ''}</div>
+        </div>
+
+        <div class="cover">
+          <div class="deal-name">${escHtml(companyName)}</div>
+          <div class="product">${escHtml(deal?.product_type || '—')}</div>
+          <div class="ask"><strong>Ask:</strong> ${escHtml(askDisplay)}${agentName ? ' &nbsp;·&nbsp; <strong>Referred by:</strong> ' + escHtml(agentName) : ''}</div>
+        </div>
+
+        ${lenderHtml}
+
+        <div class="internal-only-hidden">${internalHtml}</div>
+
+        <div class="doc-footer internal-only-hidden">
+          <em>This document includes internal analyst sections (highlighted in amber). Toggle "Hide internal sections from PDF" to exclude these before printing for lender submission.</em>
+        </div>
+
+        <div class="doc-footer">
+          Alliance Financing Group Ltd. — Confidential Credit Review<br>
+          <span style="font-size:8pt;">Generated ${escHtml(new Date(draft.created_at).toLocaleString())} · Model: ${escHtml(draft.model_version || '—')}</span>
+        </div>
+      `;
+
+      applyInternalToggle();
+    }
+
+    function applyInternalToggle() {
+      const checked = document.getElementById('hide-internal').checked;
+      document.querySelectorAll('.internal-only-hidden').forEach(el => {
+        el.style.display = checked ? 'none' : '';
+      });
+    }
+
+    document.getElementById('hide-internal').addEventListener('change', applyInternalToggle);
+    document.getElementById('print-btn').addEventListener('click', () => window.print());
+
+    load();
+  })();
+  </script>
+</body>
+</html>

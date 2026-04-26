@@ -127,7 +127,7 @@
 
   <div class="container">
     <h1>AI-drafted credit review</h1>
-    <p class="sub">Pick a deal. Claude drafts a structured credit memo. Review, edit, save. Phase 1: draft + edit. PDF export and direct lender submission coming in Phase 2.</p>
+    <p class="sub">Pick a deal. Claude drafts a structured credit memo. Review, edit, then export as a print-ready Alliance PDF for lender submission.</p>
 
     <div class="card">
       <div class="controls-row">
@@ -362,13 +362,17 @@
             <button id="regen-btn" class="secondary">Regenerate from scratch</button>
             <button id="copy-btn" class="secondary">Copy to clipboard</button>
             <span style="flex: 1;"></span>
-            <button id="export-btn" disabled title="Phase 2: PDF export coming">Export to PDF</button>
+            <button id="export-btn">Export to PDF</button>
           </div>
         </div>
       `;
 
       $('regen-btn').addEventListener('click', generateDraft);
       $('copy-btn').addEventListener('click', () => copyDraft(resp));
+      $('export-btn').addEventListener('click', () => {
+        if (!currentDraft) return;
+        window.open('/credit-review-pdf.html?draft_id=' + currentDraft.id, '_blank');
+      });
 
       // Track edits
       document.querySelectorAll('.editable').forEach(el => {

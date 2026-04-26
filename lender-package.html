@@ -267,6 +267,34 @@
         const urlParams = new URLSearchParams(window.location.search);
         const dealId = urlParams.get('deal_id');
 
+
+        async function renderDealPicker() {
+            const root = document.getElementById('packageRoot');
+            root.innerHTML = '<div class="status-card"><h2>Select a deal</h2><p style="color:#64748B;margin-bottom:20px;">Pick the deal you want to bundle into a lender submission package.</p><select id="dealPicker" style="width:100%;max-width:600px;padding:10px 12px;border:1px solid #E5E7EB;border-radius:6px;font-size:14px;background:#fff;"><option value="">— Select a deal —</option></select><div style="margin-top:16px;"><button id="goBtn" disabled style="background:#0A1628;color:#fff;border:none;padding:11px 22px;border-radius:6px;font-weight:600;cursor:pointer;">Open package</button> <a href="/admin.html" style="margin-left:12px;color:#64748B;text-decoration:none;">Cancel</a></div></div>';
+
+            const { data, error } = await sb.from('deals')
+                .select('id, deal_number, company_name, product_type, deal_amount, status, is_archived')
+                .or('is_archived.is.null,is_archived.eq.false')
+                .not('status', 'in', '("Declined","Withdrawn")')
+                .order('created_at', { ascending: false })
+                .limit(200);
+            if (error) {
+                root.innerHTML = '<div class="status-card"><h2 class="error">Couldn\'t load deals</h2><p>' + esc(error.message) + '</p></div>';
+                return;
+            }
+            const sel = document.getElementById('dealPicker');
+            (data || []).forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                const amt = d.deal_amount ? '$' + Number(d.deal_amount).toLocaleString() : '—';
+                opt.textContent = (d.deal_number || '—') + ' · ' + (d.company_name || '—') + ' · ' + (d.product_type || '') + ' · ' + amt + ' · ' + d.status;
+                sel.appendChild(opt);
+            });
+            const goBtn = document.getElementById('goBtn');
+            sel.addEventListener('change', () => { goBtn.disabled = !sel.value; });
+            goBtn.addEventListener('click', () => { if (sel.value) window.location.href = '/lender-package.html?deal_id=' + sel.value; });
+        }
+
         function showError(msg) {
             document.getElementById('packageRoot').innerHTML =
                 '<div class="status-card"><h2 class="error">Couldn\'t load package</h2><p>' + msg + '</p></div>';
@@ -425,7 +453,7 @@
 
         async function loadPackage() {
             if (!dealId) {
-                showError('Missing deal_id URL parameter. Use ?deal_id=&lt;uuid&gt;');
+                renderDealPicker();
                 return;
             }
 
