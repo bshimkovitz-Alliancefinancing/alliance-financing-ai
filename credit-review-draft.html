@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Credit Review Draft — Alliance Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --navy: #0A1628; --gold: #C9A84C; --cream: #F7F5EF;
+      --border: #E5E7EB; --text: #1A1A1A; --muted: #6B7280;
+      --green: #047857; --red: #DC2626; --orange: #EA580C; --blue: #1E40AF;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           color: var(--text); background: var(--cream); line-height: 1.55; }
+    .topbar { background: var(--navy); color: #fff; padding: 14px 24px;
+              display: flex; align-items: center; justify-content: space-between; }
+    .brand { font-family: Georgia, serif; font-size: 14pt; font-weight: bold; }
+    a.back { color: #B8C4D6; text-decoration: none; font-size: 11pt; }
+    .container { max-width: 1100px; margin: 22px auto; padding: 0 16px 80px; }
+    h1 { font-family: Georgia, serif; margin: 8px 0 6px; color: var(--navy); }
+    .sub { color: var(--muted); margin: 0 0 24px; }
+
+    .card {
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin-bottom: 18px;
+    }
+    label { display: block; font-size: 9pt; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-weight: 600; }
+    select, input, textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 11.5pt; background: #fff; font-family: inherit;
+    }
+    textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+    button {
+      background: var(--navy); color: #fff; border: none; padding: 11px 22px;
+      border-radius: 6px; font-size: 11pt; font-weight: 600; cursor: pointer;
+    }
+    button:hover { background: #15293F; }
+    button:disabled { background: #9CA3AF; cursor: not-allowed; }
+    button.secondary { background: #fff; color: var(--navy); border: 1px solid var(--navy); }
+    button.danger { background: var(--red); }
+
+    .controls-row { display: flex; gap: 12px; align-items: end; }
+    .controls-row > div { flex: 1; }
+    .controls-row > .actions { flex: 0 0 auto; }
+
+    .draft-section { margin-bottom: 18px; }
+    .draft-section h3 {
+      font-family: Georgia, serif; color: var(--navy); margin: 0 0 8px;
+      font-size: 13pt; display: flex; align-items: center; gap: 8px;
+    }
+    .draft-section .icon { color: var(--gold); font-size: 11pt; }
+    .draft-section.flag h3 { color: var(--orange); }
+    .draft-section.flag .icon { color: var(--orange); }
+
+    ul.bullets { margin: 6px 0; padding-left: 22px; }
+    ul.bullets li { margin-bottom: 5px; }
+
+    .meta-row {
+      display: flex; gap: 18px; font-size: 9.5pt; color: var(--muted);
+      margin-bottom: 12px; padding: 8px 12px;
+      background: #F9FAFB; border: 1px solid var(--border); border-radius: 6px;
+    }
+    .meta-row span strong { color: var(--text); }
+
+    .empty {
+      background: #fff; border: 1px dashed var(--border); border-radius: 8px;
+      padding: 60px 20px; text-align: center; color: var(--muted);
+    }
+    .loading { display: flex; align-items: center; gap: 12px; color: var(--muted); padding: 20px 0; }
+    .spinner {
+      width: 18px; height: 18px; border: 2px solid var(--border);
+      border-top-color: var(--navy); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error {
+      background: #FEF2F2; border: 1px solid #FEE2E2; color: var(--red);
+      padding: 12px 16px; border-radius: 6px; margin-bottom: 16px;
+      font-size: 11pt;
+    }
+
+    .history-list { font-size: 10.5pt; }
+    .history-list a { color: var(--navy); text-decoration: none; font-weight: 600; }
+    .history-list a:hover { text-decoration: underline; }
+    .history-list .row {
+      display: flex; justify-content: space-between; padding: 6px 0;
+      border-bottom: 1px solid #F3F4F6;
+    }
+    .history-list .row:last-child { border-bottom: none; }
+
+    .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 9pt; font-weight: 600; }
+    .pill.green { background: #DCFCE7; color: var(--green); }
+    .pill.orange { background: #FFEDD5; color: var(--orange); }
+    .pill.gray { background: #F3F4F6; color: var(--muted); }
+
+    .editable {
+      border: 1px solid transparent; border-radius: 6px; padding: 6px 8px;
+      transition: border-color 0.1s;
+    }
+    .editable:hover { border-color: var(--border); cursor: text; }
+    .editable:focus { border-color: var(--navy); outline: none; background: #FAFAFA; }
+
+    .save-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--navy); color: #fff;
+      padding: 12px 24px; display: none;
+      justify-content: space-between; align-items: center;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+      z-index: 100;
+    }
+    .save-bar.show { display: flex; }
+    .save-bar .left { font-size: 11pt; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">AI Credit Review Draft</div>
+    <div style="display: flex; gap: 14px;">
+      <a class="back" href="/admin.html">← Admin Hub</a>
+      <a class="back" href="/dashboard.html">Dashboard</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1>AI-drafted credit review</h1>
+    <p class="sub">Pick a deal. Claude drafts a structured credit memo. Review, edit, save. Phase 1: draft + edit. PDF export and direct lender submission coming in Phase 2.</p>
+
+    <div class="card">
+      <div class="controls-row">
+        <div>
+          <label>Deal</label>
+          <select id="deal-select">
+            <option value="">— Select a deal —</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button id="draft-btn" disabled>Draft credit review</button>
+        </div>
+      </div>
+      <div id="status-area" style="margin-top: 12px;"></div>
+    </div>
+
+    <div id="draft-area"></div>
+
+    <div class="card" id="history-card" style="display: none;">
+      <h3 style="font-family: Georgia, serif; color: var(--navy); margin: 0 0 12px;">Previous drafts for this deal</h3>
+      <div id="history-list" class="history-list"></div>
+    </div>
+  </div>
+
+  <div class="save-bar" id="save-bar">
+    <div class="left">You have unsaved edits to this draft.</div>
+    <div>
+      <button class="secondary" id="discard-btn">Discard</button>
+      <button id="save-btn" style="margin-left: 8px;">Save edits</button>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    const SUPABASE_URL = 'https://uernphejrcsicnkobsdw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentDraft = null;
+    let editsPending = false;
+
+    const $ = (id) => document.getElementById(id);
+
+    async function init() {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) {
+        $('status-area').innerHTML = '<div class="error">Please <a href="/dashboard.html">log in</a> first.</div>';
+        return;
+      }
+      const { data: prof } = await sb.from('users').select('id, role').eq('auth_id', user.id).maybeSingle();
+      if (!prof || !['super_admin','admin'].includes(prof.role)) {
+        $('status-area').innerHTML = '<div class="error">Admin access required.</div>';
+        return;
+      }
+      await loadDeals();
+
+      // Pre-select deal_id from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const presetDeal = urlParams.get('deal_id');
+      if (presetDeal) {
+        $('deal-select').value = presetDeal;
+        onDealChange();
+      }
+    }
+
+    async function loadDeals() {
+      const { data, error } = await sb.from('deals')
+        .select('id, deal_number, company_name, product_type, deal_amount, status')
+        .in('status', ['New', 'In Progress', 'In Credit', 'Approved', 'Awaiting Documents'])
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        $('status-area').innerHTML = `<div class="error">Could not load deals: ${error.message}</div>`;
+        return;
+      }
+      const sel = $('deal-select');
+      (data || []).forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        const amt = d.deal_amount ? '$' + Number(d.deal_amount).toLocaleString() : '—';
+        opt.textContent = `${d.deal_number || '—'} · ${d.company_name || '—'} · ${d.product_type || ''} · ${amt} · ${d.status}`;
+        sel.appendChild(opt);
+      });
+    }
+
+    function onDealChange() {
+      const dealId = $('deal-select').value;
+      $('draft-btn').disabled = !dealId;
+      if (dealId) loadHistory(dealId);
+      else { $('history-card').style.display = 'none'; $('draft-area').innerHTML = ''; }
+    }
+
+    async function loadHistory(dealId) {
+      const { data, error } = await sb.from('credit_review_drafts')
+        .select('id, status, model_version, cost_usd, input_tokens, output_tokens, created_at, created_by')
+        .eq('deal_id', dealId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error || !data || data.length === 0) {
+        $('history-card').style.display = 'none';
+        return;
+      }
+      $('history-card').style.display = 'block';
+      $('history-list').innerHTML = data.map(d => `
+        <div class="row">
+          <div>
+            <a href="#" data-draft-id="${d.id}" class="load-draft">${new Date(d.created_at).toLocaleString()}</a>
+            <span class="pill gray" style="margin-left: 8px;">${d.status}</span>
+          </div>
+          <div style="font-size: 9pt; color: var(--muted);">
+            ${d.model_version || ''} · ${d.input_tokens||0}+${d.output_tokens||0} tok · $${Number(d.cost_usd||0).toFixed(4)}
+          </div>
+        </div>
+      `).join('');
+      $('history-list').querySelectorAll('.load-draft').forEach(a => {
+        a.addEventListener('click', async (e) => {
+          e.preventDefault();
+          await loadDraft(a.dataset.draftId);
+        });
+      });
+    }
+
+    async function loadDraft(draftId) {
+      const { data, error } = await sb.from('credit_review_drafts').select('*').eq('id', draftId).single();
+      if (error) {
+        $('status-area').innerHTML = `<div class="error">Could not load draft: ${error.message}</div>`;
+        return;
+      }
+      currentDraft = data;
+      const responseToShow = data.edited_response || data.ai_response;
+      renderDraft(responseToShow, data);
+    }
+
+    async function generateDraft() {
+      const dealId = $('deal-select').value;
+      if (!dealId) return;
+
+      $('draft-btn').disabled = true;
+      $('status-area').innerHTML = '<div class="loading"><div class="spinner"></div><span>Drafting credit review (typically 15-30 seconds)…</span></div>';
+      $('draft-area').innerHTML = '';
+
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/draft-credit-review`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token || SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ deal_id: dealId }),
+        });
+        const result = await resp.json();
+        if (!resp.ok) {
+          $('status-area').innerHTML = `<div class="error">Error ${resp.status}: ${result.error || 'Unknown'}<br><small>${result.details || ''}</small></div>`;
+          $('draft-btn').disabled = false;
+          return;
+        }
+
+        $('status-area').innerHTML = `<div style="color: var(--green); font-size: 10pt;">✓ Draft generated · ${result.input_tokens}+${result.output_tokens} tokens · $${result.cost_usd.toFixed(4)}</div>`;
+
+        // Reload with full record
+        await loadDraft(result.draft_id);
+        await loadHistory(dealId);
+      } catch (err) {
+        $('status-area').innerHTML = `<div class="error">Network error: ${String(err)}</div>`;
+      } finally {
+        $('draft-btn').disabled = false;
+      }
+    }
+
+    function renderDraft(resp, draftRecord) {
+      if (resp._parse_error) {
+        $('draft-area').innerHTML = `
+          <div class="card">
+            <div class="error">Claude returned text that wasn't valid JSON. Raw output below — you can copy/paste manually or click Regenerate.</div>
+            <pre style="white-space: pre-wrap; background: #F9FAFB; padding: 12px; border-radius: 6px; font-size: 10pt;">${escapeHtml(resp.raw_text || '')}</pre>
+          </div>`;
+        return;
+      }
+
+      const sections = [
+        ['executive_summary', 'Executive summary', '◆', false],
+        ['borrower_overview', 'Borrower overview', '◆', false],
+        ['transaction_structure', 'Transaction structure', '◆', false],
+        ['financial_summary', 'Financial summary', '◆', false],
+        ['credit_strengths', 'Credit strengths', '✓', false],
+        ['risk_factors', 'Risk factors', '⚠', true],
+        ['mitigants', 'Mitigants', '◆', false],
+        ['personal_guarantor_summary', 'Personal guarantor summary', '◆', false],
+        ['recommendation', 'Recommendation', '◆', false],
+        ['missing_information', 'Missing information — needed before lender submission', '!', true],
+      ];
+
+      const meta = `
+        <div class="meta-row">
+          <span><strong>Model:</strong> ${draftRecord.model_version || '—'}</span>
+          <span><strong>Tokens:</strong> ${draftRecord.input_tokens||0} in / ${draftRecord.output_tokens||0} out</span>
+          <span><strong>Cost:</strong> $${Number(draftRecord.cost_usd||0).toFixed(4)}</span>
+          <span><strong>Generated:</strong> ${new Date(draftRecord.created_at).toLocaleString()}</span>
+          <span><strong>Status:</strong> <span class="pill ${draftRecord.status==='exported'?'green':'orange'}">${draftRecord.status}</span></span>
+        </div>
+      `;
+
+      const sectionsHtml = sections.map(([key, label, icon, flag]) => {
+        const val = resp[key];
+        if (val === undefined || val === null) return '';
+        let body;
+        if (Array.isArray(val)) {
+          body = `<ul class="bullets" contenteditable="true" data-section="${key}" data-array="true" class="editable">${val.map(item => `<li>${escapeHtml(String(item))}</li>`).join('')}</ul>`;
+        } else {
+          body = `<div class="editable" contenteditable="true" data-section="${key}">${escapeHtml(String(val))}</div>`;
+        }
+        return `
+          <div class="draft-section ${flag?'flag':''}">
+            <h3><span class="icon">${icon}</span>${label}</h3>
+            ${body}
+          </div>
+        `;
+      }).join('');
+
+      $('draft-area').innerHTML = `
+        <div class="card">
+          ${meta}
+          ${sectionsHtml}
+          <div style="display: flex; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);">
+            <button id="regen-btn" class="secondary">Regenerate from scratch</button>
+            <button id="copy-btn" class="secondary">Copy to clipboard</button>
+            <span style="flex: 1;"></span>
+            <button id="export-btn" disabled title="Phase 2: PDF export coming">Export to PDF</button>
+          </div>
+        </div>
+      `;
+
+      $('regen-btn').addEventListener('click', generateDraft);
+      $('copy-btn').addEventListener('click', () => copyDraft(resp));
+
+      // Track edits
+      document.querySelectorAll('.editable').forEach(el => {
+        el.addEventListener('input', () => {
+          editsPending = true;
+          $('save-bar').classList.add('show');
+        });
+      });
+
+      editsPending = false;
+      $('save-bar').classList.remove('show');
+    }
+
+    function collectEdits() {
+      const edited = {};
+      document.querySelectorAll('[data-section]').forEach(el => {
+        const key = el.dataset.section;
+        if (el.dataset.array === 'true') {
+          edited[key] = Array.from(el.querySelectorAll('li')).map(li => li.textContent.trim()).filter(Boolean);
+        } else {
+          edited[key] = el.textContent.trim();
+        }
+      });
+      return edited;
+    }
+
+    async function saveEdits() {
+      if (!currentDraft) return;
+      const edited = collectEdits();
+      const { error } = await sb.from('credit_review_drafts')
+        .update({ edited_response: edited, status: 'edited' })
+        .eq('id', currentDraft.id);
+      if (error) {
+        alert('Save failed: ' + error.message);
+        return;
+      }
+      currentDraft.edited_response = edited;
+      currentDraft.status = 'edited';
+      editsPending = false;
+      $('save-bar').classList.remove('show');
+      $('status-area').innerHTML = `<div style="color: var(--green); font-size: 10pt;">✓ Edits saved.</div>`;
+    }
+
+    function discardEdits() {
+      if (!currentDraft) return;
+      const responseToShow = currentDraft.edited_response || currentDraft.ai_response;
+      renderDraft(responseToShow, currentDraft);
+    }
+
+    function copyDraft(resp) {
+      const text = formatAsText(resp);
+      navigator.clipboard.writeText(text).then(() => {
+        $('status-area').innerHTML = `<div style="color: var(--green); font-size: 10pt;">✓ Copied to clipboard.</div>`;
+      });
+    }
+
+    function formatAsText(resp) {
+      const parts = [];
+      const order = [
+        ['executive_summary', 'EXECUTIVE SUMMARY'],
+        ['borrower_overview', 'BORROWER OVERVIEW'],
+        ['transaction_structure', 'TRANSACTION STRUCTURE'],
+        ['financial_summary', 'FINANCIAL SUMMARY'],
+        ['credit_strengths', 'CREDIT STRENGTHS'],
+        ['risk_factors', 'RISK FACTORS'],
+        ['mitigants', 'MITIGANTS'],
+        ['personal_guarantor_summary', 'PERSONAL GUARANTOR'],
+        ['recommendation', 'RECOMMENDATION'],
+        ['missing_information', 'MISSING INFORMATION'],
+      ];
+      order.forEach(([k, label]) => {
+        const v = resp[k];
+        if (v === undefined || v === null) return;
+        parts.push(label);
+        parts.push('—'.repeat(label.length));
+        if (Array.isArray(v)) {
+          v.forEach(item => parts.push('• ' + item));
+        } else {
+          parts.push(String(v));
+        }
+        parts.push('');
+      });
+      return parts.join('\n');
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
+    }
+
+    $('deal-select').addEventListener('change', onDealChange);
+    $('draft-btn').addEventListener('click', generateDraft);
+    $('save-btn').addEventListener('click', saveEdits);
+    $('discard-btn').addEventListener('click', discardEdits);
+
+    init();
+  })();
+  </script>
+</body>
+</html>
