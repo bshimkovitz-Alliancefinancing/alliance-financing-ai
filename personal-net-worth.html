@@ -611,6 +611,14 @@ async function submitPNW() {
             if (agentData) sourceAgentId = agentData.id;
         }
 
+        // If this PNW was requested as a supplemental document for an existing deal
+        // (URL has ?deal=UUID), it is NOT a brand-new application — it's a doc attached
+        // to a deal already in the pipeline. Set status accordingly so it doesn't clutter
+        // the New Applications inbox. A genuinely new prospect (no deal in URL) still
+        // gets the standard 'Application Received' status.
+        var dealLinked = !!(dealParamFromUrl || (referralSlug && referralSlug.startsWith('deal-')));
+        var pnwStatus = dealLinked ? 'Moved to Pipeline' : 'Application Received';
+
         // Insert into applications table
         var { data: appData, error: appError } = await db.from('applications').insert([{
             application_id: appId,
@@ -621,9 +629,9 @@ async function submitPNW() {
             funding_amount_text: 'Net Worth: ' + document.getElementById('netWorthDisplay').textContent,
             description: 'Personal Net Worth Statement',
             source_agent_id: sourceAgentId,
-            source_channel: referralSlug ? (referralSlug.startsWith('deal-') ? 'Direct' : 'Agent Referral') : 'Online',
+            source_channel: referralSlug ? (referralSlug.startsWith('deal-') ? 'Direct' : 'Agent Referral') : (dealParamFromUrl ? 'Direct' : 'Online'),
             referral_slug: referralSlug || null,
-            status: 'Application Received',
+            status: pnwStatus,
             submitted_at: now,
             form_type: 'personal_net_worth',
             form_data: formData,
