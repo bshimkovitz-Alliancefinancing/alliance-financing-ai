@@ -145,11 +145,38 @@ body{font-family:var(--font);background:var(--slate-50);color:var(--slate-800);l
             <div class="form-group"><label>Years at Current Employment</label><input type="number" id="yearsEmployed" min="0" step="0.5"></div>
         </div>
 
+        <!-- Outside Employment (yes/no with conditional reveal) -->
+        <div class="form-row">
+            <div class="form-group full"><label>Do you have any outside employment in addition to the above?</label>
+                <select id="hasOutsideEmployment"><option value="No">No</option><option value="Yes">Yes</option></select>
+            </div>
+        </div>
+        <div class="form-row" id="outsideEmploymentDetails" style="display:none;">
+            <div class="form-group"><label>Outside Employer</label><input type="text" id="outsideEmployer"></div>
+            <div class="form-group"><label>Outside Annual Salary ($)</label><input type="number" id="outsideSalary" step="0.01" value="0" oninput="calcNetWorth()"></div>
+        </div>
+
+        <!-- Spouse Information (revealed when marital status is Married or Common-Law) -->
+        <div id="spouseSection" style="display:none;">
+            <h3 class="section-title" style="margin-top:1.5rem;">Spouse Information</h3>
+            <div class="form-row">
+                <div class="form-group"><label>Spouse Full Legal Name</label><input type="text" id="spouseFullName"></div>
+                <div class="form-group"><label>Spouse Date of Birth</label><input type="date" id="spouseDob"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Spouse SIN/SSN</label><input type="text" id="spouseSinSsn" placeholder="Optional - for credit check purposes"></div>
+                <div class="form-group"><label>Spouse Employer</label><input type="text" id="spouseEmployer"></div>
+            </div>
+        </div>
+
         <!-- Section 2: Annual Income -->
         <h3 class="section-title">Annual Income</h3>
         <div class="form-row">
             <div class="form-group"><label>Employment / Salary Income ($)</label><input type="number" id="incomeSalary" step="0.01" value="0" oninput="calcNetWorth()"></div>
             <div class="form-group"><label>Business / Self-Employment Income ($)</label><input type="number" id="incomeBusiness" step="0.01" value="0" oninput="calcNetWorth()"></div>
+        </div>
+        <div class="form-row" id="spouseIncomeRow" style="display:none;">
+            <div class="form-group full"><label>Spouse Gross Annual Salary or Draw ($)</label><input type="number" id="incomeSpouseSalary" step="0.01" value="0" oninput="calcNetWorth()"></div>
         </div>
         <div class="form-row">
             <div class="form-group"><label>Investment / Dividend Income ($)</label><input type="number" id="incomeInvestment" step="0.01" value="0" oninput="calcNetWorth()"></div>
@@ -160,6 +187,22 @@ body{font-family:var(--font);background:var(--slate-50);color:var(--slate-800);l
             <div class="form-group"><label>Other Income Description</label><input type="text" id="incomeOtherDesc" placeholder="e.g., pension, alimony"></div>
         </div>
         <div class="total-row"><span>Total Annual Income</span><span id="totalIncome">$0.00</span></div>
+
+        <!-- Section 2b: Annual Personal Expenses -->
+        <h3 class="section-title">Annual Personal Expenses</h3>
+        <div class="form-row">
+            <div class="form-group"><label>Annual Mortgage / Rent Payments ($)</label><input type="number" id="expMortgageRent" step="0.01" value="0" oninput="calcNetWorth()"></div>
+            <div class="form-group"><label>Annual Property Taxes ($)</label><input type="number" id="expPropertyTax" step="0.01" value="0" oninput="calcNetWorth()"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Annual Personal Loan / Lease Payments ($)</label><input type="number" id="expLoansLease" step="0.01" value="0" oninput="calcNetWorth()"></div>
+            <div class="form-group"><label>Annual Credit Card Payments ($)</label><input type="number" id="expCreditCards" step="0.01" value="0" oninput="calcNetWorth()"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Child Support / Alimony / Other Obligations ($)</label><input type="number" id="expSupportAlimony" step="0.01" value="0" oninput="calcNetWorth()"></div>
+            <div class="form-group"><label>Estimated Annual Living Costs ($)</label><input type="number" id="expLivingCosts" step="0.01" value="0" oninput="calcNetWorth()"></div>
+        </div>
+        <div class="total-row"><span>Total Annual Expenses</span><span id="totalExpenses">$0.00</span></div>
 
         <!-- Section 3: Assets -->
         <h3 class="section-title">Assets</h3>
@@ -284,6 +327,14 @@ body{font-family:var(--font);background:var(--slate-50);color:var(--slate-800);l
             <div class="form-group full"><label>Please describe</label><textarea id="litigationDesc"></textarea></div>
         </div>
         <div class="form-row">
+            <div class="form-group full"><label>Do you have any arrears in taxes (income, GST/PST, property, business, or payroll deductions)?</label>
+                <select id="hasTaxArrears"><option value="No">No</option><option value="Yes">Yes</option></select>
+            </div>
+        </div>
+        <div class="form-row" id="taxArrearsDetails" style="display:none;">
+            <div class="form-group full"><label>Please provide details (type of tax, amount, status)</label><textarea id="taxArrearsDesc"></textarea></div>
+        </div>
+        <div class="form-row">
             <div class="form-group full"><label>Additional Notes or Comments</label><textarea id="additionalNotes" placeholder="Any other information you'd like to provide..."></textarea></div>
         </div>
 
@@ -292,6 +343,11 @@ body{font-family:var(--font);background:var(--slate-50);color:var(--slate-800);l
         <div class="form-group full" style="margin-bottom:1rem">
             <label>Print Your Full Legal Name (Electronic Signature) *</label>
             <input type="text" id="signatureName" required placeholder="Your full legal name as it appears on official ID" style="font-size:1.1rem;font-weight:600;border:2px solid var(--primary);padding:.75rem">
+        </div>
+        <div class="form-group full" id="spouseSignatureRow" style="display:none;margin-bottom:1rem">
+            <label>Print Spouse Full Legal Name (Spouse Electronic Signature) *</label>
+            <input type="text" id="spouseSignatureName" placeholder="Spouse full legal name as it appears on official ID" style="font-size:1.1rem;font-weight:600;border:2px solid var(--primary);padding:.75rem">
+            <p style="font-size:.8125rem;color:#64748B;margin-top:.5rem">Required when marital status is Married or Common-Law and spouse information is being included. By typing the spouse's name, you confirm they have reviewed and consent to this Statement.</p>
         </div>
         <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:.75rem;padding:1.25rem;margin-bottom:1rem">
             <p style="color:#1E40AF;font-size:.875rem;line-height:1.6;margin-bottom:.5rem">
@@ -351,6 +407,21 @@ document.getElementById('hasBankruptcy').addEventListener('change', function() {
 document.getElementById('hasLitigation').addEventListener('change', function() {
     document.getElementById('litigationDetails').style.display = this.value === 'Yes' ? '' : 'none';
 });
+document.getElementById('hasTaxArrears').addEventListener('change', function() {
+    document.getElementById('taxArrearsDetails').style.display = this.value === 'Yes' ? '' : 'none';
+});
+document.getElementById('hasOutsideEmployment').addEventListener('change', function() {
+    document.getElementById('outsideEmploymentDetails').style.display = this.value === 'Yes' ? '' : 'none';
+});
+// Marital Status — reveal spouse fields + spouse income + spouse signature when Married or Common-Law
+document.getElementById('maritalStatus').addEventListener('change', function() {
+    var includeSpouse = (this.value === 'Married' || this.value === 'Common-Law');
+    document.getElementById('spouseSection').style.display = includeSpouse ? '' : 'none';
+    document.getElementById('spouseIncomeRow').style.display = includeSpouse ? '' : 'none';
+    document.getElementById('spouseSignatureRow').style.display = includeSpouse ? '' : 'none';
+    // Recalculate income (spouse salary may now be included/excluded)
+    calcNetWorth();
+});
 
 // Format currency
 function fmt(n) {
@@ -360,9 +431,20 @@ function fmt(n) {
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
 
 function calcNetWorth() {
-    // Income
-    var totalIncome = val('incomeSalary') + val('incomeBusiness') + val('incomeInvestment') + val('incomeRental') + val('incomeOther');
+    // Determine if spouse income should be included (only when marital status indicates a spouse)
+    var maritalStatus = document.getElementById('maritalStatus').value;
+    var includeSpouse = (maritalStatus === 'Married' || maritalStatus === 'Common-Law');
+
+    // Income — include outside salary always, spouse salary only when applicable
+    var totalIncome = val('incomeSalary') + val('incomeBusiness') + val('incomeInvestment') +
+        val('incomeRental') + val('incomeOther') + val('outsideSalary') +
+        (includeSpouse ? val('incomeSpouseSalary') : 0);
     document.getElementById('totalIncome').textContent = fmt(totalIncome);
+
+    // Annual Expenses
+    var totalExpenses = val('expMortgageRent') + val('expPropertyTax') + val('expLoansLease') +
+        val('expCreditCards') + val('expSupportAlimony') + val('expLivingCosts');
+    document.getElementById('totalExpenses').textContent = fmt(totalExpenses);
 
     // Liquid Assets
     var totalLiquid = val('assetCash') + val('assetSavings') + val('assetStocks') + val('assetRetirement') + val('assetLifeInsurance') + val('assetOtherLiquid');
@@ -411,6 +493,15 @@ async function submitPNW() {
     if (!phone) { alert('Please enter your phone number.'); return; }
     if (!sigName) { alert('Please provide your electronic signature.'); return; }
 
+    // Spouse signature is required when marital status is Married or Common-Law
+    var maritalStatusVal = document.getElementById('maritalStatus').value;
+    var requireSpouseSig = (maritalStatusVal === 'Married' || maritalStatusVal === 'Common-Law');
+    var spouseSigName = document.getElementById('spouseSignatureName').value.trim();
+    if (requireSpouseSig && !spouseSigName) {
+        alert('Marital status indicates a spouse. Please have your spouse provide their electronic signature, or update the marital status if a spouse is not part of this Statement.');
+        return;
+    }
+
     var btn = document.getElementById('submitBtn');
     btn.disabled = true;
     btn.textContent = 'Submitting...';
@@ -432,15 +523,32 @@ async function submitPNW() {
                 dependents: val('dependents'),
                 employer: document.getElementById('employer').value,
                 position: document.getElementById('position').value,
-                years_employed: val('yearsEmployed')
+                years_employed: val('yearsEmployed'),
+                has_outside_employment: document.getElementById('hasOutsideEmployment').value,
+                outside_employer: document.getElementById('outsideEmployer').value,
+                outside_salary: val('outsideSalary'),
+                spouse_full_name: document.getElementById('spouseFullName').value,
+                spouse_dob: document.getElementById('spouseDob').value,
+                spouse_sin_ssn: document.getElementById('spouseSinSsn').value,
+                spouse_employer: document.getElementById('spouseEmployer').value
             },
             income: {
                 salary: val('incomeSalary'),
                 business: val('incomeBusiness'),
+                spouse_salary: val('incomeSpouseSalary'),
                 investment: val('incomeInvestment'),
                 rental: val('incomeRental'),
                 other: val('incomeOther'),
                 other_desc: document.getElementById('incomeOtherDesc').value
+            },
+            expenses: {
+                mortgage_rent: val('expMortgageRent'),
+                property_tax: val('expPropertyTax'),
+                loans_lease: val('expLoansLease'),
+                credit_cards: val('expCreditCards'),
+                support_alimony: val('expSupportAlimony'),
+                living_costs: val('expLivingCosts'),
+                total: parseFloat(document.getElementById('totalExpenses').textContent.replace(/[^0-9.-]/g, ''))
             },
             assets: {
                 cash: val('assetCash'),
@@ -474,7 +582,14 @@ async function submitPNW() {
                 bankruptcy_desc: document.getElementById('bankruptcyDesc').value,
                 has_litigation: document.getElementById('hasLitigation').value,
                 litigation_desc: document.getElementById('litigationDesc').value,
+                has_tax_arrears: document.getElementById('hasTaxArrears').value,
+                tax_arrears_desc: document.getElementById('taxArrearsDesc').value,
                 notes: document.getElementById('additionalNotes').value
+            },
+            signatures: {
+                applicant_name: sigName,
+                spouse_name: requireSpouseSig ? spouseSigName : null,
+                signed_at: now
             },
             totals: {
                 total_income: parseFloat(document.getElementById('totalIncome').textContent.replace(/[^0-9.-]/g, '')),
@@ -549,17 +664,50 @@ async function submitPNW() {
                     '<tr><td style="font-weight:600;background:#f8f9fa">Dependents</td><td>' + (formData.personal.dependents || '0') + '</td></tr>' +
                     '<tr><td style="font-weight:600;background:#f8f9fa">Employer</td><td>' + (formData.personal.employer || 'N/A') + '</td></tr>' +
                     '<tr><td style="font-weight:600;background:#f8f9fa">Position</td><td>' + (formData.personal.position || 'N/A') + '</td></tr>' +
-                    '<tr><td style="font-weight:600;background:#f8f9fa">Years Employed</td><td>' + (formData.personal.years_employed || 'N/A') + '</td></tr>' +
-                    '</table></div>';
+                    '<tr><td style="font-weight:600;background:#f8f9fa">Years Employed</td><td>' + (formData.personal.years_employed || 'N/A') + '</td></tr>';
+
+                // Outside employment (only show if Yes)
+                if (formData.personal.has_outside_employment === 'Yes') {
+                    pnwHtml += '<tr><td style="font-weight:600;background:#f8f9fa">Outside Employer</td><td>' + (formData.personal.outside_employer || 'N/A') + '</td></tr>' +
+                        '<tr><td style="font-weight:600;background:#f8f9fa">Outside Annual Salary</td><td>$' + Number(formData.personal.outside_salary || 0).toLocaleString() + '</td></tr>';
+                }
+                pnwHtml += '</table></div>';
+
+                // Spouse Information (only if marital status indicates a spouse and any spouse data exists)
+                if (requireSpouseSig && (formData.personal.spouse_full_name || formData.personal.spouse_employer)) {
+                    pnwHtml += '<div class="section"><h2>Spouse Information</h2><table>' +
+                        '<tr><td style="font-weight:600;width:35%;background:#f8f9fa">Spouse Full Name</td><td>' + (formData.personal.spouse_full_name || 'N/A') + '</td></tr>' +
+                        '<tr><td style="font-weight:600;background:#f8f9fa">Spouse Date of Birth</td><td>' + (formData.personal.spouse_dob || 'N/A') + '</td></tr>' +
+                        '<tr><td style="font-weight:600;background:#f8f9fa">Spouse SIN/SSN</td><td>' + (formData.personal.spouse_sin_ssn || 'N/A') + '</td></tr>' +
+                        '<tr><td style="font-weight:600;background:#f8f9fa">Spouse Employer</td><td>' + (formData.personal.spouse_employer || 'N/A') + '</td></tr>' +
+                        '</table></div>';
+                }
 
                 // Income section
                 pnwHtml += '<div class="section"><h2>Annual Income</h2><table>' +
                     '<tr><td style="font-weight:600;width:35%;background:#f8f9fa">Employment / Salary</td><td>$' + Number(formData.income.salary || 0).toLocaleString() + '</td></tr>' +
-                    '<tr><td style="font-weight:600;background:#f8f9fa">Business / Self-Employment</td><td>$' + Number(formData.income.business || 0).toLocaleString() + '</td></tr>' +
-                    '<tr><td style="font-weight:600;background:#f8f9fa">Investment / Dividends</td><td>$' + Number(formData.income.investment || 0).toLocaleString() + '</td></tr>' +
+                    '<tr><td style="font-weight:600;background:#f8f9fa">Business / Self-Employment</td><td>$' + Number(formData.income.business || 0).toLocaleString() + '</td></tr>';
+                if (formData.personal.has_outside_employment === 'Yes') {
+                    pnwHtml += '<tr><td style="font-weight:600;background:#f8f9fa">Outside Employment Salary</td><td>$' + Number(formData.personal.outside_salary || 0).toLocaleString() + '</td></tr>';
+                }
+                if (requireSpouseSig) {
+                    pnwHtml += '<tr><td style="font-weight:600;background:#f8f9fa">Spouse Gross Annual Salary or Draw</td><td>$' + Number(formData.income.spouse_salary || 0).toLocaleString() + '</td></tr>';
+                }
+                pnwHtml += '<tr><td style="font-weight:600;background:#f8f9fa">Investment / Dividends</td><td>$' + Number(formData.income.investment || 0).toLocaleString() + '</td></tr>' +
                     '<tr><td style="font-weight:600;background:#f8f9fa">Rental Income</td><td>$' + Number(formData.income.rental || 0).toLocaleString() + '</td></tr>' +
                     '<tr><td style="font-weight:600;background:#f8f9fa">Other Income</td><td>$' + Number(formData.income.other || 0).toLocaleString() + (formData.income.other_desc ? ' (' + formData.income.other_desc + ')' : '') + '</td></tr>' +
                     '<tr class="total-row"><td style="font-weight:700;background:#d1fae5">Total Annual Income</td><td style="font-weight:700;background:#d1fae5">$' + Number(formData.totals.total_income || 0).toLocaleString() + '</td></tr>' +
+                    '</table></div>';
+
+                // Annual Expenses section
+                pnwHtml += '<div class="section"><h2>Annual Personal Expenses</h2><table>' +
+                    '<tr><td style="font-weight:600;width:35%;background:#f8f9fa">Mortgage / Rent</td><td>$' + Number(formData.expenses.mortgage_rent || 0).toLocaleString() + '</td></tr>' +
+                    '<tr><td style="font-weight:600;background:#f8f9fa">Property Taxes</td><td>$' + Number(formData.expenses.property_tax || 0).toLocaleString() + '</td></tr>' +
+                    '<tr><td style="font-weight:600;background:#f8f9fa">Personal Loan / Lease Payments</td><td>$' + Number(formData.expenses.loans_lease || 0).toLocaleString() + '</td></tr>' +
+                    '<tr><td style="font-weight:600;background:#f8f9fa">Credit Card Payments</td><td>$' + Number(formData.expenses.credit_cards || 0).toLocaleString() + '</td></tr>' +
+                    '<tr><td style="font-weight:600;background:#f8f9fa">Child Support / Alimony / Other Obligations</td><td>$' + Number(formData.expenses.support_alimony || 0).toLocaleString() + '</td></tr>' +
+                    '<tr><td style="font-weight:600;background:#f8f9fa">Estimated Annual Living Costs</td><td>$' + Number(formData.expenses.living_costs || 0).toLocaleString() + '</td></tr>' +
+                    '<tr class="total-row"><td style="font-weight:700;background:#fef3c7">Total Annual Expenses</td><td style="font-weight:700;background:#fef3c7">$' + Number(formData.expenses.total || 0).toLocaleString() + '</td></tr>' +
                     '</table></div>';
 
                 // Assets section
@@ -602,11 +750,12 @@ async function submitPNW() {
                 pnwHtml += '<div class="net-worth">NET WORTH: $' + Number(nw).toLocaleString() + '</div>';
 
                 // Additional info
-                if (formData.additional.is_guarantor === 'Yes' || formData.additional.has_bankruptcy === 'Yes' || formData.additional.has_litigation === 'Yes' || formData.additional.notes) {
+                if (formData.additional.is_guarantor === 'Yes' || formData.additional.has_bankruptcy === 'Yes' || formData.additional.has_litigation === 'Yes' || formData.additional.has_tax_arrears === 'Yes' || formData.additional.notes) {
                     pnwHtml += '<div class="section"><h2>Additional Information</h2><table>';
                     if (formData.additional.is_guarantor === 'Yes') pnwHtml += '<tr><td style="font-weight:600;width:35%;background:#f8f9fa">Guarantor/Co-signer</td><td>Yes — ' + (formData.additional.guarantor_desc || '') + '</td></tr>';
                     if (formData.additional.has_bankruptcy === 'Yes') pnwHtml += '<tr><td style="font-weight:600;background:#f8f9fa">Bankruptcy/Proposal</td><td>Yes — ' + (formData.additional.bankruptcy_desc || '') + '</td></tr>';
                     if (formData.additional.has_litigation === 'Yes') pnwHtml += '<tr><td style="font-weight:600;background:#f8f9fa">Pending Litigation</td><td>Yes — ' + (formData.additional.litigation_desc || '') + '</td></tr>';
+                    if (formData.additional.has_tax_arrears === 'Yes') pnwHtml += '<tr><td style="font-weight:600;background:#f8f9fa">Tax Arrears</td><td>Yes — ' + (formData.additional.tax_arrears_desc || '') + '</td></tr>';
                     if (formData.additional.notes) pnwHtml += '<tr><td style="font-weight:600;background:#f8f9fa">Notes</td><td>' + formData.additional.notes + '</td></tr>';
                     pnwHtml += '</table></div>';
                 }
@@ -619,7 +768,18 @@ async function submitPNW() {
                     '<div class="sig-meta">Date & Time: ' + new Date(now).toLocaleString('en-US',{year:"numeric",month:"long",day:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",timeZoneName:"short"}) + '</div>' +
                     '<div class="sig-meta">Reference: ' + appId + '</div>' +
                     '<div class="sig-meta">IP-based electronic signature captured at time of submission</div>' +
-                    '</div></div>';
+                    '</div>';
+
+                // Spouse signature (if applicable)
+                if (requireSpouseSig && spouseSigName) {
+                    pnwHtml += '<div class="signature-box" style="margin-top:12px">' +
+                        '<p style="margin:0;font-size:13px;color:#64748b">The applicant\'s spouse has electronically signed this statement:</p>' +
+                        '<div class="sig-name">"' + spouseSigName + '"</div>' +
+                        '<div class="sig-meta">Date & Time: ' + new Date(now).toLocaleString('en-US',{year:"numeric",month:"long",day:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",timeZoneName:"short"}) + '</div>' +
+                        '<div class="sig-meta">Spouse signed jointly with applicant — Reference: ' + appId + '</div>' +
+                        '</div>';
+                }
+                pnwHtml += '</div>';
 
                 pnwHtml += '<div class="footer">Generated by Alliance Financing Group Ltd. | alliancefinancing.ai</div></body></html>';
 
