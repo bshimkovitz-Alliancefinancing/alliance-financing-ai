@@ -5177,26 +5177,47 @@
                         <div id="onboardReviewContent" style="font-size: 14px; line-height: 1.8;"></div>
                     </div>
                     <div class="modal-row">
-                        <div class="modal-field">
-                            <label>Status</label>
-                            <select id="agentStatus">
-                                <option value="Invited">Invited</option>
+                        <div class="modal-field" style="grid-column: 1 / -1;">
+                            <label>How should this agent be set up?</label>
+                            <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+                                <label style="display:flex;align-items:flex-start;gap:10px;font-weight:400;cursor:pointer;padding:12px;border:1.5px solid #E2E8F0;border-radius:8px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#C9A84C'" onmouseout="this.style.borderColor='#E2E8F0'">
+                                    <input type="radio" name="agentSetupMode" value="send_invite" id="setupSendInvite" checked style="margin-top:3px;" onchange="if(this.checked){document.getElementById('agentStatus').value='Invited';document.getElementById('sendInviteEmail').checked=true;document.getElementById('agentSetupSubmitBtn').textContent='Create Agent & Send Invite';}">
+                                    <div>
+                                        <div style="font-weight:600;color:var(--navy);">Send invite now</div>
+                                        <div style="font-size:13px;color:#64748B;margin-top:2px;">Activation email goes out immediately. Status: <strong>Invited</strong>. Use this when the agent will use the partner portal to track deals.</div>
+                                    </div>
+                                </label>
+                                <label style="display:flex;align-items:flex-start;gap:10px;font-weight:400;cursor:pointer;padding:12px;border:1.5px solid #E2E8F0;border-radius:8px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#C9A84C'" onmouseout="this.style.borderColor='#E2E8F0'">
+                                    <input type="radio" name="agentSetupMode" value="add_only" id="setupAddOnly" style="margin-top:3px;" onchange="if(this.checked){document.getElementById('agentStatus').value='Pending Invite';document.getElementById('sendInviteEmail').checked=false;document.getElementById('agentSetupSubmitBtn').textContent='Create Agent (no invite sent)';}">
+                                    <div>
+                                        <div style="font-weight:600;color:var(--navy);">Add without invite</div>
+                                        <div style="font-size:13px;color:#64748B;margin-top:2px;">Create the record, but don't send the activation email yet. Status: <strong>Pending Invite</strong>. Use this when you want to review the record before sending the formal invite.</div>
+                                    </div>
+                                </label>
+                                <label style="display:flex;align-items:flex-start;gap:10px;font-weight:400;cursor:pointer;padding:12px;border:1.5px solid #E2E8F0;border-radius:8px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#C9A84C'" onmouseout="this.style.borderColor='#E2E8F0'">
+                                    <input type="radio" name="agentSetupMode" value="active_no_portal" id="setupActiveNoPortal" style="margin-top:3px;" onchange="if(this.checked){document.getElementById('agentStatus').value='Active - No Portal';document.getElementById('sendInviteEmail').checked=false;document.getElementById('agentSetupSubmitBtn').textContent='Create Agent (no portal needed)';}">
+                                    <div>
+                                        <div style="font-weight:600;color:var(--navy);">Active &mdash; no portal needed</div>
+                                        <div style="font-size:13px;color:#64748B;margin-top:2px;">Agent is active but refers informally and doesn't need dashboard access. No invite email is sent. Status: <strong>Active &mdash; No Portal</strong>.</div>
+                                    </div>
+                                </label>
+                            </div>
+                            <!-- Hidden legacy fields preserved for backward compatibility with the addAgent handler -->
+                            <select id="agentStatus" style="display:none;">
+                                <option value="Invited" selected>Invited</option>
+                                <option value="Pending Invite">Pending Invite</option>
+                                <option value="Active - No Portal">Active - No Portal</option>
+                                <option value="Active">Active</option>
                                 <option value="AIA">AIA</option>
                                 <option value="MOU">MOU</option>
-                                <option value="Active">Active</option>
                                 <option value="Pending">Pending</option>
                             </select>
-                        </div>
-                        <div class="modal-field">
-                            <label>Send Invite Email?</label>
-                            <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin-top:6px;">
-                                <input type="checkbox" id="sendInviteEmail" checked> Yes, send activation email to agent
-                            </label>
+                            <input type="checkbox" id="sendInviteEmail" checked style="display:none;">
                         </div>
                     </div>
                     <div style="margin-top: 20px; display: flex; justify-content: space-between;">
                         <button type="button" class="btn btn-secondary" onclick="onboardNextStep(2)">← Back</button>
-                        <button type="submit" class="btn btn-gold" style="padding: 10px 24px;">Create Agent & Send Invite</button>
+                        <button type="submit" class="btn btn-gold" style="padding: 10px 24px;" id="agentSetupSubmitBtn">Create Agent & Send Invite</button>
                     </div>
                 </div>
             </form>
@@ -10437,7 +10458,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
 
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
-        var baseUrl = 'https://www.alliancefinancing.com/';
+        // Marketing files (PDFs + one-pager HTML) are hosted on the dashboard's app subdomain.
+        // The prospect-response form lives on the public marketing site.
+        var baseUrl = 'https://app.alliancefinancing.com/';
+        var publicSiteBase = 'https://www.alliancefinancing.com/';
 
         // CTA goes to prospect response form — captures reply into database notes
         var isPartnerProspect = ['insurance_broker', 'accountant_cfo', 'equipment_vendor', 'referral_partner', 'iso_partner'].indexOf(prospectType) >= 0;
@@ -10492,8 +10516,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 } catch(e2) { console.error('Fallback track error:', e2); }
             }
 
-            // Step 2: Build CTA URL pointing to the prospect response form
-            var ctaUrl = baseUrl + 'prospect-response.html?oid=' + encodeURIComponent(outreachId) +
+            // Step 2: Build CTA URL pointing to the prospect response form (hosted on the public marketing site)
+            var ctaUrl = publicSiteBase + 'prospect-response.html?oid=' + encodeURIComponent(outreachId) +
                 '&from=' + encodeURIComponent(senderName) +
                 '&email=' + encodeURIComponent(senderEmail || 'info@alliancefinancing.com') +
                 '&name=' + encodeURIComponent(name) +
@@ -18554,7 +18578,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var senderEmail = (agentProfile && agentProfile.email) ? agentProfile.email : 'info@alliancefinancing.com';
         var senderPhone = (agentProfile && agentProfile.phone) ? agentProfile.phone : '';
         var agentSlug = (agentProfile && agentProfile.referral_slug) ? agentProfile.referral_slug : 'alliance-house';
-        var baseUrl = 'https://www.alliancefinancing.com/';
+        // Marketing files (PDFs + one-pager HTML) are hosted on the dashboard's app subdomain.
+        // The prospect-response form lives on the public marketing site.
+        var baseUrl = 'https://app.alliancefinancing.com/';
+        var publicSiteBase = 'https://www.alliancefinancing.com/';
         var materialNames = selectedMaterials.map(function(m) { return m.label; });
         var subject = 'Information from Alliance Financing Group — ' + senderName;
 
@@ -18588,7 +18615,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 // Build email HTML (reuse existing pattern)
                 var isPartnerProspect = ['insurance_broker', 'accountant_cfo', 'equipment_vendor', 'referral_partner', 'iso_partner'].indexOf(prospectType) >= 0;
                 var ctaLabel = isPartnerProspect ? 'Get in Touch →' : 'Reply to This Email →';
-                var ctaUrl = baseUrl + 'prospect-response?ref=' + (outreachId || '') + '&slug=' + agentSlug;
+                var ctaUrl = publicSiteBase + 'prospect-response?ref=' + (outreachId || '') + '&slug=' + agentSlug;
 
                 var emailHtml = buildMarketingEmailHtml(senderName, senderEmail, senderPhone, p.name, selectedMaterials, customMessage, ctaLabel, ctaUrl, baseUrl, agentSlug);
 
