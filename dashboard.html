@@ -10845,7 +10845,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 html += '<tr id="outreachNotes_' + idPrefix + row.id + '" class="pipeline-notes-row" data-parent-id="' + row.id + '" style="display:none;"><td colspan="7" style="padding:12px 24px;background:#FFFBEB;border-bottom:1px solid #F59E0B;">';
                 html += '<div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:6px;">📝 Prospect Notes</div>';
                 if (row.notes) {
-                    html += '<pre style="font-size:12px;color:#374151;line-height:1.6;white-space:pre-wrap;margin:0 0 12px;font-family:inherit;">' + row.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+                    // Filter out admin-only "INTERNAL" notes for non-admin viewers (the agent who sent the outreach).
+                    // Notes follow this pattern after April 27, 2026:
+                    //   "[timestamp] INTERNAL by Author\nText" — admin-only, hidden from agent view
+                    //   "[timestamp] NOTE from Author\nText"  — visible to outreach owner
+                    // Legacy "INTERNAL NOTE by Author" entries are treated as visible (they predate the toggle).
+                    var notesToRender = row.notes;
+                    var isAdminViewer = ['super_admin', 'admin'].includes(currentUserRole);
+                    if (!isAdminViewer && notesToRender) {
+                        notesToRender = notesToRender.split(/\n\n---\n\n/).filter(function(blk) {
+                            var firstLine = blk.split('\n')[0] || '';
+                            return !/^\[[^\]]+\]\s+INTERNAL\s+by\s/i.test(firstLine);
+                        }).join('\n\n---\n\n');
+                    }
+                    if (notesToRender) {
+                        html += '<pre style="font-size:12px;color:#374151;line-height:1.6;white-space:pre-wrap;margin:0 0 12px;font-family:inherit;">' + notesToRender.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+                    } else {
+                        html += '<div style="color:#94A3B8;font-size:12px;font-style:italic;margin-bottom:12px;">No notes shared with you yet.</div>';
+                    }
                 } else {
                     html += '<div style="color:#94A3B8;font-size:12px;font-style:italic;margin-bottom:12px;">No notes yet.</div>';
                 }
@@ -10864,11 +10881,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     html += '</div></div>';
                 }
 
-                html += '<div style="display:flex;gap:8px;align-items:flex-start;">';
-                html += '<input type="text" id="outreachNoteInput_' + idPrefix + row.id + '" placeholder="Add internal note..." style="flex:1;padding:8px 10px;border:1px solid #D4D9E2;border-radius:6px;font-size:12px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addQuickOutreachNote(\'' + row.id + '\', \'' + idPrefix + '\')}">';
+                // Note input + visibility toggle. Default is "visible to outreach owner" (the agent who sent the package),
+                // so admin and agent stay in sync by default. Admin can toggle "Internal only" for sensitive observations.
+                var isAdminUser = ['super_admin', 'admin'].includes(currentUserRole);
+                html += '<div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">';
+                html += '<input type="text" id="outreachNoteInput_' + idPrefix + row.id + '" placeholder="Add note (visible to outreach owner by default)..." style="flex:1;min-width:240px;padding:8px 10px;border:1px solid #D4D9E2;border-radius:6px;font-size:12px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addQuickOutreachNote(\'' + row.id + '\', \'' + idPrefix + '\')}">';
                 html += '<button onclick="addQuickOutreachNote(\'' + row.id + '\', \'' + idPrefix + '\')" style="padding:8px 14px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Add Note</button>';
                 html += '<button onclick="openOutreachReminderModal(\'' + row.id + '\', \'' + (row.prospect_name || 'Unknown').replace(/'/g, "\\'") + '\')" style="padding:8px 14px;background:#FFF7ED;color:#EA580C;border:1px solid #FED7AA;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">⏰ Reminder</button>';
+                if (isAdminUser) {
+                    html += '<button onclick="convertProspectToAgent(\'' + row.id + '\', \'' + (row.prospect_name || 'Unknown').replace(/'/g, "\\'") + '\')" style="padding:8px 14px;background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;" title="Convert this prospect to an active agent and migrate the visible recruitment notes into their agent record.">→ Convert to Agent</button>';
+                }
                 html += '</div>';
+                if (isAdminUser) {
+                    html += '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#64748B;margin-top:6px;cursor:pointer;"><input type="checkbox" id="outreachNoteInternal_' + idPrefix + row.id + '" style="margin:0;"> Internal only (do not share with the outreach owner)</label>';
+                }
                 html += '</td></tr>';
             }
             // Add archived section if there are archived items
@@ -12567,7 +12593,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    // Quick add note from the inline outreach notes row
+    // Quick add note from the inline outreach notes row.
+    // Notes default to "visible to outreach owner" so admin and agent stay in sync. Admin can flip
+    // the "Internal only" checkbox to mark a note admin-eyes-only. When a visible note is added,
+    // the outreach owner (agent who sent the package) gets an email notification.
     window.addQuickOutreachNote = async function(id, idPrefix) {
         idPrefix = idPrefix || '';
         var inputEl = document.getElementById('outreachNoteInput_' + idPrefix + id);
@@ -12575,11 +12604,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         var noteText = inputEl.value.trim();
         if (!noteText) { showToast('Please enter a note first', 'warning'); return; }
 
+        var internalCheckbox = document.getElementById('outreachNoteInternal_' + idPrefix + id);
+        var isInternalOnly = !!(internalCheckbox && internalCheckbox.checked);
+
         try {
-            var { data: existing } = await db.from('prospect_outreach').select('notes').eq('id', id).single();
+            var { data: existing } = await db.from('prospect_outreach').select('notes, prospect_name, prospect_email, sent_by_id, sent_by_name').eq('id', id).single();
             var timestamp = new Date().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             var authorName = currentUserName || 'Admin';
-            var newNote = '[' + timestamp + '] INTERNAL NOTE by ' + authorName + '\n' + noteText;
+            // Honest labeling: visible notes prefix differently from admin-only ones so the rendering
+            // filter and the recipient both know which is which.
+            var prefix = isInternalOnly ? 'INTERNAL by ' : 'NOTE from ';
+            var newNote = '[' + timestamp + '] ' + prefix + authorName + '\n' + noteText;
             var updatedNotes = existing && existing.notes ? existing.notes + '\n\n---\n\n' + newNote : newNote;
 
             var { error } = await db.from('prospect_outreach').update({
@@ -12589,13 +12624,177 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             if (error) throw error;
 
-            showToast('Note added', 'success');
+            // Notify the outreach owner via email when a visible note is added (and the owner isn't the admin themselves).
+            if (!isInternalOnly && existing && existing.sent_by_id && existing.sent_by_id !== currentUserId) {
+                try {
+                    var { data: ownerData } = await db.from('users').select('full_name, email').eq('id', existing.sent_by_id).single();
+                    if (ownerData && ownerData.email) {
+                        var prospectName = existing.prospect_name || 'a prospect';
+                        var emailSubject = authorName + ' left a note on your outreach to ' + prospectName;
+                        var emailHtml =
+                            '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+                            '<div style="background:#0D1E3D;padding:25px 30px;border-radius:8px 8px 0 0;text-align:center;">' +
+                            '<h1 style="color:#C9A84C;margin:0;font-size:22px;">Alliance Financing Group</h1></div>' +
+                            '<div style="padding:30px;background:#ffffff;border:1px solid #E2E8F0;">' +
+                            '<p style="font-size:16px;color:#1E293B;">Hi ' + (ownerData.full_name || 'there') + ',</p>' +
+                            '<p style="font-size:14px;color:#475569;line-height:1.7;"><strong>' + authorName + '</strong> left a note on your outreach to <strong>' + prospectName + '</strong>:</p>' +
+                            '<div style="background:#F8FAFC;border-left:4px solid #C9A84C;padding:14px 18px;margin:14px 0;border-radius:0 6px 6px 0;font-size:13px;color:#1E293B;line-height:1.7;white-space:pre-wrap;">' + noteText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+                            '<div style="text-align:center;margin:25px 0;">' +
+                            '<a href="https://app.alliancefinancing.com/dashboard.html#recruitment-hub" style="display:inline-block;background:#C9A84C;color:#0D1E3D;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;">View in Dashboard</a></div>' +
+                            '<p style="font-size:13px;color:#64748B;line-height:1.6;">No action required unless you want to follow up. The note is also saved in the dashboard\'s Recruitment Hub on this prospect\'s record.</p>' +
+                            '<p style="font-size:14px;color:#475569;margin-top:20px;">Best regards,<br><strong>Alliance Financing Group</strong><br>1-877-660-3660 ext. 222</p>' +
+                            '</div>' +
+                            '<div style="background:#F8FAFC;padding:15px 30px;border-radius:0 0 8px 8px;border:1px solid #E2E8F0;border-top:none;text-align:center;">' +
+                            '<p style="font-size:11px;color:#94A3B8;margin:0;">Alliance Financing Group Ltd. | alliancefinancing.com</p></div></div>';
+                        sendEmailViaResend(ownerData.email, emailSubject, emailHtml).catch(function(e) {
+                            console.warn('Outreach note notification email failed:', e);
+                        });
+                    }
+                } catch (notifyErr) {
+                    console.warn('Outreach note notification lookup failed:', notifyErr);
+                }
+            }
+
+            showToast(isInternalOnly ? 'Internal note added' : 'Note added — outreach owner notified', 'success');
             inputEl.value = '';
+            if (internalCheckbox) internalCheckbox.checked = false;
             loadOutreachHistory();
             loadOutreachHistory('adminOutreachTableBody');
         } catch (err) {
             console.error('Quick note error:', err);
             showToast('Failed to add note', 'error');
+        }
+    };
+
+    // ============================================
+    // CONVERT PROSPECT TO AGENT
+    // Bridges recruitment outreach → active agent record. Copies the visible (non-INTERNAL)
+    // notes from prospect_outreach.notes into the new user.notes JSON array so context
+    // follows the relationship instead of getting orphaned.
+    // ============================================
+    window.convertProspectToAgent = async function(prospectId, prospectName) {
+        if (!['super_admin', 'admin'].includes(currentUserRole)) {
+            showToast('Only admin can convert a prospect to an agent', 'error');
+            return;
+        }
+        var confirmed = confirm('Convert ' + prospectName + ' to an active agent? This creates a new user record, migrates the visible recruitment notes into their agent history, and marks the prospect outreach as Converted.');
+        if (!confirmed) return;
+
+        try {
+            // 1. Pull the prospect record
+            var { data: prospect, error: pErr } = await db.from('prospect_outreach').select('*').eq('id', prospectId).single();
+            if (pErr || !prospect) throw pErr || new Error('Prospect record not found');
+            if (!prospect.prospect_email) {
+                showToast('Cannot convert — prospect has no email on file', 'error');
+                return;
+            }
+
+            // 2. Check for existing user with this email so we don\'t double-create
+            var { data: existingUser } = await db.from('users').select('id, full_name').eq('email', prospect.prospect_email).maybeSingle();
+            if (existingUser) {
+                showToast('A user already exists with this email (' + existingUser.full_name + '). Aborting to avoid duplicate.', 'error');
+                return;
+            }
+
+            // 3. Build the migrated notes array. Strip INTERNAL admin-only notes; keep visible
+            //    notes formatted as alliance-comms-style note entries on the new user record.
+            var migratedNotes = [];
+            if (prospect.notes) {
+                var blocks = prospect.notes.split(/\n\n---\n\n/);
+                for (var i = 0; i < blocks.length; i++) {
+                    var blk = (blocks[i] || '').trim();
+                    if (!blk) continue;
+                    var firstLine = blk.split('\n')[0] || '';
+                    var isInternal = /^\[[^\]]+\]\s+INTERNAL\s+by\s/i.test(firstLine);
+                    if (isInternal) continue; // admin-only, do not migrate
+                    var hdrMatch = firstLine.match(/^\[([^\]]+)\]\s+(?:NOTE\s+from|INTERNAL\s+NOTE\s+by)\s+(.+)$/i);
+                    var noteDate = hdrMatch ? hdrMatch[1] : new Date().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    var noteAuthor = hdrMatch ? hdrMatch[2] : (currentUserName || 'Admin');
+                    var noteText = blk.split('\n').slice(1).join('\n').trim();
+                    if (!noteText) continue;
+                    migratedNotes.push({
+                        text: noteText,
+                        author: noteAuthor,
+                        date: noteDate,
+                        type: 'note',
+                        category: 'recruitment_history',
+                        visible_to_agent: true,
+                        is_audit_log: false,
+                        from_agent: false,
+                        migrated_from_outreach: prospectId
+                    });
+                }
+            }
+            // Header note marking the conversion
+            migratedNotes.unshift({
+                text: 'Converted from recruitment outreach (prospect_outreach id ' + prospectId + ').' + (prospect.materials_sent && prospect.materials_sent.length ? ' Materials originally sent: ' + prospect.materials_sent.join(', ') + '.' : '') + ' Recruitment history follows in the next entries.',
+                author: currentUserName || 'Admin',
+                date: new Date().toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                type: 'note',
+                category: 'role_change',
+                visible_to_agent: false,
+                is_audit_log: true,
+                from_agent: false
+            });
+
+            // 4. Choose a sensible agent_type from prospect_type (default referring_agent)
+            var agentTypeMap = {
+                'iso_partner': 'super_agent',
+                'mortgage_broker': 'mortgage_broker',
+                'insurance_broker': 'referring_agent',
+                'accountant_cfo': 'referring_agent',
+                'equipment_vendor': 'vendor_program',
+                'referral_partner': 'referring_agent',
+                'business_owner': 'referring_agent',
+                'prospect': 'referring_agent',
+                'other': 'referring_agent'
+            };
+            var newAgentType = agentTypeMap[prospect.prospect_type] || 'referring_agent';
+
+            // 5. Generate a referral slug from the name + a short suffix to avoid collisions
+            var baseSlug = (prospect.prospect_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            var referralSlug = baseSlug ? baseSlug + '-' + Math.random().toString(36).substring(2, 6) : 'agent-' + Math.random().toString(36).substring(2, 8);
+
+            // 6. Insert the new user record. Status set to 'Pending Invite' so admin can review
+            //    before sending the formal portal invite (per the agent_status taxonomy fix).
+            var inviteToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substr(2, 12));
+            var newUserPayload = {
+                full_name: prospect.prospect_name || 'New Agent',
+                email: prospect.prospect_email,
+                role: 'agent',
+                agent_type: newAgentType,
+                agent_status: 'Pending Invite',
+                onboarding_status: 'pending_setup',
+                invite_token: inviteToken,
+                invite_sent_at: null,
+                company_name: prospect.prospect_company || null,
+                referral_slug: referralSlug,
+                notes: JSON.stringify(migratedNotes),
+                created_at: new Date().toISOString()
+            };
+            var { data: insertedUsers, error: uErr } = await db.from('users').insert([newUserPayload]).select('id, full_name, email');
+            if (uErr) throw uErr;
+            var newAgent = insertedUsers && insertedUsers[0];
+
+            // 7. Mark the prospect_outreach record as converted (preserved for audit; not deleted)
+            await db.from('prospect_outreach').update({
+                status: 'converted',
+                is_archived: true,
+                updated_at: new Date().toISOString()
+            }).eq('id', prospectId);
+
+            showToast(prospectName + ' converted to agent. ' + (migratedNotes.length - 1) + ' visible notes migrated to their record.', 'success');
+            // Refresh both lists so the change is visible
+            loadOutreachHistory();
+            loadOutreachHistory('adminOutreachTableBody');
+            if (typeof loadAgents === 'function') loadAgents();
+            // Open the new agent's profile so admin can review and send the portal invite
+            if (newAgent && typeof openAgentDetail === 'function') {
+                setTimeout(function() { openAgentDetail(newAgent.id); }, 800);
+            }
+        } catch (err) {
+            console.error('Convert prospect to agent error:', err);
+            showToast('Failed to convert prospect: ' + (err.message || 'Unknown error'), 'error');
         }
     };
 
