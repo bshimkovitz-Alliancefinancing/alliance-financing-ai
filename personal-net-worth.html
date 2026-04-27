@@ -387,12 +387,17 @@ body{font-family:var(--font);background:var(--slate-50);color:var(--slate-800);l
 // Parse URL parameters
 var urlParams = new URLSearchParams(window.location.search);
 var referralSlug = urlParams.get('ref') || '';
-if (referralSlug) {
+// The dashboard's "Request Documents" feature sends the deal UUID separately as ?deal=UUID
+// while ?ref= holds the deal/application reference number. Capture it so we can auto-attach
+// the submitted PNW to the originating deal as a document. Resolved April 27, 2026 after
+// Aleksandar Stefanovski's PNW failed to attach to AS1 CLEANER deal.
+var dealParamFromUrl = urlParams.get('deal') || '';
+if (referralSlug || dealParamFromUrl) {
     document.getElementById('refBanner').style.display = 'block';
     document.getElementById('heroSection').style.paddingTop = '5rem';
-    if (referralSlug.startsWith('deal-')) {
+    if (referralSlug.startsWith('deal-') || dealParamFromUrl) {
         document.getElementById('refName').textContent = 'Alliance Financing Group';
-    } else {
+    } else if (referralSlug) {
         document.getElementById('refName').textContent = referralSlug.replace(/-/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
     }
 }
@@ -628,9 +633,17 @@ async function submitPNW() {
 
         if (appError) throw appError;
 
-        // If this was sent from a deal (ref=deal-xxx), generate a PDF summary and upload to storage
-        if (referralSlug && referralSlug.startsWith('deal-') && appData && appData.length > 0) {
-            var dealId = referralSlug.replace('deal-', '');
+        // If this was sent from a deal, generate a PDF summary and upload to storage.
+        // Two URL formats supported: legacy ?ref=deal-{UUID} and the dashboard's
+        // "Request Documents" format ?deal={UUID}&ref={DEAL_REF}.
+        var resolvedDealId = '';
+        if (dealParamFromUrl) {
+            resolvedDealId = dealParamFromUrl;
+        } else if (referralSlug && referralSlug.startsWith('deal-')) {
+            resolvedDealId = referralSlug.replace('deal-', '');
+        }
+        if (resolvedDealId && appData && appData.length > 0) {
+            var dealId = resolvedDealId;
             try {
                 // Build professional HTML summary of the PNW
                 var pnwHtml = '<!DOCTYPE html><html><head><title>Personal Net Worth Statement - ' + name + '</title>' +
