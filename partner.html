@@ -194,7 +194,7 @@
         <div class="section-inner">
             <div class="section-label">Financing Solutions</div>
             <h2 class="section-title">Products Available Through Alliance</h2>
-            <p class="section-subtitle">Our AI-powered platform matches your business with the best lender from our 70+ partner network.</p>
+            <p class="section-subtitle">Our smart-matching platform pairs your business with the best lender from our 70+ partner network.</p>
             <div class="products-grid" id="productsGrid">
                 <!-- Populated dynamically -->
             </div>
@@ -215,7 +215,7 @@
                 <div class="step-card">
                     <div class="step-num">2</div>
                     <div class="step-title">Get Matched</div>
-                    <div class="step-desc">Our AI scans 70+ lenders to find the best terms for your business. We work quickly to get you funded.</div>
+                    <div class="step-desc">Our smart-matching engine scans 70+ lenders to find the best terms for your business. We work quickly to get you funded.</div>
                 </div>
                 <div class="step-card">
                     <div class="step-num">3</div>
@@ -328,6 +328,93 @@
     // Default products if agent has no specific config
     const DEFAULT_PRODUCTS = ['working-capital', 'equipment-financing', 'merchant-advance', 'tax-credit', 'business-acquisition', 'bridge-financing'];
 
+    // House fallback agent slug — used when slug is unresolved or vendor/deal has no agent linked.
+    // 'bernie-shimkovitz' is verified to exist in production users.referral_slug (non-test, role='agent').
+    // If you create a dedicated 'alliance-house' record later, change this constant to that slug.
+    const HOUSE_FALLBACK_SLUG = 'bernie-shimkovitz';
+
+    // Resolve a slug to an agent. Returns { agent, vendor } or null.
+    // Slug forms supported:
+    //   - <agent_referral_slug>           — looks up users.referral_slug directly
+    //   - vendor-<uuid>                   — looks up vendors.id, falls back to that vendor's primary/source agent
+    //   - deal-<uuid>                     — looks up deals.id, falls back to that deal's source_agent_id
+    //   - alliance-house / unknown        — falls back to the HOUSE_FALLBACK_SLUG agent
+    // For vendor-<uuid> URLs, the vendor record is preserved and passed through even when falling back
+    // to the house agent — so the landing page still shows the vendor name in the company line.
+    async function resolveSlugToAgent(slug) {
+        if (!slug) {
+            // Empty slug — fall back to house instead of erroring
+            return await resolveBySlugColumn(HOUSE_FALLBACK_SLUG);
+        }
+
+        // Path 1: vendor-<uuid> — resolve via vendors table to the linked agent
+        if (slug.startsWith('vendor-')) {
+            const vendorId = slug.substring('vendor-'.length);
+            const { data: vendor } = await db
+                .from('vendors')
+                .select('id, name, trade_name, primary_agent_id, source_agent_id')
+                .eq('id', vendorId)
+                .maybeSingle();
+            if (vendor) {
+                const linkedAgentId = vendor.primary_agent_id || vendor.source_agent_id;
+                if (linkedAgentId) {
+                    const { data: agent } = await db
+                        .from('users')
+                        .select('id, full_name, email, phone, company_name, agent_type, business_type, referral_slug, program_details, landing_page_products')
+                        .eq('id', linkedAgentId)
+                        .eq('role', 'agent')
+                        .maybeSingle();
+                    if (agent) return { agent: agent, vendor: vendor };
+                }
+                // Vendor exists but no linked agent — fall back to house but keep vendor context
+                const houseResult = await resolveBySlugColumn(HOUSE_FALLBACK_SLUG);
+                if (houseResult && houseResult.agent) {
+                    return { agent: houseResult.agent, vendor: vendor };
+                }
+                return null;
+            }
+            // Vendor not found at all — house fallback without vendor context
+            return await resolveBySlugColumn(HOUSE_FALLBACK_SLUG);
+        }
+
+        // Path 2: deal-<uuid> — resolve via deals table to the source agent
+        if (slug.startsWith('deal-')) {
+            const dealId = slug.substring('deal-'.length);
+            const { data: deal } = await db
+                .from('deals')
+                .select('id, source_agent_id')
+                .eq('id', dealId)
+                .maybeSingle();
+            if (deal && deal.source_agent_id) {
+                const { data: agent } = await db
+                    .from('users')
+                    .select('id, full_name, email, phone, company_name, agent_type, business_type, referral_slug, program_details, landing_page_products')
+                    .eq('id', deal.source_agent_id)
+                    .eq('role', 'agent')
+                    .maybeSingle();
+                if (agent) return { agent: agent, vendor: null };
+            }
+            return await resolveBySlugColumn(HOUSE_FALLBACK_SLUG);
+        }
+
+        // Path 3: regular agent referral_slug
+        const result = await resolveBySlugColumn(slug);
+        if (result) return result;
+
+        // Path 4: unknown slug — fall back to house instead of erroring
+        return await resolveBySlugColumn(HOUSE_FALLBACK_SLUG);
+    }
+
+    async function resolveBySlugColumn(slug) {
+        const { data: agent } = await db
+            .from('users')
+            .select('id, full_name, email, phone, company_name, agent_type, business_type, referral_slug, program_details, landing_page_products')
+            .eq('referral_slug', slug)
+            .eq('role', 'agent')
+            .maybeSingle();
+        return agent ? { agent: agent, vendor: null } : null;
+    }
+
     async function loadPartnerPage() {
         try {
             // Get slug from URL: /partner.html?ref=slug OR /ref/slug
@@ -341,23 +428,14 @@
                 if (refMatch) slug = refMatch[1];
             }
 
-            if (!slug) {
+            // Resolve the slug to an agent (supports vendor-<uuid>, deal-<uuid>, agent slugs, and house fallback)
+            const resolved = await resolveSlugToAgent(slug);
+            if (!resolved || !resolved.agent) {
                 showError();
                 return;
             }
-
-            // Fetch agent by referral slug
-            const { data: agent, error } = await db
-                .from('users')
-                .select('id, full_name, email, phone, company_name, agent_type, business_type, referral_slug, program_details, landing_page_products')
-                .eq('referral_slug', slug)
-                .eq('role', 'agent')
-                .maybeSingle();
-
-            if (error || !agent) {
-                showError();
-                return;
-            }
+            const agent = resolved.agent;
+            const vendor = resolved.vendor;
 
             // Populate agent info
             const initials = (agent.full_name || 'A').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -375,7 +453,10 @@
             }
             document.getElementById('agentTitle').textContent = title;
 
-            if (agent.company_name) {
+            // If we resolved via vendor and the vendor has a name, show it as the company line
+            if (vendor && (vendor.name || vendor.trade_name)) {
+                document.getElementById('agentCompany').textContent = vendor.trade_name || vendor.name;
+            } else if (agent.company_name) {
                 document.getElementById('agentCompany').textContent = agent.company_name;
             }
 
@@ -383,9 +464,10 @@
             document.title = agent.full_name + ' — Alliance Financing Group Partner';
 
             // Detect vendor agent type — show equipment-focused layout
-            const isVendor = ['vendor_program', 'vendor_salesperson'].includes(agent.agent_type);
+            // Force vendor layout if we resolved via a vendor record (even if the linked agent isn't a vendor_program type)
+            const isVendor = !!vendor || ['vendor_program', 'vendor_salesperson'].includes(agent.agent_type);
             if (isVendor) {
-                renderVendorLayout(agent, slug);
+                renderVendorLayout(agent, slug, vendor);
                 return;
             }
 
@@ -430,6 +512,7 @@
 
             // Populate contact form with agent name
             window._partnerAgent = agent;
+            window._partnerVendor = vendor;
             var contactNameEl = document.getElementById('contactAgentName');
             if (contactNameEl) contactNameEl.textContent = agent.full_name || 'your partner';
             var successMsgEl = document.getElementById('contactSuccessMsg');
@@ -456,10 +539,18 @@
         }
     }
 
-    function renderVendorLayout(agent, slug) {
+    function renderVendorLayout(agent, slug, vendor) {
         // Replace hero content for vendor/equipment focus
         document.querySelector('.hero h1').innerHTML = 'Finance Your Equipment <em>Today</em>';
-        document.getElementById('heroSubtitle').textContent = 'Get fast, flexible equipment financing through Alliance\'s network of 70+ lenders. ' + (agent.full_name || 'Your sales representative') + ' is here to help you secure the best rates.';
+        var repName = agent.full_name || 'Your sales representative';
+        var vendorName = (vendor && (vendor.trade_name || vendor.name)) ? (vendor.trade_name || vendor.name) : null;
+        var subtitle = 'Get fast, flexible equipment financing through Alliance\'s network of 70+ lenders. ';
+        if (vendorName) {
+            subtitle += vendorName + ' has partnered with Alliance to make this easy. ' + repName + ' is here to help you secure the best rates.';
+        } else {
+            subtitle += repName + ' is here to help you secure the best rates.';
+        }
+        document.getElementById('heroSubtitle').textContent = subtitle;
 
         // Update stats bar for vendor context
         var statsInner = document.querySelector('.stats-bar-inner');
@@ -476,7 +567,7 @@
         productsSection.querySelector('.section-subtitle').textContent = 'We make it easy for you and your customers to get the equipment financing they need.';
         var grid = document.getElementById('productsGrid');
         grid.innerHTML =
-            '<div class="product-card"><div class="product-icon">⚡</div><div class="product-name">Fast Approvals</div><div class="product-desc">Our AI-powered platform matches applications with the best lender from 70+ partners for quick decisions.</div></div>' +
+            '<div class="product-card"><div class="product-icon">⚡</div><div class="product-name">Fast Approvals</div><div class="product-desc">Our smart-matching platform pairs applications with the best lender from 70+ partners for quick decisions.</div></div>' +
             '<div class="product-card"><div class="product-icon">📋</div><div class="product-name">Simple Application</div><div class="product-desc">One quick online application — no paperwork hassle. We handle the rest so you can focus on selling.</div></div>' +
             '<div class="product-card"><div class="product-icon">🏗️</div><div class="product-name">All Equipment Types</div><div class="product-desc">Construction, technology, vehicles, medical, manufacturing — we finance virtually any type of business equipment.</div></div>' +
             '<div class="product-card"><div class="product-icon">💰</div><div class="product-name">Competitive Rates</div><div class="product-desc">Access to 70+ lenders means competitive rates and flexible terms tailored to each customer\'s situation.</div></div>' +
@@ -489,7 +580,7 @@
             steps[0].querySelector('.step-title').textContent = 'Customer Applies';
             steps[0].querySelector('.step-desc').textContent = 'Your customer completes a quick online application in under 5 minutes. You can also send the application directly with a quote attached.';
             steps[1].querySelector('.step-title').textContent = 'We Find the Best Lender';
-            steps[1].querySelector('.step-desc').textContent = 'Our AI scans 70+ lenders to find the best financing terms for your customer\'s equipment purchase.';
+            steps[1].querySelector('.step-desc').textContent = 'Our smart-matching platform scans 70+ lenders to find the best financing terms for your customer\'s equipment purchase.';
             steps[2].querySelector('.step-title').textContent = 'Equipment Gets Funded';
             steps[2].querySelector('.step-desc').textContent = 'Once approved, financing is arranged and you get paid. Flexible lease and loan terms available for your customers.';
         }
@@ -501,19 +592,27 @@
         ctaButtons.innerHTML = '<a href="apply-leasing.html?ref=' + encodeURIComponent(slug) + '" class="cta-btn cta-btn-gold">Apply for Equipment Financing</a>' +
             '<a href="#contact" class="cta-btn cta-btn-outline" onclick="document.getElementById(\'contactFormSection\').style.display=\'block\';document.getElementById(\'contactFormSection\').scrollIntoView({behavior:\'smooth\'});return false;">Contact Us</a>';
 
+        // Set agent company line — prefer vendor name when present
+        if (vendorName) {
+            document.getElementById('agentCompany').textContent = vendorName;
+        } else if (agent.company_name) {
+            document.getElementById('agentCompany').textContent = agent.company_name;
+        }
+
         // Populate contact form with agent name
         window._partnerAgent = agent;
+        window._partnerVendor = vendor;
         var contactNameEl = document.getElementById('contactAgentName');
-        if (contactNameEl) contactNameEl.textContent = agent.full_name || 'your sales representative';
+        if (contactNameEl) contactNameEl.textContent = repName;
         var successMsgEl = document.getElementById('contactSuccessMsg');
-        if (successMsgEl) successMsgEl.textContent = 'Thank you for reaching out. ' + (agent.full_name || 'Your representative') + ' will be in touch shortly.';
+        if (successMsgEl) successMsgEl.textContent = 'Thank you for reaching out. ' + repName + ' will be in touch shortly.';
 
         // Show contact info
         if (agent.email || agent.phone) {
             var contactBar = document.getElementById('contactBar');
             var contactInner = document.getElementById('contactBarInner');
             contactBar.style.display = 'block';
-            var contactHtml = '<span style="font-weight:600;color:var(--navy);">Contact ' + (agent.full_name || 'your representative') + ':</span>';
+            var contactHtml = '<span style="font-weight:600;color:var(--navy);">Contact ' + repName + ':</span>';
             if (agent.phone) contactHtml += '<div class="contact-item">📞 <a href="tel:' + agent.phone.replace(/\s/g, '') + '">' + agent.phone + '</a></div>';
             if (agent.email) contactHtml += '<div class="contact-item">✉️ <a href="mailto:' + agent.email + '">' + agent.email + '</a></div>';
             contactInner.innerHTML = contactHtml;
@@ -538,6 +637,7 @@
 
         try {
             var agent = window._partnerAgent || {};
+            var vendor = window._partnerVendor || null;
             var leadData = {
                 first_name: document.getElementById('contactFirstName').value.trim(),
                 last_name: document.getElementById('contactLastName').value.trim(),
@@ -549,7 +649,7 @@
                 referral_slug: agent.referral_slug || null,
                 agent_id: agent.id || null,
                 agent_name: agent.full_name || null,
-                source: 'partner_landing_page',
+                source: vendor ? 'partner_landing_vendor' : 'partner_landing_page',
                 created_at: new Date().toISOString()
             };
 
