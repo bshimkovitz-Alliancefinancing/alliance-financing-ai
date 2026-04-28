@@ -11874,6 +11874,42 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
         } catch(e) { console.warn('Notifications: vendor inquiry load error', e); }
 
+        // 7d. Recent client document uploads (admin only — last 7 days, public-link uploads only)
+        // Surfaces PNW statements, financials, and other docs uploaded by clients/PGs via document-request links.
+        // Filter: uploaded_by IS NULL = public-link upload (vs admin/agent upload which sets the user UUID).
+        try {
+            if (isAdmin) {
+                var sevenDaysAgoDocs = new Date(Date.now() - 7 * 86400000).toISOString();
+                var { data: recentClientDocs } = await db.from('documents')
+                    .select('id, deal_id, application_id, document_type, file_name, file_size_bytes, uploaded_by, uploaded_by_name, uploaded_at, visible_to_agent')
+                    .is('uploaded_by', null)
+                    .eq('archived', false)
+                    .gte('uploaded_at', sevenDaysAgoDocs)
+                    .order('uploaded_at', { ascending: false });
+                if (recentClientDocs) {
+                    recentClientDocs.forEach(function(doc) {
+                        var uploadDate = new Date(doc.uploaded_at);
+                        var docTypeLabel = (doc.document_type || 'document').replace(/_/g, ' ');
+                        var who = doc.uploaded_by_name || 'A client';
+                        var sizeKB = doc.file_size_bytes ? Math.round(doc.file_size_bytes / 1024) + ' KB' : '';
+                        notifications.push({
+                            type: 'document_upload',
+                            category: 'action',
+                            icon: '📄',
+                            iconBg: '#DBEAFE',
+                            iconColor: '#1E40AF',
+                            title: who + ' uploaded ' + docTypeLabel,
+                            detail: (doc.file_name || 'Click to review') + (sizeKB ? ' · ' + sizeKB : ''),
+                            time: uploadDate,
+                            action: doc.deal_id ? "openDeal('" + doc.deal_id + "')" : "showPage('inbox')",
+                            actionLabel: 'View Deal',
+                            priority: 1
+                        });
+                    });
+                }
+            }
+        } catch(e) { console.warn('Notifications: client document upload load error', e); }
+
         // 8. New website inquiries — applications + contact submissions (admin only, last 7 days)
         try {
             if (isAdmin) {
