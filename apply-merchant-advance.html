@@ -467,6 +467,15 @@ document.addEventListener('change', function(e) {
 (function(){
     var params=new URLSearchParams(window.location.search);
     var ref=params.get('ref')||params.get('referral')||'';
+    // Vendor attribution: support both ?vendor=<uuid> param and ref=vendor-<uuid> prefix
+    var vendorParam=params.get('vendor')||'';
+    var vendorIdFromRef=(ref&&ref.indexOf('vendor-')===0)?ref.substring('vendor-'.length):'';
+    var vendorIdResolved=vendorParam||vendorIdFromRef;
+    if(vendorIdResolved){
+        var hidden=document.createElement('input');
+        hidden.type='hidden';hidden.id='vendorIdHidden';hidden.value=vendorIdResolved;
+        document.body.appendChild(hidden);
+    }
     if(ref){
         document.getElementById('referralSource').value=ref;
         document.getElementById('refBanner').style.display='block';
@@ -534,10 +543,42 @@ async function submitMCAApp(){
     fields.forEach(function(f){var el=document.getElementById(f);if(el)formData[f]=el.value;});
 
     try {
-        // Look up agent ID from referral slug
+        // Look up agent ID — supports vendor-<uuid> ref prefix and ?vendor= query param.
+        // Vendor resolution runs FIRST: if a vendor UUID was captured at page load, look up the vendor
+        // record, use its primary/source agent for source_agent_id, and stash vendor context in form_data.
+        // Falls back to direct agent slug lookup if no vendor was found.
         var referralSlug = document.getElementById('referralSource').value;
         var sourceAgentId = null;
-        if (referralSlug) {
+        var sourceChannel = referralSlug ? 'Agent Referral' : 'Online';
+        var sourceVendor = null;
+
+        var vendorIdEl = document.getElementById('vendorIdHidden');
+        var vendorIdToResolve = vendorIdEl ? vendorIdEl.value : '';
+        if (vendorIdToResolve) {
+            var { data: vendorData, error: vendorLookupErr } = await db.from('vendors').select('id, name, trade_name, primary_agent_id, source_agent_id').eq('id', vendorIdToResolve).maybeSingle();
+            if (vendorLookupErr) console.warn('Vendor lookup error:', vendorLookupErr);
+            if (vendorData) {
+                sourceVendor = vendorData;
+                sourceChannel = 'Vendor Program';
+                var linkedAgentId = vendorData.primary_agent_id || vendorData.source_agent_id;
+                if (linkedAgentId) {
+                    var { data: vendorAgent } = await db.from('users').select('id, full_name, email, phone, referral_slug').eq('id', linkedAgentId).maybeSingle();
+                    if (vendorAgent) {
+                        sourceAgentId = vendorAgent.id;
+                        formData.agentName = vendorAgent.full_name || '';
+                        formData.agentEmail = vendorAgent.email || '';
+                        formData.agentPhone = vendorAgent.phone || '';
+                    }
+                }
+                // Always record vendor context in form_data so the application can be linked to the vendor record after submission
+                formData.vendor_id = vendorData.id;
+                formData.vendor_name = vendorData.trade_name || vendorData.name || null;
+                console.log('Vendor resolved:', vendorData.name, vendorData.id);
+            }
+        }
+
+        // Fall back to direct agent slug lookup if vendor path didn't resolve an agent
+        if (!sourceAgentId && referralSlug) {
             var { data: agentData, error: agentLookupErr } = await db.from('users').select('id, full_name, email, phone, referral_slug').ilike('referral_slug', referralSlug).maybeSingle();
             if (agentLookupErr) console.warn('Agent lookup error:', agentLookupErr);
             if (agentData) {
@@ -581,7 +622,8 @@ async function submitMCAApp(){
             funding_amount_text: document.getElementById('advanceAmount').value,
             description: 'Merchant Cash Advance - Purpose: ' + document.getElementById('fundsPurpose').value,
             source_agent_id: sourceAgentId,
-            source_channel: referralSlug ? 'Agent Referral' : 'Online',
+            source_channel: sourceChannel,
+            source_display: sourceVendor ? ('Vendor: ' + (sourceVendor.trade_name || sourceVendor.name || 'Unknown')) : null,
             referral_slug: referralSlug || null,
             status: 'Application Received',
             submitted_at: now,
