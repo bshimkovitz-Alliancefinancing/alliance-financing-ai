@@ -43328,6 +43328,61 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         })()}
                     </div>
                 </div>
+                ${(() => {
+                    // Vendor Program Launch Checklist — auto-computed from existing data
+                    const setupState = vendor.setup_state || {};
+                    const lenderCount = (typeof allApprovedRaw !== 'undefined' ? allApprovedRaw.length : 0);
+                    const contactsCount = (contacts || []).filter(c => c.status !== 'Left Company').length;
+                    const activeContactsCount = (contacts || []).filter(c => c.status === 'Active' || c.status === 'Invited').length;
+                    const hasApplication = !!(vendor.vendor_application && vendor.vendor_application.submitted_at);
+                    const hasSignatory = !!vendor.authorized_signatory;
+                    const isApproved = vendor.status === 'Active' || vendor.status === 'Approved';
+
+                    const phase1Done = isApproved && hasApplication && hasSignatory && lenderCount > 0;
+                    const phase2Done = activeContactsCount >= 2;
+                    const phase3Done = !!vendor.alliance_rep;
+                    const phase4Done = !!setupState.training_completed_at;
+                    const phase5Done = !!setupState.welcome_packet_sent_at;
+                    const phase6Done = !!setupState.thirty_day_check_in_scheduled_at;
+
+                    const phases = [
+                      { n: 1, name: 'Vendor record populated', done: phase1Done, detail: phase1Done
+                          ? `${lenderCount} lenders approved · application on file · signatory: ${vendor.authorized_signatory || 'N/A'}`
+                          : (!isApproved ? 'Vendor not yet Active' : !hasApplication ? 'Vendor application not yet submitted' : !hasSignatory ? 'Authorized signatory missing' : `Only ${lenderCount} lenders approved`) },
+                      { n: 2, name: 'Vendor team identified & invited', done: phase2Done, detail: `${activeContactsCount} of ~3-5 expected contacts in system${activeContactsCount < 2 ? ' (need at least Admin + 1 Sales)' : ''}` },
+                      { n: 3, name: 'Alliance internal team assigned', done: phase3Done, detail: phase3Done ? 'Account Manager assigned' : 'No Account Manager set on this vendor record' },
+                      { n: 4, name: 'Training scheduled & completed', done: phase4Done, detail: phase4Done ? `Completed ${new Date(setupState.training_completed_at).toLocaleDateString()}` : 'Not yet scheduled' },
+                      { n: 5, name: 'Welcome packet & launch document delivered', done: phase5Done, detail: phase5Done ? `Sent ${new Date(setupState.welcome_packet_sent_at).toLocaleDateString()}` : 'Not yet sent' },
+                      { n: 6, name: 'Go-live verified · 30-day check-in scheduled', done: phase6Done, detail: phase6Done ? `Check-in ${new Date(setupState.thirty_day_check_in_scheduled_at).toLocaleDateString()}` : 'No check-in scheduled' }
+                    ];
+                    const completedCount = phases.filter(p => p.done).length;
+                    const pctComplete = Math.round((completedCount / phases.length) * 100);
+
+                    return '<div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">' +
+                      '<details ' + (completedCount < 6 ? 'open' : '') + ' style="background:#FAFBFC;border:1px solid var(--border-gray);border-radius:8px;padding:0;">' +
+                        '<summary style="cursor:pointer;padding:12px 16px;font-size: 15px; font-weight: 600; color: var(--navy);display:flex;align-items:center;justify-content:space-between;list-style:none;">' +
+                          '<span>📋 Vendor Program Launch Checklist</span>' +
+                          '<span style="font-size:13px;font-weight:500;color:#64748B;">' + completedCount + ' of ' + phases.length + ' phases · ' + pctComplete + '%</span>' +
+                        '</summary>' +
+                        '<div style="padding:8px 16px 16px;">' +
+                          '<div style="background:#E2E8F0;border-radius:99px;height:6px;overflow:hidden;margin-bottom:14px;">' +
+                            '<div style="background:' + (pctComplete === 100 ? '#10B981' : 'var(--gold)') + ';height:100%;width:' + pctComplete + '%;transition:width 0.3s;"></div>' +
+                          '</div>' +
+                          phases.map(p => (
+                            '<div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid #EDF2F7;">' +
+                              '<span style="flex-shrink:0;font-size:18px;line-height:1;margin-top:1px;">' + (p.done ? '✅' : '⬜') + '</span>' +
+                              '<div style="flex:1;min-width:0;">' +
+                                '<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:2px;">Phase ' + p.n + ' · ' + p.name + '</div>' +
+                                '<div style="font-size:12px;color:#64748B;line-height:1.4;">' + p.detail + '</div>' +
+                              '</div>' +
+                            '</div>'
+                          )).join('') +
+                          '<p style="font-size:11px;color:#94A3B8;font-style:italic;margin-top:10px;margin-bottom:0;">Phases 1-3 auto-update from this vendor card. Phases 4-6 will become editable in the next dashboard release.</p>' +
+                        '</div>' +
+                      '</details>' +
+                    '</div>';
+                })()}
+
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Send Application</label>
                     <button class="btn btn-gold btn-sm" onclick="openSendApplicationModalWithRef('vendor-${vendorId}')">Generate Tracked Link</button>
