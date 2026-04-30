@@ -40776,21 +40776,24 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Branded Documents</label>
-                    <button id="generateBrandedDocsBtn" class="btn btn-sm" onclick="handleGenerateSelectedDocs('${agentId}', '${(agent.full_name || '').replace(/'/g, "\\\\'")}', '${(agent.email || '').replace(/'/g, "\\\\'")}', '${agent.phone || ''}', '${agent.referral_slug || ''}')" style="background:#0D1E3D;color:#C9A84C;border:1px solid #C9A84C;padding:4px 14px;font-size:12px;font-weight:600;">Generate Selected PDFs</button>
+                    <button id="generateBrandedDocsBtn" disabled title="Generator disabled — see notice below" style="background:#E2E8F0;color:#94A3B8;border:1px solid #CBD5E1;padding:4px 14px;font-size:12px;font-weight:600;cursor:not-allowed;border-radius:4px;">Generator disabled</button>
                 </div>
-                <p style="color:var(--text-light);font-size:12px;margin-bottom:8px;">Select which documents to generate for this agent:</p>
-                <div id="brandedDocsChecklist" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-                    ${BRANDED_DOC_TYPES.map(function(dt) {
-                        return '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;cursor:pointer;font-size:12px;min-width:180px;" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.borderColor=\'#E2E8F0\';else this.style.borderColor=\'var(--gold)\'">' +
-                            '<input type="checkbox" name="brandedDocSelect" value="' + dt.key + '" checked style="margin:0;accent-color:var(--gold);">' +
-                            '<span style="font-size:14px;">' + dt.icon + '</span>' +
-                            '<span style="color:var(--navy);font-weight:600;">' + dt.label + '</span></label>';
-                    }).join('')}
+                <!-- Apr 30, 2026 — branded-docs generator disabled. The jsPDF generator was producing
+                     visually corrupted PDFs (overlapping text, broken layout). All 106 previously-generated
+                     files were deleted from agent_branded_documents and storage. Agents now fall back to
+                     legacy hardcoded PDFs (Paul/Lee) or the 3 generic marketing PDFs (everyone else).
+                     The checklist UI + brandedDocsChecklist/brandedDocsStatus/brandedDocsList ids are
+                     intentionally left in place so any other code that addresses them by id no-ops gracefully. -->
+                <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:12px 14px;margin-bottom:10px;font-size:13px;color:#92400E;line-height:1.5;">
+                    <strong>⚠ Branded docs generator is disabled.</strong> The previous client-side jsPDF generator
+                    produced corrupted layouts. All 106 prior generated files were removed on Apr 30, 2026.
+                    Agents now see the legacy hardcoded one-pagers (Paul, Lee) or the 3 generic marketing PDFs
+                    (everyone else). To rebuild this with a working generator, see the backlog item logged in
+                    <code>session-handoff-april-30.md</code>.
                 </div>
-                <div id="brandedDocsStatus" style="font-size:12px;color:var(--text-light);margin-bottom:4px;"></div>
-                <div id="brandedDocsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
-                    <p style="color:var(--text-light);font-size:13px;font-style:italic;" id="brandedDocsLoading">Loading...</p>
-                </div>
+                <div id="brandedDocsChecklist" style="display:none;"></div>
+                <div id="brandedDocsStatus" style="display:none;"></div>
+                <div id="brandedDocsList" style="display:none;"></div>
 
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Referral Applications (${apps ? apps.length : 0})</label>
