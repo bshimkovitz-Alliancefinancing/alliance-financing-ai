@@ -40411,16 +40411,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 }
             }
 
-            // Get agent's deals
+            // Get agent's deals (include is_test so the Onboarding block + lists can filter test records)
             const { data: deals } = await db
                 .from('deals')
-                .select('deal_number, company_name, deal_amount, status')
+                .select('deal_number, company_name, deal_amount, status, is_test')
                 .eq('source_agent_id', agentId);
 
-            // Get agent's referral applications
+            // Get agent's referral applications (include is_test for the same reason)
             const { data: apps } = await db
                 .from('applications')
-                .select('application_id, full_name, business_name, status, funding_amount_text')
+                .select('application_id, full_name, business_name, status, funding_amount_text, is_test')
                 .eq('referral_slug', agent.referral_slug);
 
             // Parse notes
@@ -40657,7 +40657,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     var phase1Done = !!agent.created_at;
                     var phase2Done = !!agent.invite_sent_at;
                     var phase3Done = !!agent.invite_accepted_at || agent.onboarding_status === 'active';
-                    var phase4Done = (deals && deals.length > 0) || (apps && apps.length > 0);
+                    // Apr 30, 2026 — Phase 4 filter fix: count REAL deals/apps only (exclude is_test=true).
+                    // Without this, a polluted pipeline (like Rob Barlow's pre-cleanup state) shows phase4 as done
+                    // even when every attributed record is a test submission.
+                    var realDeals = (deals || []).filter(function(d) { return !d.is_test; });
+                    var realApps = (apps || []).filter(function(a) { return !a.is_test; });
+                    var testDealCount = (deals || []).length - realDeals.length;
+                    var testAppCount = (apps || []).length - realApps.length;
+                    var phase4Done = realDeals.length > 0 || realApps.length > 0;
                     var phase5Done = !!agent.training_completed_at;
                     var phasesDone = [phase1Done, phase2Done, phase3Done, phase4Done, phase5Done].filter(Boolean).length;
                     var statusIcon = function(done, warn) {
@@ -40674,10 +40681,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     var inviteSentText = agent.invite_sent_at ? formatDate(agent.invite_sent_at) : 'Not sent yet';
                     var inviteAcceptedText = agent.invite_accepted_at ? formatDate(agent.invite_accepted_at) : '—';
                     var createdText = agent.created_at ? formatDate(agent.created_at) : '—';
-                    var firstDealText = phase4Done
-                        ? ((deals && deals.length > 0 ? deals.length + ' deal' + (deals.length === 1 ? '' : 's') : '') +
-                           (apps && apps.length > 0 ? (deals && deals.length > 0 ? ' · ' : '') + apps.length + ' app' + (apps.length === 1 ? '' : 's') : ''))
-                        : 'No deals or applications attributed yet';
+                    var firstDealText;
+                    if (phase4Done) {
+                        var parts = [];
+                        if (realDeals.length > 0) parts.push(realDeals.length + ' deal' + (realDeals.length === 1 ? '' : 's'));
+                        if (realApps.length > 0) parts.push(realApps.length + ' app' + (realApps.length === 1 ? '' : 's'));
+                        firstDealText = parts.join(' · ');
+                        var testParts = [];
+                        if (testDealCount > 0) testParts.push(testDealCount + ' test deal' + (testDealCount === 1 ? '' : 's'));
+                        if (testAppCount > 0) testParts.push(testDealCount > 0 ? testAppCount + ' test app' + (testAppCount === 1 ? '' : 's') : testAppCount + ' test app' + (testAppCount === 1 ? '' : 's'));
+                        if (testParts.length > 0) firstDealText += ' <span style="color:#92400E;">(' + testParts.join(', ') + ' hidden)</span>';
+                    } else if (testDealCount > 0 || testAppCount > 0) {
+                        firstDealText = 'No real deals yet — only test records attributed';
+                    } else {
+                        firstDealText = 'No deals or applications attributed yet';
+                    }
                     var trainingText = phase5Done
                         ? ('Completed ' + formatDate(agent.training_completed_at))
                         : 'Not yet acknowledged';
