@@ -40650,10 +40650,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 ${(function(){
                     // Apr 30, 2026 — Commit 2: Agent Onboarding Status block
                     // Auto-computes 5 phases from existing user fields. Buttons wired to anon-key
-                    // operations (resendAgentInvite, db.auth.resetPasswordForEmail, mark-training).
-                    // The Health Check button surfaces best-effort diagnostics from public.users
-                    // fields; deeper auth-orphan detection requires the planned auth-diagnostic
-                    // edge function (not yet shipped — TODO logged in session handoff).
+                    // operations (resendAgentInvite, db.auth.resetPasswordForEmail, mark-training)
+                    // and the auth-diagnostic edge function (Health Check, shipped same day).
                     var phase1Done = !!agent.created_at;
                     var phase2Done = !!agent.invite_sent_at;
                     var phase3Done = !!agent.invite_accepted_at || agent.onboarding_status === 'active';
@@ -41045,17 +41043,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
-    // agentHealthCheck — best-effort diagnostic from public.users fields. Surfaces
-    // the obvious cases (invited but never activated, status mismatch, no slug).
-    // Does NOT detect deeper auth-orphan state (auth.users.id != public.users.id);
-    // that needs the auth-diagnostic edge function, on the Phase-2 backlog.
+    // agentHealthCheck — combines public.users field heuristics with the auth-diagnostic
+    // edge function (Apr 30, 2026 — Phase 2 shipped) to detect both surface issues
+    // (status drift, missing slug, no email) and deep auth-orphan state.
+    // Deal count filters is_test for consistency with Phase 4 of Onboarding Status.
     async function agentHealthCheck(agentId) {
         try {
             var { data: agent, error } = await db.from('users').select('*').eq('id', agentId).single();
             if (error || !agent) throw error || new Error('Agent not found');
             var findings = [];
             var ok = [];
-            // Phase 2/3 alignment
+
+            // Phase 2/3 alignment (public.users field heuristics — kept as fast secondary checks)
             if (agent.invite_sent_at && !agent.invite_accepted_at && agent.onboarding_status !== 'active') {
                 findings.push('Invited ' + new Date(agent.invite_sent_at).toLocaleDateString() + ' but never activated. Try \'Send set-password link\'.');
             } else if (agent.invite_accepted_at) {
@@ -41063,28 +41062,54 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             } else {
                 findings.push('No invite_sent_at on record. Use Resend invite to send the activation email.');
             }
-            // Status mismatch
             if (agent.invite_accepted_at && (agent.agent_status === 'Pending' || agent.agent_status === 'Invited')) {
                 findings.push('Status drift: invite was activated but agent_status is still "' + agent.agent_status + '". Should be Active.');
             }
             if (agent.onboarding_status === 'active' && agent.agent_status !== 'Active' && agent.agent_status) {
                 findings.push('onboarding_status=active but agent_status="' + agent.agent_status + '" — fields out of sync.');
             }
-            // Referral slug
             if (!agent.referral_slug) {
                 findings.push('No referral_slug — agent cannot share a landing-page URL or have applications attributed via slug.');
             } else {
                 ok.push('Referral slug: ' + agent.referral_slug);
             }
-            // Email
             if (!agent.email) {
                 findings.push('No email on record — cannot resend invite or trigger password reset.');
             }
-            // Deal/application activity
-            var { data: dealsForAgent } = await db.from('deals').select('id').eq('source_agent_id', agentId);
-            var dealCount = (dealsForAgent || []).length;
-            if (dealCount > 0) ok.push(dealCount + ' deal' + (dealCount === 1 ? '' : 's') + ' attributed.');
-            // Compose report
+
+            // Apr 30, 2026 — deal count now filters is_test (was showing polluted total)
+            var { data: dealsForAgent } = await db.from('deals').select('id, is_test').eq('source_agent_id', agentId);
+            var allDealsCount = (dealsForAgent || []).length;
+            var realDealsCount = (dealsForAgent || []).filter(function(d) { return !d.is_test; }).length;
+            var testDealsCount = allDealsCount - realDealsCount;
+            if (realDealsCount > 0) {
+                ok.push(realDealsCount + ' real deal' + (realDealsCount === 1 ? '' : 's') + ' attributed' + (testDealsCount > 0 ? ' (plus ' + testDealsCount + ' test deal' + (testDealsCount === 1 ? '' : 's') + ' hidden)' : '') + '.');
+            } else if (testDealsCount > 0) {
+                findings.push('No real deals — only ' + testDealsCount + ' test record' + (testDealsCount === 1 ? '' : 's') + ' attributed.');
+            }
+
+            // Apr 30, 2026 — Phase 2 of Health Check: call auth-diagnostic edge function for the deep
+            // public.users vs auth.users diagnosis. Replaces the old "see brain-live-rules" TODO note.
+            var authBlock = '';
+            try {
+                var { data: diag, error: diagErr } = await db.functions.invoke('auth-diagnostic', { body: { agent_id: agentId } });
+                if (diagErr) {
+                    authBlock = '\n\nAuth diagnostic: could not run (' + (diagErr.message || diagErr) + '). Try again or check edge function logs.';
+                } else if (diag && diag.diagnosis) {
+                    var verdict = diag.diagnosis.verdict;
+                    var icon = verdict === 'LINKED' ? '✓' : verdict === 'ORPHAN_DETECTED' ? '⚠' : verdict === 'INVITED_NEVER_AUTHENTICATED' ? '○' : '○';
+                    authBlock = '\n\n' + icon + ' Auth: ' + verdict + '\n  ' + (diag.diagnosis.recommendation || '');
+                    if (verdict === 'ORPHAN_DETECTED') {
+                        findings.unshift('AUTH ORPHAN DETECTED — see Auth section below for recommended fix.');
+                    } else if (verdict === 'LINKED' && diag.auth) {
+                        var lastSignIn = (diag.auth.at_public_id && diag.auth.at_public_id.last_sign_in_at) || (diag.auth.at_auth_id_field && diag.auth.at_auth_id_field.last_sign_in_at);
+                        if (lastSignIn) ok.push('Last sign-in: ' + new Date(lastSignIn).toLocaleString() + '.');
+                    }
+                }
+            } catch (diagErr2) {
+                authBlock = '\n\nAuth diagnostic: edge function call threw — ' + (diagErr2.message || diagErr2);
+            }
+
             var msg = '🩺 Health Check — ' + (agent.full_name || agent.email) + '\n\n';
             if (findings.length === 0 && ok.length > 0) {
                 msg += '✓ Looks good.\n\n' + ok.map(function(o) { return '• ' + o; }).join('\n');
@@ -41092,7 +41117,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (findings.length > 0) msg += '⚠ Issues found:\n' + findings.map(function(f) { return '• ' + f; }).join('\n');
                 if (ok.length > 0) msg += '\n\n✓ OK:\n' + ok.map(function(o) { return '• ' + o; }).join('\n');
             }
-            msg += '\n\nNote: Deeper auth-orphan diagnosis (public.users.id vs auth.users.id mismatch) requires the planned auth-diagnostic edge function. For now, if a user reports they cannot log in despite an "active" record here, manually run the recurring audit query from brain-live-rules.md.';
+            msg += authBlock;
             alert(msg);
         } catch (err) {
             console.error('Health check error:', err);
