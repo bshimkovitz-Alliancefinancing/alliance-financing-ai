@@ -6501,6 +6501,74 @@ if (location.hostname === 'alliancefinancing.com') {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
     // ============================================
+    // TEST DATA helpers (Apr 30, 2026 — Commit 3)
+    // ============================================
+    // Centralized helpers used by render functions across deals/applications/clients
+    // and the agent modal. Toggle is admin-only and persists in localStorage.
+    // Pairs with the BEFORE INSERT/UPDATE triggers shipped Apr 29 — those flag
+    // is_test=true on any record matching \m(test|demo|trial|sample)\M, this just
+    // hides them from list views by default and renders a TEST pill where shown.
+    window.afgHideTestData = function() {
+        try { return localStorage.getItem('afgHideTestData') !== 'false'; } catch(e) { return true; }
+    };
+    window.afgSetHideTestData = function(v) {
+        try { localStorage.setItem('afgHideTestData', v ? 'true' : 'false'); } catch(e) {}
+    };
+    window.afgFilterTestData = function(list) {
+        if (!window.afgHideTestData()) return list || [];
+        return (list || []).filter(function(r) { return !r || !r.is_test; });
+    };
+    window.afgTestPill = function(record) {
+        if (!record || !record.is_test) return '';
+        return '<span style="display:inline-block;padding:1px 6px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:8px;font-size:9px;font-weight:700;letter-spacing:0.05em;margin-left:6px;vertical-align:middle;line-height:1.4;" title="Auto-flagged test/demo/trial/sample record">TEST</span>';
+    };
+    window.afgIsAdminLike = function() {
+        try { return ['super_admin', 'admin'].includes(window.currentUserRole); } catch(e) { return false; }
+    };
+    window.afgRefreshAfterTestToggle = function() {
+        // Re-run whatever list view is currently visible. Best-effort — silently ignore failures.
+        try { if (typeof loadDeals === 'function' && document.getElementById('dealsBody')) loadDeals(); } catch(e) {}
+        try { if (typeof loadClients === 'function' && document.getElementById('clientsBody')) loadClients(); } catch(e) {}
+        try { if (typeof loadApplicationsSent === 'function' && document.getElementById('applicationsSentBody')) loadApplicationsSent(); } catch(e) {}
+        try { if (typeof loadReferralPipeline === 'function' && document.getElementById('pipelineBody')) loadReferralPipeline(); } catch(e) {}
+        try { if (typeof renderKanbanBoard === 'function' && document.getElementById('kanbanBoard') && document.getElementById('kanbanBoard').offsetHeight > 0) renderKanbanBoard(); } catch(e) {}
+    };
+    window.afgToggleTestData = function() {
+        var next = !window.afgHideTestData();
+        window.afgSetHideTestData(next);
+        var indicator = document.getElementById('afgTestDataToggle');
+        if (indicator) indicator.dataset.hiding = next ? 'true' : 'false';
+        var label = document.getElementById('afgTestDataToggleLabel');
+        if (label) label.textContent = next ? 'Test data: hidden' : 'Test data: showing';
+        var dot = document.getElementById('afgTestDataToggleDot');
+        if (dot) dot.style.background = next ? '#10B981' : '#F59E0B';
+        window.afgRefreshAfterTestToggle();
+    };
+    // Mount toggle on first page render — admin-only, fixed bottom-right, click to flip.
+    document.addEventListener('DOMContentLoaded', function() {
+        // Wait for currentUserRole to be set (login finishes async). Poll for ~10s.
+        var attempts = 0;
+        var iv = setInterval(function() {
+            attempts++;
+            if (attempts > 50) { clearInterval(iv); return; }
+            if (typeof window.currentUserRole === 'undefined' || !window.currentUserRole) return;
+            clearInterval(iv);
+            if (!window.afgIsAdminLike()) return;
+            if (document.getElementById('afgTestDataToggle')) return;
+            var hiding = window.afgHideTestData();
+            var el = document.createElement('div');
+            el.id = 'afgTestDataToggle';
+            el.dataset.hiding = hiding ? 'true' : 'false';
+            el.title = 'Click to toggle visibility of test/demo records across all dashboard views';
+            el.onclick = window.afgToggleTestData;
+            el.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:9999;background:white;border:1px solid #E2E8F0;border-radius:20px;padding:6px 12px 6px 10px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-size:11px;font-weight:600;color:#475569;cursor:pointer;display:flex;align-items:center;gap:8px;user-select:none;';
+            el.innerHTML = '<span id="afgTestDataToggleDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (hiding ? '#10B981' : '#F59E0B') + ';"></span><span id="afgTestDataToggleLabel">' + (hiding ? 'Test data: hidden' : 'Test data: showing') + '</span>';
+            document.body.appendChild(el);
+        }, 200);
+    });
+</script>
+<script>
+    // ============================================
     // BERNIE: Paste your Supabase anon key below
     // ============================================
     // Dashboard version — use to verify cache is cleared
@@ -21682,6 +21750,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
         }
 
+        // Apply Hide Test Data filter (Apr 30, 2026 — Commit 3)
+        data = window.afgFilterTestData ? window.afgFilterTestData(data) : data;
+
         if (!data || data.length === 0) {
             var colCount = isReferralPartner ? 7 : 14;
             tbody.innerHTML = '<tr><td colspan="' + colCount + '" class="empty-state">No deals found in this view.</td></tr>';
@@ -21725,8 +21796,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 var rowBg = isArchived ? 'opacity:0.6;' : (deal.status === 'Funded' ? 'background:#F0FDF4;' : '');
 
+                var dealTestPill = window.afgTestPill ? window.afgTestPill(deal) : '';
                 return '<tr style="' + rowBg + 'border-bottom:1px solid #F1F5F9;">' +
-                    '<td style="padding:12px 16px;"><span style="display:inline-block;width:8px;height:8px;background:#10B981;border-radius:50%;margin-right:6px;"></span><strong style="color:#0D1E3D;">' + company + '</strong>' + unreadDot + personSubtitle +
+                    '<td style="padding:12px 16px;"><span style="display:inline-block;width:8px;height:8px;background:#10B981;border-radius:50%;margin-right:6px;"></span><strong style="color:#0D1E3D;">' + company + '</strong>' + dealTestPill + unreadDot + personSubtitle +
                         (appEmail ? '<br><span style="font-size:11px;color:#94A3B8;">' + appEmail + '</span>' : '') + '</td>' +
                     '<td style="padding:12px 16px;font-size:13px;">' + (deal.product_type || '—') + '</td>' +
                     '<td style="padding:12px 16px;">' + amountHtml + '</td>' +
@@ -21820,7 +21892,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 <tr${highlightClass} style="${isArchived ? 'opacity:0.6;' : ''}${highlightStyle}">
                     <td><strong style="font-family:'SF Mono','Cascadia Code','Consolas',monospace;letter-spacing:0.5px;">${dealNum}</strong>${afNumber ? '<div style="font-size:10px;color:#6B7280;font-family:SF Mono,Consolas,monospace;margin-top:2px;">' + afNumber + '</div>' : ''}</td>
                     <td style="font-size:12px;color:#6D28D9;font-weight:600;">${afgNumber ? afgNumber : '<span style="color:#ccc;font-weight:400;">—</span>'}</td>
-                    <td>${company}${unreadDot}${returnedBadge}</td>
+                    <td>${company}${(window.afgTestPill ? window.afgTestPill(deal) : '')}${unreadDot}${returnedBadge}</td>
                     <td>${amount}</td>
                     <td>${productHtml}</td>
                     <td>${sourceHtml}</td>
@@ -22146,6 +22218,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         // Apply same filters as table (except tab)
         var deals = (allDeals || []).filter(function(d) { return !d.is_archived; });
 
+        // Apply Hide Test Data filter (Apr 30, 2026 — Commit 3)
+        deals = window.afgFilterTestData ? window.afgFilterTestData(deals) : deals;
+
         // Apply search filter
         var search = (document.getElementById('dealSearch') || {}).value;
         if (search) {
@@ -22205,7 +22280,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     ' ondragstart="kanbanDragStart(event, this)" ondragend="kanbanDragEnd(this)"' +
                     ' onclick="openDealSlideout(\'' + deal.id + '\')">' +
                     getHealthDot(health.level) +
-                    '<div class="kc-company">' + (deal.company_name || 'N/A') + '</div>' +
+                    '<div class="kc-company">' + (deal.company_name || 'N/A') + (window.afgTestPill ? window.afgTestPill(deal) : '') + '</div>' +
                     '<div class="kc-amount">' + formatCurrency(deal.deal_amount || deal.amount_requested || 0) + '</div>' +
                     '<div class="kc-meta">' +
                         '<span class="kc-tag" style="background:' + stage.bg + ';color:' + stage.color + ';">' + (deal.product_type || '—') + '</span>' +
@@ -22232,6 +22307,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
     function renderAgentKanbanBoard(board) {
         var deals = (allDeals || []).filter(function(d) { return !d.is_archived; });
+
+        // Apply Hide Test Data filter (Apr 30, 2026 — Commit 3)
+        deals = window.afgFilterTestData ? window.afgFilterTestData(deals) : deals;
 
         // Apply search filter
         var search = (document.getElementById('dealSearch') || {}).value;
@@ -22342,7 +22420,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 html += '<div class="kanban-card" style="cursor:pointer;" onclick="openDealSlideout(\'' + deal.id + '\')">' +
                     getHealthDot(health.level) +
-                    '<div class="kc-company">' + (deal.company_name || 'N/A') + unreadHtml + '</div>' +
+                    '<div class="kc-company">' + (deal.company_name || 'N/A') + (window.afgTestPill ? window.afgTestPill(deal) : '') + unreadHtml + '</div>' +
                     '<div class="kc-amount">' + formatCurrency(deal.deal_amount || deal.amount_requested || 0) + '</div>' +
                     '<div style="font-size:11px;color:#64748B;margin-bottom:6px;">' + (deal.product_type || '—') + ' · ' + statusLabel + '</div>' +
                     '<div style="display:flex;align-items:flex-start;gap:2px;padding:4px 0;">' + progressDots + '</div>' +
@@ -35317,6 +35395,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 return;
             }
 
+            // Apply Hide Test Data filter (Apr 30, 2026 — Commit 3)
+            filteredData = window.afgFilterTestData ? window.afgFilterTestData(filteredData) : filteredData;
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No applications sent (test data hidden — toggle in bottom-right to show all).</td></tr>';
+                return;
+            }
+
             tbody.innerHTML = filteredData.map(function(app) {
                 var isOverdue = app.status === 'Sent' && app.follow_up_date && new Date(app.follow_up_date) < new Date();
                 var colors = { 'Sent': '#3B82F6', 'Delivered': '#06B6D4', 'Follow-Up Needed': '#F59E0B', 'Returned': '#10B981', 'Opened': '#8B5CF6', 'Clicked': '#7C3AED', 'Replied': '#059669', 'Bounced': '#DC2626', 'Expired': '#EF4444', 'Spam': '#991B1B', 'Archived': '#94A3B8' };
@@ -35398,7 +35483,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 var rowStyle = isOverdue ? 'background:#FFF7ED;' : (app.status === 'Archived' ? 'opacity:0.6;' : '');
 
                 return '<tr data-app-sent-id="' + app.id + '" style="' + rowStyle + '">' +
-                    '<td><strong>' + (app.applicant_name || 'N/A') + '</strong></td>' +
+                    '<td><strong>' + (app.applicant_name || 'N/A') + '</strong>' + (window.afgTestPill ? window.afgTestPill(app) : '') + '</td>' +
                     '<td>' + (app.applicant_email || 'N/A') + '</td>' +
                     '<td>' + (app.application_type || 'N/A') + '</td>' +
                     '<td><span style="background:' + statusColor + '15;color:' + statusColor + ';padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">' + app.status + '</span>' + (isOverdue ? ' <span style="color:#F59E0B;font-size:11px;font-weight:600;">OVERDUE</span>' : '') + '</td>' +
@@ -35916,6 +36001,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             });
         }
 
+        // Apply Hide Test Data filter (Apr 30, 2026 — Commit 3)
+        // Pipeline items are composites; check is_test on each underlying record.
+        if (window.afgHideTestData && window.afgHideTestData()) {
+            baseData = (baseData || []).filter(function(c) {
+                if (c.raw && c.raw.is_test) return false;
+                if (c.deal && c.deal.is_test) return false;
+                if (c.inboundApp && c.inboundApp.is_test) return false;
+                if (c.is_test) return false;
+                return true;
+            });
+        }
+
         var filtered = baseData;
         if (filter === 'outbound') {
             filtered = baseData.filter(function(c) { return c.source === 'outbound'; });
@@ -36063,8 +36160,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 rowClick = 'onclick="viewAppSentSubmission(\'' + item.email.replace(/'/g, "\\'") + '\', \'' + (item.clientName || '').replace(/'/g, "\\'") + '\')" style="cursor:pointer;" title="Click to view details"';
             }
 
+            // Apr 30, 2026 — Commit 3: TEST pill on pipeline rows
+            var pipeTestPill = '';
+            if (window.afgTestPill) {
+                if (item.raw && item.raw.is_test) pipeTestPill = window.afgTestPill(item.raw);
+                else if (item.deal && item.deal.is_test) pipeTestPill = window.afgTestPill(item.deal);
+                else if (item.inboundApp && item.inboundApp.is_test) pipeTestPill = window.afgTestPill(item.inboundApp);
+                else if (item.is_test) pipeTestPill = window.afgTestPill(item);
+            }
             return '<tr ' + rowClick + ' style="' + rowBg + 'border-bottom:1px solid #F1F5F9;' + (rowClick ? 'cursor:pointer;' : '') + '" ' + (rowClick ? 'onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'' + (item.needsAction ? '#FFF7ED' : (item.stage === 'funded' ? '#F0FDF4' : '')) + '\'"' : '') + '>' +
-                '<td style="padding:10px 12px;overflow:hidden;text-overflow:ellipsis;">' + sourceIcon + '<strong style="color:#0D1E3D;">' + item.clientName + '</strong>' + personSubtitle +
+                '<td style="padding:10px 12px;overflow:hidden;text-overflow:ellipsis;">' + sourceIcon + '<strong style="color:#0D1E3D;">' + item.clientName + '</strong>' + pipeTestPill + personSubtitle +
                     (item.email ? '<br><span style="font-size:11px;color:#94A3B8;">' + item.email + '</span>' : '') + '</td>' +
                 '<td style="padding:10px 12px;">' + sourceLabelHtml + '</td>' +
                 '<td style="padding:10px 12px;font-size:13px;">' + item.type + '</td>' +
@@ -40508,6 +40613,80 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         '</div></div>';
                 })() : agent.terms_accepted_at ? '<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#92400E;"><strong>Terms Accepted:</strong> ' + formatDate(agent.terms_accepted_at) + ' <span style="color:#B45309;">(legacy — no detailed record)</span></div>' : ''}
 
+                ${(function(){
+                    // Apr 30, 2026 — Commit 2: Agent Onboarding Status block
+                    // Auto-computes 5 phases from existing user fields. Buttons wired to anon-key
+                    // operations (resendAgentInvite, db.auth.resetPasswordForEmail, mark-training).
+                    // The Health Check button surfaces best-effort diagnostics from public.users
+                    // fields; deeper auth-orphan detection requires the planned auth-diagnostic
+                    // edge function (not yet shipped — TODO logged in session handoff).
+                    var phase1Done = !!agent.created_at;
+                    var phase2Done = !!agent.invite_sent_at;
+                    var phase3Done = !!agent.invite_accepted_at || agent.onboarding_status === 'active';
+                    var phase4Done = (deals && deals.length > 0) || (apps && apps.length > 0);
+                    var phase5Done = !!agent.training_completed_at;
+                    var phasesDone = [phase1Done, phase2Done, phase3Done, phase4Done, phase5Done].filter(Boolean).length;
+                    var statusIcon = function(done, warn) {
+                        if (done) return '<span style="color:#10B981;font-weight:700;font-size:14px;">✓</span>';
+                        if (warn) return '<span style="color:#F59E0B;font-weight:700;font-size:14px;">⚠</span>';
+                        return '<span style="color:#94A3B8;font-weight:700;font-size:14px;">○</span>';
+                    };
+                    var phase2Warn = phase2Done && !phase3Done;
+                    var phase3Warn = phase2Done && !phase3Done;
+                    var safeEmail = (agent.email || '').replace(/'/g, "\\'");
+                    var safeName = (agent.full_name || '').replace(/'/g, "\\'");
+                    var safeToken = (agent.invite_token || '').replace(/'/g, "\\'");
+                    var safeType = (agent.agent_type || 'referring_agent');
+                    var inviteSentText = agent.invite_sent_at ? formatDate(agent.invite_sent_at) : 'Not sent yet';
+                    var inviteAcceptedText = agent.invite_accepted_at ? formatDate(agent.invite_accepted_at) : '—';
+                    var createdText = agent.created_at ? formatDate(agent.created_at) : '—';
+                    var firstDealText = phase4Done
+                        ? ((deals && deals.length > 0 ? deals.length + ' deal' + (deals.length === 1 ? '' : 's') : '') +
+                           (apps && apps.length > 0 ? (deals && deals.length > 0 ? ' · ' : '') + apps.length + ' app' + (apps.length === 1 ? '' : 's') : ''))
+                        : 'No deals or applications attributed yet';
+                    var trainingText = phase5Done
+                        ? ('Completed ' + formatDate(agent.training_completed_at))
+                        : 'Not yet acknowledged';
+                    return '<div style="border:1px solid #E2E8F0;border-radius:10px;background:#F8FAFC;margin:18px 0 12px;overflow:hidden;">' +
+                        '<div style="background:#0D1E3D;color:white;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;letter-spacing:0.3px;">' +
+                            '<span>📋 ONBOARDING STATUS</span>' +
+                            '<span style="font-size:11px;background:rgba(201,168,76,0.25);color:#F4D78A;padding:2px 10px;border-radius:10px;font-weight:600;">' + phasesDone + ' of 5 done</span>' +
+                        '</div>' +
+                        '<div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">' +
+                            // Phase 1
+                            '<div style="display:flex;gap:10px;align-items:flex-start;">' + statusIcon(phase1Done) +
+                                '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#0D1E3D;">1 · Agent record created</div>' +
+                                '<div style="font-size:11px;color:#64748B;margin-top:2px;">' + createdText + '</div></div></div>' +
+                            // Phase 2
+                            '<div style="display:flex;gap:10px;align-items:flex-start;">' + statusIcon(phase2Done, phase2Warn) +
+                                '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#0D1E3D;">2 · Portal invite sent</div>' +
+                                '<div style="font-size:11px;color:#64748B;margin-top:2px;">' + inviteSentText + (phase2Warn ? ' · <span style="color:#92400E;font-weight:600;">invite not yet activated</span>' : '') + '</div>' +
+                                (agent.invite_token ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;"><button onclick="resendAgentInvite(\'' + agentId + '\', \'' + safeEmail + '\', \'' + safeName + '\', \'' + safeToken + '\', \'' + safeType + '\')" style="padding:4px 10px;background:#DBEAFE;color:#1E40AF;border:1px solid #93C5FD;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;">↻ Resend invite</button>' +
+                                    '<button onclick="sendAgentPasswordReset(\'' + safeEmail + '\', \'' + safeName + '\')" style="padding:4px 10px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;">📧 Send \'set password\' link instead</button></div>' : '') +
+                                '</div></div>' +
+                            // Phase 3
+                            '<div style="display:flex;gap:10px;align-items:flex-start;">' + statusIcon(phase3Done, phase3Warn) +
+                                '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#0D1E3D;">3 · Auth record exists &amp; linked</div>' +
+                                '<div style="font-size:11px;color:#64748B;margin-top:2px;">' +
+                                (phase3Done ? 'Activated ' + inviteAcceptedText : (phase2Warn ? 'Possible auth orphan — run Health Check' : 'No auth record yet — invite has not been activated')) +
+                                '</div>' +
+                                '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">' +
+                                    '<button onclick="agentHealthCheck(\'' + agentId + '\')" style="padding:4px 10px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;">🩺 Health check</button>' +
+                                    '<button onclick="sendAgentPasswordReset(\'' + safeEmail + '\', \'' + safeName + '\', true)" style="padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;">🔐 Force password reset</button>' +
+                                '</div></div></div>' +
+                            // Phase 4
+                            '<div style="display:flex;gap:10px;align-items:flex-start;">' + statusIcon(phase4Done) +
+                                '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#0D1E3D;">4 · First deal or application submitted</div>' +
+                                '<div style="font-size:11px;color:#64748B;margin-top:2px;">' + firstDealText + '</div></div></div>' +
+                            // Phase 5
+                            '<div style="display:flex;gap:10px;align-items:flex-start;">' + statusIcon(phase5Done) +
+                                '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#0D1E3D;">5 · Training acknowledged</div>' +
+                                '<div style="font-size:11px;color:#64748B;margin-top:2px;">' + trainingText + '</div>' +
+                                (!phase5Done ? '<div style="margin-top:6px;"><button onclick="markAgentTrainingComplete(\'' + agentId + '\')" style="padding:4px 10px;background:#DCFCE7;color:#166534;border:1px solid #86EFAC;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;">✓ Mark training complete</button></div>' : '') +
+                                '</div></div>' +
+                        '</div></div>';
+                })()}
+
                 <div style="border-top: 2px solid var(--border-gray); margin: 20px 0 15px; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 15px; font-weight: 600; color: var(--navy);">Send Application</label>
                     <button class="btn btn-gold btn-sm" onclick="openSendApplicationModalWithRef('${agent.referral_slug || 'agent-' + agentId}')">Generate Tracked Link</button>
@@ -40789,6 +40968,115 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch (error) {
             console.error('Resend invite error:', error);
             alert('Error sending invite: ' + error.message);
+        }
+    }
+
+    // ============================================================
+    // Agent Onboarding Status — handlers (Apr 30, 2026 — Commit 2)
+    // ============================================================
+    // sendAgentPasswordReset — fires Supabase's recovery flow. Works whether or not
+    // the user has an auth.users row at this email; if none exists Supabase creates
+    // one at the right UUID when the user clicks the link. This is the recommended
+    // workaround for the auth-orphan class documented in brain-live-rules.md.
+    async function sendAgentPasswordReset(agentEmail, agentName, isForce) {
+        if (!agentEmail) { alert('No email on file for this agent.'); return; }
+        var label = isForce ? 'force a password reset' : "send a 'set password' link";
+        if (!confirm('Send a password reset email to ' + (agentName || agentEmail) + ' (' + agentEmail + ')?\n\nThis will ' + label + ' that lets them set a new password and log in directly. Use this when an invite was never activated or when the user is locked out.')) return;
+        try {
+            var redirectTo = window.location.origin + '/reset-password.html';
+            var { error } = await db.auth.resetPasswordForEmail(agentEmail, { redirectTo: redirectTo });
+            if (error) throw error;
+            alert('Reset email sent to ' + agentEmail + '. They should receive it within a minute. If they do not, check the resend-webhook alerts page for delivery status.');
+        } catch (err) {
+            console.error('Password reset error:', err);
+            alert('Error sending reset email: ' + (err.message || err));
+        }
+    }
+
+    // agentHealthCheck — best-effort diagnostic from public.users fields. Surfaces
+    // the obvious cases (invited but never activated, status mismatch, no slug).
+    // Does NOT detect deeper auth-orphan state (auth.users.id != public.users.id);
+    // that needs the auth-diagnostic edge function, on the Phase-2 backlog.
+    async function agentHealthCheck(agentId) {
+        try {
+            var { data: agent, error } = await db.from('users').select('*').eq('id', agentId).single();
+            if (error || !agent) throw error || new Error('Agent not found');
+            var findings = [];
+            var ok = [];
+            // Phase 2/3 alignment
+            if (agent.invite_sent_at && !agent.invite_accepted_at && agent.onboarding_status !== 'active') {
+                findings.push('Invited ' + new Date(agent.invite_sent_at).toLocaleDateString() + ' but never activated. Try \'Send set-password link\'.');
+            } else if (agent.invite_accepted_at) {
+                ok.push('Invite was activated ' + new Date(agent.invite_accepted_at).toLocaleDateString() + '.');
+            } else {
+                findings.push('No invite_sent_at on record. Use Resend invite to send the activation email.');
+            }
+            // Status mismatch
+            if (agent.invite_accepted_at && (agent.agent_status === 'Pending' || agent.agent_status === 'Invited')) {
+                findings.push('Status drift: invite was activated but agent_status is still "' + agent.agent_status + '". Should be Active.');
+            }
+            if (agent.onboarding_status === 'active' && agent.agent_status !== 'Active' && agent.agent_status) {
+                findings.push('onboarding_status=active but agent_status="' + agent.agent_status + '" — fields out of sync.');
+            }
+            // Referral slug
+            if (!agent.referral_slug) {
+                findings.push('No referral_slug — agent cannot share a landing-page URL or have applications attributed via slug.');
+            } else {
+                ok.push('Referral slug: ' + agent.referral_slug);
+            }
+            // Email
+            if (!agent.email) {
+                findings.push('No email on record — cannot resend invite or trigger password reset.');
+            }
+            // Deal/application activity
+            var { data: dealsForAgent } = await db.from('deals').select('id').eq('source_agent_id', agentId);
+            var dealCount = (dealsForAgent || []).length;
+            if (dealCount > 0) ok.push(dealCount + ' deal' + (dealCount === 1 ? '' : 's') + ' attributed.');
+            // Compose report
+            var msg = '🩺 Health Check — ' + (agent.full_name || agent.email) + '\n\n';
+            if (findings.length === 0 && ok.length > 0) {
+                msg += '✓ Looks good.\n\n' + ok.map(function(o) { return '• ' + o; }).join('\n');
+            } else {
+                if (findings.length > 0) msg += '⚠ Issues found:\n' + findings.map(function(f) { return '• ' + f; }).join('\n');
+                if (ok.length > 0) msg += '\n\n✓ OK:\n' + ok.map(function(o) { return '• ' + o; }).join('\n');
+            }
+            msg += '\n\nNote: Deeper auth-orphan diagnosis (public.users.id vs auth.users.id mismatch) requires the planned auth-diagnostic edge function. For now, if a user reports they cannot log in despite an "active" record here, manually run the recurring audit query from brain-live-rules.md.';
+            alert(msg);
+        } catch (err) {
+            console.error('Health check error:', err);
+            alert('Error running health check: ' + (err.message || err));
+        }
+    }
+
+    // markAgentTrainingComplete — sets training_completed_at on the user record.
+    // The column was added Apr 28 with the Vendor Setup Form changes; for users
+    // table it may not exist yet, so we fall back to admin_notes if the update fails.
+    async function markAgentTrainingComplete(agentId) {
+        if (!confirm('Mark training as complete for this agent?')) return;
+        try {
+            var nowIso = new Date().toISOString();
+            var { error } = await db.from('users').update({ training_completed_at: nowIso }).eq('id', agentId);
+            if (error) {
+                // Fallback path: append to admin_notes if the column is missing
+                console.warn('training_completed_at update failed, falling back to admin_notes:', error.message);
+                var { data: agentRow } = await db.from('users').select('admin_notes').eq('id', agentId).single();
+                var existing = [];
+                try { existing = agentRow && agentRow.admin_notes ? JSON.parse(agentRow.admin_notes) : []; } catch(e) {}
+                if (!Array.isArray(existing)) existing = [];
+                existing.unshift({
+                    text: 'Training acknowledged complete (column training_completed_at not available on users table).',
+                    author: window.currentUserName || 'Admin',
+                    date: new Date().toLocaleString(),
+                    type: 'training_completed'
+                });
+                var { error: noteErr } = await db.from('users').update({ admin_notes: JSON.stringify(existing) }).eq('id', agentId);
+                if (noteErr) throw noteErr;
+            }
+            alert('Training marked complete.');
+            await viewAgent(agentId);
+        } catch (err) {
+            console.error('Mark training complete error:', err);
+            alert('Error: ' + (err.message || err));
         }
     }
 
@@ -45582,6 +45870,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     function renderClientsTable(data) {
         const tbody = document.getElementById('clientsBody');
         const isAdmin = ['super_admin', 'admin'].includes(currentUserRole);
+        // Apply Hide Test Data filter (Apr 30, 2026 — Commit 3)
+        data = window.afgFilterTestData ? window.afgFilterTestData(data) : data;
         if (!data || data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px 20px;color:#94A3B8;font-size:14px;">No clients found.</td></tr>';
             return;
@@ -45613,7 +45903,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     <div style="display:flex;align-items:center;gap:10px;">
                         <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#0D1E3D,#1E3A5F);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0;">${(client.company_name || '?').substring(0, 2).toUpperCase()}</div>
                         <div>
-                            <div style="font-weight:600;color:var(--navy);font-size:14px;">${client.company_name || 'N/A'}</div>
+                            <div style="font-weight:600;color:var(--navy);font-size:14px;">${client.company_name || 'N/A'}${window.afgTestPill ? window.afgTestPill(client) : ''}</div>
                             <div style="font-size:12px;color:#94A3B8;margin-top:2px;">${client.legal_name || ''}</div>
                         </div>
                     </div>
