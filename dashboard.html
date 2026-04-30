@@ -16307,10 +16307,20 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     notesHtml += '<input type="checkbox" id="avComposeFollowup_' + vendorId + '" onchange="document.getElementById(\'avFollowupFields_' + vendorId + '\').style.display=this.checked?\'flex\':\'none\'"> Follow-up';
                     notesHtml += '</label>';
 
-                    // Include admin
-                    notesHtml += '<label id="avIncludeAdminLabel_' + vendorId + '" style="display:flex;align-items:center;gap:4px;font-size:12px;color:#475569;cursor:pointer;">';
-                    notesHtml += '<input type="checkbox" id="avComposeIncludeAdmin_' + vendorId + '" checked> Notify Admin';
-                    notesHtml += '</label>';
+                    // Apr 30, 2026 — Note Compose Unification
+                    // For admins: show "Visible to Agent" toggle (matches viewVendor canonical UI).
+                    // For agents: keep the original "Notify Admin" checkbox.
+                    // The save function reads currentUserRole to decide which toggle to honor.
+                    var __isAdminCompose = ['super_admin', 'admin'].includes(window.currentUserRole);
+                    if (__isAdminCompose) {
+                        notesHtml += '<label id="avVisibleToAgentLabel_' + vendorId + '" style="display:flex;align-items:center;gap:4px;font-size:12px;color:#475569;cursor:pointer;" title="When checked, the agent on this vendor will see this note in their portal. Uncheck to keep admin-only.">';
+                        notesHtml += '<input type="checkbox" id="avComposeVisibleToAgent_' + vendorId + '" checked> Visible to Agent';
+                        notesHtml += '</label>';
+                    } else {
+                        notesHtml += '<label id="avIncludeAdminLabel_' + vendorId + '" style="display:flex;align-items:center;gap:4px;font-size:12px;color:#475569;cursor:pointer;">';
+                        notesHtml += '<input type="checkbox" id="avComposeIncludeAdmin_' + vendorId + '" checked> Notify Admin';
+                        notesHtml += '</label>';
+                    }
 
                     notesHtml += '</div>';
 
@@ -16582,14 +16592,23 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var followupDate = document.getElementById('avComposeFollowupDate_' + vendorId);
             var followupReason = document.getElementById('avComposeFollowupReason_' + vendorId);
             var includeAdmin = document.getElementById('avComposeIncludeAdmin_' + vendorId);
+            // Apr 30, 2026 — Note Compose Unification
+            // Admins see "Visible to Agent" (default ON) and stamp the note as authored by admin.
+            // Agents see the original "Notify Admin" UI; flag stays as before.
+            var __isAdminAuthor = ['super_admin', 'admin'].includes(window.currentUserRole);
+            var __visibleToAgentEl = document.getElementById('avComposeVisibleToAgent_' + vendorId);
+            var __visibleToAgent = __isAdminAuthor
+                ? (__visibleToAgentEl ? !!__visibleToAgentEl.checked : true)
+                : true; // agent's own notes are always visible to themselves
+            var __fromAgent = !__isAdminAuthor;
 
             var newEntry = {
                 text: body,
-                author: currentUserName || userEmail || 'Agent',
+                author: currentUserName || userEmail || (__isAdminAuthor ? 'Admin' : 'Agent'),
                 date: dateStr,
                 type: type === 'email' ? 'email' : 'note',
-                visible_to_agent: true,
-                from_agent: true,
+                visible_to_agent: __visibleToAgent,
+                from_agent: __fromAgent,
                 is_audit_log: false,
                 category: categoryEl ? categoryEl.value : 'General',
                 pinned: false,
@@ -19350,14 +19369,21 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var followupDate = document.getElementById('saComposeFollowupDate_' + saId);
             var followupReason = document.getElementById('saComposeFollowupReason_' + saId);
             var includeAdmin = document.getElementById('saComposeIncludeAdmin_' + saId);
+            // Apr 30, 2026 — Note Compose Unification (sub-agent variant)
+            var __isAdminAuthorSA = ['super_admin', 'admin'].includes(window.currentUserRole);
+            var __visibleToAgentElSA = document.getElementById('saComposeVisibleToAgent_' + saId);
+            var __visibleToAgentSA = __isAdminAuthorSA
+                ? (__visibleToAgentElSA ? !!__visibleToAgentElSA.checked : true)
+                : true;
+            var __fromAgentSA = !__isAdminAuthorSA;
 
             var newEntry = {
                 text: body,
-                author: currentUserName || userEmail || 'Agent',
+                author: currentUserName || userEmail || (__isAdminAuthorSA ? 'Admin' : 'Agent'),
                 date: dateStr,
                 type: type === 'email' ? 'email' : 'note',
-                visible_to_agent: true,
-                from_agent: true,
+                visible_to_agent: __visibleToAgentSA,
+                from_agent: __fromAgentSA,
                 is_audit_log: false,
                 category: categoryEl ? categoryEl.value : 'General',
                 pinned: false,
@@ -19678,10 +19704,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     nh += '<input type="checkbox" id="saComposeFollowup_' + sid + '" onchange="document.getElementById(\'saFollowupFields_' + sid + '\').style.display=this.checked?\'flex\':\'none\'"> Follow-up';
                     nh += '</label>';
 
-                    // Notify Admin
-                    nh += '<label id="saIncludeAdminLabel_' + sid + '" style="display:flex;align-items:center;gap:4px;font-size:12px;color:#475569;cursor:pointer;">';
-                    nh += '<input type="checkbox" id="saComposeIncludeAdmin_' + sid + '" checked> Notify Admin';
-                    nh += '</label>';
+                    // Apr 30, 2026 — Note Compose Unification (sub-agent variant)
+                    // Same pattern as viewAgentVendor: admins see Visible to Agent, agents see Notify Admin.
+                    var __isAdminComposeSA = ['super_admin', 'admin'].includes(window.currentUserRole);
+                    if (__isAdminComposeSA) {
+                        nh += '<label id="saVisibleToAgentLabel_' + sid + '" style="display:flex;align-items:center;gap:4px;font-size:12px;color:#475569;cursor:pointer;" title="When checked, the agent will see this note in their portal. Uncheck to keep admin-only.">';
+                        nh += '<input type="checkbox" id="saComposeVisibleToAgent_' + sid + '" checked> Visible to Agent';
+                        nh += '</label>';
+                    } else {
+                        nh += '<label id="saIncludeAdminLabel_' + sid + '" style="display:flex;align-items:center;gap:4px;font-size:12px;color:#475569;cursor:pointer;">';
+                        nh += '<input type="checkbox" id="saComposeIncludeAdmin_' + sid + '" checked> Notify Admin';
+                        nh += '</label>';
+                    }
 
                     nh += '</div>';
 
