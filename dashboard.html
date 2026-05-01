@@ -45905,6 +45905,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     const { data: directClients } = await db.from('clients').select('id').in('source_agent_id', clientAgentIds);
                     (directClients || []).forEach(function(c) { agentClientIds.add(c.id); });
                 } catch(e) { console.warn('Direct client assignment lookup failed:', e); }
+                // 3. Clients where this agent is co-assigned via additional_agent_ids (May 1, 2026 — multi-agent visibility)
+                try {
+                    var coAgentOrClause = clientAgentIds.map(function(id) { return 'additional_agent_ids.cs.{' + id + '}'; }).join(',');
+                    const { data: coClients } = await db.from('clients').select('id').or(coAgentOrClause);
+                    (coClients || []).forEach(function(c) { agentClientIds.add(c.id); });
+                } catch(e) { console.warn('Co-agent client lookup failed:', e); }
             }
 
             // CRITICAL: Fetch all clients
