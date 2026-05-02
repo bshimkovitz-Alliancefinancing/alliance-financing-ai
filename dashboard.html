@@ -12513,17 +12513,32 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 + '</div>';
 
             // 3. Render to PDF using html2pdf
+            // Off-screen positioning trick: position:fixed at top:0 keeps the element in the viewport's
+            // coordinate system (so html2canvas captures content properly) while left:-20000px hides it
+            // from the user. The previous top:-9999px approach caused html2canvas to capture an empty
+            // viewport — the executed PDFs came out blank (May 2 bug).
             renderEl = document.createElement('div');
-            renderEl.style.cssText = 'position:absolute;top:-9999px;left:0;width:8.5in;background:white;padding:0;';
+            renderEl.style.cssText = 'position:fixed;top:0;left:-20000px;width:8.5in;background:white;padding:0;z-index:-1;';
             renderEl.innerHTML = executedHtml;
             document.body.appendChild(renderEl);
+            // Let the browser complete layout before html2canvas reads the DOM
+            await new Promise(function(resolve) { setTimeout(resolve, 200); });
             var safeName = tplName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
             var pdfFileName = nowIso.slice(0, 10) + '-' + safeName + '-EXECUTED.pdf';
             var pdfBlob = await html2pdf().from(renderEl).set({
                 margin: [0.5, 0.5, 0.6, 0.5],
                 filename: pdfFileName,
                 image: { type: 'jpeg', quality: 0.95 },
-                html2canvas: { scale: 2, useCORS: true, logging: false },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    scrollX: 0,
+                    scrollY: 0,
+                    windowWidth: 850,
+                    width: 816  // 8.5in × 96dpi
+                },
                 jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
             }).outputPdf('blob');
             document.body.removeChild(renderEl);
