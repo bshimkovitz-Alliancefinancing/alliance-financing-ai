@@ -9487,7 +9487,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             var subject = 'Working Capital for Your Business — Merchant Cash Advance from Alliance Financing';
 
-            await sendEmailViaResend(clientEmail, subject, htmlBody);
+            // v6 (May 2, 2026) — capture resend_id so the webhook can update delivered/opened/clicked timestamps
+            var _emailResMca = await sendEmailViaResend(clientEmail, subject, htmlBody);
 
             // Track in applications_sent
             try {
@@ -9500,7 +9501,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
                     sent_by: currentUserName || 'Unknown',
                     referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null,
-                    referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null
+                    referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null,
+                    resend_id: (_emailResMca && _emailResMca.id) || null
                 });
             } catch(trackErr) { console.error('Track MCA send:', trackErr); }
 
@@ -9759,7 +9761,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             textBody += 'Interested? Reply to this email to get started.\n\n';
             textBody += 'Best regards,\n' + agentName + '\n' + agentEmailAddr;
 
-            await sendEmailViaResend(recipientEmail, subject, htmlBody);
+            // v6 (May 2, 2026) — capture resend_id for webhook tracking
+            var _emailResLease = await sendEmailViaResend(recipientEmail, subject, htmlBody);
 
             // Track in applications_sent (same pattern as MCA)
             try {
@@ -9772,7 +9775,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
                     sent_by: currentUserName || 'Unknown',
                     referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null,
-                    referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null
+                    referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null,
+                    resend_id: (_emailResLease && _emailResLease.id) || null
                 });
             } catch(trackErr) { console.error('Track Vendor Leasing send:', trackErr); }
 
@@ -9894,9 +9898,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://www.alliancefinancing.com" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.com</a></p>';
             htmlBody += '</td></tr></table></td></tr></table></body></html>';
             var subject = 'A New Revenue Stream From Your Insurance Book — Alliance Financing';
-            await sendEmailViaResend(recipientEmail, subject, htmlBody);
+            var _emailResIb = await sendEmailViaResend(recipientEmail, subject, htmlBody);
             try {
-                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Insurance Brokers One-Pager', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null });
+                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Insurance Brokers One-Pager', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null, resend_id: (_emailResIb && _emailResIb.id) || null });
             } catch(trackErr) { console.error('Track Insurance Brokers send:', trackErr); }
             alert('Insurance Brokers One-Pager sent to ' + recipientEmail + '!');
             document.getElementById('ibSendModal').style.display = 'none';
@@ -10005,9 +10009,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://www.alliancefinancing.com" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.com</a></p>';
             htmlBody += '</td></tr></table></td></tr></table></body></html>';
             var subject = 'Turn Financial Insight Into Revenue — Alliance Financing Partnership';
-            await sendEmailViaResend(recipientEmail, subject, htmlBody);
+            var _emailResAcct = await sendEmailViaResend(recipientEmail, subject, htmlBody);
             try {
-                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Accountants CFOs One-Pager', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null });
+                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Accountants CFOs One-Pager', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null, resend_id: (_emailResAcct && _emailResAcct.id) || null });
             } catch(trackErr) { console.error('Track Accountants CFOs send:', trackErr); }
             alert('Accountants & CFOs One-Pager sent to ' + recipientEmail + '!');
             document.getElementById('acSendModal').style.display = 'none';
@@ -10116,9 +10120,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             htmlBody += '<p style="font-size:12px;margin:8px 0 0;"><a href="https://www.alliancefinancing.com" style="color:#C9A84C;text-decoration:none;font-weight:600;">alliancefinancing.com</a></p>';
             htmlBody += '</td></tr></table></td></tr></table></body></html>';
             var subject = 'Build a Thriving Referral Business — Alliance Financing Group';
-            await sendEmailViaResend(recipientEmail, subject, htmlBody);
+            var _emailResOv = await sendEmailViaResend(recipientEmail, subject, htmlBody);
             try {
-                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Alliance Overview', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null });
+                await db.from('applications_sent').insert({ applicant_name: recipientName || '', applicant_email: recipientEmail, application_type: 'Alliance Overview', subject: subject, status: 'Sent', follow_up_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), sent_by: currentUserName || 'Unknown', referral_agent: (agentProfile && agentProfile.full_name) ? agentProfile.full_name : null, referral_slug: agentSlug !== 'alliance-house' ? agentSlug : null, resend_id: (_emailResOv && _emailResOv.id) || null });
             } catch(trackErr) { console.error('Track Alliance Overview send:', trackErr); }
             alert('Alliance Overview sent to ' + recipientEmail + '!');
             document.getElementById('aoSendModal').style.display = 'none';
