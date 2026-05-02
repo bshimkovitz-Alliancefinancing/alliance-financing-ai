@@ -12258,12 +12258,43 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (isAdmin) {
             var _signerAuthForNotif = await getAllianceSigner();
             if (_signerAuthForNotif.can_sign) try {
+                // 1. Docs awaiting first Alliance countersign (counterparty just signed)
                 var { data: pendingCountersign } = await db
                     .from('signing_documents')
                     .select('id, status, sent_to_name, sent_to_email, counterparty_signed_at, sent_at, template_id, client_id, deal_id, document_templates(template_name)')
                     .eq('status', 'counterparty_signed')
                     .is('alliance_signed_at', null)
                     .order('counterparty_signed_at', { ascending: true });
+                // 2. Docs in partial_alliance_signed where THIS user is the pending co-signer
+                try {
+                    var { data: pendingCoSign } = await db
+                        .from('signing_documents')
+                        .select('id, sent_to_name, alliance_signed_at, alliance_signatures, document_templates(template_name)')
+                        .eq('status', 'partial_alliance_signed');
+                    if (pendingCoSign && pendingCoSign.length > 0 && currentUser && currentUser.email) {
+                        pendingCoSign.forEach(function(sd) {
+                            var sigs = sd.alliance_signatures || [];
+                            var iAmPending = sigs.some(function(s) { return s.status === 'pending' && s.email === currentUser.email; });
+                            if (iAmPending) {
+                                var tplName = (sd.document_templates && sd.document_templates.template_name) || 'Document';
+                                var firstSigner = (sigs.find(function(s) { return s.status === 'signed'; }) || {});
+                                notifications.push({
+                                    type: 'co_sign',
+                                    category: 'action',
+                                    icon: '🤝',
+                                    iconBg: '#FEF3C7',
+                                    iconColor: '#92400E',
+                                    title: (firstSigner.name || 'Alliance director') + ' signed — your co-signature needed',
+                                    detail: tplName + ' · sent to ' + (sd.sent_to_name || 'counterparty'),
+                                    time: sd.alliance_signed_at ? new Date(sd.alliance_signed_at) : new Date(),
+                                    action: "openCountersignFlow('" + sd.id + "')",
+                                    actionLabel: 'Co-sign now',
+                                    priority: 1
+                                });
+                            }
+                        });
+                    }
+                } catch(e) { console.warn('Notifications: co-sign load error', e); }
                 if (pendingCountersign && pendingCountersign.length > 0) {
                     pendingCountersign.forEach(function(sd) {
                         var tpl = sd.document_templates || {};
@@ -12351,13 +12382,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     // Shared signature-injection helper — used by both the View modal (so reviewers see
     // the executed signatures inline) AND by the PDF render path (so the executed PDF
     // and the dashboard view stay in sync). May 2, 2026.
+    // v5 (May 2, pm) — supports multi-signer: opts.alliance_signatures is an array of signed signatures
+    // rendered stacked in the alliance-signature-block. Falls back to single-signer mode if not provided.
+    function _renderSig(name, title, dateLabel) {
+        return '<div style="font-family:\'Brush Script MT\',\'Lucida Handwriting\',cursive;font-size:28px;color:#1E40AF;padding:8px 0;line-height:1.2;">' + name + '</div>'
+            + '<div style="font-size:11px;color:#64748B;font-style:italic;">Electronically signed' + (title ? ' by ' + name + ', ' + title : '') + (dateLabel ? ' &mdash; ' + dateLabel : '') + '</div>';
+    }
     function injectSignatures(populatedHtml, opts) {
         opts = opts || {};
         var allianceSig = '';
         var counterpartySig = '';
-        if (opts.alliance_signed) {
-            allianceSig = '<div style="font-family:\'Brush Script MT\',\'Lucida Handwriting\',cursive;font-size:28px;color:#1E40AF;padding:8px 0;line-height:1.2;">' + (opts.alliance_name || '') + '</div>'
-                + '<div style="font-size:11px;color:#64748B;font-style:italic;">Electronically signed by ' + (opts.alliance_name || '') + (opts.alliance_title ? ', ' + opts.alliance_title : '') + ' &mdash; ' + (opts.alliance_date || '') + '</div>';
+        // Multi-signer mode: render every signed entry stacked
+        if (opts.alliance_signatures && opts.alliance_signatures.length > 0) {
+            allianceSig = opts.alliance_signatures.filter(function(s) { return s.status === 'signed'; }).map(function(s) {
+                var dateLabel = s.signed_at ? new Date(s.signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+                return _renderSig(s.name || '', s.title || '', dateLabel);
+            }).join('<div style="height:14px;"></div>');
+        } else if (opts.alliance_signed) {
+            // Single-signer fallback (existing behaviour)
+            allianceSig = _renderSig(opts.alliance_name || '', opts.alliance_title || '', opts.alliance_date || '');
         }
         if (opts.counterparty_signed) {
             counterpartySig = '<div style="font-family:\'Brush Script MT\',\'Lucida Handwriting\',cursive;font-size:28px;color:#1E40AF;padding:8px 0;line-height:1.2;">' + (opts.counterparty_name || '') + '</div>'
@@ -12376,6 +12419,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         if (reason === null) return;
         try {
             var nowIso = new Date().toISOString();
+            // Load the signing doc to get client_id + template name for the audit-log entry
+            var { data: sd } = await db
+                .from('signing_documents')
+                .select('id, client_id, template_id, sent_to_name, document_templates(template_name)')
+                .eq('id', signingDocId)
+                .single();
             var { error } = await db
                 .from('signing_documents')
                 .update({
@@ -12384,6 +12433,29 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 })
                 .eq('id', signingDocId);
             if (error) throw error;
+            // Append audit-log entry to client admin_notes timeline (mirrors document_executed pattern)
+            if (sd && sd.client_id) {
+                try {
+                    var tplName = (sd.document_templates && sd.document_templates.template_name) || 'Document';
+                    var canceller = (currentUser && currentUser.full_name) || (currentUser && currentUser.email) || 'Admin';
+                    var { data: clientRow } = await db.from('clients').select('admin_notes').eq('id', sd.client_id).single();
+                    var notes = [];
+                    try { notes = clientRow && clientRow.admin_notes ? JSON.parse(clientRow.admin_notes) : []; } catch(e) { notes = []; }
+                    if (!Array.isArray(notes)) notes = [];
+                    notes.push({
+                        type: 'document_cancelled',
+                        text: tplName + ' (sent to ' + (sd.sent_to_name || 'counterparty') + ') was cancelled by ' + canceller + ' on ' + new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) + '. Secure link invalidated immediately.' + (reason ? ' Reason: ' + reason : ''),
+                        date: new Date().toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }),
+                        author: canceller,
+                        pinned: false,
+                        category: 'General',
+                        from_agent: false,
+                        is_audit_log: true,
+                        visible_to_agent: false
+                    });
+                    await db.from('clients').update({ admin_notes: JSON.stringify(notes) }).eq('id', sd.client_id);
+                } catch(e) { console.warn('Cancel audit-log append failed:', e); }
+            }
             if (typeof showToast === 'function') {
                 showToast('Signing document cancelled. The secure link is now invalid.', 'success');
             } else {
@@ -12403,26 +12475,53 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // Download an executed signed PDF from Supabase storage (May 2, 2026 — v5).
+    // Uses a short-lived signed URL so we don't need the file to be public.
+    async function downloadSignedPdf(storagePath, signingDocId) {
+        if (!storagePath) { alert('No PDF on file for this document.'); return; }
+        try {
+            var { data, error } = await db.storage.from('deal-documents').createSignedUrl(storagePath, 60 * 60); // 1-hour link
+            if (error) throw error;
+            if (data && data.signedUrl) {
+                window.open(data.signedUrl, '_blank');
+            } else {
+                throw new Error('No signed URL returned');
+            }
+        } catch (e) {
+            console.error('downloadSignedPdf error:', e);
+            alert('Could not generate download link: ' + (e.message || e));
+        }
+    }
+
     // ============================================================
     // Countersign flow — May 2, 2026 (v3 with signer-aware UI)
     // Admin clicks "Countersign now" on a notification → opens modal
     // showing populated_html → "Sign and Execute" button
     // Generates executed PDF, files to client_documents, emails both parties.
+    // v5 (May 2 pm) — multi-signer support: optional co-signer dropdown.
     // ============================================================
     async function openCountersignFlow(signingDocId) {
         try {
-            var [sigResult, signerAuth] = await Promise.all([
+            var [sigResult, signerAuth, teamMembersResult] = await Promise.all([
                 db.from('signing_documents')
-                    .select('id, status, sent_to_name, sent_to_email, counterparty_signed_at, sent_at, populated_html, client_id, deal_id, template_id, alliance_signed_at, document_templates(template_name)')
+                    .select('id, status, sent_to_name, sent_to_email, counterparty_signed_at, sent_at, populated_html, client_id, deal_id, template_id, alliance_signed_at, alliance_signatures, signed_pdf_path, document_templates(template_name)')
                     .eq('id', signingDocId)
                     .single(),
-                getAllianceSigner()
+                getAllianceSigner(),
+                db.from('team_members').select('id, full_name, role_title, email').eq('is_active', true).order('full_name')
             ]);
             var sd = sigResult.data;
             var error = sigResult.error;
             if (error || !sd) { alert('Could not load signing document: ' + (error && error.message)); return; }
-            var alreadyExecuted = sd.status === 'fully_executed' || !!sd.alliance_signed_at;
+            var teamMembers = (teamMembersResult.data || []);
+            var alreadyExecuted = sd.status === 'fully_executed';
+            // Multi-signer states
+            var allianceSigs = sd.alliance_signatures || [];
+            var pendingCoSigner = allianceSigs.find(function(s) { return s.status === 'pending'; });
+            var partialAllianceSigned = sd.status === 'partial_alliance_signed';
             var awaitingCountersign = sd.status === 'counterparty_signed' && !sd.alliance_signed_at;
+            // Is the current user the pending co-signer?
+            var isPendingCoSigner = signerAuth.can_sign && pendingCoSigner && pendingCoSigner.email === currentUser.email;
             var tplName = (sd.document_templates && sd.document_templates.template_name) || 'Document';
             var counterparty = sd.sent_to_name || 'Counterparty';
             var counterpartySignedDate = sd.counterparty_signed_at
@@ -12441,8 +12540,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 document.body.appendChild(modal);
             }
 
-            // Header label adapts to context (executed / awaiting countersign / view-only)
-            var headerLabel = alreadyExecuted ? 'FULLY EXECUTED' : (awaitingCountersign ? 'COUNTERSIGN AS ALLIANCE' : 'DOCUMENT VIEW');
+            // Header label adapts to context (executed / awaiting countersign / co-sign needed / view-only)
+            var headerLabel;
+            if (alreadyExecuted) headerLabel = 'FULLY EXECUTED';
+            else if (isPendingCoSigner) headerLabel = 'CO-SIGN AS ALLIANCE';
+            else if (partialAllianceSigned) headerLabel = 'AWAITING ALLIANCE CO-SIGNER';
+            else if (awaitingCountersign) headerLabel = 'COUNTERSIGN AS ALLIANCE';
+            else headerLabel = 'DOCUMENT VIEW';
 
             // Signer panel — only shown when awaiting countersign
             // Permission gate: only active team_members render the Sign button + signer inputs
@@ -12451,7 +12555,25 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (alreadyExecuted) {
                 actionPanel =
                     '<button onclick="document.getElementById(\'countersignModal\').style.display=\'none\'" style="padding:10px 20px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Close</button>';
-            } else if (awaitingCountersign && signerAuth.can_sign) {
+            } else if ((awaitingCountersign || isPendingCoSigner) && signerAuth.can_sign) {
+                // Co-signer dropdown — only shown for the FIRST signer (not for the pending co-signer)
+                // Excludes the current user from the list
+                var coSignerOptions = '<option value="">— No co-signature required —</option>';
+                if (!isPendingCoSigner) {
+                    teamMembers.filter(function(t) { return t.email !== currentUser.email; }).forEach(function(t) {
+                        coSignerOptions += '<option value="' + t.email + '" data-name="' + (t.full_name || '').replace(/"/g, '&quot;') + '" data-title="' + (t.role_title || '').replace(/"/g, '&quot;') + '">' + (t.full_name || t.email) + ' &mdash; ' + (t.role_title || '') + '</option>';
+                    });
+                }
+                var coSignerBlock = isPendingCoSigner
+                    ? '<div style="margin-top:10px;padding:10px 12px;background:#DBEAFE;border-left:3px solid #1E40AF;border-radius:0 4px 4px 0;font-size:12px;color:#1E3A5F;line-height:1.5;">' +
+                        '<b>You are co-signing this document.</b> The first Alliance signer (' + (allianceSigs[0] && allianceSigs[0].name ? allianceSigs[0].name : 'an earlier director') + ') signed on ' + (allianceSigs[0] && allianceSigs[0].signed_at ? new Date(allianceSigs[0].signed_at).toLocaleDateString('en-CA', { dateStyle: 'medium' }) : 'an earlier date') + '. Once you sign, the document is fully executed and emailed to all parties.' +
+                      '</div>'
+                    : '<div style="margin-top:14px;">' +
+                        '<label style="font-size:11px;color:#64748B;display:block;margin-bottom:4px;">Co-signature required? (e.g., Carrie also signs as Managing Partner)</label>' +
+                        '<select id="countersignCoSignerSelect" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:4px;font-size:14px;color:#0D1E3D;background:white;">' + coSignerOptions + '</select>' +
+                        '<div style="font-size:11px;color:#64748B;margin-top:6px;">If selected, your signature is captured now and the co-signer receives a dashboard alert + email to sign next. Document is fully executed only when both have signed.</div>' +
+                      '</div>';
+
                 signerPanel =
                     '<div style="padding:14px 24px;background:#FFFBEB;border-bottom:1px solid #FEF3C7;">' +
                       '<div style="font-size:11px;font-weight:700;color:#92400E;letter-spacing:0.5px;margin-bottom:8px;">SIGNING AS</div>' +
@@ -12465,11 +12587,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                           '<input id="countersignSignerTitle" type="text" value="' + defaultTitle.replace(/"/g, '&quot;') + '" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:4px;font-size:14px;color:#0D1E3D;">' +
                         '</div>' +
                       '</div>' +
-                      '<div style="font-size:11px;color:#92400E;margin-top:8px;">Defaults pulled from your team_members record. Adjust if you\'re signing on behalf of a different role.</div>' +
+                      coSignerBlock +
                     '</div>';
                 actionPanel =
                     '<button onclick="document.getElementById(\'countersignModal\').style.display=\'none\'" style="padding:10px 20px;background:#E2E8F0;color:#475569;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>' +
-                    '<button onclick="confirmCountersign(\'' + sd.id + '\')" style="padding:10px 24px;background:#15803D;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-left:8px;">✓ Sign and Execute</button>';
+                    '<button onclick="confirmCountersign(\'' + sd.id + '\')" style="padding:10px 24px;background:#15803D;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-left:8px;">' + (isPendingCoSigner ? '✓ Co-Sign and Execute' : '✓ Sign and Execute') + '</button>';
             } else if (awaitingCountersign && !signerAuth.can_sign) {
                 signerPanel =
                     '<div style="padding:14px 24px;background:#FEF2F2;border-bottom:1px solid #FECACA;">' +
@@ -12535,25 +12657,44 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             alert('You do not have authority to countersign Alliance documents. Only active directors and managing partners (team_members) may execute.');
             return;
         }
-        // Read editable signer fields from the modal — fall back to team_members defaults if missing
+        // Read editable signer fields from the modal
         var nameInput = document.getElementById('countersignSignerName');
         var titleInput = document.getElementById('countersignSignerTitle');
+        var coSignerSelect = document.getElementById('countersignCoSignerSelect');
         var signerName = (nameInput && nameInput.value.trim()) || signerAuth.name || 'Director';
         var signerTitle = (titleInput && titleInput.value.trim()) || signerAuth.title || 'Director';
         if (!signerName) { alert('Signer name is required.'); return; }
+        // Co-signer selection (only for FIRST signer — co-signer dropdown isn't rendered for the pending co-signer)
+        var coSignerEmail = coSignerSelect ? coSignerSelect.value : '';
+        var coSignerOption = coSignerSelect && coSignerSelect.selectedOptions[0];
+        var coSignerName = coSignerOption ? coSignerOption.getAttribute('data-name') : '';
+        var coSignerTitle = coSignerOption ? coSignerOption.getAttribute('data-title') : '';
 
-        if (!confirm('Apply electronic signature as ' + signerName + ' (' + signerTitle + ') and mark this document fully executed?\n\nThis will render an executed PDF, file it on the client record, and email both parties a copy.')) return;
+        var isCoSignFlow = !!coSignerEmail;
+        var confirmMsg = isCoSignFlow
+            ? 'Sign as ' + signerName + ' (' + signerTitle + ') and route to ' + coSignerName + ' for co-signature?\n\nThe document will NOT be fully executed yet — it will wait for ' + coSignerName + '\'s signature.'
+            : 'Apply electronic signature as ' + signerName + ' (' + signerTitle + ') and mark this document fully executed?\n\nThis will render an executed PDF, file it on the client record, and email both parties a copy.';
+        if (!confirm(confirmMsg)) return;
         var btn = document.querySelector('#countersignModal button[onclick*="confirmCountersign"]');
-        if (btn) { btn.disabled = true; btn.textContent = 'Signing...'; }
+        if (btn) { btn.disabled = true; btn.textContent = isCoSignFlow ? 'Signing & routing...' : 'Signing...'; }
         var renderEl = null;
         try {
-            // 1. Load fresh signing_documents row + template name
+            // 1. Load fresh signing_documents row + template name + alliance_signatures + already-set fields
             var { data: sd, error: loadErr } = await db
                 .from('signing_documents')
-                .select('id, client_id, deal_id, populated_html, sent_to_name, sent_to_email, counterparty_signed_at, template_id, document_templates(template_name)')
+                .select('id, client_id, deal_id, populated_html, sent_to_name, sent_to_email, counterparty_signed_at, template_id, alliance_signatures, alliance_signed_at, alliance_signer_id, document_templates(template_name)')
                 .eq('id', signingDocId)
                 .single();
             if (loadErr || !sd) throw new Error(loadErr ? loadErr.message : 'Document not found');
+
+            // Multi-signer flow logic — determine if this signer is the FIRST or a co-signer
+            var existingSigs = sd.alliance_signatures || [];
+            var pendingEntry = existingSigs.find(function(s) { return s.status === 'pending' && s.email === currentUser.email; });
+            var isCoSignerSigning = !!pendingEntry;  // current user is the pending co-signer
+            // If we're routing to a co-signer (first signer flow with coSignerEmail), this is NOT fully executed yet
+            // If we're the pending co-signer signing (isCoSignerSigning), this IS fully executed now
+            // If we're first signer with no co-signer, this IS fully executed now
+            var willBeFullyExecuted = !isCoSignFlow || isCoSignerSigning;
 
             var nowIso = new Date().toISOString();
             var nowDisplay = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -12563,8 +12704,98 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var counterpartyName = sd.sent_to_name || 'Counterparty';
             var tplName = (sd.document_templates && sd.document_templates.template_name) || 'Document';
 
-            // 2. Inject rendered signatures via the shared helper (same code path as the View modal)
+            // === Build the updated alliance_signatures array ===
+            var newSigs;
+            var newSignedEntry = {
+                email: currentUser.email,
+                name: signerName,
+                title: signerTitle,
+                signer_id: currentUserId,
+                signed_at: nowIso,
+                status: 'signed'
+            };
+            if (isCoSignerSigning) {
+                // Pending co-signer is signing — flip their entry to signed
+                newSigs = existingSigs.map(function(s) {
+                    if (s.status === 'pending' && s.email === currentUser.email) return newSignedEntry;
+                    return s;
+                });
+            } else if (isCoSignFlow) {
+                // First signer + routing to co-signer
+                newSigs = [newSignedEntry, { email: coSignerEmail, name: coSignerName, title: coSignerTitle, status: 'pending' }];
+            } else {
+                // First signer, no co-signer
+                newSigs = [newSignedEntry];
+            }
+
+            // === Path A — route to co-signer (NOT fully executed yet) ===
+            if (!willBeFullyExecuted) {
+                // Update DB: status='partial_alliance_signed', set alliance_signed_at to FIRST signature for backward-compat
+                var { error: routeErr } = await db
+                    .from('signing_documents')
+                    .update({
+                        alliance_signatures: newSigs,
+                        alliance_signed_at: sd.alliance_signed_at || nowIso,  // FIRST signer's timestamp
+                        alliance_signer_id: sd.alliance_signer_id || currentUserId,
+                        status: 'partial_alliance_signed'
+                    })
+                    .eq('id', signingDocId);
+                if (routeErr) throw routeErr;
+
+                // Email the co-signer
+                try {
+                    var emailHtml = '<div style="font-family:-apple-system,Helvetica,Arial,sans-serif;color:#0D1E3D;font-size:15px;line-height:1.55;max-width:600px;">'
+                        + '<p>Hi ' + (coSignerName || '') + ',</p>'
+                        + '<p>' + signerName + ' just signed the <b>' + tplName + '</b> for <b>' + counterpartyName + '</b> and routed it to you for co-signature.</p>'
+                        + '<p>It\'s waiting in your dashboard Command Center under "' + signerName + ' signed — your co-signature needed".</p>'
+                        + '<p style="margin:20px 0;"><a href="https://app.alliancefinancing.com/dashboard.html" style="background:#15803D;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;">Open Dashboard &rarr;</a></p>'
+                        + '<p style="font-size:12px;color:#64748B;">Document ID: ' + sd.id + '</p>'
+                        + '</div>';
+                    await db.functions.invoke('send-email', {
+                        body: {
+                            from: 'Alliance Sign-Flow <info@alliancefinancing.com>',
+                            reply_to: 'bernie@alliancefinancing.com',
+                            to: [coSignerEmail],
+                            cc: ['info@alliancefinancing.com'],
+                            subject: '[Sign-Flow] ' + signerName + ' signed: ' + tplName + ' — your co-signature needed',
+                            html: emailHtml
+                        }
+                    });
+                } catch(e) { console.warn('Co-sign email failed:', e); }
+
+                // Audit-log timeline note
+                if (sd.client_id) {
+                    try {
+                        var { data: clientRowA } = await db.from('clients').select('admin_notes').eq('id', sd.client_id).single();
+                        var notesA = [];
+                        try { notesA = clientRowA && clientRowA.admin_notes ? JSON.parse(clientRowA.admin_notes) : []; } catch(e) { notesA = []; }
+                        if (!Array.isArray(notesA)) notesA = [];
+                        notesA.push({
+                            type: 'document_partial_signed',
+                            text: tplName + ' — ' + signerName + ' (' + signerTitle + ') signed and routed to ' + coSignerName + ' (' + coSignerTitle + ') for co-signature on ' + nowDisplay + '.',
+                            date: new Date().toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }),
+                            author: signerName + ', ' + signerTitle,
+                            pinned: false, category: 'General', from_agent: false, is_audit_log: true, visible_to_agent: false
+                        });
+                        await db.from('clients').update({ admin_notes: JSON.stringify(notesA) }).eq('id', sd.client_id);
+                    } catch(e) { console.warn('Partial-sign audit-log failed:', e); }
+                }
+
+                document.getElementById('countersignModal').style.display = 'none';
+                if (typeof showToast === 'function') {
+                    showToast('Signed. Routed to ' + coSignerName + ' for co-signature.', 'success');
+                } else {
+                    alert('Signed. Routed to ' + coSignerName + '.');
+                }
+                if (typeof loadNotifications === 'function') loadNotifications();
+                return;  // Early exit — don't render PDF until fully executed
+            }
+            // === End Path A ===
+
+            // === Path B — fully execute (single signer OR co-signer completing) ===
+            // 2. Inject rendered signatures via the shared helper (uses alliance_signatures multi-signer array)
             var executedHtml = injectSignatures(sd.populated_html, {
+                alliance_signatures: newSigs,
                 alliance_signed: true,
                 alliance_name: signerName,
                 alliance_title: signerTitle,
@@ -12573,11 +12804,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 counterparty_name: counterpartyName,
                 counterparty_date: cpDisplay
             });
-            // Append an audit footer
+            // Append an audit footer — lists every Alliance signature when multi-signer
+            var allianceFooterLines = newSigs.filter(function(s) { return s.status === 'signed'; }).map(function(s) {
+                var d = s.signed_at ? new Date(s.signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+                return 'Alliance signature: ' + s.name + (s.title ? ', ' + s.title : '') + ' &mdash; ' + d;
+            }).join('<br>');
             executedHtml += '<div style="margin-top:36px;padding:12px 16px;background:#F8FAFC;border-top:2px solid #C9A84C;font-size:10px;color:#64748B;font-family:Arial,sans-serif;">'
                 + '<strong style="color:#0D1E3D;">Electronic Execution Record</strong> &middot; Signing document ID: ' + sd.id
                 + '<br>Counterparty signature: ' + counterpartyName + ' (' + (sd.sent_to_email || '—') + ') &mdash; ' + cpDisplay
-                + '<br>Alliance signature: ' + signerName + ', ' + signerTitle + ' &mdash; ' + nowDisplay
+                + '<br>' + allianceFooterLines
                 + '<br>Document fully executed by Alliance Financing Group Ltd.\'s e-signature platform.'
                 + '</div>';
 
@@ -12640,11 +12875,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             // 6. Update signing_documents — execution complete
+            // FIRST signer's timestamp goes on alliance_signed_at (backward compat).
+            // alliance_signatures captures the full multi-signer array.
+            var firstSig = newSigs.find(function(s) { return s.status === 'signed'; }) || {};
             var { error: updErr } = await db
                 .from('signing_documents')
                 .update({
-                    alliance_signed_at: nowIso,
-                    alliance_signer_id: currentUserId,
+                    alliance_signed_at: sd.alliance_signed_at || firstSig.signed_at || nowIso,
+                    alliance_signer_id: sd.alliance_signer_id || firstSig.signer_id || currentUserId,
+                    alliance_signatures: newSigs,
                     status: 'fully_executed',
                     signed_pdf_path: storagePath,
                     client_document_id: clientDocId
@@ -12663,12 +12902,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     binary += String.fromCharCode.apply(null, pdfBytes.subarray(i, Math.min(i + chunk, pdfBytes.length)));
                 }
                 var pdfBase64 = btoa(binary);
+                // Email body lists ALL Alliance signatures when multi-signer
+                var allianceLis = newSigs.filter(function(s) { return s.status === 'signed'; }).map(function(s) {
+                    var d = s.signed_at ? new Date(s.signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+                    return '<li><strong>' + s.name + '</strong>' + (s.title ? ', ' + s.title : '') + ', Alliance Financing Group Ltd. &mdash; signed ' + d + '</li>';
+                }).join('');
                 var emailHtml = '<div style="font-family:-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;color:#0D1E3D;font-size:15px;line-height:1.55;max-width:600px;">'
                     + '<p>Hello,</p>'
-                    + '<p>The <strong>' + tplName + '</strong> has been fully executed by both parties:</p>'
+                    + '<p>The <strong>' + tplName + '</strong> has been fully executed by all parties:</p>'
                     + '<ul>'
                     + '<li><strong>' + counterpartyName + '</strong> &mdash; signed ' + cpDisplay + '</li>'
-                    + '<li><strong>' + signerName + '</strong>, ' + signerTitle + ', Alliance Financing Group Ltd. &mdash; signed ' + nowDisplay + '</li>'
+                    + allianceLis
                     + '</ul>'
                     + '<p>The fully executed PDF is attached. Please retain for your records.</p>'
                     + '<p>Best regards,<br>Alliance Financing Group Ltd.<br>alliancefinancing.com &middot; 1-877-660-3660</p>'
@@ -46841,7 +47085,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 try {
                     const { data: sigDocs } = await db
                         .from('signing_documents')
-                        .select('id, status, sent_to_name, sent_to_email, sent_at, counterparty_signed_at, alliance_signed_at, template_id, document_templates(template_name)')
+                        .select('id, status, sent_to_name, sent_to_email, sent_at, counterparty_signed_at, alliance_signed_at, signed_pdf_path, alliance_signatures, template_id, document_templates(template_name)')
                         .eq('client_id', clientId)
                         .order('sent_at', { ascending: false });
                     clientSigningDocs = sigDocs || [];
@@ -46955,7 +47199,17 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     let badgeBg, badgeColor, statusLabel, actionBtn;
                     if (sd.status === 'fully_executed' || sd.alliance_signed_at) {
                         badgeBg = '#DCFCE7'; badgeColor = '#166534'; statusLabel = 'Fully Executed' + (allDate ? ' · ' + allDate : '');
-                        actionBtn = `<button onclick="openCountersignFlow('${sd.id}')" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">View</button>`;
+                        var downloadBtn = '';
+                        // Download executed PDF button — only when signed_pdf_path exists
+                        if (sd.signed_pdf_path) {
+                            // Get a signed URL via the supabase client (auto-handles auth + expiry)
+                            downloadBtn = `<button onclick="downloadSignedPdf('${sd.signed_pdf_path}', '${sd.id}')" title="Download executed PDF" style="padding:6px 12px;background:#0D1E3D;color:white;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;margin-right:6px;">📥 PDF</button>`;
+                        }
+                        actionBtn = downloadBtn + `<button onclick="openCountersignFlow('${sd.id}')" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">View</button>`;
+                    } else if (sd.status === 'partial_alliance_signed') {
+                        // Multi-signer mid-state — at least one Alliance signer done, awaiting co-signer
+                        badgeBg = '#FEF3C7'; badgeColor = '#92400E'; statusLabel = 'Awaiting Alliance Co-Sign';
+                        actionBtn = `<button onclick="openCountersignFlow('${sd.id}')" style="padding:6px 12px;background:#0D1E3D;color:white;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">View</button>`;
                     } else if (sd.status === 'counterparty_signed' || sd.counterparty_signed_at) {
                         badgeBg = '#FEF3C7'; badgeColor = '#92400E'; statusLabel = 'Awaiting Alliance Countersign · counterparty signed ' + (cpDate || 'recently');
                         // Countersign button only renders for active team_members (Bernie/Carrie); other admins see View only with a note
