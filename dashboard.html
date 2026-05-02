@@ -12252,11 +12252,12 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
         } catch(e) { console.warn('Notifications: document upload load error', e); }
 
-        // Documents awaiting Bernie's countersign — admin-only (May 2, 2026)
-        // Surfaces signing_documents where counterparty has signed but Alliance hasn't yet.
-        // Covers all template types: NDAs, fee agreements, etc.
+        // Documents awaiting Alliance countersign — gated to Alliance signatories only (May 2, 2026)
+        // Authority comes from active team_members membership (Bernie + Carrie), NOT generic admin role.
+        // A credit analyst with admin role for case access will NOT see this notification.
         if (isAdmin) {
-            try {
+            var _signerAuthForNotif = await getAllianceSigner();
+            if (_signerAuthForNotif.can_sign) try {
                 var { data: pendingCountersign } = await db
                     .from('signing_documents')
                     .select('id, status, sent_to_name, sent_to_email, counterparty_signed_at, sent_at, template_id, client_id, deal_id, document_templates(template_name)')
@@ -12305,28 +12306,77 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // ============================================================
-    // Countersign flow — May 2, 2026
+    // Alliance signer authority — May 2, 2026
+    // Authority to countersign documents comes from active team_members membership,
+    // NOT from generic admin role. Future-proof: a credit analyst granted admin
+    // role for case access still wouldn't be in team_members and so cannot sign.
+    // Pulls signer name + title from team_members.role_title (e.g., "Director",
+    // "Managing Partner", "CEO") so the rendered signature reflects the actual signer.
+    // Cached after first call to avoid repeated DB lookups.
+    // ============================================================
+    var _allianceSignerCache = null;
+    async function getAllianceSigner() {
+        if (_allianceSignerCache !== null) return _allianceSignerCache;
+        if (!currentUser || !currentUser.email) {
+            _allianceSignerCache = { can_sign: false, name: null, title: null, team_member_id: null };
+            return _allianceSignerCache;
+        }
+        try {
+            var { data: tm } = await db.from('team_members')
+                .select('id, full_name, role_title, email, is_active')
+                .eq('email', currentUser.email)
+                .eq('is_active', true)
+                .maybeSingle();
+            if (tm) {
+                _allianceSignerCache = {
+                    can_sign: true,
+                    name: tm.full_name || currentUser.full_name || currentUser.email,
+                    title: tm.role_title || 'Director',
+                    team_member_id: tm.id
+                };
+            } else {
+                _allianceSignerCache = { can_sign: false, name: null, title: null, team_member_id: null };
+            }
+        } catch(e) {
+            console.warn('getAllianceSigner failed:', e);
+            _allianceSignerCache = { can_sign: false, name: null, title: null, team_member_id: null };
+        }
+        return _allianceSignerCache;
+    }
+    // Synchronous helper for places that already loaded the cache and just need can_sign
+    function _canSignSync() {
+        return !!(_allianceSignerCache && _allianceSignerCache.can_sign);
+    }
+
+    // ============================================================
+    // Countersign flow — May 2, 2026 (v3 with signer-aware UI)
     // Admin clicks "Countersign now" on a notification → opens modal
-    // showing populated_html → "Sign as Alliance Director" button
-    // updates signing_documents.alliance_signed_at + status='fully_executed'
+    // showing populated_html → "Sign and Execute" button
+    // Generates executed PDF, files to client_documents, emails both parties.
     // ============================================================
     async function openCountersignFlow(signingDocId) {
         try {
-            var { data: sd, error } = await db
-                .from('signing_documents')
-                .select('id, status, sent_to_name, sent_to_email, counterparty_signed_at, sent_at, populated_html, client_id, deal_id, template_id, document_templates(template_name)')
-                .eq('id', signingDocId)
-                .single();
+            var [sigResult, signerAuth] = await Promise.all([
+                db.from('signing_documents')
+                    .select('id, status, sent_to_name, sent_to_email, counterparty_signed_at, sent_at, populated_html, client_id, deal_id, template_id, alliance_signed_at, document_templates(template_name)')
+                    .eq('id', signingDocId)
+                    .single(),
+                getAllianceSigner()
+            ]);
+            var sd = sigResult.data;
+            var error = sigResult.error;
             if (error || !sd) { alert('Could not load signing document: ' + (error && error.message)); return; }
-            if (sd.status === 'fully_executed' || sd.alliance_signed_at) {
-                alert('This document has already been fully executed.');
-                return;
-            }
+            var alreadyExecuted = sd.status === 'fully_executed' || !!sd.alliance_signed_at;
+            var awaitingCountersign = sd.status === 'counterparty_signed' && !sd.alliance_signed_at;
             var tplName = (sd.document_templates && sd.document_templates.template_name) || 'Document';
             var counterparty = sd.sent_to_name || 'Counterparty';
             var counterpartySignedDate = sd.counterparty_signed_at
                 ? new Date(sd.counterparty_signed_at).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' })
                 : 'Not yet';
+
+            // Defaults for the editable signer fields
+            var defaultName = (signerAuth.name) || (currentUser && currentUser.full_name) || '';
+            var defaultTitle = (signerAuth.title) || 'Director';
 
             var modal = document.getElementById('countersignModal');
             if (!modal) {
@@ -12335,27 +12385,68 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 modal.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;overflow-y:auto;';
                 document.body.appendChild(modal);
             }
+
+            // Header label adapts to context (executed / awaiting countersign / view-only)
+            var headerLabel = alreadyExecuted ? 'FULLY EXECUTED' : (awaitingCountersign ? 'COUNTERSIGN AS ALLIANCE' : 'DOCUMENT VIEW');
+
+            // Signer panel — only shown when awaiting countersign
+            // Permission gate: only active team_members render the Sign button + signer inputs
+            var signerPanel = '';
+            var actionPanel = '';
+            if (alreadyExecuted) {
+                actionPanel =
+                    '<button onclick="document.getElementById(\'countersignModal\').style.display=\'none\'" style="padding:10px 20px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Close</button>';
+            } else if (awaitingCountersign && signerAuth.can_sign) {
+                signerPanel =
+                    '<div style="padding:14px 24px;background:#FFFBEB;border-bottom:1px solid #FEF3C7;">' +
+                      '<div style="font-size:11px;font-weight:700;color:#92400E;letter-spacing:0.5px;margin-bottom:8px;">SIGNING AS</div>' +
+                      '<div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;">' +
+                        '<div>' +
+                          '<label style="font-size:11px;color:#64748B;display:block;margin-bottom:3px;">Name</label>' +
+                          '<input id="countersignSignerName" type="text" value="' + defaultName.replace(/"/g, '&quot;') + '" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:4px;font-size:14px;font-family:Arial,sans-serif;color:#0D1E3D;">' +
+                        '</div>' +
+                        '<div>' +
+                          '<label style="font-size:11px;color:#64748B;display:block;margin-bottom:3px;">Title</label>' +
+                          '<input id="countersignSignerTitle" type="text" value="' + defaultTitle.replace(/"/g, '&quot;') + '" style="width:100%;padding:8px 10px;border:1px solid #E2E8F0;border-radius:4px;font-size:14px;color:#0D1E3D;">' +
+                        '</div>' +
+                      '</div>' +
+                      '<div style="font-size:11px;color:#92400E;margin-top:8px;">Defaults pulled from your team_members record. Adjust if you\'re signing on behalf of a different role.</div>' +
+                    '</div>';
+                actionPanel =
+                    '<button onclick="document.getElementById(\'countersignModal\').style.display=\'none\'" style="padding:10px 20px;background:#E2E8F0;color:#475569;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>' +
+                    '<button onclick="confirmCountersign(\'' + sd.id + '\')" style="padding:10px 24px;background:#15803D;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-left:8px;">✓ Sign and Execute</button>';
+            } else if (awaitingCountersign && !signerAuth.can_sign) {
+                signerPanel =
+                    '<div style="padding:14px 24px;background:#FEF2F2;border-bottom:1px solid #FECACA;">' +
+                      '<div style="font-size:11px;font-weight:700;color:#991B1B;letter-spacing:0.5px;margin-bottom:6px;">VIEW-ONLY ACCESS</div>' +
+                      '<div style="font-size:13px;color:#7F1D1D;line-height:1.5;">You don\'t have authority to countersign on behalf of Alliance Financing Group Ltd. Only active directors and managing partners (signatories on the team_members register) may execute documents. Please ask Bernie or Carrie to countersign.</div>' +
+                    '</div>';
+                actionPanel =
+                    '<button onclick="document.getElementById(\'countersignModal\').style.display=\'none\'" style="padding:10px 20px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Close</button>';
+            } else {
+                actionPanel =
+                    '<button onclick="document.getElementById(\'countersignModal\').style.display=\'none\'" style="padding:10px 20px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Close</button>';
+            }
+
             modal.innerHTML =
                 '<div style="background:white;max-width:900px;margin:30px auto;border-radius:8px;padding:0;box-shadow:0 8px 24px rgba(0,0,0,0.2);">' +
                   '<div style="padding:18px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#0D1E3D;color:white;border-radius:8px 8px 0 0;">' +
                     '<div>' +
-                      '<div style="font-size:11px;color:#C9A84C;font-weight:700;letter-spacing:0.5px;">COUNTERSIGN AS ALLIANCE DIRECTOR</div>' +
+                      '<div style="font-size:11px;color:#C9A84C;font-weight:700;letter-spacing:0.5px;">' + headerLabel + '</div>' +
                       '<div style="font-size:18px;font-weight:600;margin-top:2px;">' + tplName + '</div>' +
                       '<div style="font-size:13px;color:#94A3B8;margin-top:2px;">Counterparty: ' + counterparty + ' · signed ' + counterpartySignedDate + '</div>' +
                     '</div>' +
                     '<button onclick="document.getElementById(\'countersignModal\').style.display=\'none\'" style="background:transparent;border:none;color:white;font-size:24px;cursor:pointer;padding:0 8px;">×</button>' +
                   '</div>' +
-                  '<div style="padding:24px;max-height:55vh;overflow-y:auto;background:#F8FAFC;border-bottom:1px solid #e2e8f0;">' +
+                  signerPanel +
+                  '<div style="padding:24px;max-height:50vh;overflow-y:auto;background:#F8FAFC;border-bottom:1px solid #e2e8f0;">' +
                     '<div style="background:white;padding:24px;border:1px solid #e2e8f0;border-radius:6px;">' +
                     sd.populated_html +
                     '</div>' +
                   '</div>' +
                   '<div style="padding:18px 24px;display:flex;justify-content:space-between;align-items:center;background:white;border-radius:0 0 8px 8px;">' +
-                    '<div style="font-size:12px;color:#64748B;">Clicking "Sign and Execute" applies your electronic signature, marks the document fully executed, and saves the audit trail.</div>' +
-                    '<div style="display:flex;gap:8px;">' +
-                      '<button onclick="document.getElementById(\'countersignModal\').style.display=\'none\'" style="padding:10px 20px;background:#E2E8F0;color:#475569;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>' +
-                      '<button onclick="confirmCountersign(\'' + sd.id + '\')" style="padding:10px 24px;background:#15803D;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">✓ Sign and Execute</button>' +
-                    '</div>' +
+                    '<div style="font-size:12px;color:#64748B;">' + (awaitingCountersign && signerAuth.can_sign ? 'Clicking "Sign and Execute" renders the executed PDF, files it on the client, and emails both parties a copy.' : '') + '</div>' +
+                    '<div style="display:flex;gap:0;align-items:center;">' + actionPanel + '</div>' +
                   '</div>' +
                 '</div>';
             modal.style.display = 'block';
@@ -12365,30 +12456,196 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         }
     }
 
+    // v2 — May 2, 2026 — completes the signing loop:
+    // (1) injects signatures into the doc, (2) renders executed PDF via html2pdf,
+    // (3) uploads to Supabase storage, (4) creates client_documents row,
+    // (5) updates signing_documents (signed_pdf_path, client_document_id, alliance_signed_at, status),
+    // (6) emails both parties the executed PDF, (7) appends a timeline entry to the client.
     async function confirmCountersign(signingDocId) {
-        if (!confirm('Apply your electronic signature and mark this document fully executed?')) return;
+        // Server-side authority check (defense in depth — UI also gates this button)
+        var signerAuth = await getAllianceSigner();
+        if (!signerAuth.can_sign) {
+            alert('You do not have authority to countersign Alliance documents. Only active directors and managing partners (team_members) may execute.');
+            return;
+        }
+        // Read editable signer fields from the modal — fall back to team_members defaults if missing
+        var nameInput = document.getElementById('countersignSignerName');
+        var titleInput = document.getElementById('countersignSignerTitle');
+        var signerName = (nameInput && nameInput.value.trim()) || signerAuth.name || 'Director';
+        var signerTitle = (titleInput && titleInput.value.trim()) || signerAuth.title || 'Director';
+        if (!signerName) { alert('Signer name is required.'); return; }
+
+        if (!confirm('Apply electronic signature as ' + signerName + ' (' + signerTitle + ') and mark this document fully executed?\n\nThis will render an executed PDF, file it on the client record, and email both parties a copy.')) return;
+        var btn = document.querySelector('#countersignModal button[onclick*="confirmCountersign"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Signing...'; }
+        var renderEl = null;
         try {
+            // 1. Load fresh signing_documents row + template name
+            var { data: sd, error: loadErr } = await db
+                .from('signing_documents')
+                .select('id, client_id, deal_id, populated_html, sent_to_name, sent_to_email, counterparty_signed_at, template_id, document_templates(template_name)')
+                .eq('id', signingDocId)
+                .single();
+            if (loadErr || !sd) throw new Error(loadErr ? loadErr.message : 'Document not found');
+
             var nowIso = new Date().toISOString();
-            var { error } = await db
+            var nowDisplay = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+            var cpDisplay = sd.counterparty_signed_at
+                ? new Date(sd.counterparty_signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })
+                : nowDisplay;
+            var counterpartyName = sd.sent_to_name || 'Counterparty';
+            var tplName = (sd.document_templates && sd.document_templates.template_name) || 'Document';
+
+            // 2. Inject rendered signatures into the populated_html
+            var allianceSig = '<div style="font-family:\'Brush Script MT\',\'Lucida Handwriting\',cursive;font-size:28px;color:#1E40AF;padding:8px 0;line-height:1.2;">' + signerName + '</div>'
+                + '<div style="font-size:11px;color:#64748B;font-style:italic;">Electronically signed by ' + signerName + ', ' + signerTitle + ' &mdash; ' + nowDisplay + '</div>';
+            var counterpartySig = '<div style="font-family:\'Brush Script MT\',\'Lucida Handwriting\',cursive;font-size:28px;color:#1E40AF;padding:8px 0;line-height:1.2;">' + counterpartyName + '</div>'
+                + '<div style="font-size:11px;color:#64748B;font-style:italic;">Electronically signed ' + cpDisplay + '</div>';
+            var executedHtml = sd.populated_html
+                .replace(/<div id="alliance-signature-block"[^>]*>[\s\S]*?<\/div>/i, '<div id="alliance-signature-block">' + allianceSig + '</div>')
+                .replace(/<div id="counterparty-signature-block"[^>]*>[\s\S]*?<\/div>/i, '<div id="counterparty-signature-block">' + counterpartySig + '</div>');
+            // Append an audit footer
+            executedHtml += '<div style="margin-top:36px;padding:12px 16px;background:#F8FAFC;border-top:2px solid #C9A84C;font-size:10px;color:#64748B;font-family:Arial,sans-serif;">'
+                + '<strong style="color:#0D1E3D;">Electronic Execution Record</strong> &middot; Signing document ID: ' + sd.id
+                + '<br>Counterparty signature: ' + counterpartyName + ' (' + (sd.sent_to_email || '—') + ') &mdash; ' + cpDisplay
+                + '<br>Alliance signature: ' + signerName + ', ' + signerTitle + ' &mdash; ' + nowDisplay
+                + '<br>Document fully executed by Alliance Financing Group Ltd.\'s e-signature platform.'
+                + '</div>';
+
+            // 3. Render to PDF using html2pdf
+            renderEl = document.createElement('div');
+            renderEl.style.cssText = 'position:absolute;top:-9999px;left:0;width:8.5in;background:white;padding:0;';
+            renderEl.innerHTML = executedHtml;
+            document.body.appendChild(renderEl);
+            var safeName = tplName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+            var pdfFileName = nowIso.slice(0, 10) + '-' + safeName + '-EXECUTED.pdf';
+            var pdfBlob = await html2pdf().from(renderEl).set({
+                margin: [0.5, 0.5, 0.6, 0.5],
+                filename: pdfFileName,
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            }).outputPdf('blob');
+            document.body.removeChild(renderEl);
+            renderEl = null;
+
+            // 4. Upload to Supabase storage
+            var storagePath = 'signed-documents/' + sd.id + '/' + pdfFileName;
+            var { error: uploadErr } = await db.storage.from('deal-documents').upload(storagePath, pdfBlob, { contentType: 'application/pdf', upsert: true });
+            if (uploadErr) throw new Error('Storage upload failed: ' + uploadErr.message);
+
+            // 5. Insert client_documents row (only if client linked)
+            var clientDocId = null;
+            if (sd.client_id) {
+                var { data: cdRow, error: cdErr } = await db
+                    .from('client_documents')
+                    .insert({
+                        client_id: sd.client_id,
+                        deal_id: sd.deal_id,
+                        document_type: 'Signed Agreement',
+                        file_name: pdfFileName,
+                        storage_path: storagePath,
+                        uploaded_by: signerName + ', ' + signerTitle + ' (e-signed)',
+                        status: 'Active',
+                        notes: tplName + ' — fully executed by ' + signerName + ', ' + signerTitle + ' (Alliance) and ' + counterpartyName + ' (counterparty) on ' + nowDisplay + '. Signing document id: ' + sd.id + '.'
+                    })
+                    .select('id')
+                    .single();
+                if (!cdErr && cdRow) clientDocId = cdRow.id;
+                else console.warn('client_documents insert failed:', cdErr);
+            }
+
+            // 6. Update signing_documents — execution complete
+            var { error: updErr } = await db
                 .from('signing_documents')
                 .update({
                     alliance_signed_at: nowIso,
                     alliance_signer_id: currentUserId,
-                    status: 'fully_executed'
+                    status: 'fully_executed',
+                    signed_pdf_path: storagePath,
+                    client_document_id: clientDocId
                 })
                 .eq('id', signingDocId);
-            if (error) throw error;
-            document.getElementById('countersignModal').style.display = 'none';
-            if (typeof showToast === 'function') {
-                showToast('Document fully executed. Both parties will receive a copy.', 'success');
-            } else {
-                alert('Document fully executed.');
+            if (updErr) throw updErr;
+
+            // 7. Email both parties the executed PDF
+            try {
+                var pdfBuffer = await pdfBlob.arrayBuffer();
+                var pdfBytes = new Uint8Array(pdfBuffer);
+                // base64 encode in chunks to avoid call-stack issues on large docs
+                var binary = '';
+                var chunk = 0x8000;
+                for (var i = 0; i < pdfBytes.length; i += chunk) {
+                    binary += String.fromCharCode.apply(null, pdfBytes.subarray(i, Math.min(i + chunk, pdfBytes.length)));
+                }
+                var pdfBase64 = btoa(binary);
+                var emailHtml = '<div style="font-family:-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;color:#0D1E3D;font-size:15px;line-height:1.55;max-width:600px;">'
+                    + '<p>Hello,</p>'
+                    + '<p>The <strong>' + tplName + '</strong> has been fully executed by both parties:</p>'
+                    + '<ul>'
+                    + '<li><strong>' + counterpartyName + '</strong> &mdash; signed ' + cpDisplay + '</li>'
+                    + '<li><strong>' + signerName + '</strong>, ' + signerTitle + ', Alliance Financing Group Ltd. &mdash; signed ' + nowDisplay + '</li>'
+                    + '</ul>'
+                    + '<p>The fully executed PDF is attached. Please retain for your records.</p>'
+                    + '<p>Best regards,<br>Alliance Financing Group Ltd.<br>alliancefinancing.com &middot; 1-877-660-3660</p>'
+                    + '</div>';
+                await db.functions.invoke('send-email', {
+                    body: {
+                        from: 'Alliance Financing Group <info@alliancefinancing.com>',
+                        reply_to: 'bernie@alliancefinancing.com',
+                        to: [sd.sent_to_email],
+                        cc: ['info@alliancefinancing.com'],
+                        subject: 'Fully Executed: ' + tplName,
+                        html: emailHtml,
+                        attachments: [{
+                            filename: pdfFileName,
+                            content: pdfBase64,
+                            content_type: 'application/pdf'
+                        }]
+                    }
+                });
+            } catch (emailErr) {
+                console.warn('Executed-doc email failed (document IS executed though):', emailErr);
             }
-            // Refresh notifications so the action item drops off
+
+            // 8. Append audit-log timeline note to client admin_notes
+            if (sd.client_id) {
+                try {
+                    var { data: clientRow } = await db.from('clients').select('admin_notes').eq('id', sd.client_id).single();
+                    var notes = [];
+                    try {
+                        notes = clientRow && clientRow.admin_notes ? JSON.parse(clientRow.admin_notes) : [];
+                    } catch(e) { notes = []; }
+                    if (!Array.isArray(notes)) notes = [];
+                    notes.push({
+                        type: 'document_executed',
+                        text: tplName + ' fully executed. Counterparty (' + counterpartyName + ') signed ' + cpDisplay + '; Alliance (' + signerName + ', ' + signerTitle + ') countersigned ' + nowDisplay + '. Executed PDF filed on client documents and emailed to both parties.',
+                        date: new Date().toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }),
+                        author: signerName + ', ' + signerTitle,
+                        pinned: false,
+                        category: 'General',
+                        from_agent: false,
+                        is_audit_log: true,
+                        visible_to_agent: false
+                    });
+                    await db.from('clients').update({ admin_notes: JSON.stringify(notes) }).eq('id', sd.client_id);
+                } catch(e) { console.warn('Failed to append audit-log note to client:', e); }
+            }
+
+            // 9. Close modal + refresh + toast
+            var modal = document.getElementById('countersignModal');
+            if (modal) modal.style.display = 'none';
+            if (typeof showToast === 'function') {
+                showToast(tplName + ' fully executed. PDF filed on client and emailed to both parties.', 'success');
+            } else {
+                alert(tplName + ' fully executed.');
+            }
             if (typeof loadNotifications === 'function') loadNotifications();
         } catch (e) {
             console.error('confirmCountersign error:', e);
-            alert('Sign failed: ' + e.message);
+            if (renderEl && renderEl.parentNode) renderEl.parentNode.removeChild(renderEl);
+            alert('Sign failed: ' + (e.message || e));
+            if (btn) { btn.disabled = false; btn.textContent = '✓ Sign and Execute'; }
         }
     }
 
@@ -46491,8 +46748,11 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             } catch(e) { console.warn('Could not load client deals:', e); }
 
             // Fetch signing documents for this client (admin-only — May 2, 2026)
-            // Surfaces NDAs, fee agreements, anything routed through the e-sign flow
+            // Surfaces NDAs, fee agreements, anything routed through the e-sign flow.
+            // canSign is gated to active team_members (Bernie + Carrie) — admins without
+            // signing authority (e.g., a credit analyst) see View only, no Countersign button.
             let clientSigningDocs = [];
+            let _clientSignerAuth = { can_sign: false };
             if (isAdmin) {
                 try {
                     const { data: sigDocs } = await db
@@ -46502,6 +46762,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         .order('sent_at', { ascending: false });
                     clientSigningDocs = sigDocs || [];
                 } catch(e) { console.warn('Could not load client signing documents:', e); }
+                _clientSignerAuth = await getAllianceSigner();
             }
 
             // Parse admin notes — agents only see notes marked visible_to_agent or from_agent
@@ -46612,8 +46873,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         badgeBg = '#DCFCE7'; badgeColor = '#166534'; statusLabel = 'Fully Executed' + (allDate ? ' · ' + allDate : '');
                         actionBtn = `<button onclick="openCountersignFlow('${sd.id}')" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">View</button>`;
                     } else if (sd.status === 'counterparty_signed' || sd.counterparty_signed_at) {
-                        badgeBg = '#FEF3C7'; badgeColor = '#92400E'; statusLabel = 'Awaiting Your Countersign · counterparty signed ' + (cpDate || 'recently');
-                        actionBtn = `<button onclick="openCountersignFlow('${sd.id}')" style="padding:6px 12px;background:#15803D;color:white;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">✍️ Countersign</button>`;
+                        badgeBg = '#FEF3C7'; badgeColor = '#92400E'; statusLabel = 'Awaiting Alliance Countersign · counterparty signed ' + (cpDate || 'recently');
+                        // Countersign button only renders for active team_members (Bernie/Carrie); other admins see View only with a note
+                        if (_clientSignerAuth.can_sign) {
+                            actionBtn = `<button onclick="openCountersignFlow('${sd.id}')" style="padding:6px 12px;background:#15803D;color:white;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">✍️ Countersign</button>`;
+                        } else {
+                            actionBtn = `<button onclick="openCountersignFlow('${sd.id}')" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;" title="Only Alliance directors / managing partners can countersign">View</button>`;
+                        }
                     } else if (sd.status === 'send_failed') {
                         badgeBg = '#FEE2E2'; badgeColor = '#991B1B'; statusLabel = 'Send Failed';
                         actionBtn = '';
