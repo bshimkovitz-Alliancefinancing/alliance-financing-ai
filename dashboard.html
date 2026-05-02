@@ -12348,6 +12348,61 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         return !!(_allianceSignerCache && _allianceSignerCache.can_sign);
     }
 
+    // Shared signature-injection helper — used by both the View modal (so reviewers see
+    // the executed signatures inline) AND by the PDF render path (so the executed PDF
+    // and the dashboard view stay in sync). May 2, 2026.
+    function injectSignatures(populatedHtml, opts) {
+        opts = opts || {};
+        var allianceSig = '';
+        var counterpartySig = '';
+        if (opts.alliance_signed) {
+            allianceSig = '<div style="font-family:\'Brush Script MT\',\'Lucida Handwriting\',cursive;font-size:28px;color:#1E40AF;padding:8px 0;line-height:1.2;">' + (opts.alliance_name || '') + '</div>'
+                + '<div style="font-size:11px;color:#64748B;font-style:italic;">Electronically signed by ' + (opts.alliance_name || '') + (opts.alliance_title ? ', ' + opts.alliance_title : '') + ' &mdash; ' + (opts.alliance_date || '') + '</div>';
+        }
+        if (opts.counterparty_signed) {
+            counterpartySig = '<div style="font-family:\'Brush Script MT\',\'Lucida Handwriting\',cursive;font-size:28px;color:#1E40AF;padding:8px 0;line-height:1.2;">' + (opts.counterparty_name || '') + '</div>'
+                + '<div style="font-size:11px;color:#64748B;font-style:italic;">Electronically signed ' + (opts.counterparty_date || '') + '</div>';
+        }
+        return populatedHtml
+            .replace(/<div id="alliance-signature-block"[^>]*>[\s\S]*?<\/div>/i, '<div id="alliance-signature-block">' + allianceSig + '</div>')
+            .replace(/<div id="counterparty-signature-block"[^>]*>[\s\S]*?<\/div>/i, '<div id="counterparty-signature-block">' + counterpartySig + '</div>');
+    }
+
+    // Cancel / void a sent-but-unsigned document (May 2, 2026).
+    // Only available on status='sent' or 'sent_to_counterparty' OR 'counterparty_signed' if Alliance hasn't signed yet.
+    // Once cancelled, the document drops out of pending lists; status -> 'cancelled'.
+    async function cancelSigningDocument(signingDocId, label) {
+        var reason = prompt('Cancel "' + (label || 'this signing document') + '"?\n\nOptional reason for the audit log:');
+        if (reason === null) return;
+        try {
+            var nowIso = new Date().toISOString();
+            var { error } = await db
+                .from('signing_documents')
+                .update({
+                    status: 'cancelled',
+                    token_expires_at: nowIso  // immediately invalidate the secure link
+                })
+                .eq('id', signingDocId);
+            if (error) throw error;
+            if (typeof showToast === 'function') {
+                showToast('Signing document cancelled. The secure link is now invalid.', 'success');
+            } else {
+                alert('Signing document cancelled.');
+            }
+            // Refresh notifications + close modal if open
+            if (typeof loadNotifications === 'function') loadNotifications();
+            var modal = document.getElementById('countersignModal');
+            if (modal) modal.style.display = 'none';
+            // If we're inside a client modal, refresh it
+            if (typeof currentClientId !== 'undefined' && currentClientId && typeof viewClient === 'function') {
+                try { await viewClient(currentClientId); } catch(e) {}
+            }
+        } catch (e) {
+            console.error('cancelSigningDocument error:', e);
+            alert('Cancel failed: ' + (e.message || e));
+        }
+    }
+
     // ============================================================
     // Countersign flow — May 2, 2026 (v3 with signer-aware UI)
     // Admin clicks "Countersign now" on a notification → opens modal
@@ -12428,6 +12483,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     '<button onclick="document.getElementById(\'countersignModal\').style.display=\'none\'" style="padding:10px 20px;background:#0D1E3D;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Close</button>';
             }
 
+            // Render signatures inline so the executed document looks executed in the view modal
+            // (not just empty signature divs)
+            var displayHtml = injectSignatures(sd.populated_html, {
+                alliance_signed: alreadyExecuted,
+                alliance_name: signerAuth.name || '',
+                alliance_title: signerAuth.title || '',
+                alliance_date: sd.alliance_signed_at ? new Date(sd.alliance_signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '',
+                counterparty_signed: !!sd.counterparty_signed_at,
+                counterparty_name: counterparty,
+                counterparty_date: sd.counterparty_signed_at ? new Date(sd.counterparty_signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+            });
+
             modal.innerHTML =
                 '<div style="background:white;max-width:900px;margin:30px auto;border-radius:8px;padding:0;box-shadow:0 8px 24px rgba(0,0,0,0.2);">' +
                   '<div style="padding:18px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#0D1E3D;color:white;border-radius:8px 8px 0 0;">' +
@@ -12441,7 +12508,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                   signerPanel +
                   '<div style="padding:24px;max-height:50vh;overflow-y:auto;background:#F8FAFC;border-bottom:1px solid #e2e8f0;">' +
                     '<div style="background:white;padding:24px;border:1px solid #e2e8f0;border-radius:6px;">' +
-                    sd.populated_html +
+                    displayHtml +
                     '</div>' +
                   '</div>' +
                   '<div style="padding:18px 24px;display:flex;justify-content:space-between;align-items:center;background:white;border-radius:0 0 8px 8px;">' +
@@ -12496,14 +12563,16 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var counterpartyName = sd.sent_to_name || 'Counterparty';
             var tplName = (sd.document_templates && sd.document_templates.template_name) || 'Document';
 
-            // 2. Inject rendered signatures into the populated_html
-            var allianceSig = '<div style="font-family:\'Brush Script MT\',\'Lucida Handwriting\',cursive;font-size:28px;color:#1E40AF;padding:8px 0;line-height:1.2;">' + signerName + '</div>'
-                + '<div style="font-size:11px;color:#64748B;font-style:italic;">Electronically signed by ' + signerName + ', ' + signerTitle + ' &mdash; ' + nowDisplay + '</div>';
-            var counterpartySig = '<div style="font-family:\'Brush Script MT\',\'Lucida Handwriting\',cursive;font-size:28px;color:#1E40AF;padding:8px 0;line-height:1.2;">' + counterpartyName + '</div>'
-                + '<div style="font-size:11px;color:#64748B;font-style:italic;">Electronically signed ' + cpDisplay + '</div>';
-            var executedHtml = sd.populated_html
-                .replace(/<div id="alliance-signature-block"[^>]*>[\s\S]*?<\/div>/i, '<div id="alliance-signature-block">' + allianceSig + '</div>')
-                .replace(/<div id="counterparty-signature-block"[^>]*>[\s\S]*?<\/div>/i, '<div id="counterparty-signature-block">' + counterpartySig + '</div>');
+            // 2. Inject rendered signatures via the shared helper (same code path as the View modal)
+            var executedHtml = injectSignatures(sd.populated_html, {
+                alliance_signed: true,
+                alliance_name: signerName,
+                alliance_title: signerTitle,
+                alliance_date: nowDisplay,
+                counterparty_signed: true,
+                counterparty_name: counterpartyName,
+                counterparty_date: cpDisplay
+            });
             // Append an audit footer
             executedHtml += '<div style="margin-top:36px;padding:12px 16px;background:#F8FAFC;border-top:2px solid #C9A84C;font-size:10px;color:#64748B;font-family:Arial,sans-serif;">'
                 + '<strong style="color:#0D1E3D;">Electronic Execution Record</strong> &middot; Signing document ID: ' + sd.id
@@ -46898,10 +46967,18 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     } else if (sd.status === 'send_failed') {
                         badgeBg = '#FEE2E2'; badgeColor = '#991B1B'; statusLabel = 'Send Failed';
                         actionBtn = '';
+                    } else if (sd.status === 'cancelled') {
+                        badgeBg = '#F1F5F9'; badgeColor = '#64748B'; statusLabel = 'Cancelled';
+                        actionBtn = `<button onclick="openCountersignFlow('${sd.id}')" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">View</button>`;
                     } else {
                         badgeBg = '#DBEAFE'; badgeColor = '#1E40AF'; statusLabel = 'Sent · awaiting counterparty';
                         actionBtn = `<button onclick="openCountersignFlow('${sd.id}')" style="padding:6px 12px;background:#E2E8F0;color:#475569;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">View</button>`;
                     }
+                    // Cancel button — visible for active (non-final) docs only, signer-gated
+                    var canCancel = _clientSignerAuth.can_sign && (sd.status === 'sent' || sd.status === 'sent_to_counterparty' || sd.status === 'counterparty_signed');
+                    var cancelBtn = canCancel
+                        ? `<button onclick="cancelSigningDocument('${sd.id}', '${(tplName + ' (sent to ' + counterparty + ')').replace(/'/g, '&#39;')}')" title="Void this signing request — secure link will be invalidated immediately" style="padding:6px 10px;background:transparent;color:#94A3B8;border:1px solid #E2E8F0;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;margin-left:6px;" onmouseover="this.style.color='#EF4444';this.style.borderColor='#EF4444'" onmouseout="this.style.color='#94A3B8';this.style.borderColor='#E2E8F0'">✕ Cancel</button>`
+                        : '';
                     return `
                     <div style="background:#f5f5f5;padding:12px;border-radius:4px;margin-bottom:10px;border:1px solid var(--border-gray);display:flex;justify-content:space-between;align-items:center;">
                         <div style="flex:1;">
@@ -46911,7 +46988,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                                 <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${badgeBg};color:${badgeColor};font-weight:600;">${statusLabel}</span>
                             </div>
                         </div>
-                        <div>${actionBtn}</div>
+                        <div style="display:flex;align-items:center;">${actionBtn}${cancelBtn}</div>
                     </div>`;
                 }).join('')
                 : (isAdmin ? '<p style="color: var(--text-light); font-size: 14px;">No signed or pending documents yet.</p>' : '');
