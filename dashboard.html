@@ -32855,12 +32855,13 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 const skipFields = ['formType', 'applicationId', 'submittedAt', 'referralSource', 'signatureName', 'signatureTimestamp'];
                 const entries = Object.entries(fd).filter(([k, v]) => v && v.toString().trim() && !skipFields.includes(k));
                 if (entries.length > 0) {
+                    // v2 (May 2, 2026) — default-expanded so admin sees all data immediately on open
                     fullDataHtml = '<div style="margin-top: 20px; border-top: 2px solid var(--border-gray); padding-top: 15px;">' +
                         '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">' +
-                        '<label style="font-size: 15px; font-weight: 600; color: var(--navy);">Full Application Data</label>' +
-                        '<button class="btn btn-secondary btn-sm" onclick="this.parentElement.nextElementSibling.style.display=this.parentElement.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.textContent=this.textContent===\'Show Details\'?\'Hide Details\':\'Show Details\'" style="padding: 4px 12px; font-size: 12px;">Show Details</button>' +
+                        '<label style="font-size: 15px; font-weight: 600; color: var(--navy);">Full Application Data <span style="font-size:11px;color:#94A3B8;font-weight:400;">(' + entries.length + ' fields)</span></label>' +
+                        '<button class="btn btn-secondary btn-sm" onclick="this.parentElement.nextElementSibling.style.display=this.parentElement.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.textContent=this.textContent===\'Show Details\'?\'Hide Details\':\'Show Details\'" style="padding: 4px 12px; font-size: 12px;">Hide Details</button>' +
                         '</div>' +
-                        '<div style="display: none;">' +
+                        '<div style="display: block;">' +
                         '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">' +
                         entries.map(([k, v]) => {
                             const label = labels[k] || k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
@@ -32870,6 +32871,43 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         }).join('') +
                         '</div></div></div>';
                 }
+            }
+
+            // v2 (May 2, 2026) — Linked Client banner at top of modal so admin sees the auto-link instantly.
+            // Trigger on_application_inserted now auto-links applications.client_id from contact-email match.
+            let linkedClientHtml = '';
+            if (app.client_id) {
+                try {
+                    const { data: linkedClient } = await db.from('clients').select('id, company_name, status').eq('id', app.client_id).single();
+                    if (linkedClient) {
+                        linkedClientHtml =
+                            '<div style="margin: 12px 0 16px 0; padding: 10px 14px; background: #DCFCE7; border-left: 3px solid #15803D; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">' +
+                              '<div style="font-size: 13px; color: #166534;">' +
+                                '<span style="font-weight: 600;">✓ Linked to client:</span> ' +
+                                '<span style="font-weight: 600;">' + (linkedClient.company_name || 'Unnamed') + '</span>' +
+                                ' &middot; ' + (linkedClient.status || '—') +
+                              '</div>' +
+                              '<button onclick="closeApplicationModal && closeApplicationModal(); viewClient(\'' + app.client_id + '\')" style="padding: 4px 12px; background: #15803D; color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">Open Client →</button>' +
+                            '</div>';
+                    }
+                } catch(e) { /* ignore */ }
+            } else if (app.email) {
+                // Suggest a manual link if there's a same-email client_contact_persons row that didn't auto-match
+                try {
+                    const { data: candidate } = await db
+                        .from('client_contact_persons')
+                        .select('client_id, full_name, clients(id, company_name)')
+                        .ilike('email', app.email)
+                        .limit(1)
+                        .maybeSingle();
+                    if (candidate && candidate.clients && candidate.clients.id) {
+                        linkedClientHtml =
+                            '<div style="margin: 12px 0 16px 0; padding: 10px 14px; background: #FEF3C7; border-left: 3px solid #C9A84C; border-radius: 4px; font-size:13px; color:#92400E;">' +
+                              '<span style="font-weight:600;">Suggested client match:</span> ' + candidate.clients.company_name + ' (contact ' + candidate.full_name + '). ' +
+                              '<button onclick="(async()=>{await db.from(\'applications\').update({client_id:\'' + candidate.clients.id + '\'}).eq(\'id\',\'' + appId + '\');viewApplication(\'' + appId + '\');})()" style="margin-left:8px;padding:3px 10px;background:#C9A84C;color:white;border:none;border-radius:3px;font-size:11px;font-weight:600;cursor:pointer;">Link now</button>' +
+                            '</div>';
+                    }
+                } catch(e) { /* ignore */ }
             }
 
             // Build signature section
@@ -32885,6 +32923,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
             const modalBody = document.getElementById('applicationModalBody');
             modalBody.innerHTML = `
+                ${linkedClientHtml}
                 <div class="modal-row">
                     <div class="modal-field">
                         <label>Application ID</label>
