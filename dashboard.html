@@ -12704,7 +12704,38 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var counterpartyName = sd.sent_to_name || 'Counterparty';
             var tplName = (sd.document_templates && sd.document_templates.template_name) || 'Document';
 
+            // === ESIGN/PIPEDA-grade audit capture — server-authoritative IP/UA/timestamp ===
+            // (May 3, 2026 — v6) Calls capture-signer-context edge function. Never blocks signing.
+            var auditCtx = {};
+            try {
+                var ctxRes = await fetch('https://uernphejrcsicnkobsdw.supabase.co/functions/v1/capture-signer-context', {
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+                });
+                auditCtx = await ctxRes.json();
+            } catch (e) { console.warn('audit capture failed (signing continues):', e); }
+
+            // === Insert document_signatures row (was missing in v2-v5 — bug fix) ===
+            try {
+                await db.from('document_signatures').insert({
+                    document_id: sd.id,
+                    signer_role: isCoSignerSigning ? 'alliance_co' : 'alliance',
+                    signed_by: signerName,
+                    title: signerTitle,
+                    email: currentUser.email,
+                    signature_data: signerName,
+                    consent_given: true,
+                    signed_at: nowIso,
+                    ip_address: auditCtx.ip_address || null,
+                    user_agent: auditCtx.user_agent || navigator.userAgent || null,
+                    server_signed_at: auditCtx.server_timestamp || null,
+                    geolocation: auditCtx.geolocation || null,
+                    request_headers: auditCtx.request_headers || null,
+                });
+            } catch (e) { console.warn('document_signatures insert failed:', e); }
+
             // === Build the updated alliance_signatures array ===
+            // Each signature entry now also carries the captured audit context for the executed PDF render.
             var newSigs;
             var newSignedEntry = {
                 email: currentUser.email,
@@ -12712,6 +12743,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 title: signerTitle,
                 signer_id: currentUserId,
                 signed_at: nowIso,
+                server_signed_at: auditCtx.server_timestamp || null,
+                ip_address: auditCtx.ip_address || null,
+                user_agent: auditCtx.user_agent || null,
+                geolocation: auditCtx.geolocation || null,
                 status: 'signed'
             };
             if (isCoSignerSigning) {
@@ -12804,16 +12839,47 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 counterparty_name: counterpartyName,
                 counterparty_date: cpDisplay
             });
-            // Append an audit footer — lists every Alliance signature when multi-signer
-            var allianceFooterLines = newSigs.filter(function(s) { return s.status === 'signed'; }).map(function(s) {
-                var d = s.signed_at ? new Date(s.signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
-                return 'Alliance signature: ' + s.name + (s.title ? ', ' + s.title : '') + ' &mdash; ' + d;
+            // Append an audit footer — full ESIGN/PIPEDA evidence chain for every signature.
+            // Pulls the captured IP/UA/server-timestamp from document_signatures so both alliance
+            // and counterparty entries get full audit context (not just the human-readable name+date).
+            var allDocSigs = [];
+            try {
+                var { data: dsRows } = await db
+                    .from('document_signatures')
+                    .select('signer_role, signed_by, title, email, signed_at, server_signed_at, ip_address, user_agent, geolocation')
+                    .eq('document_id', sd.id)
+                    .order('signed_at', { ascending: true });
+                allDocSigs = dsRows || [];
+            } catch(e) { console.warn('audit chain fetch failed:', e); }
+
+            function _fmtSigLine(s, label) {
+                var when = s.server_signed_at || s.signed_at;
+                var whenStr = when ? new Date(when).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+                var geo = (s.geolocation && s.geolocation.country) ? ' [' + s.geolocation.country + ']' : '';
+                var ipPart = s.ip_address ? ' &middot; IP ' + s.ip_address + geo : '';
+                var uaPart = s.user_agent ? ' &middot; ' + String(s.user_agent).slice(0, 60) + (s.user_agent.length > 60 ? '…' : '') : '';
+                return label + ': ' + (s.signed_by || '') + (s.title ? ', ' + s.title : '') + ' (' + (s.email || '—') + ') &mdash; ' + whenStr + ipPart + uaPart;
+            }
+            var auditLines = allDocSigs.map(function(s) {
+                var label = s.signer_role === 'counterparty' ? 'Counterparty signature'
+                          : s.signer_role === 'alliance_co' ? 'Alliance co-signature'
+                          : 'Alliance signature';
+                return _fmtSigLine(s, label);
             }).join('<br>');
-            executedHtml += '<div style="margin-top:36px;padding:12px 16px;background:#F8FAFC;border-top:2px solid #C9A84C;font-size:10px;color:#64748B;font-family:Arial,sans-serif;">'
-                + '<strong style="color:#0D1E3D;">Electronic Execution Record</strong> &middot; Signing document ID: ' + sd.id
-                + '<br>Counterparty signature: ' + counterpartyName + ' (' + (sd.sent_to_email || '—') + ') &mdash; ' + cpDisplay
-                + '<br>' + allianceFooterLines
-                + '<br>Document fully executed by Alliance Financing Group Ltd.\'s e-signature platform.'
+            // Fallback if document_signatures didn't return anything (defensive)
+            if (!auditLines) {
+                var fallbackAlliance = newSigs.filter(function(s) { return s.status === 'signed'; }).map(function(s) {
+                    var d = s.signed_at ? new Date(s.signed_at).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+                    return 'Alliance signature: ' + s.name + (s.title ? ', ' + s.title : '') + ' &mdash; ' + d;
+                }).join('<br>');
+                auditLines = 'Counterparty signature: ' + counterpartyName + ' (' + (sd.sent_to_email || '—') + ') &mdash; ' + cpDisplay + '<br>' + fallbackAlliance;
+            }
+
+            executedHtml += '<div style="margin-top:36px;padding:12px 16px;background:#F8FAFC;border-top:2px solid #C9A84C;font-size:9.5px;color:#64748B;font-family:Arial,sans-serif;line-height:1.5;">'
+                + '<strong style="color:#0D1E3D;font-size:10.5px;">Electronic Execution Record</strong>'
+                + '<br>Signing document ID: ' + sd.id
+                + '<br>' + auditLines
+                + '<br><span style="color:#94A3B8;">Document fully executed by Alliance Financing Group Ltd.\'s e-signature platform. IP, browser, and server-authoritative timestamp captured for each signature per ESIGN / PIPEDA evidence requirements.</span>'
                 + '</div>';
 
             // 3. Render to PDF using html2pdf
@@ -12945,9 +13011,15 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                         notes = clientRow && clientRow.admin_notes ? JSON.parse(clientRow.admin_notes) : [];
                     } catch(e) { notes = []; }
                     if (!Array.isArray(notes)) notes = [];
+                    var auditCtxLine = auditCtx.ip_address
+                        ? ' Captured from IP ' + auditCtx.ip_address
+                          + (auditCtx.geolocation && auditCtx.geolocation.country ? ' [' + auditCtx.geolocation.country + ']' : '')
+                          + ' at ' + (auditCtx.server_timestamp ? new Date(auditCtx.server_timestamp).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }) : 'unknown server time')
+                          + '.'
+                        : ' Audit context capture failed — see document_signatures table for full chain.';
                     notes.push({
                         type: 'document_executed',
-                        text: tplName + ' fully executed. Counterparty (' + counterpartyName + ') signed ' + cpDisplay + '; Alliance (' + signerName + ', ' + signerTitle + ') countersigned ' + nowDisplay + '. Executed PDF filed on client documents and emailed to both parties.',
+                        text: tplName + ' fully executed. Counterparty (' + counterpartyName + ') signed ' + cpDisplay + '; Alliance (' + signerName + ', ' + signerTitle + ') countersigned ' + nowDisplay + '. Executed PDF filed on client documents and emailed to both parties.' + auditCtxLine,
                         date: new Date().toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }),
                         author: signerName + ', ' + signerTitle,
                         pinned: false,

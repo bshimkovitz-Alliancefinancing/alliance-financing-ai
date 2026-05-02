@@ -221,7 +221,18 @@
       const signerName = signerNameEl.value.trim();
       const signerTitle = signerTitleEl.value.trim();
 
-      // Insert into document_signatures (audit trail)
+      // ESIGN/PIPEDA-grade audit capture — ask the edge function for server-authoritative
+      // IP, user-agent, timestamp, geolocation, request headers. Never blocks signing.
+      let auditCtx = {};
+      try {
+        const ctxRes = await fetch('https://uernphejrcsicnkobsdw.supabase.co/functions/v1/capture-signer-context', {
+          method: 'GET',
+          headers: { 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcm5waGVqcmNzaWNua29ic2R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzU3ODksImV4cCI6MjA4NjUxMTc4OX0.A2YN3gkaYwR_9nyE3OkWl5Io9tfxe8lTgC913stXmUI' }
+        });
+        auditCtx = await ctxRes.json();
+      } catch (e) { console.warn('audit capture failed (signing continues):', e); }
+
+      // Insert into document_signatures (audit trail) — now with server-side IP/UA/timestamp
       const { error: sigErr } = await sb
         .from('document_signatures')
         .insert({
@@ -233,6 +244,11 @@
           signature_data: signerName,
           consent_given: true,
           signed_at: signedAt,
+          ip_address: auditCtx.ip_address || null,
+          user_agent: auditCtx.user_agent || navigator.userAgent || null,
+          server_signed_at: auditCtx.server_timestamp || null,
+          geolocation: auditCtx.geolocation || null,
+          request_headers: auditCtx.request_headers || null,
         });
 
       if (sigErr) {
