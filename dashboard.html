@@ -11973,7 +11973,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             title: who + ' uploaded ' + docTypeLabel,
                             detail: (doc.file_name || 'Click to review') + (sizeKB ? ' · ' + sizeKB : ''),
                             time: uploadDate,
-                            action: doc.deal_id ? "openDeal('" + doc.deal_id + "')" : "showPage('inbox')",
+                            action: doc.deal_id ? "viewDeal('" + doc.deal_id + "')" : "showPage('inbox')",
                             actionLabel: 'View Deal',
                             priority: 1
                         });
@@ -23102,7 +23102,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 html += '<div class="kanban-card" draggable="true" data-deal-id="' + deal.id + '"' +
                     ' ondragstart="kanbanDragStart(event, this)" ondragend="kanbanDragEnd(this)"' +
-                    ' onclick="openDealSlideout(\'' + deal.id + '\')">' +
+                    ' onclick="viewDealSlideout(\'' + deal.id + '\')">' +
                     getHealthDot(health.level) +
                     '<div class="kc-company">' + (deal.company_name || 'N/A') + (window.afgTestPill ? window.afgTestPill(deal) : '') + '</div>' +
                     '<div class="kc-amount">' + formatCurrency(deal.deal_amount || deal.amount_requested || 0) + '</div>' +
@@ -23242,7 +23242,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     }
                 }
 
-                html += '<div class="kanban-card" style="cursor:pointer;" onclick="openDealSlideout(\'' + deal.id + '\')">' +
+                html += '<div class="kanban-card" style="cursor:pointer;" onclick="viewDealSlideout(\'' + deal.id + '\')">' +
                     getHealthDot(health.level) +
                     '<div class="kc-company">' + (deal.company_name || 'N/A') + (window.afgTestPill ? window.afgTestPill(deal) : '') + unreadHtml + '</div>' +
                     '<div class="kc-amount">' + formatCurrency(deal.deal_amount || deal.amount_requested || 0) + '</div>' +
@@ -23329,9 +23329,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // ----- Slide-Out Panel -----
-    async function openDealSlideout(dealId) {
+    async function viewDealSlideout(dealId) {
         if (!dealId || dealId === 'null' || dealId === 'undefined') {
-            console.warn('openDealSlideout called with invalid dealId:', dealId);
+            console.warn('viewDealSlideout called with invalid dealId:', dealId);
             showToast('Cannot open deal — invalid ID', 'error');
             return;
         }
@@ -23740,7 +23740,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (data.success) {
                 showNotification('AI Scan: ' + (data.company_name || '') + ' — ' + (data.overall_risk || '').toUpperCase() + ' (' + (data.flag_count || 0) + ' flags, readiness ' + (data.readiness_score || 0) + '/100)', 'success');
                 // Refresh the slideout to show updated data
-                if (_slideoutDealId === dealId) { openDealSlideout(dealId); }
+                if (_slideoutDealId === dealId) { viewDealSlideout(dealId); }
             } else {
                 showNotification('Scan failed: ' + (data.error || 'Unknown error'), 'error');
                 if (btn) { btn.disabled = false; btn.textContent = 'Run AI Check'; }
@@ -24133,7 +24133,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             showNotification(isEmail ? 'Email sent and logged!' : 'Note added!', 'success');
 
             // Refresh the slideout
-            await openDealSlideout(deal.id);
+            await viewDealSlideout(deal.id);
 
         } catch (e) {
             console.error('sendDealComm error:', e);
