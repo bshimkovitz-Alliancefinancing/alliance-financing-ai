@@ -14076,7 +14076,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 tableHtml += '<tr style="cursor:pointer;" onclick="toggleVendorLeadDetail(\'' + lead.id + '\')" title="Click to expand details">';
                 tableHtml += '<td><strong>' + (lead.company_name || '') + '</strong> <span id="vendorLeadArrow_' + lead.id + '" style="font-size:10px;color:#94a3b8;">▸</span></td>';
                 tableHtml += '<td>';
-                tableHtml += '<div>' + (lead.contact_name || '') + '</div>';
+                tableHtml += '<div>' + (lead.company_name || '') + '</div>';
                 tableHtml += '<div style="font-size:11px;color:#64748b;">' + (lead.contact_email || '') + '</div>';
                 if (lead.contact_phone) tableHtml += '<div style="font-size:11px;color:#64748b;">' + lead.contact_phone + '</div>';
                 tableHtml += '</td>';
@@ -14172,7 +14172,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     } catch(e) { archiveNote = ''; }
                     tableHtml += '<tr>';
                     tableHtml += '<td><strong>' + (aLead.company_name || '') + '</strong></td>';
-                    tableHtml += '<td>' + (aLead.contact_name || '') + '<br><span style="font-size:11px;color:#64748b;">' + (aLead.contact_email || '') + '</span></td>';
+                    tableHtml += '<td>' + (aLead.company_name || '') + '<br><span style="font-size:11px;color:#64748b;">' + (aLead.contact_email || '') + '</span></td>';
                     tableHtml += '<td style="color:#475569;">' + (aLead.equipment_type || '') + '</td>';
                     if (canManage) tableHtml += '<td style="color:#475569;">' + (aLead.referred_by || 'Direct') + '</td>';
                     tableHtml += '<td><span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#CBD5E120;color:#CBD5E1;">Archived</span></td>';
@@ -14422,7 +14422,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 admin_notes: JSON.stringify([{
                     date: new Date().toISOString(),
                     author: currentUserName || 'System',
-                    note: 'Created from vendor inquiry. Contact: ' + (lead.contact_name || '') + ' (' + (lead.contact_email || '') + ', ' + (lead.contact_phone || '') + '). Avg deal size: ' + (lead.avg_deal_size || 'N/A') + '. Message: ' + (lead.message || 'N/A')
+                    note: 'Created from vendor inquiry. Contact: ' + (lead.company_name || '') + ' (' + (lead.contact_email || '') + ', ' + (lead.contact_phone || '') + '). Avg deal size: ' + (lead.avg_deal_size || 'N/A') + '. Message: ' + (lead.message || 'N/A')
                 }]),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
@@ -14448,7 +14448,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var sendApp = confirm('Vendor record created successfully (' + vendorCode + ').\n\nWould you like to send the vendor application form to ' + (lead.contact_email || 'the vendor') + ' now?');
 
             if (sendApp && lead.contact_email) {
-                await sendVendorApplicationEmail(newVendor.id, lead.contact_name, lead.contact_email, lead.company_name, vendorCode);
+                await sendVendorApplicationEmail(newVendor.id, lead.company_name, lead.contact_email, lead.company_name, vendorCode);
             }
 
             // 7. Refresh the leads table and vendors table
@@ -21613,7 +21613,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var alerts = [];
 
             // 1. Stale deals (no activity in 7+ days, still active, not archived)
-            var { data: staleDeals } = await db.from('deals').select('id, contact_name, status, updated_at')
+            var { data: staleDeals } = await db.from('deals').select('id, company_name, status, updated_at')
                 .not('status', 'in', '(Funded,Declined,Withdrawn,Closed,Lost,Dead approval)')
                 .neq('is_archived', true)
                 .order('updated_at', { ascending: true }).limit(50);
@@ -22033,7 +22033,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             // Recent deal status changes
-            var { data: recentDeals } = await db.from('deals').select('id, contact_name, company_name, status, updated_at, created_at')
+            var { data: recentDeals } = await db.from('deals').select('id, company_name, status, updated_at, created_at')
                 .gte('updated_at', sevenDaysAgo).order('updated_at', { ascending: false }).limit(10);
             if (recentDeals) {
                 recentDeals.forEach(function(d) {
@@ -22041,7 +22041,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     var statusColors = { 'Funded': '#166534', 'Approved': '#0D9488', 'Declined': '#DC2626', 'In Credit': '#1E40AF' };
                     var sc = statusColors[d.status] || '#64748B';
                     activities.push({ time: d.updated_at, icon: isNew ? '🆕' : '📊', color: sc,
-                        text: '<strong>' + (d.contact_name || d.company_name || 'Deal') + '</strong> ' + (isNew ? 'entered pipeline' : 'moved to <strong>' + d.status + '</strong>'),
+                        text: '<strong>' + (d.company_name || d.company_name || 'Deal') + '</strong> ' + (isNew ? 'entered pipeline' : 'moved to <strong>' + d.status + '</strong>'),
                         badge: d.status, badgeBg: sc + '15', badgeColor: sc });
                 });
             }
