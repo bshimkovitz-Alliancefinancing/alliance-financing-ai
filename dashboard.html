@@ -21767,9 +21767,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             // 8. Returned Applications (clients who completed and submitted their application)
-            var { data: returnedApps } = await db.from('applications_sent').select('id').eq('status', 'Returned').limit(50);
+            var { data: returnedApps } = await db.from('applications_sent').select('id').eq('status', 'Returned').not('notes', 'ilike', '%archive_reason%').limit(50);
             if (returnedApps && returnedApps.length > 0) {
-                alerts.push({ icon: '📥', color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', label: 'Returned Applications', count: returnedApps.length, detail: 'Client applied — in progress', onclick: "filterPipeline('in_progress');var ps=document.getElementById('referralPipelineSection');if(ps)ps.scrollIntoView({behavior:'smooth',block:'start'});" });
+                alerts.push({ icon: '📥', color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', label: 'Returned Applications', count: returnedApps.length, detail: 'Client applied — in progress', onclick: "showPage('deals');setTimeout(function(){var f=document.getElementById('appSentStatusFilter');if(f){f.value='Returned';loadApplicationsSent();}},100);" });
             }
 
             // 9. Credit Responses (applications with credit decision pending review)
@@ -22306,7 +22306,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             try {
                 var { data: returnedApps } = await db.from('applications_sent')
                     .select('applicant_email')
-                    .eq('status', 'Returned');
+                    .eq('status', 'Returned').not('notes', 'ilike', '%archive_reason%');
                 if (returnedApps) {
                     returnedApps.forEach(function(a) { if (a.applicant_email) _returnedEmails.add(a.applicant_email.toLowerCase()); });
                 }
@@ -36057,7 +36057,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
         } catch(e) { console.warn('Glance: in credit error', e); }
 
         try {
-            var { count, error } = await db.from('applications_sent').select('id', { count: 'exact', head: true }).eq('status', 'Returned');
+            var { count, error } = await db.from('applications_sent').select('id', { count: 'exact', head: true }).eq('status', 'Returned').not('notes', 'ilike', '%archive_reason%');
             if (!error) document.getElementById('glanceReturned').textContent = count || 0;
         } catch(e) { console.warn('Glance: returned error', e); }
 
