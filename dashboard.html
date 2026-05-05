@@ -11973,7 +11973,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                             title: who + ' uploaded ' + docTypeLabel,
                             detail: (doc.file_name || 'Click to review') + (sizeKB ? ' · ' + sizeKB : ''),
                             time: uploadDate,
-                            action: doc.deal_id ? "viewDeal('" + doc.deal_id + "')" : "showPage('inbox')",
+                            action: doc.deal_id ? "openDeal('" + doc.deal_id + "')" : "showPage('inbox')",
                             actionLabel: 'View Deal',
                             priority: 1
                         });
@@ -14076,7 +14076,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 tableHtml += '<tr style="cursor:pointer;" onclick="toggleVendorLeadDetail(\'' + lead.id + '\')" title="Click to expand details">';
                 tableHtml += '<td><strong>' + (lead.company_name || '') + '</strong> <span id="vendorLeadArrow_' + lead.id + '" style="font-size:10px;color:#94a3b8;">▸</span></td>';
                 tableHtml += '<td>';
-                tableHtml += '<div>' + (lead.company_name || '') + '</div>';
+                tableHtml += '<div>' + (lead.contact_name || '') + '</div>';
                 tableHtml += '<div style="font-size:11px;color:#64748b;">' + (lead.contact_email || '') + '</div>';
                 if (lead.contact_phone) tableHtml += '<div style="font-size:11px;color:#64748b;">' + lead.contact_phone + '</div>';
                 tableHtml += '</td>';
@@ -14172,7 +14172,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     } catch(e) { archiveNote = ''; }
                     tableHtml += '<tr>';
                     tableHtml += '<td><strong>' + (aLead.company_name || '') + '</strong></td>';
-                    tableHtml += '<td>' + (aLead.company_name || '') + '<br><span style="font-size:11px;color:#64748b;">' + (aLead.contact_email || '') + '</span></td>';
+                    tableHtml += '<td>' + (aLead.contact_name || '') + '<br><span style="font-size:11px;color:#64748b;">' + (aLead.contact_email || '') + '</span></td>';
                     tableHtml += '<td style="color:#475569;">' + (aLead.equipment_type || '') + '</td>';
                     if (canManage) tableHtml += '<td style="color:#475569;">' + (aLead.referred_by || 'Direct') + '</td>';
                     tableHtml += '<td><span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#CBD5E120;color:#CBD5E1;">Archived</span></td>';
@@ -14422,7 +14422,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 admin_notes: JSON.stringify([{
                     date: new Date().toISOString(),
                     author: currentUserName || 'System',
-                    note: 'Created from vendor inquiry. Contact: ' + (lead.company_name || '') + ' (' + (lead.contact_email || '') + ', ' + (lead.contact_phone || '') + '). Avg deal size: ' + (lead.avg_deal_size || 'N/A') + '. Message: ' + (lead.message || 'N/A')
+                    note: 'Created from vendor inquiry. Contact: ' + (lead.contact_name || '') + ' (' + (lead.contact_email || '') + ', ' + (lead.contact_phone || '') + '). Avg deal size: ' + (lead.avg_deal_size || 'N/A') + '. Message: ' + (lead.message || 'N/A')
                 }]),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
@@ -14448,7 +14448,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var sendApp = confirm('Vendor record created successfully (' + vendorCode + ').\n\nWould you like to send the vendor application form to ' + (lead.contact_email || 'the vendor') + ' now?');
 
             if (sendApp && lead.contact_email) {
-                await sendVendorApplicationEmail(newVendor.id, lead.company_name, lead.contact_email, lead.company_name, vendorCode);
+                await sendVendorApplicationEmail(newVendor.id, lead.contact_name, lead.contact_email, lead.company_name, vendorCode);
             }
 
             // 7. Refresh the leads table and vendors table
@@ -21613,7 +21613,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             var alerts = [];
 
             // 1. Stale deals (no activity in 7+ days, still active, not archived)
-            var { data: staleDeals } = await db.from('deals').select('id, company_name, status, updated_at')
+            var { data: staleDeals } = await db.from('deals').select('id, contact_name, status, updated_at')
                 .not('status', 'in', '(Funded,Declined,Withdrawn,Closed,Lost,Dead approval)')
                 .neq('is_archived', true)
                 .order('updated_at', { ascending: true }).limit(50);
@@ -22033,7 +22033,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             }
 
             // Recent deal status changes
-            var { data: recentDeals } = await db.from('deals').select('id, company_name, status, updated_at, created_at')
+            var { data: recentDeals } = await db.from('deals').select('id, contact_name, company_name, status, updated_at, created_at')
                 .gte('updated_at', sevenDaysAgo).order('updated_at', { ascending: false }).limit(10);
             if (recentDeals) {
                 recentDeals.forEach(function(d) {
@@ -22041,7 +22041,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     var statusColors = { 'Funded': '#166534', 'Approved': '#0D9488', 'Declined': '#DC2626', 'In Credit': '#1E40AF' };
                     var sc = statusColors[d.status] || '#64748B';
                     activities.push({ time: d.updated_at, icon: isNew ? '🆕' : '📊', color: sc,
-                        text: '<strong>' + (d.company_name || d.company_name || 'Deal') + '</strong> ' + (isNew ? 'entered pipeline' : 'moved to <strong>' + d.status + '</strong>'),
+                        text: '<strong>' + (d.contact_name || d.company_name || 'Deal') + '</strong> ' + (isNew ? 'entered pipeline' : 'moved to <strong>' + d.status + '</strong>'),
                         badge: d.status, badgeBg: sc + '15', badgeColor: sc });
                 });
             }
@@ -22306,7 +22306,8 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             try {
                 var { data: returnedApps } = await db.from('applications_sent')
                     .select('applicant_email')
-                    .eq('status', 'Returned').not('notes', 'ilike', '%archive_reason%');
+                    .eq('status', 'Returned')
+                    .not('notes', 'ilike', '%archive_reason%');
                 if (returnedApps) {
                     returnedApps.forEach(function(a) { if (a.applicant_email) _returnedEmails.add(a.applicant_email.toLowerCase()); });
                 }
@@ -23102,7 +23103,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
 
                 html += '<div class="kanban-card" draggable="true" data-deal-id="' + deal.id + '"' +
                     ' ondragstart="kanbanDragStart(event, this)" ondragend="kanbanDragEnd(this)"' +
-                    ' onclick="viewDealSlideout(\'' + deal.id + '\')">' +
+                    ' onclick="openDealSlideout(\'' + deal.id + '\')">' +
                     getHealthDot(health.level) +
                     '<div class="kc-company">' + (deal.company_name || 'N/A') + (window.afgTestPill ? window.afgTestPill(deal) : '') + '</div>' +
                     '<div class="kc-amount">' + formatCurrency(deal.deal_amount || deal.amount_requested || 0) + '</div>' +
@@ -23242,7 +23243,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                     }
                 }
 
-                html += '<div class="kanban-card" style="cursor:pointer;" onclick="viewDealSlideout(\'' + deal.id + '\')">' +
+                html += '<div class="kanban-card" style="cursor:pointer;" onclick="openDealSlideout(\'' + deal.id + '\')">' +
                     getHealthDot(health.level) +
                     '<div class="kc-company">' + (deal.company_name || 'N/A') + (window.afgTestPill ? window.afgTestPill(deal) : '') + unreadHtml + '</div>' +
                     '<div class="kc-amount">' + formatCurrency(deal.deal_amount || deal.amount_requested || 0) + '</div>' +
@@ -23329,9 +23330,9 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
     }
 
     // ----- Slide-Out Panel -----
-    async function viewDealSlideout(dealId) {
+    async function openDealSlideout(dealId) {
         if (!dealId || dealId === 'null' || dealId === 'undefined') {
-            console.warn('viewDealSlideout called with invalid dealId:', dealId);
+            console.warn('openDealSlideout called with invalid dealId:', dealId);
             showToast('Cannot open deal — invalid ID', 'error');
             return;
         }
@@ -23740,7 +23741,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             if (data.success) {
                 showNotification('AI Scan: ' + (data.company_name || '') + ' — ' + (data.overall_risk || '').toUpperCase() + ' (' + (data.flag_count || 0) + ' flags, readiness ' + (data.readiness_score || 0) + '/100)', 'success');
                 // Refresh the slideout to show updated data
-                if (_slideoutDealId === dealId) { viewDealSlideout(dealId); }
+                if (_slideoutDealId === dealId) { openDealSlideout(dealId); }
             } else {
                 showNotification('Scan failed: ' + (data.error || 'Unknown error'), 'error');
                 if (btn) { btn.disabled = false; btn.textContent = 'Run AI Check'; }
@@ -24133,7 +24134,7 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
             showNotification(isEmail ? 'Email sent and logged!' : 'Note added!', 'success');
 
             // Refresh the slideout
-            await viewDealSlideout(deal.id);
+            await openDealSlideout(deal.id);
 
         } catch (e) {
             console.error('sendDealComm error:', e);
@@ -24391,7 +24392,10 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 if (docLinkError) console.warn('Could not link documents to deal:', docLinkError);
             }
 
-            // Auto-update matching applications_sent records to 'Archived'
+            // Auto-update matching applications_sent records to 'Archived' on pipeline move.
+            // 'Archived' (not 'Returned') because the trigger here is "deal routed to pipeline",
+            // not "client returned the form". 'Returned' is reserved for actual client form submissions
+            // and is used elsewhere (loadDashboardAlerts, _returnedEmails) to flag pending-review deals.
             if (application.email) {
                 try {
                     await db.from('applications_sent')
@@ -30339,93 +30343,14 @@ ${autoPrint ? '<scr' + 'ipt>window.onload=function(){setTimeout(function(){windo
                 } catch(e) { console.log('Linked application not found:', e); }
             }
 
-            // Helper: auto-link a found application to this deal
-            async function autoLinkAppToDeal(app) {
-                try {
-                    var updateFields = { application_id: app.id };
-                    // Also auto-link client if deal doesn't have one
-                    if (!deal.client_id && app.business_name) {
-                        var bizName = app.business_name.trim();
-                        var { data: matchedClient } = await db.from('clients').select('id').ilike('company_name', bizName).limit(1);
-                        if (matchedClient && matchedClient.length > 0) {
-                            updateFields.client_id = matchedClient[0].id;
-                            deal.client_id = matchedClient[0].id;
-                        } else {
-                            // Create client record
-                            try {
-                                var { data: newClient } = await db.from('clients').insert([{
-                                    company_name: bizName,
-                                    status: 'Active',
-                                    country: 'Canada',
-                                    phone: app.phone || null,
-                                    annual_revenue: app.annual_revenue || null,
-                                    years_in_business: app.time_in_business || null
-                                }]).select('id').single();
-                                if (newClient) {
-                                    updateFields.client_id = newClient.id;
-                                    deal.client_id = newClient.id;
-                                }
-                            } catch(clientErr) { console.warn('Auto-create client:', clientErr); }
-                        }
-                        // Add contact person if we have client_id and applicant info
-                        if (deal.client_id && app.full_name) {
-                            try {
-                                var { data: existContact } = await db.from('client_contact_persons').select('id').eq('client_id', deal.client_id).ilike('full_name', app.full_name.trim()).limit(1);
-                                if (!existContact || existContact.length === 0) {
-                                    await db.from('client_contact_persons').insert([{
-                                        client_id: deal.client_id,
-                                        full_name: app.full_name.trim(),
-                                        email: app.email || null,
-                                        phone: app.phone || null,
-                                        role_title: 'Primary Contact',
-                                        status: 'Active'
-                                    }]);
-                                }
-                            } catch(contactErr) { console.warn('Auto-add contact:', contactErr); }
-                        }
-                    }
-                    await db.from('deals').update(updateFields).eq('id', dealId);
-                    deal.application_id = app.id;
-                    if (app.status !== 'Moved to Pipeline') {
-                        await db.from('applications').update({ status: 'Moved to Pipeline' }).eq('id', app.id);
-                    }
-                } catch(linkErr) { console.warn('Auto-link application to deal:', linkErr); }
-            }
-
-            // If no linked application found, try to find one by company name match
-            if (!linkedApp && deal.company_name) {
-                try {
-                    var { data: matchByBiz } = await db.from('applications')
-                        .select('*')
-                        .ilike('business_name', '%' + deal.company_name.trim() + '%')
-                        .order('submitted_at', { ascending: false })
-                        .limit(1);
-                    if (matchByBiz && matchByBiz.length > 0) {
-                        linkedApp = matchByBiz[0];
-                        await autoLinkAppToDeal(linkedApp);
-                    }
-                } catch(e) { console.log('Business name application match failed:', e); }
-            }
-
-            // Still no match? Try fuzzy match by company name keywords
-            if (!linkedApp && deal.company_name) {
-                try {
-                    var companyWords = deal.company_name.trim().split(/\s+/).filter(function(w) {
-                        return w.length > 2 && !['inc', 'ltd', 'llc', 'corp', 'co', 'the', 'and', 'sales', 'group', 'distribution'].includes(w.toLowerCase().replace(/[.,]/g, ''));
-                    });
-                    for (var cwi = 0; cwi < companyWords.length && !linkedApp; cwi++) {
-                        var { data: fuzzyMatch } = await db.from('applications')
-                            .select('*')
-                            .ilike('business_name', '%' + companyWords[cwi] + '%')
-                            .order('submitted_at', { ascending: false })
-                            .limit(1);
-                        if (fuzzyMatch && fuzzyMatch.length > 0) {
-                            linkedApp = fuzzyMatch[0];
-                            await autoLinkAppToDeal(linkedApp);
-                        }
-                    }
-                } catch(e) { console.log('Fuzzy application match failed:', e); }
-            }
+            // NOTE: Removed May 5, 2026 — fuzzy auto-linker that wrote application_id
+            // to the deal record on viewDeal page-open if no explicit link existed.
+            // Bug: the keyword stopword list did not include "Financing", so any deal
+            // with "Financing" in the name (most Alliance deals) silently auto-linked
+            // to the most recent application containing that word — including test apps
+            // and apps already linked to other deals. DEAL-0102 (Spuric) was corrupted
+            // this way before discovery. Reads must not write. If a deal needs to be
+            // linked to an application, that should be an explicit user action.
 
             // Fetch lender submissions for this deal
             var lenderSubmissions = [];
